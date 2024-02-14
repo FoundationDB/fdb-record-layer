@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -33,6 +35,7 @@ import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
@@ -57,6 +60,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -85,6 +89,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -355,6 +360,111 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                             Query.field("num").equalsValue(myRecord.getHeader().getNum())))));
             assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(sumIndex));
             assertNotNull(recordStore.loadRecord(primaryKey), "record should not have been deleted by unsuccessful delete where");
+        }
+    }
+
+    @ParameterizedTest(name = "testDeleteWherePermutedMinMax[max={0}]")
+    @BooleanSource
+    void testDeleteWherePermutedMinMax(boolean max) throws Exception {
+        final Random random = new Random();
+        final Index extremumIndex = new Index("MyRecord$extremum_recno_by_num_by_path",
+                new GroupingKeyExpression(field("header").nest(concatenateFields("path", "num", "rec_no")), 1),
+                max ? IndexTypes.PERMUTED_MAX : IndexTypes.PERMUTED_MIN,
+                Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
+        RecordMetaDataHook hook = metaData -> {
+            final RecordTypeBuilder recordType = metaData.getRecordType("MyRecord");
+            recordType.setPrimaryKey(field("header").nest(concatenateFields("path", "num", "rec_no")));
+            metaData.addIndex(recordType, extremumIndex);
+        };
+
+        final List<String> paths = List.of("a", "b", "c", "d");
+        final List<TestRecordsWithHeaderProto.MyRecord> saved = new ArrayList<>();
+        final Map<String, Map<Integer, Long>> extremeRecNosForPath = new HashMap<>();
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            final long maxRecNo = 20L;
+            for (String path : paths) {
+                for (int recNo = 0; recNo < maxRecNo; recNo++) {
+                    saved.add(saveHeaderRecord(recNo, path, random.nextInt(5), "str_value"));
+                }
+            }
+            for (String path : paths) {
+                Map<Integer, Long> forPath = new HashMap<>();
+                saved.stream()
+                        .filter(rec -> rec.getHeader().getPath().equals(path))
+                        .forEach(rec -> {
+                            int num = rec.getHeader().getNum();
+                            long recNo = rec.getHeader().getRecNo();
+                            forPath.compute(num, (key, existing) -> existing == null ? recNo : (max ? Math.max(recNo, existing) : Math.min(recNo, existing)));
+                        });
+                extremeRecNosForPath.put(path, forPath);
+            }
+            commit(context);
+        }
+
+        final String pathToDelete = paths.get(random.nextInt(paths.size()));
+
+        // Attempt to delete a path and num. This should fail, as it does not align with the permuted min/max index (because of the permuted size option)
+        // Note that it _would_ align if we didn't permute the values here
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+
+            final QueryComponent component = Query.field("header").matches(Query.and(
+                    Query.field("path").equalsValue(pathToDelete),
+                    Query.field("num").equalsValue(2)
+            ));
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class, () -> recordStore.deleteRecordsWhere(component));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(extremumIndex));
+
+            commit(context);
+        }
+
+        // Delete single path
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+
+            recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue(pathToDelete)));
+
+            List<TestRecordsWithHeaderProto.MyRecord> remaining = queryMyRecords(RecordQuery.newBuilder().setRecordType("MyRecord").build());
+            remaining.forEach(remainingRecord -> assertNotEquals(pathToDelete, remainingRecord.getHeader().getPath(),
+                    () -> String.format("record with path %s should have been deleted: %s", pathToDelete, remainingRecord)));
+            assertThat(remaining, containsInAnyOrder(saved.stream()
+                    .filter(rec -> !rec.getHeader().getPath().equals(pathToDelete))
+                    .map(Matchers::equalTo)
+                    .collect(Collectors.toList())));
+
+            for (String path : paths) {
+                // When scanned BY_GROUP, the index keeps one entry (containing the extremum rec_no for each group). Make sure the ones for the deleted path are gone
+                try (RecordCursor<IndexEntry> entryCursor = recordStore.scanIndex(extremumIndex, IndexScanType.BY_GROUP, TupleRange.allOf(Tuple.from(path)), null, ScanProperties.FORWARD_SCAN)) {
+                    Map<Integer, Long> extremeByNum = new HashMap<>();
+                    for (RecordCursorResult<IndexEntry> result = entryCursor.getNext(); result.hasNext(); result = entryCursor.getNext()) {
+                        IndexEntry entry = Objects.requireNonNull(result.get());
+                        assertNull(extremeByNum.put((int)entry.getKey().getLong(2), entry.getKey().getLong(1)));
+                    }
+                    if (path.equals(pathToDelete)) {
+                        assertThat(extremeByNum.entrySet(), empty());
+                    } else {
+                        assertEquals(extremeRecNosForPath.get(path), extremeByNum);
+                    }
+                }
+                // When scanned BY_VALUE, the index keeps one entry per record. Make sure the ones for the deleted path are gone
+                try (RecordCursor<FDBIndexedRecord<Message>> recordCursor = recordStore.scanIndexRecords(extremumIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(path)), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)) {
+                    List<TestRecordsWithHeaderProto.MyRecord> recordsFromIndex = recordCursor
+                            .map(rec -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                            .asList()
+                            .get();
+                    if (path.equals(pathToDelete)) {
+                        assertThat(recordsFromIndex, empty());
+                    } else {
+                        assertThat(recordsFromIndex, containsInAnyOrder(saved.stream()
+                                .filter(rec -> rec.getHeader().getPath().equals(path))
+                                .map(Matchers::equalTo)
+                                .collect(Collectors.toList())));
+                    }
+                }
+            }
+
+            commit(context);
         }
     }
 
