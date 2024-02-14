@@ -76,6 +76,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeOrBuilder;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
@@ -123,6 +124,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -1654,6 +1656,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull final RecordMetaData recordMetaData;
         @Nullable final RecordType recordType;
 
+        @Nonnull final QueryComponent component;
+        @Nullable final QueryComponent typelessComponent;
         @Nonnull final QueryToKeyMatcher matcher;
         @Nullable final QueryToKeyMatcher indexMatcher;
 
@@ -1666,6 +1670,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable final Key.Evaluated indexEvaluated;
 
         public RecordsWhereDeleter(@Nonnull QueryComponent component) {
+            this.component = component;
+
             RecordTypeKeyComparison recordTypeKeyComparison = null;
             QueryComponent remainingComponent = null;
             if (component instanceof RecordTypeKeyComparison) {
@@ -1697,6 +1703,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 allRecordTypes = recordMetaData.getRecordTypes().values();
                 allIndexes = recordMetaData.getAllIndexes();
                 recordType = null;
+                typelessComponent = component;
             } else {
                 recordType = recordMetaData.getRecordType(recordTypeKeyComparison.getName());
                 if (remainingComponent == null) {
@@ -1705,7 +1712,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     indexMatcher = new QueryToKeyMatcher(remainingComponent);
                 }
                 allRecordTypes = Collections.singletonList(recordType);
-                allIndexes = recordType.getAllIndexes();
+                final List<Index> recordTypeIndexes = recordType.getAllIndexes();
+                allIndexes = new LinkedHashSet<>(recordTypeIndexes);
+                for (SyntheticRecordType<?> syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
+                    if (syntheticType.getConstituents().stream().anyMatch(c -> c.getRecordType().equals(recordType))) {
+                        allIndexes.addAll(syntheticType.getAllIndexes());
+                    }
+                }
+                typelessComponent = remainingComponent;
             }
 
             indexMaintainers = allIndexes.stream().map(FDBRecordStore.this::getIndexMaintainer).collect(Collectors.toList());
@@ -1763,26 +1777,106 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return;
             }
             for (IndexMaintainer index : indexMaintainers) {
-                final QueryToKeyMatcher m = matcherForIndex(index);
-                boolean canDelete = (m == null) || index.canDeleteWhere(m, evaluated);
+                boolean canDelete = canDeleteWhereForIndex(index);
                 if (!canDelete) {
                     throw new Query.InvalidExpressionException("deleteRecordsWhere not supported by index " +
-                                                               index.state.index.getName());
+                            index.state.index.getName());
                 }
             }
         }
 
-        @Nullable
-        private QueryToKeyMatcher matcherForIndex(final IndexMaintainer indexMaintainer) {
+        private boolean canDeleteWhereForIndex(@Nonnull final IndexMaintainer indexMaintainer) {
             final Index index = indexMaintainer.state.index;
+            final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
+            boolean containsSyntheticTypes = false;
+            boolean containsStoredTypes = false;
+            for (RecordType indexRecordType : recordTypesForIndex) {
+                if (indexRecordType.isSynthetic()) {
+                    containsSyntheticTypes = true;
+                } else {
+                    containsStoredTypes = true;
+                }
+            }
+            if (containsStoredTypes && containsSyntheticTypes) {
+                return false;
+            } else if (containsStoredTypes) {
+                return canDeleteWhereForIndexOnStoredTypes(indexMaintainer);
+            } else {
+                return canDeleteWhereForIndexOnSyntheticTypes(indexMaintainer);
+            }
+        }
+
+        private boolean canDeleteWhereForIndexOnStoredTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+            final Index index = indexMaintainer.state.index;
+            final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
+
             if (recordType == null || (Key.Expressions.hasRecordTypePrefix(index.getRootExpression()))) {
-                return matcher;
-            } else if (recordMetaData.recordTypesForIndex(index).size() > 1) {
+                return indexMaintainer.canDeleteWhere(matcher, evaluated);
+            } else if (recordTypesForIndex.size() > 1) {
                 throw recordCoreException("Index " + index.getName() +
                         " applies to more record types than just " + recordType.getName());
+            } else if (indexMatcher == null) {
+                return true;
             } else {
-                return indexMatcher;
+                return indexMaintainer.canDeleteWhere(indexMatcher, indexEvaluated);
             }
+        }
+
+        private boolean canDeleteWhereForIndexOnSyntheticTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+            final Index index = indexMaintainer.state.index;
+            final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
+
+            if (Key.Expressions.hasRecordTypePrefix(index.getRootExpression())) {
+                // If the index has a record type prefix, we need to reject the deletion, as the referenced
+                // record type key is different for the synthetic type and the requested type
+                return false;
+            }
+            String constituentName = null;
+            for (RecordType indexRecordType : recordTypesForIndex) {
+                final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)indexRecordType;
+                if (syntheticRecordType instanceof UnnestedRecordType) {
+                    UnnestedRecordType unnestedRecordType = (UnnestedRecordType) syntheticRecordType;
+                    UnnestedRecordType.NestedConstituent parent = unnestedRecordType.getParentConstituent();
+                    if (recordType == null || recordType.equals(parent.getRecordType())) {
+                        if (constituentName != null && !constituentName.equals(parent.getName())) {
+                            return false;
+                        }
+                        constituentName = parent.getName();
+                    }
+                } else {
+                    // JoinedRecordTypes are difficult to handle correctly, for a few reasons. First,
+                    // if we don't have a recordType comparison, then we have to match the comparison
+                    // to _all_ constituents. That may actually be possible if the relevant fields are
+                    // used in the join conditions, but it requires additional matching. Additionally,
+                    // we have to check whether any of the Joins are outer joins, as if they are, then
+                    // we either need to make sure that _all_ join constituents are deleted or reject
+                    // the deletion, as the correct operation would replace all deleted records with
+                    // nulls
+                    return false;
+                }
+            }
+            if (constituentName == null) {
+                return false;
+            }
+            if (recordType != null) {
+                // In the first loop, we have validated that there is a single constituent that contains elements
+                // of the record type we're looking to delete. In this loop, make sure that there isn't a constituent
+                // with that name that is of a different type
+                for (RecordType indexRecordType : recordTypesForIndex) {
+                    final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)indexRecordType;
+                    for (SyntheticRecordType.Constituent constituent : syntheticRecordType.getConstituents()) {
+                        if (constituentName.equals(constituent.getName()) && !recordType.equals(constituent.getRecordType())) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            if (typelessComponent == null) {
+                return true;
+            }
+            final QueryComponent syntheticQueryComponent = Query.field(constituentName).matches(typelessComponent);
+            final QueryToKeyMatcher syntheticMatcher = new QueryToKeyMatcher(syntheticQueryComponent);
+            return indexMaintainer.canDeleteWhere(syntheticMatcher, indexEvaluated);
         }
 
         @SuppressWarnings("PMD.CloseResource")
