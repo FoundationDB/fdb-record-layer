@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.TestRecordsImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
@@ -45,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
+import com.google.common.collect.Maps;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -69,7 +71,9 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -247,8 +251,31 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
+    private static TestRecordsNestedMapProto.OuterRecord emptyMapRecord() {
+        return TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                .setRecId(1815L)
+                .setOtherId(4)
+                .setMap(TestRecordsNestedMapProto.MapRecord.newBuilder())
+                .build();
+    }
+
+    @Nonnull
+    private static TestRecordsNestedMapProto.OuterRecord unsetMapRecord() {
+        return TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                .setRecId(1863L)
+                .setOtherId(5)
+                .build();
+    }
+
+    @Nonnull
     private static Collection<TestRecordsNestedMapProto.OuterRecord> sampleMapRecords() {
-        return List.of(sampleMapRecord(), sampleMapRecordWithOnlyValueDifferent(), sampleMapRecordWithDuplicateEntries());
+        return List.of(
+                sampleMapRecord(),
+                sampleMapRecordWithOnlyValueDifferent(),
+                sampleMapRecordWithDuplicateEntries(),
+                emptyMapRecord(),
+                unsetMapRecord()
+        );
     }
 
     @Nonnull
@@ -302,6 +329,70 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
                         )
                 )
                 .build();
+    }
+
+    @Nonnull
+    private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithEmptyOuterInner() {
+        return sampleDoubleNestedRecord().toBuilder()
+                .setRecNo(1215L)
+                .clearInner()
+                .build();
+    }
+
+    @Nonnull
+    private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithEmptyManyMiddleInner() {
+        return sampleDoubleNestedRecord().toBuilder()
+                .setRecNo(1415L)
+                .clearManyMiddle()
+                .build();
+    }
+
+    @Nonnull
+    private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithEmptyMiddleInners() {
+        TestRecordsDoubleNestedProto.OuterRecord.Builder outerBuilder = sampleDoubleNestedRecord().toBuilder()
+                .setRecNo(1815L);
+        for (TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.Builder middleBuilder : outerBuilder.getManyMiddleBuilderList()) {
+            middleBuilder.clearInner();
+        }
+        return outerBuilder.build();
+    }
+
+    @Nonnull
+    private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithOneEmptyMiddleInner() {
+        return sampleDoubleNestedRecord().toBuilder()
+                .setRecNo(1863L)
+                .addManyMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDefaultInstance())
+                .build();
+    }
+
+    @Nonnull
+    private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithOneEmptyMiddleInnerAtBeginning() {
+        TestRecordsDoubleNestedProto.OuterRecord.Builder outerBuilder = sampleDoubleNestedRecord().toBuilder()
+                .setRecNo(1867L);
+        final List<TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord> middles = outerBuilder.getManyMiddleList();
+        return outerBuilder
+                .clearManyMiddle()
+                .addManyMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.getDefaultInstance())
+                .addAllManyMiddle(middles)
+                .build();
+    }
+
+    @Nonnull
+    private static TestRecordsDoubleNestedProto.OuterRecord emptyDoubleNestedRecord() {
+        return TestRecordsDoubleNestedProto.OuterRecord.getDefaultInstance();
+    }
+
+    @Nonnull
+    private static List<TestRecordsDoubleNestedProto.OuterRecord> sampleDoubleNestedRecords() {
+        return List.of(
+                sampleDoubleNestedRecord(),
+                sampleDoubleNestedWithEmptyOuterInner(),
+                sampleDoubleNestedWithEmptyManyMiddleInner(),
+                sampleDoubleNestedWithEmptyMiddleInners(),
+                sampleDoubleNestedWithOneEmptyMiddleInner(),
+                sampleDoubleNestedWithOneEmptyMiddleInnerAtBeginning(),
+                emptyDoubleNestedRecord()
+        );
     }
 
     @Nonnull
@@ -480,17 +571,47 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
     //
 
     @Nonnull
-    private List<FDBSyntheticRecord> evaluateUnnesting(@Nonnull SyntheticRecordType<?> unnestedType, @Nonnull FDBStoredRecord<? extends Message> storedRecord) {
+    private List<FDBSyntheticRecord> evaluateUnnesting(@Nonnull SyntheticRecordType<?> syntheticType, @Nonnull FDBStoredRecord<? extends Message> storedRecord) {
         SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(recordStore);
-        SyntheticRecordFromStoredRecordPlan plan = syntheticPlanner.forType(unnestedType);
+        SyntheticRecordFromStoredRecordPlan plan = syntheticPlanner.forType(syntheticType);
         List<FDBSyntheticRecord> syntheticRecords = plan.execute(recordStore, storedRecord)
                 .asList()
                 .join();
 
         // Validate the parent constituent matches the original stored record, and that the primary key for the type matches the definition
+        assertThat(syntheticType, instanceOf(UnnestedRecordType.class));
+        UnnestedRecordType unnestedRecordType = (UnnestedRecordType)syntheticType;
         for (FDBSyntheticRecord rec : syntheticRecords) {
             assertEquals(storedRecord, rec.getConstituent(PARENT_CONSTITUENT));
-            assertEquals(rec.getPrimaryKey(), unnestedType.getPrimaryKey().evaluateSingleton(rec).toTuple());
+            assertEquals(rec.getPrimaryKey(), syntheticType.getPrimaryKey().evaluateSingleton(rec).toTuple());
+
+            Map<String, FDBStoredRecord<? extends Message>> checkedConstituents = Maps.newHashMapWithExpectedSize(syntheticType.getConstituents().size());
+            checkedConstituents.put(PARENT_CONSTITUENT, storedRecord);
+            boolean done = false;
+            while (!done) {
+                done = true;
+                for (UnnestedRecordType.NestedConstituent constituent : unnestedRecordType.getConstituents()) {
+                    if (!checkedConstituents.containsKey(constituent.getName()) && checkedConstituents.containsKey(constituent.getParentName())) {
+                        done = false;
+
+                        // Validate the constituent by looking at its parent, evaluating the nesting expression, and then
+                        // checking that the entry at the position specified in the primary key matches the value in the
+                        // synthetic record
+                        FDBStoredRecord<? extends Message> parent = checkedConstituents.get(constituent.getParentName());
+                        List<Key.Evaluated> evaluatedList = constituent.getNestingExpression().evaluate(parent);
+                        int primaryKeyIndex = unnestedRecordType.getConstituents().indexOf(constituent) + 1;
+                        int pos = (int) rec.getPrimaryKey().getNestedTuple(primaryKeyIndex).getLong(0);
+                        assertThat("Constituent " + constituent.getName() + " has index out of bounds for parent " + storedRecord + " and synthetic record " + rec, evaluatedList.size(), greaterThan(pos));
+                        Message unnestedMessage = evaluatedList.get(pos).getObject(0, Message.class);
+                        FDBStoredRecord<? extends Message> returnedConstituent = rec.getConstituent(constituent.getName());
+                        assertNotNull(returnedConstituent);
+                        assertEquals(unnestedMessage, returnedConstituent.getRecord());
+                        checkedConstituents.put(constituent.getName(), returnedConstituent);
+                    }
+                }
+            }
+            // Validate that we've checked all of the constituents
+            assertThat(checkedConstituents.entrySet(), hasSize(unnestedRecordType.getConstituents().size()));
         }
 
         return syntheticRecords;
@@ -577,43 +698,44 @@ class UnnestedRecordTypeTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
 
-            final TestRecordsDoubleNestedProto.OuterRecord outerRecord = sampleDoubleNestedRecord();
-            final FDBStoredRecord<?> stored = recordStore.saveRecord(outerRecord);
-            final List<FDBSyntheticRecord> unnestedRecords = evaluateUnnesting(unnestedType, stored);
-            assertThat(unnestedRecords, hasSize(outerRecord.getInnerCount() * outerRecord.getManyMiddleList().stream()
-                    .mapToInt(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord::getInnerCount)
-                    .sum()));
+            for (TestRecordsDoubleNestedProto.OuterRecord outerRecord : sampleDoubleNestedRecords()) {
+                final FDBStoredRecord<?> stored = recordStore.saveRecord(outerRecord);
+                final List<FDBSyntheticRecord> unnestedRecords = evaluateUnnesting(unnestedType, stored);
+                assertThat(unnestedRecords, hasSize(outerRecord.getInnerCount() * outerRecord.getManyMiddleList().stream()
+                        .mapToInt(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord::getInnerCount)
+                        .sum()));
 
-            final SyntheticRecordType.Constituent outerInnerConstituent = getConstituent(unnestedType, "outer_inner");
-            final SyntheticRecordType.Constituent middleConstituent = getConstituent(unnestedType, "middle");
-            final SyntheticRecordType.Constituent innerConstituent = getConstituent(unnestedType, "inner");
-            Collection<Matcher<? super FDBSyntheticRecord>> expected = new ArrayList<>();
-            for (int i = 0; i < outerRecord.getInnerCount(); i++) {
-                final FDBStoredRecord<?> firstInnerRecord = FDBStoredRecord.newBuilder(outerRecord.getInner(i))
-                        .setRecordType(outerInnerConstituent.getRecordType())
-                        .setPrimaryKey(Tuple.from(i))
-                        .build();
-                for (int j = 0; j < outerRecord.getManyMiddleCount(); j++) {
-                    final TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord middle = outerRecord.getManyMiddle(j);
-                    final FDBStoredRecord<?> middleRecord = FDBStoredRecord.newBuilder(middle)
-                            .setRecordType(middleConstituent.getRecordType())
-                            .setPrimaryKey(Tuple.from(j))
+                final SyntheticRecordType.Constituent outerInnerConstituent = getConstituent(unnestedType, "outer_inner");
+                final SyntheticRecordType.Constituent middleConstituent = getConstituent(unnestedType, "middle");
+                final SyntheticRecordType.Constituent innerConstituent = getConstituent(unnestedType, "inner");
+                Collection<Matcher<? super FDBSyntheticRecord>> expected = new ArrayList<>();
+                for (int i = 0; i < outerRecord.getInnerCount(); i++) {
+                    final FDBStoredRecord<?> firstInnerRecord = FDBStoredRecord.newBuilder(outerRecord.getInner(i))
+                            .setRecordType(outerInnerConstituent.getRecordType())
+                            .setPrimaryKey(Tuple.from(i))
                             .build();
-                    for (int k = 0; k < middle.getInnerCount(); k++) {
-                        final FDBStoredRecord<?> secondInnerRecord = FDBStoredRecord.newBuilder(middle.getInner(k))
-                                .setRecordType(innerConstituent.getRecordType())
-                                .setPrimaryKey(Tuple.from(k))
+                    for (int j = 0; j < outerRecord.getManyMiddleCount(); j++) {
+                        final TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord middle = outerRecord.getManyMiddle(j);
+                        final FDBStoredRecord<?> middleRecord = FDBStoredRecord.newBuilder(middle)
+                                .setRecordType(middleConstituent.getRecordType())
+                                .setPrimaryKey(Tuple.from(j))
                                 .build();
-                        expected.add(equalTo(FDBSyntheticRecord.of(unnestedType, Map.of(
-                                PARENT_CONSTITUENT, stored,
-                                outerInnerConstituent.getName(), firstInnerRecord,
-                                middleConstituent.getName(), middleRecord,
-                                innerConstituent.getName(), secondInnerRecord))));
+                        for (int k = 0; k < middle.getInnerCount(); k++) {
+                            final FDBStoredRecord<?> secondInnerRecord = FDBStoredRecord.newBuilder(middle.getInner(k))
+                                    .setRecordType(innerConstituent.getRecordType())
+                                    .setPrimaryKey(Tuple.from(k))
+                                    .build();
+                            expected.add(equalTo(FDBSyntheticRecord.of(unnestedType, Map.of(
+                                    PARENT_CONSTITUENT, stored,
+                                    outerInnerConstituent.getName(), firstInnerRecord,
+                                    middleConstituent.getName(), middleRecord,
+                                    innerConstituent.getName(), secondInnerRecord))));
+                        }
                     }
                 }
-            }
 
-            assertThat(unnestedRecords, containsInAnyOrder(expected));
+                assertThat(unnestedRecords, containsInAnyOrder(expected));
+            }
             commit(context);
         }
     }
