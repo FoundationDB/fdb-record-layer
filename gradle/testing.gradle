@@ -119,6 +119,7 @@ tasks.withType(Test) { theTask ->
     configureTestTask(theTask.name, theTask)
     testLogging {
         events 'started', 'passed', 'failed', 'skipped'
+        showStandardStreams = true
         exceptionFormat = 'full'
     }
     reports {
