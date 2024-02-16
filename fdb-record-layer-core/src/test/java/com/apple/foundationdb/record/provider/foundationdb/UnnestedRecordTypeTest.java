@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -88,6 +89,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -325,6 +327,20 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedRecord() {
         return TestRecordsDoubleNestedProto.OuterRecord.newBuilder()
                 .setRecNo(1066)
+                .setOtherInt(4L)
+                .setMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.newBuilder()
+                        .setOtherInt(2L)
+                        .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                .setFoo(-1L)
+                                .setBar("negative_one")
+                                .build()
+                        )
+                        .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                .setFoo(0L)
+                                .setBar("zero")
+                                .build()
+                        )
+                )
                 .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
                         .setFoo(1L)
                         .setBar("one")
@@ -943,6 +959,57 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    void deleteRecordsWhereWithAnd() {
+        final Index index = new Index("alignedIndex",
+                concat(field(PARENT_CONSTITUENT).nest("other_int"),
+                        field(PARENT_CONSTITUENT).nest(field("middle").nest("other_int")),
+                        field("middle").nest("other_int"),
+                        field("inner").nest("foo"),
+                        field("outer_inner").nest("foo")));
+        final RecordMetaDataHook hook = setOuterAndMiddlePrimaryKey(concat(field("other_int"), field("middle").nest( "other_int"), field("rec_no")))
+                .andThen(addDoubleNestedType())
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(DOUBLE_NESTED, index));
+        final RecordMetaData metaData = doubleNestedMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            final TestRecordsDoubleNestedProto.OuterRecord rec = sampleDoubleNestedRecord();
+            final List<FDBStoredRecord<Message>> saved = new ArrayList<>();
+            saved.add(recordStore.saveRecord(rec));
+            saved.add(recordStore.saveRecord(rec.toBuilder().setRecNo(rec.getRecNo() + 1).build()));
+            saved.add(recordStore.saveRecord(rec.toBuilder().setRecNo(rec.getRecNo() + 2).setOtherInt(rec.getOtherInt() + 1).build()));
+            saved.add(recordStore.saveRecord(rec.toBuilder().setRecNo(rec.getRecNo() + 3).setOtherInt(rec.getOtherInt() - 1).build()));
+            saved.add(recordStore.saveRecord(rec.toBuilder().setRecNo(rec.getRecNo() + 4).setMiddle(rec.getMiddle().toBuilder().setOtherInt(rec.getMiddle().getOtherInt() + 1)).build()));
+            saved.add(recordStore.saveRecord(rec.toBuilder().setRecNo(rec.getRecNo() + 5).setMiddle(rec.getMiddle().toBuilder().setOtherInt(rec.getMiddle().getOtherInt() - 1)).build()));
+
+            // Assert that the index contains entries corresponding to the first two records before issuing the delete
+            final List<IndexEntry> entriesBeforeDelete = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().join();
+            assertThat(entriesBeforeDelete.stream().filter(entry -> entry.getKey().getLong(0) == rec.getOtherInt() && entry.getKey().getLong(1) == rec.getMiddle().getOtherInt()).collect(Collectors.toList()), not(empty()));
+            assertThat(entriesBeforeDelete.stream().map(entry -> entry.getPrimaryKey().getNestedTuple(1)).filter(pk -> pk.equals(saved.get(0).getPrimaryKey())).collect(Collectors.toList()), not(empty()));
+            assertThat(entriesBeforeDelete.stream().map(entry -> entry.getPrimaryKey().getNestedTuple(1)).filter(pk -> pk.equals(saved.get(1).getPrimaryKey())).collect(Collectors.toList()), not(empty()));
+
+            // Any entry that is not prefixed by (rec.getOtherInt(), rec.getMiddle().getOtherInt()) should not be deleted. Validate that the initial list is not empty so that this test is not vaccuously true
+            final List<IndexEntry> entriesNotToDelete = entriesBeforeDelete.stream().filter(entry -> entry.getKey().getLong(0) != rec.getOtherInt() || entry.getKey().getLong(1) != rec.getMiddle().getOtherInt()).collect(Collectors.toList());
+            assertThat(entriesNotToDelete, not(empty()));
+
+            assertAllPresent(saved);
+
+            recordStore.deleteRecordsWhere(Query.and(Query.field("other_int").equalsValue(rec.getOtherInt()), Query.field("middle").matches(Query.field("other_int").equalsValue(rec.getMiddle().getOtherInt()))));
+
+            assertAllAbsent(saved.subList(0, 2));
+            assertAllPresent(saved.subList(2, saved.size()));
+
+            // Validate the index after the delete. The entries should exactly match the original entries, except missing those with the original prefix (which were from the two deleted records)
+            final List<IndexEntry> entriesAfterDelete = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().join();
+            assertEquals(entriesNotToDelete, entriesAfterDelete);
+            assertThat(entriesAfterDelete.stream().map(entry -> entry.getPrimaryKey().getNestedTuple(1)).filter(pk -> pk.equals(saved.get(0).getPrimaryKey()) || pk.equals(saved.get(1).getPrimaryKey())).collect(Collectors.toList()), empty());
+
+            commit(context);
+        }
+    }
+
+    @Test
     void deleteWhereFailsIfNotAligned() {
         final RecordMetaDataHook hook = setOuterPrimaryKey(concatenateFields("other_id", "rec_id"))
                 .andThen(addMapType())
@@ -957,6 +1024,28 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    void deleteWhereWithAndFailsIfNotAligned() {
+        // Note that the index is _not_ aligned with the first two columns of the primary key.
+        // The first column matches, but the second column is different: the index contains the other_int field from the middle _constituent_,
+        // whereas the primary key contains the other_int field from the middle _field_ (that is, parent.middle.other_int in the nested type)
+        final Index index = new Index("nonAlignedIndex",
+                concat(field(PARENT_CONSTITUENT).nest("other_int"),
+                        field("middle").nest("other_int"),
+                        field("inner").nest("foo"),
+                        field("outer_inner").nest("foo")));
+        final RecordMetaDataHook hook = setOuterAndMiddlePrimaryKey(concat(field("other_int"), field("middle").nest( "other_int"), field("rec_no")))
+                .andThen(addDoubleNestedType())
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(DOUBLE_NESTED, index));
+        final RecordMetaData metaData = doubleNestedMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertDeleteRecordsWhereFails(null, Query.and(Query.field("other_int").equalsValue(42L), Query.field("middle").matches(Query.field("other_int").equalsValue(42L))), index.getName());
+            commit(context);
+        }
+    }
+
+    @Test
     void deleteWhereWithTypeFilterFailsIfNotAligned() {
         final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
                 .andThen(addMapType())
@@ -966,6 +1055,43 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
             assertDeleteRecordsWhereFails(OUTER, Query.field("other_id").equalsValue(42L), KEY_OTHER_INT_VALUE_INDEX);
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteWhereOnUnnestedNotAllowed() {
+        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
+                .andThen(addMapType())
+                .andThen(addOtherKeyIdValueIndex());
+        final RecordMetaData metaData = mapMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertThrows(MetaDataException.class, () -> recordStore.deleteRecordsWhere(UNNESTED_MAP, Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsValue(42L))));
+            commit(context);
+        }
+    }
+
+    @Test
+    void deleteSingleTypeOnMixedStoredTypesIndexNotAllowed() {
+        final RecordMetaDataHook hook = setOuterAndMiddlePrimaryKey(concat(recordType(), field("rec_no")))
+                .andThen(addDoubleNestedType())
+                .andThen(metaDataBuilder -> {
+                    UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType("OtherUnnested");
+                    typeBuilder.addParentConstituent("other_parent", metaDataBuilder.getRecordType("MiddleRecord"));
+                    typeBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(), "other_parent",
+                            field("other_middle").nest("inner", FanType.FanOut));
+                })
+                .andThen(metaDataBuilder -> {
+                    final Index fooIndex = new Index("fooIndex", field("inner").nest("foo"));
+                    metaDataBuilder.addMultiTypeIndex(List.of(metaDataBuilder.getIndexableRecordType(DOUBLE_NESTED), metaDataBuilder.getIndexableRecordType("OtherUnnested")), fooIndex);
+                });
+        final RecordMetaData metaData = doubleNestedMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertDeleteRecordsWhereFails(OUTER, null, "fooIndex");
             commit(context);
         }
     }

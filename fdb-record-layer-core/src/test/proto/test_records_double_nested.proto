@@ -43,6 +43,7 @@ message OuterRecord {
     repeated MiddleRecord.InnerRecord inner = 3;
     optional OtherRecord other = 4;
     repeated MiddleRecord many_middle = 5;
+    optional int64 other_int = 6;
 }
 
 message OtherRecord {

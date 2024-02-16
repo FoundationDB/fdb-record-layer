@@ -1854,12 +1854,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (syntheticRecordType instanceof UnnestedRecordType) {
                     UnnestedRecordType unnestedRecordType = (UnnestedRecordType) syntheticRecordType;
                     UnnestedRecordType.NestedConstituent parent = unnestedRecordType.getParentConstituent();
-                    if (recordType == null || recordType.equals(parent.getRecordType())) {
-                        if (constituentName != null && !constituentName.equals(parent.getName())) {
-                            return false;
-                        }
-                        constituentName = parent.getName();
+                    if (recordType != null && !recordType.equals(parent.getRecordType())) {
+                        // If the delete is limited to a single type, only process indexes on unnested records of
+                        // precisely that type. In theory, we could use the constituent name as a predicate here,
+                        // but if the different record types have different constituent names, then they can't
+                        // be used to form a prefix.
+                        return false;
                     }
+                    if (constituentName != null && !constituentName.equals(parent.getName())) {
+                        return false;
+                    }
+                    constituentName = parent.getName();
                 } else {
                     // JoinedRecordTypes are difficult to handle correctly, for a few reasons. First,
                     // if we don't have a recordType comparison, then we have to match the comparison
@@ -1889,9 +1894,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }
             }
             if (typelessComponent == null) {
+                // The only predicate was the one on type. If we get here, all records should be synthesized from the
+                // stored type being deleted, so return true (which will clear the index)
                 return true;
             }
-            final QueryComponent syntheticQueryComponent = Query.field(constituentName).matches(typelessComponent);
+            final QueryComponent syntheticQueryComponent;
+            if (typelessComponent instanceof AndComponent) {
+                final List<QueryComponent> originalQueryComponents = ((AndComponent)typelessComponent).getChildren();
+                List<QueryComponent> syntheticQueryComponents = new ArrayList<>(originalQueryComponents.size());
+                for (QueryComponent c : originalQueryComponents) {
+                    syntheticQueryComponents.add(Query.field(constituentName).matches(c));
+                }
+                syntheticQueryComponent = Query.and(syntheticQueryComponents);
+            } else {
+                syntheticQueryComponent = Query.field(constituentName).matches(typelessComponent);
+            }
             final QueryToKeyMatcher syntheticMatcher = new QueryToKeyMatcher(syntheticQueryComponent);
             return indexMaintainer.canDeleteWhere(syntheticMatcher, indexEvaluated);
         }

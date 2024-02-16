@@ -367,6 +367,9 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     @BooleanSource
     void testDeleteWherePermutedMinMax(boolean max) throws Exception {
         final Random random = new Random();
+        // Equivalent of to an index on:
+        //    path, min/max(rec_no), num
+        // That is, the aggregate is grouped by (path, num) but ordered first by path, then the aggregate, then num
         final Index extremumIndex = new Index("MyRecord$extremum_recno_by_num_by_path",
                 new GroupingKeyExpression(field("header").nest(concatenateFields("path", "num", "rec_no")), 1),
                 max ? IndexTypes.PERMUTED_MAX : IndexTypes.PERMUTED_MIN,
