@@ -70,7 +70,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import static com.apple.foundationdb.record.lucene.LuceneIndexTest.COMPLEX_MULTIPLE_GROUPED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.ENGINEER_JOKE;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.WAYLON;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
@@ -171,12 +170,12 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @Test
     void luceneOnlineIndexingTest5() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2, 20);
+        luceneOnlineIndexingTestAny(LuceneIndexTestUtils.COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 2, 20);
     }
 
     @Test
     void luceneOnlineIndexingTest6() {
-        luceneOnlineIndexingTestAny(COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0, 20);
+        luceneOnlineIndexingTestAny(LuceneIndexTestUtils.COMPLEX_MULTIPLE_GROUPED, COMPLEX_DOC, 77, 20, 0, 20);
     }
 
     private String randomText(Random rn) {
@@ -280,7 +279,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             indexes.add(new Index(
                     "Map_with_auto_complete$entry-value-" + i + "-" + groupingCount,
                     new GroupingKeyExpression(field("entry",
-                            KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTest.keys)), groupingCount + 1),
+                            KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTestUtils.keys)), groupingCount + 1),
                     LuceneIndexTypes.LUCENE,
                     ImmutableMap.of()));
         }
@@ -374,7 +373,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         Index index = new Index(
                 "Map_with_auto_complete$entry-value",
                 new GroupingKeyExpression(field("entry",
-                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTest.keys)), groupingCount),
+                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTestUtils.keys)), groupingCount),
                 LuceneIndexTypes.LUCENE,
                 ImmutableMap.of());
 
@@ -439,7 +438,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         Index index = new Index(
                 "Map_with_auto_complete$entry-value",
                 new GroupingKeyExpression(field("entry",
-                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTest.keys)), groupedCount),
+                        KeyExpression.FanType.FanOut).nest(concat(LuceneIndexTestUtils.keys)), groupedCount),
                 LuceneIndexTypes.LUCENE,
                 ImmutableMap.of());
 
