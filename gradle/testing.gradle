@@ -168,6 +168,14 @@ tasks.withType(Test).configureEach { task ->
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')
         } else {
+            if (!project.hasProperty('randomTestsLocale')) {
+                def random = new Random()
+                def availableLocales = Locale.getAvailableLocales()
+                rootProject.ext.randomTestsLocale = availableLocales[random.nextInt(availableLocales.size())]
+                logger.warn("Running tests with locale: ${rootProject.ext.randomTestsLocale}")
+            }
+            task.systemProperty('user.language', rootProject.ext.randomTestsLocale.language)
+            task.systemProperty('user.country', rootProject.ext.randomTestsLocale.country)
             systemProperties['tests.includeRandom'] = 'true'
         }
         if (project.hasProperty('tests.iterations')) {
