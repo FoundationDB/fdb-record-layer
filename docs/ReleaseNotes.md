@@ -17,10 +17,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Indexes on synthetic types are now included in `deleteRecordsWhere` operations [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Use Locale.ROOT when parsing lucene queries [(Issue #2503)](https://github.com/FoundationDB/fdb-record-layer/issues/2503)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -29,17 +29,25 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Unnested record types now support range deletion via `deleteRecordsWhere` [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
-* **Feature** Disabled indexes no longer participate in `deleteRecordsWhere` operations [(Issue #2505)](https://github.com/FoundationDB/fdb-record-layer/issues/2505)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Unnested record types no longer produce synthetic records for empty repeated fields [(Issue #2512)](https://github.com/FoundationDB/fdb-record-layer/issues/2512)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.455.0
+
+* **Bug fix** Indexes on synthetic types are now included in `deleteRecordsWhere` operations [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
+* **Bug fix** Use Locale.ROOT when parsing lucene queries [(Issue #2503)](https://github.com/FoundationDB/fdb-record-layer/issues/2503)
+* **Feature** Unnested record types now support range deletion via `deleteRecordsWhere` [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
+* **Feature** Disabled indexes no longer participate in `deleteRecordsWhere` operations [(Issue #2505)](https://github.com/FoundationDB/fdb-record-layer/issues/2505)
+* **Breaking change** Unnested record types no longer produce synthetic records for empty repeated fields [(Issue #2512)](https://github.com/FoundationDB/fdb-record-layer/issues/2512)
 
 ### 3.4.454.0
 
