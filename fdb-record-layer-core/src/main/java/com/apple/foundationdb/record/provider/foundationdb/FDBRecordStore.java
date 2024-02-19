@@ -1848,6 +1848,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // record type key is different for the synthetic type and the requested type
                 return false;
             }
+            // Synthetic types nest stored records under named constituents. Find a constituent corresponding
+            // to the appropriate record type(s) under which the original predicate can be nested to find the
+            // set of index entries corresponding to the deleted stored records
             String constituentName = null;
             for (RecordType indexRecordType : recordTypesForIndex) {
                 final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)indexRecordType;
@@ -1879,19 +1882,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             if (constituentName == null) {
                 return false;
-            }
-            if (recordType != null) {
-                // In the first loop, we have validated that there is a single constituent that contains elements
-                // of the record type we're looking to delete. In this loop, make sure that there isn't a constituent
-                // with that name that is of a different type
-                for (RecordType indexRecordType : recordTypesForIndex) {
-                    final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)indexRecordType;
-                    for (SyntheticRecordType.Constituent constituent : syntheticRecordType.getConstituents()) {
-                        if (constituentName.equals(constituent.getName()) && !recordType.equals(constituent.getRecordType())) {
-                            return false;
-                        }
-                    }
-                }
             }
             if (typelessComponent == null) {
                 // The only predicate was the one on type. If we get here, all records should be synthesized from the
