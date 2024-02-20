@@ -2259,6 +2259,9 @@ public class OnlineIndexer implements AutoCloseable {
                     .setMutualIndexing(mutualIndexing)
                     .setMutualIndexingBoundaries(mutualIndexingBoundaries)
                     .setAllowUnblock(allowUnblock, allowUnblockId)
+                    .setDeferMergeDuringIndexing(deferMergeDuringIndexing)
+                    .setInitialMergesCountLimit(initialMergesCountLimit)
+                    .setReverseScanOrder(reverseScanOrder)
                     ;
         }
 
