@@ -170,9 +170,9 @@ public class LuceneDocumentFromRecord {
         }
 
         @Override
-        public Iterable<Object> getValues(final FieldKeyExpression fieldExpression) {
+        public Iterable<Object> getValues(final KeyExpression keyExpression) {
             final List<Object> values = new ArrayList<>();
-            for (Key.Evaluated evaluated : fieldExpression.evaluateMessage(rec, message)) {
+            for (Key.Evaluated evaluated : keyExpression.evaluateMessage(rec, message)) {
                 Object value = evaluated.getObject(0);
                 if (value != null) {
                     values.add(value);
@@ -191,10 +191,11 @@ public class LuceneDocumentFromRecord {
 
         @Override
         public void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable final Object value,
-                             LuceneIndexExpressions.DocumentFieldType type,
-                             boolean stored, boolean sorted,
-                             @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex,
-                             @Nonnull Map<String, Object> fieldConfigs) {
+                                      @Nonnull LuceneIndexExpressions.DocumentFieldType type,
+                                      final boolean fieldNameOverride, @Nullable List<String> namedFieldPath, @Nullable String namedFieldSuffix,
+                                      boolean stored, boolean sorted,
+                                      @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex,
+                                      @Nonnull Map<String, Object> fieldConfigs) {
             fields.add(new DocumentField(fieldName, value, type, stored, sorted, fieldConfigs));
         }
     }

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
@@ -68,6 +69,9 @@ public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>
 
         if (expression instanceof RecordQueryCoveringIndexPlan) {
             expression = ((RecordQueryCoveringIndexPlan)expression).getIndexPlan();
+        }
+        if (expression instanceof RecordQueryAggregateIndexPlan) {
+            expression = ((RecordQueryAggregateIndexPlan)expression).getIndexPlan();
         }
 
         final int columnSize;
