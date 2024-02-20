@@ -57,6 +57,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
 
     private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap, boolean splitLongRecords) {
+        final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         Index index = new Index("newIndex", field("num_value_2"));
         Function<FDBQueriedRecord<Message>, Integer> projection = rec -> {
             TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
@@ -96,12 +97,12 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
         List<TestRecords1Proto.MySimpleRecord> updatedRecords;
         List<RecordQuery> updatedQueries;
         Map<Integer, List<Message>> updatedValueMap;
-        if (recordsWhileBuilding == null || recordsWhileBuilding.size() == 0) {
+        if (recordsWhileBuilding == null || recordsWhileBuilding.isEmpty()) {
             updatedRecords = records;
             updatedQueries = queries;
             updatedValueMap = valueMap;
         } else {
-            updatedRecords = updated(records, recordsWhileBuilding);
+            updatedRecords = updated(recordHandler, records, recordsWhileBuilding, null);
             updatedQueries = updatedRecords.stream()
                     .map(record -> {
                         Integer value2 = (record.hasNumValue2()) ? record.getNumValue2() : null;
@@ -146,7 +147,7 @@ public abstract class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuil
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, null, agents, overlap, splitLongRecords, index, null, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, splitLongRecords, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
     private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,

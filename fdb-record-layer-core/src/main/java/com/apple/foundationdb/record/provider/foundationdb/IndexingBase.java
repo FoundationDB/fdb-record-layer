@@ -953,6 +953,15 @@ public abstract class IndexingBase {
                 typeStamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
     }
 
+    @Nonnull
+    SyntheticRecordFromStoredRecordPlan syntheticPlanForIndex(@Nonnull FDBRecordStore store, @Nonnull IndexingCommon.IndexContext indexContext) {
+        if (!indexContext.isSynthetic) {
+            throw new RecordCoreException("unable create synethetic plan for non-synthetic index");
+        }
+        final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())), store.getTimer());
+        return syntheticPlanner.forIndex(indexContext.index);
+    }
+
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
                                                             FDBStoredRecord<Message> rec) {
         return forEachTargetIndexContext(indexContext -> {
@@ -962,8 +971,7 @@ public abstract class IndexingBase {
             }
             if (indexContext.isSynthetic) {
                 // This particular index is synthetic, handle with care
-                final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())), store.getTimer());
-                final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(indexContext.index);
+                final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
                 final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
                 return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
             }

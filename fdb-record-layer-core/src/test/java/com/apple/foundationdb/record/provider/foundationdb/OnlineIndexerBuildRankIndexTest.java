@@ -58,6 +58,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Test building value indexes.
  */
+@SuppressWarnings("try")
 public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
 
     private OnlineIndexerBuildRankIndexTest(boolean safeBuild) {
@@ -66,78 +67,66 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
 
     private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                              int agents, boolean overlap) {
+        final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         final Index index = new Index("newRankIndex", field("num_value_2").ungrouped(), IndexTypes.RANK);
         final IndexRecordFunction<Long> recordFunction = (IndexRecordFunction<Long>)Query.rank("num_value_2").getFunction();
 
-        final Runnable beforeBuild = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                try (FDBRecordContext context = openContext()) {
-                    for (TestRecords1Proto.MySimpleRecord record : records) {
-                        try {
-                            recordStore.evaluateRecordFunction(recordFunction, createStoredMessage(record)).join();
-                            fail("Somehow evaluated rank");
-                        } catch (RecordCoreException e) {
-                            assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
-                        }
-                    }
-
-                    // Either we get an exception, or the record store is empty.
+        final Runnable beforeBuild = () -> {
+            try (FDBRecordContext context = openContext()) {
+                for (TestRecords1Proto.MySimpleRecord record : records) {
                     try {
-                        RecordQuery query = RecordQuery.newBuilder()
-                                .setRecordType("MySimpleRecord")
-                                .setFilter(Query.rank("num_value_2").equalsValue(0L))
-                                .build();
-                        RecordQueryPlan plan = planner.plan(query);
-                        assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
-                        Optional<?> first = recordStore.executeQuery(plan).first().join();
-                        assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
-                    } catch (CompletionException e) {
-                        assertNotNull(e.getCause());
-                        assertThat(e.getCause(), instanceOf(RecordCoreException.class));
-                        assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getCause().getMessage());
+                        recordStore.evaluateRecordFunction(recordFunction, createStoredMessage(recordHandler, record)).join();
+                        fail("Somehow evaluated rank");
+                    } catch (RecordCoreException e) {
+                        assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
                     }
+                }
+
+                // Either we get an exception, or the record store is empty.
+                try {
+                    RecordQuery query = RecordQuery.newBuilder()
+                            .setRecordType("MySimpleRecord")
+                            .setFilter(Query.rank("num_value_2").equalsValue(0L))
+                            .build();
+                    RecordQueryPlan plan = planner.plan(query);
+                    assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
+                    Optional<?> first = recordStore.executeQuery(plan).first().join();
+                    assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
+                } catch (CompletionException e) {
+                    assertNotNull(e.getCause());
+                    assertThat(e.getCause(), instanceOf(RecordCoreException.class));
+                    assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getCause().getMessage());
                 }
             }
         };
 
-        List<TestRecords1Proto.MySimpleRecord> updatedRecords;
-        if (recordsWhileBuilding == null || recordsWhileBuilding.size() == 0) {
-            updatedRecords = records;
-        } else {
-            updatedRecords = updated(records, recordsWhileBuilding);
-        }
+        List<TestRecords1Proto.MySimpleRecord> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, null);
 
-        final Runnable afterBuild = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                try (FDBRecordContext context = openContext()) {
-                    for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
-                        try {
-                            recordStore.evaluateRecordFunction(recordFunction, createStoredMessage(record)).join();
-                            fail("Somehow evaluated rank");
-                        } catch (RecordCoreException e) {
-                            assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
-                        }
-                    }
-
-                    // Either we get an exception, or the record store is empty.
+        final Runnable afterBuild = () -> {
+            try (FDBRecordContext context = openContext()) {
+                for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
                     try {
-                        RecordQuery query = RecordQuery.newBuilder()
-                                .setRecordType("MySimpleRecord")
-                                .setFilter(Query.rank("num_value_2").equalsValue(0L))
-                                .build();
-                        RecordQueryPlan plan = planner.plan(query);
-                        assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
-                        Optional<?> first = recordStore.executeQuery(plan).first().join();
-                        assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
-                    } catch (CompletionException e) {
-                        assertNotNull(e.getCause());
-                        assertThat(e.getCause(), instanceOf(RecordCoreException.class));
-                        assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getCause().getMessage());
+                        recordStore.evaluateRecordFunction(recordFunction, createStoredMessage(recordHandler, record)).join();
+                        fail("Somehow evaluated rank");
+                    } catch (RecordCoreException e) {
+                        assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getMessage());
                     }
+                }
+
+                // Either we get an exception, or the record store is empty.
+                try {
+                    RecordQuery query = RecordQuery.newBuilder()
+                            .setRecordType("MySimpleRecord")
+                            .setFilter(Query.rank("num_value_2").equalsValue(0L))
+                            .build();
+                    RecordQueryPlan plan = planner.plan(query);
+                    assertEquals("Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 0", plan.toString());
+                    Optional<?> first = recordStore.executeQuery(plan).first().join();
+                    assertTrue(!first.isPresent(), "non-empty range with rank rebuild");
+                } catch (CompletionException e) {
+                    assertNotNull(e.getCause());
+                    assertThat(e.getCause(), instanceOf(RecordCoreException.class));
+                    assertEquals("Record function rank(Field { 'num_value_2' None} group 1) requires appropriate index on MySimpleRecord", e.getCause().getMessage());
                 }
             }
         };
@@ -162,35 +151,31 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
             curr += 1;
         }
 
-        final Runnable afterReadable = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                try (FDBRecordContext context = openContext()) {
-                    for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
-                        Long rank = recordStore.evaluateRecordFunction(recordFunction, createStoredMessage(record)).join();
-                        if (!record.hasNumValue2()) {
-                            assertEquals(0L, rank.longValue());
-                        } else {
-                            assertEquals(ranks.get(record.getNumValue2()), rank);
-                        }
-
-                        RecordQuery query = RecordQuery.newBuilder()
-                                .setRecordType("MySimpleRecord")
-                                .setFilter(Query.rank("num_value_2").equalsValue(rank))
-                                .build();
-                        RecordQueryPlan plan = planner.plan(query);
-                        assertEquals("Index(newRankIndex [[" + rank + "],[" + rank + "]] BY_RANK)", plan.toString());
-                        Optional<TestRecords1Proto.MySimpleRecord> retrieved = recordStore.executeQuery(plan).map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
-                                .filter(rec -> rec.getRecNo() == record.getRecNo()).first().join();
-                        assertTrue(retrieved.isPresent(), "empty range after rank index build");
-                        assertEquals(record, retrieved.get());
+        final Runnable afterReadable = () -> {
+            try (FDBRecordContext context = openContext()) {
+                for (TestRecords1Proto.MySimpleRecord record : updatedRecords) {
+                    Long rank = recordStore.evaluateRecordFunction(recordFunction, createStoredMessage(recordHandler, record)).join();
+                    if (!record.hasNumValue2()) {
+                        assertEquals(0L, rank.longValue());
+                    } else {
+                        assertEquals(ranks.get(record.getNumValue2()), rank);
                     }
+
+                    RecordQuery query = RecordQuery.newBuilder()
+                            .setRecordType("MySimpleRecord")
+                            .setFilter(Query.rank("num_value_2").equalsValue(rank))
+                            .build();
+                    RecordQueryPlan plan = planner.plan(query);
+                    assertEquals("Index(newRankIndex [[" + rank + "],[" + rank + "]] BY_RANK)", plan.toString());
+                    Optional<TestRecords1Proto.MySimpleRecord> retrieved = recordStore.executeQuery(plan).map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                            .filter(rec -> rec.getRecNo() == record.getRecNo()).first().join();
+                    assertTrue(retrieved.isPresent(), "empty range after rank index build");
+                    assertEquals(record, retrieved.get());
                 }
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
     private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {

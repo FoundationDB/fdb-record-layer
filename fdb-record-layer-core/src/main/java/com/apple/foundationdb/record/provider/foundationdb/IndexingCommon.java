@@ -192,13 +192,18 @@ public class IndexingCommon {
     }
 
     @Nonnull
-    public Index getIndex() {
+    IndexContext getIndexContext() {
         if (isMultiTarget()) {
             // backward compatibility safeguard - modules that do not support multi targets (yet) will continue calling
             // this function, which verifies a very lonely target index
             throw new IndexingBase.ValidationException("Multi target index exist, but an operation that assumes a single index was called");
         }
-        return targetIndexContexts.get(0).index;
+        return targetIndexContexts.get(0);
+    }
+
+    @Nonnull
+    public Index getIndex() {
+        return getIndexContext().index;
     }
 
     @Nonnull

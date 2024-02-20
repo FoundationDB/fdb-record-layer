@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -187,26 +189,7 @@ public class IndexingScrubMissing extends IndexingBase {
         if (!common.getAllRecordTypes().contains(rec.getRecordType())) {
             return CompletableFuture.completedFuture(null);
         }
-
-        final Index index = common.getIndex();
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        List<IndexEntry> indexEntryNoPKs = maintainer.filteredIndexEntries(rec);
-        if (indexEntryNoPKs == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        return AsyncUtil.getAll(indexEntryNoPKs.stream()
-                .map(entry -> {
-                    // should I convert it to a single nested statement?
-                    final IndexEntry indexEntry = new IndexEntry(
-                            index,
-                            FDBRecordStoreBase.indexEntryKey(index, entry.getKey(), rec.getPrimaryKey()),
-                            entry.getValue());
-                    final Tuple valueKey = indexEntry.getKey();
-                    final byte[] keyBytes = maintainer.getIndexSubspace().pack(valueKey);
-                    return maintainer.state.transaction.get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
-                })
-                .collect(Collectors.toList()))
+        return getMissingIndexKeys(store, rec)
                 .thenApply(list -> {
                     List<Tuple> missingIndexesKeys = list.stream().filter(Objects::nonNull).collect(Collectors.toList());
                     if (missingIndexesKeys.isEmpty()) {
@@ -231,6 +214,56 @@ public class IndexingScrubMissing extends IndexingBase {
                     // report only mode
                     return null;
                 });
+    }
+
+    @Nonnull
+    private CompletableFuture<List<Tuple>> getMissingIndexKeys(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec) {
+        final Index index = common.getIndex();
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        return indexEntriesForRecord(store, rec)
+                .mapPipelined(indexEntry -> {
+                    final Tuple valueKey = indexEntry.getKey();
+                    final byte[] keyBytes = maintainer.getIndexSubspace().pack(valueKey);
+                    return maintainer.state.transaction.get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
+                }, store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD))
+                .filter(Objects::nonNull)
+                .asList();
+    }
+
+    @Nonnull
+    private RecordCursor<IndexEntry> indexEntriesForRecord(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec) {
+        final IndexingCommon.IndexContext indexContext = common.getIndexContext();
+        final Index index = indexContext.index;
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        if (indexContext.isSynthetic) {
+            final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
+            return RecordCursor.flatMapPipelined(
+                    outerContinuation -> syntheticPlan.execute(store, rec),
+                    (syntheticRecord, innerContinuation) -> {
+                        final List<IndexEntry> entriesForSyntheticRecord = maintainer.filteredIndexEntries(syntheticRecord);
+                        if (entriesForSyntheticRecord == null) {
+                            return RecordCursor.empty();
+                        } else {
+                            return RecordCursor.fromList(store.getExecutor(), entriesForSyntheticRecord, innerContinuation)
+                                    .map(entryNoPK -> rewriteWithPrimaryKey(entryNoPK, syntheticRecord));
+                        }
+                    },
+                    null,
+                    store.getPipelineSize(PipelineOperation.SYNTHETIC_RECORD_JOIN)
+            );
+        } else {
+            List<IndexEntry> indexEntryNoPKs = maintainer.filteredIndexEntries(rec);
+            if (indexEntryNoPKs == null) {
+                return RecordCursor.empty();
+            }
+            return RecordCursor.fromList(store.getExecutor(), indexEntryNoPKs)
+                    .map(entryNoPK -> rewriteWithPrimaryKey(entryNoPK, rec));
+        }
+    }
+
+    @Nonnull
+    private IndexEntry rewriteWithPrimaryKey(@Nonnull IndexEntry indexEntry, @Nonnull FDBRecord<? extends Message> rec) {
+        return new IndexEntry(indexEntry.getIndex(), FDBRecordStoreBase.indexEntryKey(indexEntry.getIndex(), indexEntry.getKey(), rec.getPrimaryKey()), indexEntry.getValue(), rec.getPrimaryKey());
     }
 
     @Override

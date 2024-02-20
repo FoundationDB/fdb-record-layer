@@ -121,13 +121,13 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         });
     }
 
-    private void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull RecordMetaDataHook hook) {
+    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(descriptor);
         hook.apply(metaDataBuilder);
         metaData = metaDataBuilder.getRecordMetaData();
     }
 
-    private void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor) {
+    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor) {
         openMetaData(descriptor, (metaDataBuilder) -> {
         });
     }
@@ -136,7 +136,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         openMetaData(TestRecords1Proto.getDescriptor());
     }
 
-    void openSimpleMetaData(RecordMetaDataHook hook) {
+    void openSimpleMetaData(@Nonnull RecordMetaDataHook hook) {
         openMetaData(TestRecords1Proto.getDescriptor(), hook);
     }
 

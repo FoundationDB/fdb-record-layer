@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
@@ -415,7 +416,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
         for (SyntheticRecordType<?> recordType : syntheticRecordTypes.values()) {
             for (Index index : recordType.getIndexes()) {
                 if (index.getLastModifiedVersion() > version) {
-                    result.put(index, Collections.singletonList(recordType));
+                    List<RecordType> storedTypes = List.copyOf(SyntheticRecordPlanner.storedRecordTypesForIndex(this, index, List.of(recordType)));
+                    result.put(index, storedTypes);
                 }
             }
             for (Index index : recordType.getMultiTypeIndexes()) {
@@ -423,7 +425,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                     if (!result.containsKey(index)) {
                         result.put(index, new ArrayList<>());
                     }
-                    result.get(index).add(recordType);
+                    result.get(index).addAll(SyntheticRecordPlanner.storedRecordTypesForIndex(this, index, List.of(recordType)));
                 }
             }
         }

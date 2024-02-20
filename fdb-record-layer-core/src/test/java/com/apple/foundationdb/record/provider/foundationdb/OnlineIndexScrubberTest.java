@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -339,6 +340,64 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+    }
+
+    @Test
+    void testScrubUnnestedIndex() {
+        final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
+        final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OnlineIndexerBuildUnnestedIndexTest.UNNESTED, targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final int numRecords = 20;
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < numRecords; i++) {
+                recordStore.saveRecord(TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                        .setRecId(2 * i)
+                        .setOtherId(i % 2)
+                        .setMap(TestRecordsNestedMapProto.MapRecord.newBuilder()
+                                .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                        .setKey("a")
+                                        .setIntValue(i))
+                                .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                        .setKey("b")
+                                        .setIntValue(i))
+                                .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                        .setKey("c")
+                                        .setIntValue(i))
+                        )
+                        .build()
+                );
+                recordStore.saveRecord(TestRecordsNestedMapProto.OtherRecord.newBuilder()
+                        .setRecId(2 * i + 1)
+                        .setOtherId(i % 2)
+                        .build()
+                );
+            }
+
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        // Scanned 5 * numRecords. There are numRecords :
+        //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
+        //     OuterRecord and numRecords of type OtherRecord (so that's 2 * numRecords)
+        //  2. When scanning dangling entries, we look up one for every entry in the index. There are 3 map entries
+        //     for each of type OuterRecord, so that's 3 * numRecords.
+        assertEquals(numRecords * 5, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));

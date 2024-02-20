@@ -23,11 +23,14 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecords1EvolvedWithMapProto;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsDoublyImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsImportedMapProto;
@@ -37,7 +40,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
@@ -90,6 +92,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
@@ -266,17 +269,19 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private static RecordMetaDataHook setOuterPrimaryKey(@Nonnull KeyExpression primaryKey) {
+    private static RecordMetaDataHook setOuterAndOtherPrimaryKey(@Nonnull KeyExpression primaryKey) {
         return metaData -> {
-            RecordTypeBuilder typeBuilder = metaData.getRecordType(OUTER);
-            typeBuilder.setPrimaryKey(primaryKey);
+            metaData.getRecordType(OUTER).setPrimaryKey(primaryKey);
+            metaData.getRecordType("OtherRecord").setPrimaryKey(primaryKey);
         };
     }
 
     @Nonnull
     private static RecordMetaDataHook setOuterAndMiddlePrimaryKey(@Nonnull KeyExpression primaryKey) {
-        return setOuterPrimaryKey(primaryKey)
-                .andThen(metaDataBuilder -> metaDataBuilder.getRecordType("MiddleRecord").setPrimaryKey(primaryKey));
+        return metaData -> {
+            metaData.getRecordType(OUTER).setPrimaryKey(primaryKey);
+            metaData.getRecordType("MiddleRecord").setPrimaryKey(primaryKey);
+        };
     }
 
     @Nonnull
@@ -1048,9 +1053,139 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // Validate lifecycle things, like the record type
+
+    @Test
+    void indexAddedLater() {
+        final RecordMetaData metaDataWithoutIndex = mapMetaData(metaDataBuilder -> { });
+        final RecordMetaData metaDataWithIndex = mapMetaData(addMapType().andThen(addKeyOtherIntValueIndex()));
+        assertThat(metaDataWithIndex.getVersion(), greaterThan(metaDataWithoutIndex.getVersion()));
+
+        // Validate that the index shows up as having been added since the first meta-data without the index
+        final Map<Index, List<RecordType>> indexesSince = metaDataWithIndex.getIndexesToBuildSince(metaDataWithoutIndex.getVersion());
+        final Index index = metaDataWithIndex.getIndex(KEY_OTHER_INT_VALUE_INDEX);
+        assertThat(indexesSince, hasKey(index));
+        List<RecordType> typesForIndex = indexesSince.get(index);
+        assertEquals(List.of(metaDataWithIndex.getRecordType(OUTER)), typesForIndex);
+
+        // Create the store without the index
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithoutIndex);
+            commit(context);
+        }
+
+        // Upgrade to the new meta-data. As the store is empty, the index can be built for for free
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithIndex);
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(index));
+            // do not commit
+        }
+
+        // Go back to the old meta-data. Add some records so that we do not mark it readable immediately
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithoutIndex);
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                recordStore.saveRecord(outerRecord);
+            }
+            commit(context);
+        }
+
+        // Upgrade again to the new meta-data. The index should begin as not-built
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithIndex);
+            assertEquals(IndexState.DISABLED, recordStore.getIndexState(index));
+
+            recordStore.rebuildIndex(index).join();
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(index));
+
+            final List<IndexEntry> indexEntries = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asList()
+                    .join();
+            final List<IndexEntry> expectedEntries = new ArrayList<>();
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
+                    final Tuple primaryKey = Tuple.from(metaDataWithIndex.getSyntheticRecordType(UNNESTED_MAP).getRecordTypeKey(), Tuple.from(outerRecord.getRecId()), Tuple.from(i));
+                    TestRecordsNestedMapProto.MapRecord.Entry entry = outerRecord.getMap().getEntry(i);
+                    final Tuple indexKey = Tuple.from(entry.getKey(), outerRecord.getOtherId(), entry.getIntValue());
+                    expectedEntries.add(new IndexEntry(index, indexKey.addAll(primaryKey), TupleHelpers.EMPTY, primaryKey));
+                }
+            }
+            expectedEntries.sort(Comparator.comparing(IndexEntry::getKey));
+            assertEquals(expectedEntries, indexEntries);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void mapTypeAddedLater() {
+        // Begin with test_records_1.proto as the basis for the meta-data
+        final RecordMetaData metaDataWithoutMap = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        // Construct a new meta-data that adds a new type, with an unnested record type on it
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1EvolvedWithMapProto.getDescriptor());
+        metaDataBuilder.getRecordType("MySimpleRecord").setSinceVersion(metaDataWithoutMap.getVersion());
+        metaDataBuilder.getRecordType("MyOtherRecord").setSinceVersion(metaDataWithoutMap.getVersion());
+        metaDataBuilder.getRecordType("MyMapRecord").setSinceVersion(metaDataWithoutMap.getVersion() + 1);
+
+        UnnestedRecordTypeBuilder unnestedRecordTypeBuilder = metaDataBuilder.addUnnestedRecordType(UNNESTED_MAP);
+        unnestedRecordTypeBuilder.addParentConstituent(PARENT_CONSTITUENT, metaDataBuilder.getRecordType("MyMapRecord"));
+        unnestedRecordTypeBuilder.addNestedConstituent("entry", TestRecords1EvolvedWithMapProto.MyMapRecord.Entry.getDescriptor(), PARENT_CONSTITUENT,
+                field("map_from_str_to_long", FanType.FanOut));
+
+        final Index unnestedIndex = new Index("Map$key_other_value", concat(field("entry").nest("key"), field(PARENT_CONSTITUENT).nest("other_str"), field("entry").nest("value")));
+        unnestedIndex.setAddedVersion(metaDataWithoutMap.getVersion() + 1);
+        unnestedIndex.setLastModifiedVersion(metaDataWithoutMap.getVersion() + 1);
+        metaDataBuilder.addIndex(UNNESTED_MAP, unnestedIndex);
+
+        final Index simpleIndex = new Index("MySimpleRecord$num_value_2", "num_value_2");
+        unnestedIndex.setAddedVersion(metaDataWithoutMap.getVersion() + 1);
+        unnestedIndex.setLastModifiedVersion(metaDataWithoutMap.getVersion() + 1);
+        metaDataBuilder.addIndex("MySimpleRecord", simpleIndex);
+
+        // Validate that the version increases and that the new index is in the set of data that is added to the type
+        final RecordMetaData metaDataWithMap = metaDataBuilder.build();
+        assertThat(metaDataWithMap.getVersion(), greaterThan(metaDataWithoutMap.getVersion()));
+        assertThat(metaDataWithMap.getIndexesToBuildSince(metaDataWithoutMap.getVersion()), hasKey(unnestedIndex));
+
+        // Start without the map
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithoutMap);
+
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setStrValueIndexed("true")
+                    .setNumValue2(10)
+                    .setNumValue3Indexed(1)
+                    .setNumValueUnique(100)
+                    .build());
+            recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                    .setRecNo(1412L)
+                    .setNumValue2(5)
+                    .setNumValue3Indexed(2)
+                    .build());
+
+            commit(context);
+        }
+
+        // Now upgrade to the map type. As the index is on new stored types, it should be readable
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithMap);
+
+            // The new index on MySimpleRecord is not readable as it is on pre-existing types
+            assertEquals(IndexState.DISABLED, recordStore.getIndexState(simpleIndex));
+            // The new unnested index is on the new MyMapRecord type, and so it can be marked as readable without a real build
+            assertEquals(IndexState.READABLE, recordStore.getIndexState(unnestedIndex));
+
+            commit(context);
+        }
+    }
+
+    // Validate deleteRecordsWhere
+
     @Test
     void deleteRecordsWhere() {
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concatenateFields("other_id", "rec_id"))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concatenateFields("other_id", "rec_id"))
                 .andThen(addMapType())
                 .andThen(addOtherKeyIdValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1131,7 +1266,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void deleteWhereFailsIfNotAligned() {
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concatenateFields("other_id", "rec_id"))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concatenateFields("other_id", "rec_id"))
                 .andThen(addMapType())
                 .andThen(addKeyOtherIntValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1167,7 +1302,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void deleteWhereWithTypeFilterFailsIfNotAligned() {
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
                 .andThen(addMapType())
                 .andThen(addKeyOtherIntValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1181,7 +1316,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void deleteWhereOnUnnestedNotAllowed() {
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
                 .andThen(addMapType())
                 .andThen(addOtherKeyIdValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1218,7 +1353,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void deleteWhereSucceedsWithDisabledIndex() {
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concatenateFields("other_id", "rec_id"))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concatenateFields("other_id", "rec_id"))
                 .andThen(addMapType())
                 .andThen(addKeyOtherIntValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1248,7 +1383,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     @Test
     void deleteWhereWithTypeFilter() {
         // As types are specified, make sure the primary key of the outer record is prefixed by record type
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
                 .andThen(addMapType())
                 .andThen(addOtherKeyIdValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1279,7 +1414,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     @Test
     void deleteWhereWithOnlyTypeFilter() {
         // As types are specified, make sure the primary key of the outer record is prefixed by record type
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("rec_id")))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concat(recordType(), field("rec_id")))
                 .andThen(addMapType())
                 .andThen(addOtherKeyIdValueIndex());
         final RecordMetaData metaData = mapMetaData(hook);
@@ -1309,7 +1444,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     @Test
     void deleteWhereOnMultiTypeIndex() {
         // Add two unnested record types to the index (on the same stored record type)
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concat(recordType(), field("other_id"), field("rec_id")))
                 .andThen(addMapType())
                 .andThen(addTwoMapsType())
                 .andThen(metaDataBuilder -> {
@@ -1344,7 +1479,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     @Test
     void deleteWhereFailsWhenParentTypesHaveDifferentNames() {
         final String secondMapType = "secondMapType";
-        final RecordMetaDataHook hook = setOuterPrimaryKey(concat(recordType(), field("rec_id")))
+        final RecordMetaDataHook hook = setOuterAndOtherPrimaryKey(concat(recordType(), field("rec_id")))
                 .andThen(addMapType())
                 .andThen(metaDataBuilder -> {
                     final UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(secondMapType);
@@ -1531,4 +1666,5 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         });
         assertThat(err.getMessage(), containsString("deleteRecordsWhere not supported by index " + indexName));
     }
+
 }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexState;
-import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.logging.TestLogMessageKeys;
@@ -48,6 +47,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -69,18 +69,20 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerBuildIndexTest.class);
 
-    private boolean safeBuild;
+    private final boolean safeBuild;
 
     OnlineIndexerBuildIndexTest(boolean safeBuild) {
         this.safeBuild = safeBuild;
     }
 
     @SuppressWarnings("deprecation")
-    void singleRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
-                       @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
-                       @Nullable List<Tuple> deleteWhileBuilding,
-                       int agents, boolean overlap, boolean splitLongRecords,
-                       @Nonnull Index index, @Nullable Index sourceIndex, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
+    <M extends Message> void singleRebuild(
+            @Nonnull OnlineIndexerTestRecordHandler<M> recordHandler,
+            @Nonnull List<M> records,
+            @Nullable List<M> recordsWhileBuilding,
+            @Nullable List<Tuple> deleteWhileBuilding,
+            int agents, boolean overlap, boolean splitLongRecords,
+            @Nonnull Index index, @Nullable Index sourceIndex, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
         LOGGER.info(KeyValueLogMessage.of("beginning rebuild test",
                 TestLogMessageKeys.RECORDS, records.size(),
                 LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
@@ -91,30 +93,19 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         );
         final FDBStoreTimer timer = new FDBStoreTimer();
 
-        final FDBRecordStoreTestBase.RecordMetaDataHook onlySplitHook = metaDataBuilder -> {
-            if (splitLongRecords) {
-                metaDataBuilder.setSplitLongRecords(true);
-                metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
-            }
-            if (sourceIndex != null) {
-                metaDataBuilder.addIndex("MySimpleRecord", sourceIndex);
-            }
-        };
-        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
-            onlySplitHook.apply(metaDataBuilder);
-            metaDataBuilder.addIndex("MySimpleRecord", index);
-        };
+        final FDBRecordStoreTestBase.RecordMetaDataHook onlySplitHook = recordHandler.baseHook(splitLongRecords, sourceIndex);
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = onlySplitHook.andThen(recordHandler.addIndexHook(index));
 
         LOGGER.info(KeyValueLogMessage.of("inserting elements prior to test",
                 TestLogMessageKeys.RECORDS, records.size()));
 
-        openSimpleMetaData(onlySplitHook);
+        openMetaData(recordHandler.getFileDescriptor(), onlySplitHook);
         try (FDBRecordContext context = openContext()) {
-            for (TestRecords1Proto.MySimpleRecord record : records) {
+            for (M rec : records) {
                 // Check presence first to avoid overwriting version information of previously added records.
-                Tuple primaryKey = Tuple.from(record.getRecNo());
+                Tuple primaryKey = recordHandler.getPrimaryKey(rec);
                 if (recordStore.loadRecord(primaryKey) == null) {
-                    recordStore.saveRecord(record);
+                    recordStore.saveRecord(rec);
                 }
             }
             context.commit();
@@ -133,11 +124,10 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         LOGGER.info(KeyValueLogMessage.of("running before build for test"));
         beforeBuild.run();
 
-
-        openSimpleMetaData(hook);
+        openMetaData(recordHandler.getFileDescriptor(), hook);
 
         LOGGER.info(KeyValueLogMessage.of("adding index", TestLogMessageKeys.INDEX, index));
-        openSimpleMetaData(hook);
+        openMetaData(recordHandler.getFileDescriptor(), hook);
 
         final boolean isAlwaysReadable;
         try (FDBRecordContext context = openContext()) {
@@ -229,8 +219,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     assumeFalse(safeBuild);
                     buildFuture = indexBuilder.buildEndpoints().thenCompose(tupleRange -> {
                         if (tupleRange != null) {
-                            long start = tupleRange.getLow().getLong(0);
-                            long end = tupleRange.getHigh().getLong(0);
+                            long start = Objects.requireNonNull(tupleRange.getLow()).getLong(0);
+                            long end = Objects.requireNonNull(tupleRange.getHigh()).getLong(0);
 
                             CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
                             for (int i = 0; i < agents; i++) {
@@ -262,7 +252,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             if (recordsWhileBuilding != null && !recordsWhileBuilding.isEmpty()) {
                 int i = 0;
                 while (i < recordsWhileBuilding.size()) {
-                    List<TestRecords1Proto.MySimpleRecord> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
+                    List<M> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
                     fdb.run(context -> {
                         FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
                         thisBatch.forEach(store::saveRecord);
@@ -289,14 +279,14 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
             // if a record is added to a range that has already been built, it will not be counted, otherwise,
             // it will.
-            long additionalScans = 0;
-            if (recordsWhileBuilding != null && recordsWhileBuilding.size() > 0) {
-                additionalScans += (long)recordsWhileBuilding.size();
+            int additionalScans = 0;
+            if (recordsWhileBuilding != null && !recordsWhileBuilding.isEmpty()) {
+                additionalScans += recordsWhileBuilding.size();
             }
 
             try (FDBRecordContext context = openContext()) {
-                IndexBuildState indexBuildState = context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_INDEX_BUILD_STATE,
-                        IndexBuildState.loadIndexBuildStateAsync(recordStore, index));
+                IndexBuildState indexBuildState = Objects.requireNonNull(context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_INDEX_BUILD_STATE,
+                        IndexBuildState.loadIndexBuildStateAsync(recordStore, index)));
                 IndexState indexState = indexBuildState.getIndexState();
                 if (isAlwaysReadable) {
                     assertEquals(IndexState.READABLE, indexState);
@@ -392,35 +382,34 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     }
 
     @Nonnull
-    List<TestRecords1Proto.MySimpleRecord> updated(@Nonnull List<TestRecords1Proto.MySimpleRecord> origRecords, @Nonnull List<TestRecords1Proto.MySimpleRecord> addedRecords) {
-        Map<Long, TestRecords1Proto.MySimpleRecord> lastRecordWithKey = new HashMap<>();
-        for (TestRecords1Proto.MySimpleRecord record : origRecords) {
-            if (record.hasRecNo()) {
-                lastRecordWithKey.put(record.getRecNo(), record);
-            } else {
-                lastRecordWithKey.put(null, record);
+    <M extends Message> List<M> updated(@Nonnull OnlineIndexerTestRecordHandler<M> recordHandler, @Nonnull List<M> origRecords, @Nullable List<M> addedRecords, @Nullable List<Tuple> deletedKeys) {
+        if ((addedRecords == null || addedRecords.isEmpty()) && (deletedKeys == null || deletedKeys.isEmpty())) {
+            return origRecords;
+        }
+        Map<Tuple, M> lastRecordWithKey = new HashMap<>();
+        for (M rec : origRecords) {
+            lastRecordWithKey.put(recordHandler.getPrimaryKey(rec), rec);
+        }
+        if (addedRecords != null) {
+            for (M rec : addedRecords) {
+                lastRecordWithKey.put(recordHandler.getPrimaryKey(rec), rec);
             }
         }
-        for (TestRecords1Proto.MySimpleRecord record : addedRecords) {
-            if (record.hasRecNo()) {
-                lastRecordWithKey.put(record.getRecNo(), record);
-            } else {
-                lastRecordWithKey.put(null, record);
+        if (deletedKeys != null) {
+            for (Tuple deletedKey : deletedKeys) {
+                lastRecordWithKey.remove(deletedKey);
             }
         }
-        List<TestRecords1Proto.MySimpleRecord> updatedRecords = new ArrayList<>(lastRecordWithKey.size());
-        for (TestRecords1Proto.MySimpleRecord record : lastRecordWithKey.values()) {
-            updatedRecords.add(record);
-        }
-        updatedRecords.sort(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo));
+        List<M> updatedRecords = new ArrayList<>(lastRecordWithKey.values());
+        updatedRecords.sort(Comparator.comparing(recordHandler::getPrimaryKey));
         return updatedRecords;
     }
 
-    FDBStoredRecord<Message> createStoredMessage(@Nonnull TestRecords1Proto.MySimpleRecord record) {
+    <M extends Message> FDBStoredRecord<Message> createStoredMessage(@Nonnull OnlineIndexerTestRecordHandler<M> recordHandler, @Nonnull M rec) {
         return FDBStoredRecord.newBuilder()
-                .setPrimaryKey(Tuple.from(record.getRecNo()))
-                .setRecordType(recordStore.getRecordMetaData().getRecordType("MySimpleRecord"))
-                .setRecord(record)
+                .setPrimaryKey(recordHandler.getPrimaryKey(rec))
+                .setRecordType(recordStore.getRecordMetaData().getRecordType(rec.getDescriptorForType().getName()))
+                .setRecord(rec)
                 .build();
     }
 }
