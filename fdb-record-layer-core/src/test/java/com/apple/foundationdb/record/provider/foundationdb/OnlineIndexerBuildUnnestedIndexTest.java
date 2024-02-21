@@ -68,7 +68,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Tests for building indexes on an unnested record type.
  */
-@SuppressWarnings("try")
 abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
     @Nonnull
     public static final String UNNESTED = "UnnestedMapType";
@@ -105,22 +104,26 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
             return TestRecordsNestedMapProto.getDescriptor();
         }
 
-        @Nonnull
-        @Override
-        public FDBRecordStoreTestBase.RecordMetaDataHook baseHook(final boolean splitLongRecords, @Nullable final Index sourceIndex) {
+        FDBRecordStoreTestBase.RecordMetaDataHook addUnnestedType() {
             return metaDataBuilder -> {
-                metaDataBuilder.setSplitLongRecords(splitLongRecords);
-
                 final UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType(UNNESTED);
                 unnestedBuilder.addParentConstituent(PARENT_CONSTITUENT, metaDataBuilder.getRecordType("OuterRecord"));
                 unnestedBuilder.addNestedConstituent(ENTRY_CONSTITUENT, TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(), PARENT_CONSTITUENT,
                         field("map").nest(field("entry", FanType.FanOut)));
 
+            };
+        }
+
+        @Nonnull
+        @Override
+        public FDBRecordStoreTestBase.RecordMetaDataHook baseHook(final boolean splitLongRecords, @Nullable final Index sourceIndex) {
+            return addUnnestedType().andThen(metaDataBuilder -> {
+                metaDataBuilder.setSplitLongRecords(splitLongRecords);
                 if (sourceIndex != null) {
                     // TODO: We should consider whether we are okay with source indexes on the unnested record type or not
                     metaDataBuilder.addIndex("OuterRecord", sourceIndex);
                 }
-            };
+            });
         }
 
         @Nonnull
@@ -150,6 +153,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     private void assertUnnestedKeyQueryPlanFails() {
         try (FDBRecordContext context = openContext()) {
             assertThrows(RecordCoreException.class, () -> recordStore.planQuery(UNNESTED_KEY_QUERY));
+            context.commit();
         }
     }
 
@@ -193,6 +197,29 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         return randomOtherRecord(r, r.nextLong());
     }
 
+    private void addRandomUpdate(@Nonnull Random r, @Nonnull Message rec, @Nonnull List<Message> recordsWhileBuilding, @Nonnull List<Tuple> deleteWhileBuilding) {
+        final OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
+        Tuple primaryKey = recordHandler.getPrimaryKey(rec);
+        long recId = primaryKey.getLong(0);
+        double choice = r.nextDouble();
+        if (choice < 0.25) {
+            // Update, make an outer record
+            recordsWhileBuilding.add(randomOuterRecord(r, recId));
+        } else if (choice < 0.5) {
+            // Update, make an other record
+            recordsWhileBuilding.add(randomOtherRecord(r, recId));
+        } else if (choice < 0.7) {
+            // Delete
+            deleteWhileBuilding.add(primaryKey);
+        } else if (choice < 0.8) {
+            // Generate a new outer record
+            recordsWhileBuilding.add(randomOuterRecord(r));
+        } else if (choice < 0.9) {
+            // generate a new other record
+            recordsWhileBuilding.add(randomOtherRecord(r));
+        }
+    }
+
     @Nonnull
     private List<IndexEntry> unnestedEntriesForOuterRecords(@Nonnull Index index,
                                                             @Nonnull List<? extends Message> records) {
@@ -216,7 +243,8 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     void singleValueIndexRebuild(@Nonnull List<Message> records,
                                  @Nullable List<Message> recordsWhileBuilding,
                                  @Nullable List<Tuple> deleteWhileBuilding,
-                                 int agents, boolean overlap) {
+                                 int agents, boolean overlap,
+                                 @Nullable Index sourceIndex) {
         final OnlineIndexerTestRecordHandler<Message> recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
         final Index index = new Index("keyOtherValueIndex", concat(field(ENTRY_CONSTITUENT).nest("key"), field(PARENT_CONSTITUENT).nest("other_id"), field(ENTRY_CONSTITUENT).nest("value")));
         final Runnable beforeBuild = this::assertUnnestedKeyQueryPlanFails;
@@ -244,11 +272,20 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
                         assertEquals(expectedEntriesForKey, queriedEntries);
                     }
                 }
+
+                context.commit();
             }
         };
 
         singleRebuild(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, true,
-                index, null, beforeBuild, afterBuild, afterReadable);
+                index, sourceIndex, beforeBuild, afterBuild, afterReadable);
+    }
+
+    void singleValueIndexRebuild(@Nonnull List<Message> records,
+                                 @Nullable List<Message> recordsWhileBuilding,
+                                 @Nullable List<Tuple> deleteWhileBuilding,
+                                 int agents, boolean overlap) {
+        singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, null);
     }
 
     void singleValueIndexRebuild(@Nonnull List<Message> records,
@@ -287,6 +324,16 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
                 .limit(20)
                 .collect(Collectors.toList());
         singleValueIndexRebuild(records, null, null);
+    }
+
+    @Test
+    void simpleTenFromSourceIndex() {
+        final Random r = new Random(0xfdb05ca1eL);
+        List<Message> records = Stream.generate(() -> randomOuterRecord(r))
+                .limit(10)
+                .collect(Collectors.toList());
+        final Index sourceIndex = new Index("OuterRecord$rec_id", "rec_id");
+        singleValueIndexRebuild(records, null, null, 1, false, sourceIndex);
     }
 
     @Test
@@ -329,7 +376,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
     @Test
     @Tag(Tags.Slow)
-    void simpleFiveHundredWithDeletesAndUpdates() {
+    void fiveHundredWithDeletesAndUpdates() {
         final Random r = new Random(0x13370fdbL);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(500)
@@ -362,31 +409,29 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
                 .limit(500)
                 .collect(Collectors.toList());
 
-        final OnlineIndexerTestRecordHandler<Message> recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
         List<Message> recordsWhileBuilding = new ArrayList<>();
         List<Tuple> deleteWhileBuilding = new ArrayList<>();
-        records.forEach(rec -> {
-            Tuple primaryKey = recordHandler.getPrimaryKey(rec);
-            long recId = primaryKey.getLong(0);
-            double choice = r.nextDouble();
-            if (choice < 0.25) {
-                // Update, make an outer record
-                recordsWhileBuilding.add(randomOuterRecord(r, recId));
-            } else if (choice < 0.5) {
-                // Update, make an other record
-                recordsWhileBuilding.add(randomOtherRecord(r, recId));
-            } else if (choice < 0.7) {
-                // Delete
-                deleteWhileBuilding.add(primaryKey);
-            } else if (choice < 0.8) {
-                // Generate a new outer record
-                recordsWhileBuilding.add(randomOuterRecord(r));
-            } else if (choice < 0.9) {
-                // generate a new other record
-                recordsWhileBuilding.add(randomOtherRecord(r));
-            }
-        });
+        for (Message rec : records) {
+            addRandomUpdate(r, rec, recordsWhileBuilding, deleteWhileBuilding);
+        }
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding);
+    }
+
+    @Test
+    @Tag(Tags.Slow)
+    void sixHundredOfMixedTypesWithDeletesUpdatesAndSourceIndex() {
+        final Random r = new Random(0x50cce4L);
+        List<Message> records = Stream.generate(() -> r.nextBoolean() ? randomOuterRecord(r) : randomOtherRecord(r))
+                .limit(600)
+                .collect(Collectors.toList());
+
+        List<Message> recordsWhileBuilding = new ArrayList<>();
+        List<Tuple> deleteWhileBuilding = new ArrayList<>();
+        for (Message rec : records) {
+            addRandomUpdate(r, rec, recordsWhileBuilding, deleteWhileBuilding);
+        }
+        final Index sourceIndex = new Index("OuterRecord$rec_id", "rec_id");
+        singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false, sourceIndex);
     }
 
     @Tag(Tags.Slow)
@@ -411,21 +456,58 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
         List<Message> recordsWhileBuilding = new ArrayList<>();
         List<Tuple> deleteWhileBuilding = new ArrayList<>();
-        records.forEach(rec -> {
-            TestRecordsNestedMapProto.OuterRecord outerRecord = (TestRecordsNestedMapProto.OuterRecord)rec;
-            double choice = r.nextDouble();
-            if (choice < 0.4) {
-                // Update an existing record
-                recordsWhileBuilding.add(randomOuterRecord(r, outerRecord.getRecId()));
-            } else if (choice < 0.5) {
-                // Delete an existing record
-                deleteWhileBuilding.add(Tuple.from(outerRecord.getRecId()));
-            } else if (choice < 0.7) {
-                // Insert a brand new record
-                recordsWhileBuilding.add(randomOuterRecord(r));
-            }
-        });
+        for (Message rec : records) {
+            addRandomUpdate(r, rec, recordsWhileBuilding, deleteWhileBuilding);
+        }
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 5, overlap);
+    }
+
+    @Tag(Tags.Slow)
+    @Test
+    void parallelBuildSixHundredWithDeletesAndUpdatesFromIndex() {
+        final Random r = new Random(0x50caL);
+        List<Message> records = LongStream.range(0L, 600L)
+                .mapToObj(id -> randomOuterRecord(r, id))
+                .collect(Collectors.toList());
+
+        List<Message> recordsWhileBuilding = new ArrayList<>();
+        List<Tuple> deleteWhileBuilding = new ArrayList<>();
+        for (Message rec : records) {
+            addRandomUpdate(r, rec, recordsWhileBuilding, deleteWhileBuilding);
+        }
+        final Index sourceIndex = new Index("OuterRecord$rec_id", "rec_id");
+        singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 5, true, sourceIndex);
+    }
+
+    @Test
+    void doNotAllowBuildingIndexFromUnnestedIndex() {
+        final OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
+        final Index sourceIndex = new Index("sourceIndex", field(PARENT_CONSTITUENT).nest("rec_id"));
+        final Index targetIndex = new Index("targetIndex", concat(field("entry").nest("key"), field(PARENT_CONSTITUENT).nest("rec_id")));
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.addUnnestedType().andThen(metaDataBuilder -> {
+            metaDataBuilder.addIndex(UNNESTED, sourceIndex);
+            metaDataBuilder.addIndex(UNNESTED, targetIndex);
+        });
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder = recordStore.asBuilder();
+            context.commit();
+        }
+
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setIndex(targetIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex(sourceIndex.getName())
+                        .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setForbidRecordScan(true)
+                )
+                .build()) {
+            assertThrows(IndexingBase.ValidationException.class, indexer::buildIndex);
+        }
     }
 
     public static class Safe extends OnlineIndexerBuildUnnestedIndexTest {
