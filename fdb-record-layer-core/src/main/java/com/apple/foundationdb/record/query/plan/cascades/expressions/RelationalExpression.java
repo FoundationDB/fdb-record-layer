@@ -125,12 +125,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         Quantifier.ForEach quantifier;
         if (queriedRecordTypes.isEmpty()) {
             baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
-                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                    new Type.AnyRecord(false),
                     new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
             final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
-                    Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                    new Type.AnyRecord(false),
                     new AccessHints()));
             baseRef = GroupExpressionRef.of(
                     new LogicalTypeFilterExpression(

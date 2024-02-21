@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyRecordType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PArrayType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PEnumType;
@@ -1260,6 +1261,132 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
+     * Special {@link Type.Record} that is undefined.
+     */
+    class AnyRecord implements Type {
+        private final boolean isNullable;
+
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        public AnyRecord(final boolean isNullable) {
+            this.isNullable = isNullable;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable());
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.RECORD;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public AnyRecord withNullability(final boolean newIsNullable) {
+            if (newIsNullable == isNullable) {
+                return this;
+            } else {
+                return new AnyRecord(newIsNullable);
+            }
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            throw new UnsupportedOperationException("type any cannot be represented in protobuf");
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (this == obj) {
+                return true;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final var otherType = (Type)obj;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return getTypeCode().toString();
+        }
+
+        @Nonnull
+        @Override
+        public PAnyRecordType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PAnyRecordType.newBuilder()
+                    .setIsNullable(isNullable)
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PType.newBuilder().setAnyRecordType(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static AnyRecord fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PAnyRecordType anyTypeProto) {
+            Verify.verify(anyTypeProto.hasIsNullable());
+            return new AnyRecord(anyTypeProto.getIsNullable());
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PAnyRecordType, AnyRecord> {
+            @Nonnull
+            @Override
+            public Class<PAnyRecordType> getProtoMessageClass() {
+                return PAnyRecordType.class;
+            }
+
+            @Nonnull
+            @Override
+            public AnyRecord fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PAnyRecordType anyTypeProto) {
+                return AnyRecord.fromProto(serializationContext, anyTypeProto);
+            }
+        }
+    }
+
+    /**
      * An enumeration type.
      */
     class Enum implements Type {
@@ -1675,6 +1802,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         public Map<String, Field> getFieldNameFieldMap() {
             return fieldNameFieldMapSupplier.get();
         }
+
 
         /**
          * Computes a mapping from {@link Field} names to their {@link Type}s.

@@ -170,7 +170,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         var qun =
                 Quantifier.forEach(GroupExpressionRef.of(
                         new FullUnorderedScanExpression(allRecordTypes,
-                                Type.Record.fromFieldDescriptorsMap(metadata.getFieldDescriptorMapFromNames(allRecordTypes)),
+                                new Type.AnyRecord(false),
                                 new AccessHints())));
 
         qun = Quantifier.forEach(GroupExpressionRef.of(

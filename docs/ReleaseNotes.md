@@ -41,6 +41,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.456.0
+
+* **Bug fix** OnlineIndexer.IndexingPolicy.toBuilder is missing some elements [(Issue #2521)](https://github.com/FoundationDB/fdb-record-layer/issues/2521)
+
 ### 3.4.455.0
 
 * **Bug fix** Indexes on synthetic types are now included in `deleteRecordsWhere` operations [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)

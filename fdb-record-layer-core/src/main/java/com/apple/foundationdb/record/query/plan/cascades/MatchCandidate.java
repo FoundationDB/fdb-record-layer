@@ -448,7 +448,7 @@ public interface MatchCandidate {
                 Quantifier.forEach(
                         GroupExpressionRef.of(
                                 new FullUnorderedScanExpression(availableRecordTypeNames,
-                                        Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(availableRecordTypes)),
+                                        new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
         return GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
