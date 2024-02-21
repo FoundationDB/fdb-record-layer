@@ -25,6 +25,8 @@ import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
+import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
@@ -32,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +42,7 @@ import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +50,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -248,6 +253,69 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
             records.forEach(recordStore::saveRecord);
             context.commit();
         }
+    }
+
+    @Nonnull
+    protected List<Message> populateNestedMapData(final long numRecords) {
+        assertNotNull(metaData, "meta-data must be opened to populate data");
+        final List<Message> data = new ArrayList<>();
+        for (long i = 0; i < numRecords; i++) {
+            data.add(TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                    .setRecId(2 * i)
+                    .setOtherId(i % 2)
+                    .setMap(TestRecordsNestedMapProto.MapRecord.newBuilder()
+                            .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                    .setKey("a")
+                                    .setIntValue(i))
+                            .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                    .setKey("b")
+                                    .setIntValue(i))
+                            .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                    .setKey("c")
+                                    .setIntValue(i))
+                    )
+                    .build()
+            );
+            data.add(TestRecordsNestedMapProto.OtherRecord.newBuilder()
+                    .setRecId(2 * i + 1)
+                    .setOtherId(i % 2)
+                    .build()
+            );
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            data.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+        return data;
+    }
+
+    @Nonnull
+    protected List<Message> populateJoinedData(final long numRecords) {
+        assertNotNull(metaData, "meta-data must be opened to populate data");
+        final List<Message> data = new ArrayList<>();
+        for (int i = 0; i < numRecords; i++) {
+            final int numValue = i % 5;
+            data.add(TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
+                    .setRecNo(i)
+                    .setNumValue(numValue)
+                    .setNumValue2(i % 3)
+                    .setStrValue(i % 2 == 0 ? "even" : "odd")
+                    .setOtherRecNo(1000 + i)
+                    .build());
+
+            data.add(TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
+                    .setRecNo(1000 + i)
+                    .setNumValue(numValue)
+                    .setNumValue3(i % 5)
+                    .build());
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            data.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+        return data;
     }
 
     protected static FDBRecordStoreTestBase.RecordMetaDataHook allIndexesHook(List<Index> indexes) {
