@@ -67,12 +67,12 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
-    private final Type.Record flowedType;
+    private final Type flowedType;
 
     @Nonnull
     final AccessHints accessHints;
 
-    public FullUnorderedScanExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Type.Record flowedType, @Nonnull final AccessHints accessHints) {
+    public FullUnorderedScanExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Type flowedType, @Nonnull final AccessHints accessHints) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.accessHints = accessHints;

@@ -111,7 +111,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
         return Quantifier.forEach(GroupExpressionRef.of(
                 new FullUnorderedScanExpression(allRecordTypes,
-                        Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                        new Type.AnyRecord(false),
                         hints)));
     }
 
