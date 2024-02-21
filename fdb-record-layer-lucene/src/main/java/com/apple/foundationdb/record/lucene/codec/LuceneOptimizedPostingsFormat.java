@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import com.google.auto.service.AutoService;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
@@ -27,7 +30,8 @@ import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.codecs.blocktree.BlockTreeTermsReader;
 import org.apache.lucene.codecs.lucene84.Lucene84PostingsFormat;
-import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReader;
+import org.apache.lucene.codecs.lucene84.LuceneOptimizedPostingsReaderByBlocks;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Terms;
@@ -40,7 +44,9 @@ import java.util.Iterator;
  */
 @AutoService(PostingsFormat.class)
 public class LuceneOptimizedPostingsFormat extends PostingsFormat {
-    PostingsFormat postingsFormat;
+    public static final String POSTINGS_EXTENSION = "fpf";
+    // This is the inner format that is used when LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED is FALSE
+    private final PostingsFormat postingsFormat;
     static boolean allowCheckDataIntegrity = true;
 
     public LuceneOptimizedPostingsFormat() {
@@ -57,14 +63,34 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public FieldsConsumer fieldsConsumer(final SegmentWriteState state) throws IOException {
-        return postingsFormat.fieldsConsumer(state);
+        final FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(state.directory);
+
+        // Use FALSE as the default OPTIMIZED_POSTINGS_FORMAT_ENABLED option, for backwards compatibility
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
+            // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
+            state.directory.createOutput(IndexFileNames.segmentFileName(state.segmentInfo.name, "",
+                            LuceneOptimizedPostingsFormat.POSTINGS_EXTENSION), state.context)
+                    .close();
+            LuceneOptimizedPostingsWriter postingsWriter = new LuceneOptimizedPostingsWriter(state);
+            return new LuceneOptimizedPostingsFieldsConsumer(state, postingsWriter);
+        } else {
+            return postingsFormat.fieldsConsumer(state);
+        }
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public FieldsProducer fieldsProducer(SegmentReadState state) throws IOException {
-        return new LazyFieldsProducer(state);
+        final FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(state.directory);
+
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_POSTINGS_FORMAT_ENABLED, false)) {
+            LuceneOptimizedPostingsReader postingsReader = new LuceneOptimizedPostingsReader(state);
+            return new LuceneOptimizedPostingsFieldsProducer(state, postingsReader);
+        } else {
+            return new LazyFieldsProducer(state);
+        }
     }
 
     private static class LazyFieldsProducer extends FieldsProducer {
@@ -73,7 +99,7 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
 
         private LazyFieldsProducer(final SegmentReadState state) {
             fieldsProducer = LazyCloseable.supply(() -> {
-                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReader(state);
+                PostingsReaderBase postingsReader = new LuceneOptimizedPostingsReaderByBlocks(state);
                 return new BlockTreeTermsReader(postingsReader, state);
             });
         }

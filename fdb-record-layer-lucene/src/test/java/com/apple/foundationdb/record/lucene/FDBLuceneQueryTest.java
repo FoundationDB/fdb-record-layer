@@ -202,7 +202,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), LuceneIndexTypes.LUCENE);
     private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), LuceneIndexTypes.LUCENE);
 
-    private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")), LuceneIndexTypes.LUCENE);
+    private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text"))
+                    .groupBy(field("group")), LuceneIndexTypes.LUCENE);
 
     private ExecutorService executorService = null;
 
