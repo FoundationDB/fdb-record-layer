@@ -11,6 +11,8 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 Support for the Protobuf 2 runtime has been removed as of this version. All artifacts now use Protobuf version 3. Note that the choice of Protobuf runtime version is distinct from the choice of Protobuf message syntax, and that users wishing to retain Protobuf 2 behavior can still achieve the same semantics (including [optional field behavior]()) as long as they specify the syntax on their Protobuf file as `proto2`. Note that the Maven artifacts using Protobuf version 3 used to be suffixed with `-pb3`. Existing Protobuf 3 users must remove that suffix from their dependency declarations (e.g., `fdb-record-layer-core-pb3` should now be `fdb-record-layer-core`).
 
+Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType` were changed in response to [Issue #2512](https://github.com/FoundationDB/fdb-record-layer/issues/2512). It was identified that extraneous synthetic records were being produced when one of the children was empty. This did not match the semantics of `FanOut` expressions, and so the unnesting calculation was changed. This means that any index on an existing `UnnestedRecordType` requires rebuilding to clear out any such entries from older indexes.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -18,7 +20,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Use Locale.ROOT when parsing lucene queries [(Issue #2503)](https://github.com/FoundationDB/fdb-record-layer/issues/2503)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Use metrics instead of info log when rebalancing lucene partitions [(Issue #2509)](https://github.com/FoundationDB/fdb-record-layer/issues/2509)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +40,18 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 
 // end next release
 -->
+
+### 3.4.456.0
+
+* **Bug fix** OnlineIndexer.IndexingPolicy.toBuilder is missing some elements [(Issue #2521)](https://github.com/FoundationDB/fdb-record-layer/issues/2521)
+
+### 3.4.455.0
+
+* **Bug fix** Indexes on synthetic types are now included in `deleteRecordsWhere` operations [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
+* **Bug fix** Use Locale.ROOT when parsing lucene queries [(Issue #2503)](https://github.com/FoundationDB/fdb-record-layer/issues/2503)
+* **Feature** Unnested record types now support range deletion via `deleteRecordsWhere` [(Issue #2502)](https://github.com/FoundationDB/fdb-record-layer/issues/2502)
+* **Feature** Disabled indexes no longer participate in `deleteRecordsWhere` operations [(Issue #2505)](https://github.com/FoundationDB/fdb-record-layer/issues/2505)
+* **Breaking change** Unnested record types no longer produce synthetic records for empty repeated fields [(Issue #2512)](https://github.com/FoundationDB/fdb-record-layer/issues/2512)
 
 ### 3.4.454.0
 

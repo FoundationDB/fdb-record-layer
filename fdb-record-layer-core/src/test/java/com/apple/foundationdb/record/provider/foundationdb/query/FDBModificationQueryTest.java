@@ -123,7 +123,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         var qun =
                                 Quantifier.forEach(GroupExpressionRef.of(
                                         new FullUnorderedScanExpression(allRecordTypes,
-                                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                                new Type.AnyRecord(false),
                                                 new AccessHints())));
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(
@@ -431,7 +431,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         var qun =
                 Quantifier.forEach(GroupExpressionRef.of(
                         new FullUnorderedScanExpression(allRecordTypes,
-                                Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                                new Type.AnyRecord(false),
                                 new AccessHints())));
 
         qun = Quantifier.forEach(GroupExpressionRef.of(
@@ -495,7 +495,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         var qun =
                                 Quantifier.forEach(GroupExpressionRef.of(
                                         new FullUnorderedScanExpression(allRecordTypes,
-                                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                                new Type.AnyRecord(false),
                                                 new AccessHints())));
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(
@@ -685,7 +685,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         var qun =
                                 Quantifier.forEach(GroupExpressionRef.of(
                                         new FullUnorderedScanExpression(allRecordTypes,
-                                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                                new Type.AnyRecord(false),
                                                 new AccessHints())));
 
                         qun = Quantifier.forEach(GroupExpressionRef.of(
@@ -811,7 +811,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
                                     new FullUnorderedScanExpression(allRecordTypes,
-                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new Type.AnyRecord(false),
                                             new AccessHints())));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(
@@ -855,7 +855,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     var qun =
                             Quantifier.forEach(GroupExpressionRef.of(
                                     new FullUnorderedScanExpression(allRecordTypes,
-                                            Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                            new Type.AnyRecord(false),
                                             new AccessHints())));
 
                     qun = Quantifier.forEach(GroupExpressionRef.of(

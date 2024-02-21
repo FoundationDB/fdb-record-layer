@@ -176,7 +176,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         var qun =
                 Quantifier.forEach(GroupExpressionRef.of(
                         new FullUnorderedScanExpression(allRecordTypes,
-                                Type.Record.fromFieldDescriptorsMap(cascadesPlanner.getRecordMetaData().getFieldDescriptorMapFromNames(allRecordTypes)),
+                                new Type.AnyRecord(false),
                                 new AccessHints())));
 
         qun = Quantifier.forEach(GroupExpressionRef.of(

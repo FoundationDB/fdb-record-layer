@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -33,6 +35,7 @@ import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
@@ -57,6 +60,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -85,6 +89,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -127,16 +132,16 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
 
             int expectedNum = 3;
             for (FDBStoredRecord<Message> storedRecord : recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join()) {
-                TestRecordsWithHeaderProto.MyRecord record = parseMyRecord(storedRecord.getRecord());
-                assertEquals(2, record.getHeader().getRecNo());
-                assertEquals(expectedNum++, record.getHeader().getNum());
+                TestRecordsWithHeaderProto.MyRecord rec = parseMyRecord(storedRecord.getRecord());
+                assertEquals(2, rec.getHeader().getRecNo());
+                assertEquals(expectedNum++, rec.getHeader().getNum());
             }
             assertEquals(7, expectedNum);
             expectedNum = 3;
             for (FDBIndexedRecord<Message> indexedRecord : recordStore.scanIndexRecords("MyRecord$str_value").asList().join()) {
-                TestRecordsWithHeaderProto.MyRecord record = parseMyRecord(indexedRecord.getRecord());
-                assertEquals(2, record.getHeader().getRecNo());
-                assertEquals(expectedNum++, record.getHeader().getNum());
+                TestRecordsWithHeaderProto.MyRecord rec = parseMyRecord(indexedRecord.getRecord());
+                assertEquals(2, rec.getHeader().getRecNo());
+                assertEquals(expectedNum++, rec.getHeader().getNum());
             }
             assertEquals(7, expectedNum);
             commit(context);
@@ -306,8 +311,8 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             }
             for (String path : paths) {
                 int expectedSum = saved.stream()
-                        .filter(record -> record.getHeader().getPath().equals(path))
-                        .mapToInt(record -> record.getHeader().getNum())
+                        .filter(rec -> rec.getHeader().getPath().equals(path))
+                        .mapToInt(rec -> rec.getHeader().getNum())
                         .sum();
                 assertEquals(expectedSum, getGroupedSumByPath(sumIndex, path));
                 sumForPath.put(path, expectedSum);
@@ -355,6 +360,114 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                             Query.field("num").equalsValue(myRecord.getHeader().getNum())))));
             assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(sumIndex));
             assertNotNull(recordStore.loadRecord(primaryKey), "record should not have been deleted by unsuccessful delete where");
+        }
+    }
+
+    @ParameterizedTest(name = "testDeleteWherePermutedMinMax[max={0}]")
+    @BooleanSource
+    void testDeleteWherePermutedMinMax(boolean max) throws Exception {
+        final Random random = new Random();
+        // Equivalent of to an index on:
+        //    path, min/max(rec_no), num
+        // That is, the aggregate is grouped by (path, num) but ordered first by path, then the aggregate, then num
+        final Index extremumIndex = new Index("MyRecord$extremum_recno_by_num_by_path",
+                new GroupingKeyExpression(field("header").nest(concatenateFields("path", "num", "rec_no")), 1),
+                max ? IndexTypes.PERMUTED_MAX : IndexTypes.PERMUTED_MIN,
+                Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
+        RecordMetaDataHook hook = metaData -> {
+            final RecordTypeBuilder recordType = metaData.getRecordType("MyRecord");
+            recordType.setPrimaryKey(field("header").nest(concatenateFields("path", "num", "rec_no")));
+            metaData.addIndex(recordType, extremumIndex);
+        };
+
+        final List<String> paths = List.of("a", "b", "c", "d");
+        final List<TestRecordsWithHeaderProto.MyRecord> saved = new ArrayList<>();
+        final Map<String, Map<Integer, Long>> extremeRecNosForPath = new HashMap<>();
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            final long maxRecNo = 20L;
+            for (String path : paths) {
+                for (int recNo = 0; recNo < maxRecNo; recNo++) {
+                    saved.add(saveHeaderRecord(recNo, path, random.nextInt(5), "str_value"));
+                }
+            }
+            for (String path : paths) {
+                Map<Integer, Long> forPath = new HashMap<>();
+                saved.stream()
+                        .filter(rec -> rec.getHeader().getPath().equals(path))
+                        .forEach(rec -> {
+                            int num = rec.getHeader().getNum();
+                            long recNo = rec.getHeader().getRecNo();
+                            forPath.compute(num, (key, existing) -> existing == null ? recNo : (max ? Math.max(recNo, existing) : Math.min(recNo, existing)));
+                        });
+                extremeRecNosForPath.put(path, forPath);
+            }
+            commit(context);
+        }
+
+        final String pathToDelete = paths.get(random.nextInt(paths.size()));
+
+        // Attempt to delete a path and num. This should fail, as it does not align with the permuted min/max index (because of the permuted size option)
+        // Note that it _would_ align if we didn't permute the values here
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+
+            final QueryComponent component = Query.field("header").matches(Query.and(
+                    Query.field("path").equalsValue(pathToDelete),
+                    Query.field("num").equalsValue(2)
+            ));
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class, () -> recordStore.deleteRecordsWhere(component));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(extremumIndex));
+
+            commit(context);
+        }
+
+        // Delete single path
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+
+            recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue(pathToDelete)));
+
+            List<TestRecordsWithHeaderProto.MyRecord> remaining = queryMyRecords(RecordQuery.newBuilder().setRecordType("MyRecord").build());
+            remaining.forEach(remainingRecord -> assertNotEquals(pathToDelete, remainingRecord.getHeader().getPath(),
+                    () -> String.format("record with path %s should have been deleted: %s", pathToDelete, remainingRecord)));
+            assertThat(remaining, containsInAnyOrder(saved.stream()
+                    .filter(rec -> !rec.getHeader().getPath().equals(pathToDelete))
+                    .map(Matchers::equalTo)
+                    .collect(Collectors.toList())));
+
+            for (String path : paths) {
+                // When scanned BY_GROUP, the index keeps one entry (containing the extremum rec_no for each group). Make sure the ones for the deleted path are gone
+                try (RecordCursor<IndexEntry> entryCursor = recordStore.scanIndex(extremumIndex, IndexScanType.BY_GROUP, TupleRange.allOf(Tuple.from(path)), null, ScanProperties.FORWARD_SCAN)) {
+                    Map<Integer, Long> extremeByNum = new HashMap<>();
+                    for (RecordCursorResult<IndexEntry> result = entryCursor.getNext(); result.hasNext(); result = entryCursor.getNext()) {
+                        IndexEntry entry = Objects.requireNonNull(result.get());
+                        assertNull(extremeByNum.put((int)entry.getKey().getLong(2), entry.getKey().getLong(1)));
+                    }
+                    if (path.equals(pathToDelete)) {
+                        assertThat(extremeByNum.entrySet(), empty());
+                    } else {
+                        assertEquals(extremeRecNosForPath.get(path), extremeByNum);
+                    }
+                }
+                // When scanned BY_VALUE, the index keeps one entry per record. Make sure the ones for the deleted path are gone
+                try (RecordCursor<FDBIndexedRecord<Message>> recordCursor = recordStore.scanIndexRecords(extremumIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(path)), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)) {
+                    List<TestRecordsWithHeaderProto.MyRecord> recordsFromIndex = recordCursor
+                            .map(rec -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                            .asList()
+                            .get();
+                    if (path.equals(pathToDelete)) {
+                        assertThat(recordsFromIndex, empty());
+                    } else {
+                        assertThat(recordsFromIndex, containsInAnyOrder(saved.stream()
+                                .filter(rec -> rec.getHeader().getPath().equals(path))
+                                .map(Matchers::equalTo)
+                                .collect(Collectors.toList())));
+                    }
+                }
+            }
+
+            commit(context);
         }
     }
 
@@ -714,6 +827,76 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             assertThat("index should have one entry for each non-deleted record",
                     recordStore.scanIndexRecords(splitStringIndex.getName()).map(indexedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(indexedRecord.getRecord()).build()).asList().get(),
                     containsInAnyOrder(recordsByPath.values().stream().map(Matchers::equalTo).collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    void testDeleteWhereSkipsDisabledIndexes() throws Exception {
+        final Index strValueIndex = new Index("MyRecord$path+str_value", concat(field("header").nest("path"), field("str_value")));
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            final RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("MyRecord");
+            typeBuilder.setPrimaryKey(field("header").nest(concatenateFields("path", "num", "rec_no")));
+            metaDataBuilder.addIndex(typeBuilder, strValueIndex);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordWithHeader(context, hook);
+            final String path = "foo";
+            Map<Integer, List<FDBStoredRecord<Message>>> recordsByNum = new HashMap<>();
+            for (int num = 0; num < 5; num++) {
+                List<FDBStoredRecord<Message>> records = new ArrayList<>();
+                for (int i = 0; i < 4; i++) {
+                    TestRecordsWithHeaderProto.MyRecord rec = TestRecordsWithHeaderProto.MyRecord.newBuilder()
+                            .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder()
+                                    .setNum(num)
+                                    .setPath(path)
+                                    .setRecNo(num * 100 + i)
+                                    .build())
+                            .setStrValue(i % 2 == 0 ? "even" : "odd")
+                            .build();
+                    records.add(recordStore.saveRecord(rec));
+                }
+                recordsByNum.put(num, records);
+            }
+
+            for (Map.Entry<Integer, List<FDBStoredRecord<Message>>> entry : recordsByNum.entrySet()) {
+                List<FDBStoredRecord<Message>> readRecords = recordStore.scanRecords(TupleRange.allOf(Tuple.from(path, entry.getKey())), null, ScanProperties.FORWARD_SCAN)
+                        .asList()
+                        .join();
+                assertThat(readRecords, hasSize(entry.getValue().size()));
+            }
+
+            final QueryComponent filter = Query.field("header").matches(
+                    Query.and(
+                            Query.field("path").equalsValue(path),
+                            Query.field("num").equalsValue(2)
+                    )
+            );
+            Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class, () -> recordStore.deleteRecordsWhere(filter));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(strValueIndex));
+
+            // Mark the index as write-only. The index still needs to be maintained, so the deleteRecordsWhere should still fail
+            recordStore.markIndexWriteOnly(strValueIndex).join();
+            err = assertThrows(Query.InvalidExpressionException.class, () -> recordStore.deleteRecordsWhere(filter));
+            assertThat(err.getMessage(), indexDoesNotSupportDeleteWhere(strValueIndex));
+
+            // Disable the index. The index is no longer maintained, so it's safe to skip this index when considering a deletion
+            recordStore.markIndexDisabled(strValueIndex).join();
+
+            // Now that the index is no longer maintained, the range delete should succeed
+            recordStore.deleteRecordsWhere(filter);
+            for (Map.Entry<Integer, List<FDBStoredRecord<Message>>> entry : recordsByNum.entrySet()) {
+                List<FDBStoredRecord<Message>> readRecords = recordStore.scanRecords(TupleRange.allOf(Tuple.from(path, entry.getKey())), null, ScanProperties.FORWARD_SCAN)
+                        .asList()
+                        .join();
+                if (entry.getKey() == 2) {
+                    assertThat(readRecords, empty());
+                } else {
+                    assertThat(readRecords, hasSize(entry.getValue().size()));
+                }
+            }
+
+            commit(context);
         }
     }
 

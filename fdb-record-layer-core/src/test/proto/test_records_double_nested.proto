@@ -36,12 +36,14 @@ message OuterRecord {
         }
         repeated OuterRecord.MiddleRecord.InnerRecord inner = 1;
         optional OtherRecord other = 2;
+        optional int64 other_int = 3;
     }
     optional int64 rec_no = 1 [(field).primary_key = true];
     optional MiddleRecord middle = 2;
     repeated MiddleRecord.InnerRecord inner = 3;
     optional OtherRecord other = 4;
     repeated MiddleRecord many_middle = 5;
+    optional int64 other_int = 6;
 }
 
 message OtherRecord {
@@ -52,6 +54,7 @@ message MiddleRecord {
     optional int64 rec_no = 1 [(field).primary_key = true];
     optional MiddleRecord middle = 2;
     optional OuterRecord.MiddleRecord other_middle = 3;
+    optional int64 other_int = 4;
 }
 
 message RecordTypeUnion {
