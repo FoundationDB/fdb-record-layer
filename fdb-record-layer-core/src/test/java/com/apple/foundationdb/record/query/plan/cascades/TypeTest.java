@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
@@ -28,6 +30,7 @@ import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -35,6 +38,7 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -264,5 +268,13 @@ class TypeTest {
     @ArgumentsSource(TypesProvider.class)
     void testTypeLifting(@Nullable final Object object, @Nonnull final Type expectedType) {
         Assertions.assertEquals(expectedType, Type.fromObject(object));
+    }
+
+    @Test
+    void testAnyRecordSerialization() {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        Type.AnyRecord r1 = new Type.AnyRecord(false);
+        Assertions.assertEquals(r1, Type.AnyRecord.fromProto(serializationContext, r1.toProto(serializationContext)));
     }
 }

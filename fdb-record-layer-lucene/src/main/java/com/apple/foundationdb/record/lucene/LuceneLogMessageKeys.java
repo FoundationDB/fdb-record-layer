@@ -76,9 +76,12 @@ public enum LuceneLogMessageKeys {
 
     //Lucene component
     COMPONENT,
-    NAME, GROUP,
+    NAME,
+    GROUP,
     PARTITION,
-    RECORD_TIMESTAMP;
+    RECORD_TIMESTAMP,
+    COUNT,
+    TOTAL_COUNT;
 
     private final String logKey;
 

@@ -194,6 +194,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)field).getName());
         }
 
+        //TODO if we encounter an AnyRecord we cannot ever correctly deal with this
         Verify.verify(fieldType instanceof Type.Record);
         final var message = (Message)field;
         final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
@@ -380,8 +381,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             columnsBuilder.add(Column.fromProto(serializationContext, columnProto));
         }
         final ImmutableList<Column<? extends Value>> columns = columnsBuilder.build();
-        Verify.verify(!columns.isEmpty());
-        return new RecordConstructorValue(columnsBuilder.build(),
+        return new RecordConstructorValue(columns,
                 (Type.Record)Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
     }
 
