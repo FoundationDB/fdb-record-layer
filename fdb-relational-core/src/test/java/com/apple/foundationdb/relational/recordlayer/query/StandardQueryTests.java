@@ -116,6 +116,25 @@ public class StandardQueryTests {
     }
 
     @Test
+    void testTypeConflictFields() throws Exception {
+        String typeConflictFieldsTemplate = "CREATE TYPE AS STRUCT StudentA (name string, id bigint)" +
+                " CREATE TYPE AS STRUCT StudentB (name string, id string)" +
+                " CREATE TABLE CLASSA (student StudentA, name string, PRIMARY KEY(name))" +
+                " CREATE TABLE CLASSB (student StudentB, name bigint, PRIMARY KEY(name))";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(typeConflictFieldsTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                var insertedRecord = insertTypeConflictRecords(statement);
+                Assertions.assertTrue(statement.execute("SELECT * FROM CLASSA"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRow(insertedRecord);
+                }
+            }
+        }
+    }
+
+    @Test
     void simpleSelect() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -835,12 +854,10 @@ public class StandardQueryTests {
                 final Message row2 = statement.getDataBuilder("FOO").setField("FOO", 43L).build();
                 cnt = statement.executeInsert("FOO", row2);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-
                 Assertions.assertTrue(statement.execute("SELECT * from FOO f WHERE f.FOO > 42"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(row2);
                 }
-
                 Assertions.assertTrue(statement.execute("SELECT * from FOO f WHERE FOO > 42"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(row2);
@@ -1034,6 +1051,15 @@ public class StandardQueryTests {
     }
 
     // todo (yhatem) add more tests for queries w and w/o index definition.
+
+    private Message insertTypeConflictRecords(RelationalStatement s) throws SQLException {
+        final var recBuilder = s.getDataBuilder("CLASSA")
+                .setField("NAME", "Sophia");
+        final Message rec = recBuilder.build();
+        int cnt = s.executeInsert("CLASSA", rec);
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+        return rec;
+    }
 
     private Message insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
         return insertRestaurantComplexRecord(s, 10L);

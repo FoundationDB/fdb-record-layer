@@ -78,7 +78,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -99,8 +98,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -109,7 +106,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.toList;
@@ -530,7 +526,6 @@ public final class ParserUtils {
             final String recordTypeName = identifierValue.getParts()[0];
             Assert.notNullUnchecked(recordTypeName);
             final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
-            final var allAvailableRecordTypes = meldTableTypes(context.asDql().getRecordLayerSchemaTemplate());
             final Set<String> allAvailableRecordTypeNames = context.asDql().getScannableRecordTypeNames();
             final Optional<Type> recordType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
             Assert.thatUnchecked(recordType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table %s", recordTypeName);
@@ -538,7 +533,9 @@ public final class ParserUtils {
                     recordTypeName, String.join(",", allAvailableRecordTypeNames)));
             // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
             return new LogicalTypeFilterExpression(recordTypeNameSet,
-                    Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypeNames, allAvailableRecordTypes, accessHintSet))),
+                    Quantifier.forEach(GroupExpressionRef.of(
+                            new FullUnorderedScanExpression(allAvailableRecordTypeNames,
+                                    new Type.AnyRecord(false), accessHintSet))),
                     recordType.get());
         } else {
             final String qualifier = identifierValue.getParts()[0];
@@ -770,36 +767,6 @@ public final class ParserUtils {
             return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false).map(ParserUtils::flattenRecordWithOneField).map(v -> (Value) v).collect(toList()));
         }
         return value;
-    }
-
-    // TODO (yhatem) get rid of this method once we change the way we model having multiple record types in scan operator.
-    @Nonnull
-    public static Type.Record meldTableTypes(@Nonnull final RecordLayerSchemaTemplate schemaTemplate) {
-        // todo (yhatem): should be removed once this is addressed https://github.com/FoundationDB/fdb-record-layer/issues/1884
-        final var meldedFields = schemaTemplate.getTables()
-                .stream()
-                .sorted(Comparator.comparing(RecordLayerTable::getName))
-                .filter(Objects::nonNull)
-                .flatMap(table -> table.getType().getFields().stream())
-                .collect(
-                        Collectors.groupingBy(
-                                Type.Record.Field::getFieldName,
-                                LinkedHashMap::new,
-                                Collectors.reducing(
-                                        null,
-                                        (field1, field2) -> {
-                                            if (field1 == null) {
-                                                return field2;
-                                            }
-                                            if (field2 == null) {
-                                                return field1;
-                                            }
-                                            if (field1.getFieldType().getJavaClass().equals(field2.getFieldType().getJavaClass())) {
-                                                return field1;
-                                            }
-                                            throw new IllegalArgumentException("cannot form union type of two fields sharing the same name with different types");
-                                        })));
-        return Type.Record.fromFields(new ArrayList<>(meldedFields.values()));
     }
 
     @Nonnull

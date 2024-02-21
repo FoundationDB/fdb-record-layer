@@ -66,7 +66,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -390,25 +389,27 @@ public final class IndexGenerator {
         }
     }
 
-    private void checkValidity(@Nonnull final List<? extends RelationalExpression> expressionRefs) {
+    private void checkValidity(@Nonnull final List<? extends RelationalExpression> expressions) {
 
         // there must be exactly one type full-unordered-scan, no joins, no self-joins.
-        final var numScans = expressionRefs.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
+        final var numScans = expressions.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
         Assert.thatUnchecked(numScans == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, %s iteration generator found", numScans == 0 ? "no" : "more than one");
 
         // there must be at most a single group by
-        final var numGroupBy = expressionRefs.stream().filter(r -> r instanceof GroupByExpression).count();
+        final var numGroupBy = expressions.stream().filter(r -> r instanceof GroupByExpression).count();
         Assert.thatUnchecked(numGroupBy <= 1, "Unsupported index definition, multiple group by expressions found", ErrorCode.UNSUPPORTED_OPERATION);
 
         // there can be only one aggregation in group by expression (maybe we can relax this in the future).
-        final var groupByContainsOneAggregation = expressionRefs.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
+        final var groupByContainsOneAggregation = expressions.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
         Assert.thatUnchecked(groupByContainsOneAggregation, "Unsupported index definition, found group by expression with more than one aggregation", ErrorCode.UNSUPPORTED_OPERATION);
 
         // result values of each operation must be simple, e.g. no arithmetic values.
-        final var allRecordValues = expressionRefs.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
+        final var allRecordValues = expressions.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
         Assert.thatUnchecked(allRecordValues, "Unsupported index definition, some operators return non-record values", ErrorCode.UNSUPPORTED_OPERATION);
 
-        final var allSimpleValues = expressionRefs.stream().allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue));
+        final var allSimpleValues = expressions.stream()
+                .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
+                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue));
         Assert.thatUnchecked(allSimpleValues, "Unsupported index definition, not all fields can be mapped to key expression in", ErrorCode.UNSUPPORTED_OPERATION);
     }
 
