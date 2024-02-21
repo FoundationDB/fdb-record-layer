@@ -21,14 +21,19 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -41,6 +46,7 @@ import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,7 +56,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -167,7 +175,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
                 builder.getMapBuilder().addEntryBuilder()
                         .setKey(key)
                         .setValue("" + r.nextDouble())
-                        .setIntValue(r.nextInt(50));
+                        .setIntValue(r.nextInt(50) + 1);
             }
         }
         return builder.build();
@@ -187,7 +195,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     private TestRecordsNestedMapProto.OtherRecord randomOtherRecord(@Nonnull Random r, long recId) {
         return TestRecordsNestedMapProto.OtherRecord.newBuilder()
                 .setRecId(recId)
-                .setOtherId(r.nextInt(50))
+                .setOtherId(r.nextInt(5))
                 .setOtherValue(KEYS.get(r.nextInt(KEYS.size())))
                 .build();
     }
@@ -238,6 +246,26 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         }
         indexEntries.sort(Comparator.comparing(IndexEntry::getKey));
         return indexEntries;
+    }
+
+    @Nonnull
+    private List<IndexEntry> sumEntriesByGroup(@Nonnull Index index,
+                                               @Nonnull List<? extends Message> records) {
+        Map<Tuple, Long> sumMap = new TreeMap<>();
+        for (Message rec : records) {
+            if (rec instanceof TestRecordsNestedMapProto.OuterRecord) {
+                TestRecordsNestedMapProto.OuterRecord outerRecord = (TestRecordsNestedMapProto.OuterRecord)rec;
+                for (TestRecordsNestedMapProto.MapRecord.Entry entry : outerRecord.getMap().getEntryList()) {
+                    Tuple key = Tuple.from(entry.getKey(), outerRecord.getOtherId());
+                    sumMap.compute(key, (k, sumSoFar) -> sumSoFar == null ? entry.getIntValue() : sumSoFar + entry.getIntValue());
+                }
+            }
+        }
+        List<IndexEntry> entries = new ArrayList<>();
+        for (Map.Entry<Tuple, Long> sum : sumMap.entrySet()) {
+            entries.add(new IndexEntry(index, sum.getKey(), Tuple.from(sum.getValue()), TupleHelpers.EMPTY));
+        }
+        return entries;
     }
 
     void singleValueIndexRebuild(@Nonnull List<Message> records,
@@ -294,6 +322,68 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);
     }
 
+    void singleSumIndexRebuild(@Nonnull List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding,
+                               int agents, boolean overlap, @Nullable Index sourceIndex) {
+        final OnlineIndexerTestRecordHandler<Message> recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
+        final Index index = new Index("keyOtherSumIntValueIndex",
+                field(ENTRY_CONSTITUENT).nest("int_value").groupBy(concat(field(ENTRY_CONSTITUENT).nest("key"), field(PARENT_CONSTITUENT).nest("other_id"))),
+                IndexTypes.SUM,
+                Map.of(IndexOptions.CLEAR_WHEN_ZERO, "true")
+        );
+        final IndexAggregateFunction indexAggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
+
+        final Runnable beforeBuild = () -> {
+            try (FDBRecordContext context = openContext()) {
+                assertThrows(RecordCoreException.class, () -> recordStore.evaluateAggregateFunction(List.of(UNNESTED), indexAggregateFunction, TupleRange.ALL, IsolationLevel.SERIALIZABLE).join());
+                context.commit();
+            }
+        };
+        final Runnable afterBuild = () -> {
+            try (FDBRecordContext context = openContext()) {
+                assertThrows(RecordCoreException.class, () -> recordStore.evaluateAggregateFunction(List.of(UNNESTED), indexAggregateFunction, TupleRange.ALL, IsolationLevel.SERIALIZABLE).join());
+                context.commit();
+            }
+        };
+
+        final Runnable afterReadable = () -> {
+            try (FDBRecordContext context = openContext()) {
+                final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
+                final List<IndexEntry> expectedEntries = sumEntriesByGroup(index, updatedRecords);
+                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                    final List<IndexEntry> scannedEntries = cursor.asList().join();
+                    assertEquals(expectedEntries, scannedEntries);
+                }
+
+                for (String key : KEYS) {
+                    final long expectedSumForKey = expectedEntries.stream()
+                            .filter(entry -> key.equals(entry.getKey().getString(0)))
+                            .mapToLong(entry -> entry.getValue().getLong(0))
+                            .sum();
+                    final Tuple evaluatedSum = recordStore.evaluateAggregateFunction(List.of(UNNESTED), indexAggregateFunction, TupleRange.allOf(Tuple.from(key)), IsolationLevel.SERIALIZABLE).join();
+                    assertEquals(expectedSumForKey, evaluatedSum.getLong(0));
+                }
+
+                context.commit();
+            }
+        };
+
+        singleRebuild(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, true,
+                index, sourceIndex, beforeBuild, afterBuild, afterReadable);
+    }
+
+    void singleSumIndexRebuild(@Nonnull List<Message> records,
+                               @Nullable List<Message> recordsWhileBuilding,
+                               @Nullable List<Tuple> deleteWhileBuilding,
+                               int agents, boolean overlap) {
+        singleSumIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, null);
+    }
+
+    void singleSumIndexRebuild(@Nonnull List<Message> records,
+                               @Nullable List<Message> recordsWhileBuilding,
+                               @Nullable List<Tuple> deleteWhileBuilding) {
+        singleSumIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);
+    }
+
     @Test
     void simpleTenRecordRebuild() {
         final Random r = new Random(0x5ca1e);
@@ -334,6 +424,28 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
                 .collect(Collectors.toList());
         final Index sourceIndex = new Index("OuterRecord$rec_id", "rec_id");
         singleValueIndexRebuild(records, null, null, 1, false, sourceIndex);
+    }
+
+    @Test
+    void tenSumIndexRebuild() {
+        final Random r = new Random(0x5ca1e);
+        List<Message> records = Stream.generate(() -> randomOuterRecord(r))
+                .limit(10)
+                .collect(Collectors.toList());
+        singleSumIndexRebuild(records, null, null);
+    }
+
+    @Test
+    void tenEmptyMapSumBuild() {
+        final Random r = new Random(0x0fdb0fdb);
+        List<Message> records = Stream.generate(() -> randomOuterRecord(r, r.nextLong(), -1.0))
+                .limit(10)
+                .collect(Collectors.toList());
+        for (Message rec : records) {
+            TestRecordsNestedMapProto.OuterRecord outerRecord = (TestRecordsNestedMapProto.OuterRecord)rec;
+            assertThat(outerRecord.getMap().getEntryList(), empty());
+        }
+        singleSumIndexRebuild(records, null, null);
     }
 
     @Test
@@ -432,6 +544,40 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         }
         final Index sourceIndex = new Index("OuterRecord$rec_id", "rec_id");
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false, sourceIndex);
+    }
+
+    @Test
+    void sumFiveHundredRecords() {
+        final Random r = new Random(0xfdb5ca1eL);
+        List<Message> records = Stream.generate(() -> randomOuterRecord(r))
+                .limit(500)
+                .collect(Collectors.toList());
+        singleSumIndexRebuild(records, null, null);
+    }
+
+    @ParameterizedTest(name = "sumFiveHundredParallelBuild[overlap={0}]")
+    @BooleanSource
+    void sumFiveHundredParallelBuild(boolean overlap) {
+        final Random r = new Random(0xfdb5ca1eL);
+        List<Message> records = LongStream.range(1L, 501L)
+                .mapToObj(id -> randomOuterRecord(r, id))
+                .collect(Collectors.toList());
+        singleSumIndexRebuild(records, null, null, 5, overlap);
+    }
+
+    @Disabled("non-idempotent indexes on synthetic types do not checke the range set correctly")
+    @Test
+    void sumSixHundredWithUpdatesAndDeletes() {
+        final Random r = new Random(0xfdbfdbfdbL);
+        List<Message> records = Stream.generate(() -> r.nextBoolean() ? randomOuterRecord(r) : randomOtherRecord(r))
+                .limit(600)
+                .collect(Collectors.toList());
+        List<Message> recordsWhileBuilding = new ArrayList<>();
+        List<Tuple> deleteWhileBuilding = new ArrayList<>();
+        for (Message rec : records) {
+            addRandomUpdate(r, rec, recordsWhileBuilding, deleteWhileBuilding);
+        }
+        singleSumIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding);
     }
 
     @Tag(Tags.Slow)
