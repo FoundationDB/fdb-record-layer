@@ -262,10 +262,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
 
-        if (groupingColsValue.getResultType() instanceof Type.Record && ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
-            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)), null, selectWhereQun)));
+        if (groupingColsValue.getResultType() instanceof Type.Record &&
+                ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
+            return Quantifier.forEach(GroupExpressionRef.of(
+                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            null, selectWhereQun)));
         } else {
-            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)), groupingColsValue, selectWhereQun)));
+            return Quantifier.forEach(GroupExpressionRef.of(
+                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            groupingColsValue, selectWhereQun)));
         }
     }
 
