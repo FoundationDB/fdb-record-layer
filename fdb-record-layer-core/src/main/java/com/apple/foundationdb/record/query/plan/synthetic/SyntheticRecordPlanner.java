@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -63,6 +62,8 @@ import java.util.Set;
 public class SyntheticRecordPlanner {
 
     @Nonnull
+    private final FDBRecordStore recordStore;
+    @Nonnull
     private final RecordMetaData recordMetaData;
     @Nonnull
     private final RecordQueryPlanner queryPlanner;
@@ -71,14 +72,14 @@ public class SyntheticRecordPlanner {
 
     /**
      * Initialize a new planner.
-     * @param recordMetaData meta-data to use for planning
-     * @param storeState index enabling state to use for planning
-     * @param timer store timer for collecting metrics during planning
+     * @param store the record store to plan against
+     * @param planner query planner to use when constructing plans to resolve join partners
      */
-    public SyntheticRecordPlanner(@Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState storeState, @Nullable FDBStoreTimer timer) {
-        this.recordMetaData = recordMetaData;
-        this.queryPlanner = new RecordQueryPlanner(recordMetaData, storeState);
-        this.timer = timer;
+    public SyntheticRecordPlanner(@Nonnull FDBRecordStore store, @Nonnull RecordQueryPlanner planner) {
+        this.recordStore = store;
+        this.recordMetaData = store.getRecordMetaData();
+        this.queryPlanner = planner;
+        this.timer = store.getTimer();
     }
 
     /**
@@ -86,7 +87,7 @@ public class SyntheticRecordPlanner {
      * @param store a record store
      */
     public SyntheticRecordPlanner(@Nonnull FDBRecordStore store) {
-        this(store.getRecordMetaData(), store.getRecordStoreState(), store.getTimer());
+        this(store, new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState()));
     }
 
     /**
@@ -227,7 +228,7 @@ public class SyntheticRecordPlanner {
         if (indexes.isEmpty()) {
             return true;
         }
-        return indexes.stream().allMatch(index -> queryPlanner.getRecordStoreState().isDisabled(index));
+        return indexes.stream().allMatch(recordStore::isIndexDisabled);
     }
 
     /**

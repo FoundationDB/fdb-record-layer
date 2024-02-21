@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -1112,6 +1113,72 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
             }
             expectedEntries.sort(Comparator.comparing(IndexEntry::getKey));
             assertEquals(expectedEntries, indexEntries);
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void conflictOnRecordAddedWhenIndexBuildStarts() {
+        final RecordMetaData metaData = mapMetaData(addMapType().andThen(addOtherKeyIdValueIndex()));
+        final Index index = metaData.getIndex(OTHER_KEY_ID_VALUE_INDEX);
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            recordStore.markIndexDisabled(index).join();
+            LongStream.range(0L, 10L).mapToObj(id ->
+                    TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                            .setRecId(id)
+                            .setOtherId(id % 2)
+                            .setMap(TestRecordsNestedMapProto.MapRecord.newBuilder()
+                                    .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                            .setKey("foo")
+                                            .setIntValue(id)
+                                    )
+                                    .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                            .setKey("bar")
+                                            .setIntValue(id + 1)
+                                    )
+                                    .addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                            .setKey("baz")
+                                            .setIntValue(id + 2)
+                                    )
+                            )
+                            .build()
+            ).forEach(recordStore::saveRecord);
+            commit(context);
+        }
+
+        try (FDBRecordContext context1 = openContext()) {
+            createOrOpenRecordStore(context1, metaData);
+
+            // Save a record. As the index is disabled, it does not need to update the synthetic record type indexes
+            final FDBStoreTimer timer = recordStore.getTimer();
+            assertNotNull(timer);
+            timer.reset();
+            recordStore.insertRecord(sampleMapRecord());
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
+
+            // Build the index and commit the transaction
+            try (FDBRecordContext context2 = openContext()) {
+                createOrOpenRecordStore(context2, metaData);
+                recordStore.rebuildIndex(index).join();
+                commit(context2);
+            }
+
+            // The initial save should not succeed. If it did, then because the record was not added to
+            // the synthetic index when initially saved and the record was not visible in the store during th
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(context1));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            // Now that we've built the index, saving the record should also result in the synthetic type being planned
+            final FDBStoreTimer timer = recordStore.getTimer();
+            assertNotNull(timer);
+            timer.reset();
+            recordStore.insertRecord(sampleMapRecord());
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.PLAN_SYNTHETIC_TYPE));
 
             commit(context);
         }

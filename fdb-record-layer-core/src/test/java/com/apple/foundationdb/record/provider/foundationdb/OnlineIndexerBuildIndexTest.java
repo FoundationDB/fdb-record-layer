@@ -52,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -255,6 +256,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     List<M> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
                     fdb.run(context -> {
                         FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
+                        LOGGER.info(KeyValueLogMessage.of("inserting record batch",
+                                LogMessageKeys.PRIMARY_KEY, thisBatch.stream().map(recordHandler::getPrimaryKey).collect(Collectors.toList())));
                         thisBatch.forEach(store::saveRecord);
                         return null;
                     });
@@ -268,6 +271,8 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     List<Tuple> thisBatch = deleteWhileBuilding.subList(i, Math.min(i + 10, deleteWhileBuilding.size()));
                     fdb.run(context -> {
                         FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
+                        LOGGER.info(KeyValueLogMessage.of("deleting record batch",
+                                LogMessageKeys.PRIMARY_KEY, thisBatch));
                         thisBatch.forEach(store::deleteRecord);
                         return null;
                     });
