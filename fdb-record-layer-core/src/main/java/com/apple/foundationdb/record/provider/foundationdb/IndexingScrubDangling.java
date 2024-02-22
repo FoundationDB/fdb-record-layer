@@ -191,8 +191,10 @@ public class IndexingScrubDangling extends IndexingBase {
         final IndexingCommon.IndexContext indexContext = common.getIndexContext();
         final IndexEntry indexEntry = indexEntryResult.get();
         if (indexContext.isSynthetic) {
-            return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).thenApply(syntheticRecord -> {
-                if (syntheticRecord.getConstituents().isEmpty()) {
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).handle((syntheticRecord, ex) -> {
+                final boolean dangling = ((findException(ex, RecordDoesNotExistException.class) != null) ||
+                                                  (syntheticRecord != null && syntheticRecord.getConstituents().isEmpty()));
+                if (dangling) {
                     // None of the constituents of this synthetic type are present, so it must be dangling
                     List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
                     SyntheticRecordType<?> syntheticRecordType = store.getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(indexEntry.getPrimaryKey().get(0));
@@ -232,7 +234,7 @@ public class IndexingScrubDangling extends IndexingBase {
         }
         if (scrubbingPolicy.allowRepair()) {
             // remove this index entry
-            // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
+            // There is no record that can be added to the conflict list. Adding the index entries.
             for (Tuple primaryKey : conflictPrimaryKeys) {
                 store.addRecordReadConflict(primaryKey);
             }

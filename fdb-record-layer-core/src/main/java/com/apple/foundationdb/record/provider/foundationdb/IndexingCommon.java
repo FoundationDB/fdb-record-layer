@@ -115,12 +115,9 @@ public class IndexingCommon {
     }
 
     private void fillTargetIndexers(@Nonnull List<Index> targetIndexes, @Nullable Collection<RecordType> recordTypes) {
-        boolean presetTypes = false;
-        if (recordTypes != null) {
-            if (targetIndexes.size() > 1) {
-                throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
-            }
-            presetTypes = true;
+        final boolean presetTypes = recordTypes != null;
+        if (presetTypes && targetIndexes.size() > 1) {
+            throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
         }
         if (recordStoreBuilder.getMetaDataProvider() == null) {
             throw new MetaDataException("record store builder must include metadata");
@@ -135,6 +132,9 @@ public class IndexingCommon {
             }
             boolean isSynthetic = false;
             if (types.stream().anyMatch(RecordType::isSynthetic)) {
+                if (presetTypes) {
+                    throw new IndexingBase.ValidationException("Can't use preset record types with synthetic a records index");
+                }
                 types = SyntheticRecordPlanner.storedRecordTypesForIndex(metaData, targetIndex, types);
                 isSynthetic = true;
             }

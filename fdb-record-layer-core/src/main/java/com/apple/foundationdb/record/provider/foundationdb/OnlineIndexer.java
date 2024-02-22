@@ -1358,7 +1358,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the explicit set of record types to be indexed.
          *
          * Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
-         * explicitly is not allowed with multi targets indexing.
+         * explicitly is not allowed with multi targets indexing, nor with a synthetic records index.
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
