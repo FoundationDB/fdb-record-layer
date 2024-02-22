@@ -17,7 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** The index scrubbers now can handle value indexes on synthetic record types [(Issue #2513)](https://github.com/FoundationDB/fdb-record-layer/issues/2513)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.457.0
+
+* **Bug fix** The index scrubbers now can handle value indexes on synthetic record types [(Issue #2513)](https://github.com/FoundationDB/fdb-record-layer/issues/2513)
 
 ### 3.4.456.0
 
