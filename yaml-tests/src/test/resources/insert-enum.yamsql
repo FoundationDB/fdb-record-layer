@@ -1,0 +1,54 @@
+#
+# insert-enum.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists enum_template
+    - query: CREATE schema template enum_template
+        CREATE TYPE AS ENUM "WHATEVER" ( 'OWNING', 'WEAK', 'VALIDATING' )
+        CREATE TABLE "TableA" ("field1" "WHATEVER", "field2" BIGINT, PRIMARY KEY("field2") )
+        WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true)
+    - query: drop database if exists /FRL/ENUM_YAML
+    - query: CREATE database /FRL/ENUM_YAML
+    - query: CREATE schema /FRL/ENUM_YAML/test with template enum_template
+---
+setup:
+  connect: "jdbc:embed:/FRL/ENUM_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO "TableA" VALUES ('OWNING', 42)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/ENUM_YAML?schema=TEST"
+  options:
+    mode: parallelized
+    repetition: 1
+    check_cache: true
+  tests:
+    -
+      - query: SELECT * From "TableA"
+      - result: [{'OWNING', 42}]
+---
+destruct:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop database /FRL/ENUM_YAML
+    - query: drop schema template enum_template
+...

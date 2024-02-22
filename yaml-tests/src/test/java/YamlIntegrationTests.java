@@ -198,4 +198,9 @@ public class YamlIntegrationTests extends YamlTestBase {
     void arrays() throws Exception {
         doRun("arrays.yamsql");
     }
+
+    @Test
+    public void insertEnum() throws Exception {
+        doRun("insert-enum.yamsql");
+    }
 }

@@ -990,18 +990,32 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     }
 
     private Object handleArray(RelationalParser.ArrayConstructorContext ctx) {
-        List<Value> columns = new ArrayList<>();
+        List<Value> elementValues = new ArrayList<>();
         for (final var expression : ctx.expression()) {
-            columns.add((Value) visit(expression));
+            elementValues.add((Value) visit(expression));
         }
-        return AbstractArrayConstructorValue.LightArrayConstructorValue.of(columns);
+
+        //
+        // TODO This absolutely must call the encapsulator to create the array constructor. The reason being that
+        //      we cannot otherwise guarantee that the proper promotions get injected BEFORE the array is constructed.
+        //
+        //        final var arrayFunctionOptional = FunctionCatalog.resolve("array", elementValues.size());
+        //        Assert.thatUnchecked(arrayFunctionOptional.isPresent());
+        //        final var arrayFunction = arrayFunctionOptional.get();
+        //        return arrayFunction.encapsulate(elementValues);
+        //
+        // TODO The commented out code does not work yet as we cannot properly compute the max type over complicated
+        //      records. Fix that!
+        //
+        return AbstractArrayConstructorValue.LightArrayConstructorValue.of(elementValues);
     }
 
     @Nonnull
-    private static Column<? extends Value> coerceUndefinedTypes(@Nonnull final Column<? extends Value> column, @Nonnull final Type targetType) {
+    private static Column<? extends Value> coerceIfNecessary(@Nonnull final Column<? extends Value> column, @Nonnull final Type targetType) {
         final Value value = column.getValue();
         final var resultType = value.getResultType();
-        if (resultType.isUnresolved()) {
+        if (resultType.isUnresolved() ||
+                    (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
             return Column.of(Type.Record.Field.of(targetType, column.getField().getFieldNameOptional()), PromoteValue.inject(value, targetType));
         }
         return column;
@@ -1086,7 +1100,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (fieldType == null) {
             return column;
         }
-        return coerceUndefinedTypes(column, fieldType);
+        return coerceIfNecessary(column, fieldType);
     }
 
     @Override

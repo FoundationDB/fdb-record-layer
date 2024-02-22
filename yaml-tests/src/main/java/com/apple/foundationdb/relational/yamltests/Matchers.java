@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.HashMultiset;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
 
@@ -593,6 +594,14 @@ public class Matchers {
                 }
             }
             return ResultSetMatchResult.success();
+        }
+
+        // Enum comparison
+        if (expected instanceof String && actual instanceof Descriptors.EnumValueDescriptor) {
+            final var actualEnumDescriptor = (Descriptors.EnumValueDescriptor) actual;
+            if (expected.equals(actualEnumDescriptor.getName())) {
+                return ResultSetMatchResult.success();
+            }
         }
 
         // integer comparison (with possible promotion)
