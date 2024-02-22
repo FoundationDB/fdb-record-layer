@@ -190,7 +190,6 @@ public class TypeRepository {
         return getMessageDescriptor(msgTypeName);
     }
 
-
     /**
      * Gets the enum value for the given enum type and name.
      *
@@ -236,6 +235,18 @@ public class TypeRepository {
             enumType = enumDescriptorMapFull.get(enumTypeName);
         }
         return enumType;
+    }
+
+    /**
+     * Gets the protobuf message descriptor for the given message type.
+     *
+     * @param type the type the caller wants to look up
+     * @return the message descriptor (null if not found)
+     */
+    @Nullable
+    public EnumDescriptor getEnumDescriptor(@Nonnull final Type type) {
+        String msgTypeName = getProtoTypeName(type);
+        return getEnumDescriptor(msgTypeName);
     }
 
     /**
