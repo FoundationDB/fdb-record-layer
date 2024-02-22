@@ -227,7 +227,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     buildFuture = AsyncUtil.DONE;
                     isMutualIndexing = true; // if set, indexBuilder.getTotalRecordsScanned is useless.
                     range.parallel().forEach(ignore -> {
-                        openSimpleMetaData(hook);
                         try (OnlineIndexer mutualIndexer = newIndexerBuilder()
                                 .setIndex(index)
                                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
