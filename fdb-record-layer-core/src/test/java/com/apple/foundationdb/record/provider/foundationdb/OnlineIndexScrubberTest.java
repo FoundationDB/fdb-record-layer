@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -411,9 +412,13 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .setAllowRepair(false)
                         .build())
                 .build()) {
-            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            indexScrubber.scrubDanglingIndexEntries();
             indexScrubber.scrubMissingIndexEntries();
         }
+        Assertions.assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        Assertions.assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 
     @Test
@@ -568,9 +573,13 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .setAllowRepair(false)
                         .build())
                 .build()) {
-            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            indexScrubber.scrubDanglingIndexEntries();
             indexScrubber.scrubMissingIndexEntries();
         }
+        Assertions.assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        Assertions.assertTrue(0 < timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 
     @Test
