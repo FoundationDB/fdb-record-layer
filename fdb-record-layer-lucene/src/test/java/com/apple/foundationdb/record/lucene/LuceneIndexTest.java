@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -65,6 +66,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -226,7 +228,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-                        function(LuceneFunctionNames.LUCENE_STORED, field("timestamp")),
                         function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
                 LuceneIndexTypes.LUCENE,
                 options);
@@ -241,7 +242,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static Index complexPartitionedIndexNoGroup(final Map<String, String> options) {
         return new Index("Complex$partitioned_noGroup",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-                       function(LuceneFunctionNames.LUCENE_STORED, field("timestamp")),
                        function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
                 LuceneIndexTypes.LUCENE,
                 options);
@@ -383,8 +383,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 concat(
                         field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
                         field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
-                        field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
-                        field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("timestamp")))
+                        field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
                 ).groupBy(field("complex").nest("group")), LuceneIndexTypes.LUCENE,
                 options);
     }
@@ -399,8 +398,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 concat(
                         field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
                         field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
-                        field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))),
-                        field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("timestamp")))
+                        field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
                 ), LuceneIndexTypes.LUCENE, options);
     }
 
@@ -881,7 +879,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                    int minDocumentCount,
                                    long seed) throws IOException {
         Random random = new Random(seed);
-        Consumer<FDBRecordContext> schemaSetup;
         final boolean optimizedStoredFields = random.nextBoolean();
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "complex.timestamp" : "timestamp",
@@ -894,24 +891,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 "repartitionCount", repartitionCount,
                 "options", options,
                 "seed", seed));
-        Index index;
-        if (isGrouped) {
-            if (isSynthetic) {
-                index = getJoinedIndex(options);
-                schemaSetup = context -> openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), index));
-            } else {
-                index = complexPartitionedIndex(options);
-                schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            }
-        } else {
-            if (isSynthetic) {
-                index = getJoinedIndexNoGroup(options);
-                schemaSetup = context -> openRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), index));
-            } else {
-                index = complexPartitionedIndexNoGroup(options);
-                schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            }
-        }
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -1163,60 +1145,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             String luceneSearch = "simple_text: \"fathers\"";
 
-            LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
-                    ScanComparisons.EMPTY,
-                    new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
-                    new Sort(new SortField("complex.timestamp", SortField.Type.LONG, true)),
-                    List.of("complex.timestamp"),
-                    List.of(LuceneIndexExpressions.DocumentFieldType.LONG),
-                    null);
-            LuceneScanQuery scanQuery = scan.bind(recordStore, JOINED_INDEX_NOGROUP, EvaluationContext.EMPTY);
-            RecordCursor<IndexEntry> cursor = recordStore.scanIndex(JOINED_INDEX_NOGROUP, scanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build().asScanProperties(false));
-            List<IndexEntry> entries = cursor.asList().join();
-            assertNotNull(entries);
-            assertEquals(1, entries.size());
-            commit(context);
+            QueryComponent filter = new LuceneQueryComponent(luceneSearch, List.of("simple", "complex"));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("luceneJoinedPartitionedIdx")
+                    .setFilter(filter)
+                    .setRequiredResults(List.of(Key.Expressions.field("simple").nest("text")))
+                    .build();
+            final RecordQueryPlan plan = planner.plan(query);
+            final List<?> results = plan.execute(recordStore).asList().join();
+            assertNotNull(results);
+            assertEquals(1, results.size());
         }
     }
 
-    private enum SortType {
-        ASCENDING,
-        DESCENDING,
-        UNSORTED,
-    }
-
-    static Stream<Arguments> continuationDuringRepartitioningTest() {
-        return Stream.of(
-                // grouped, synthetic
-                Arguments.of(true, true, SortType.ASCENDING),
-                Arguments.of(true, true, SortType.DESCENDING),
-                Arguments.of(true, true, SortType.UNSORTED),
-                // ungrouped, synthetic
-                Arguments.of(false, true, SortType.ASCENDING),
-                Arguments.of(false, true, SortType.DESCENDING),
-                Arguments.of(false, true, SortType.UNSORTED),
-                // grouped, simple
-                Arguments.of(true, false, SortType.ASCENDING),
-                Arguments.of(true, false, SortType.DESCENDING),
-                Arguments.of(true, false, SortType.UNSORTED),
-                // ungrouped, simple
-                Arguments.of(false, false, SortType.ASCENDING),
-                Arguments.of(false, false, SortType.DESCENDING),
-                Arguments.of(false, false, SortType.UNSORTED)
-        );
-    }
-
-    @ParameterizedTest(name = "isGrouped: {0}, isSynthetic: {1}, sort type: {2}")
-    @MethodSource
-    void continuationDuringRepartitioningTest(boolean isGrouped,
-                                              boolean isSynthetic,
-                                              SortType sortType) throws IOException, ExecutionException, InterruptedException {
-
+    private Pair<Index, Consumer<FDBRecordContext>> setupIndex(Map<String, String> options, boolean isGrouped, boolean isSynthetic) {
+        Index index;
         Consumer<FDBRecordContext> schemaSetup;
-        final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "complex.timestamp" : "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
-        final Index index;
         if (isGrouped) {
             if (isSynthetic) {
                 index = getJoinedIndex(options);
@@ -1234,6 +1178,34 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 schemaSetup = context -> rebuildIndexMetaData(context, COMPLEX_DOC, index);
             }
         }
+        return Pair.of(index, schemaSetup);
+    }
+
+    private enum SortType {
+        ASCENDING,
+        DESCENDING,
+        UNSORTED,
+    }
+
+    static Stream<Arguments> continuationDuringRepartitioningTest() {
+        return Stream.of(true, false)
+                .flatMap(grouped -> Stream.of(true, false)
+                        .flatMap(synthetic -> Arrays.stream(SortType.values())
+                                .map(sortType -> Arguments.of(grouped, synthetic, sortType))));
+    }
+
+    @ParameterizedTest(name = "isGrouped: {0}, isSynthetic: {1}, sort type: {2}")
+    @MethodSource
+    void continuationDuringRepartitioningTest(boolean isGrouped,
+                                              boolean isSynthetic,
+                                              SortType sortType) throws IOException, ExecutionException, InterruptedException {
+
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
@@ -1299,11 +1271,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
 
-            RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, scanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(18).build().asScanProperties(false));
+            RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, scanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build().asScanProperties(false));
 
-            // Get 18 results and continuation
+            // Get 15 results and continuation
             List<IndexEntry> entries = indexEntryCursor.asList().join();
-            assertEquals(18, entries.size());
+            assertEquals(15, entries.size());
             RecordCursorResult<IndexEntry> lastResult = indexEntryCursor.onNext().get();
             assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
             LuceneContinuationProto.LuceneIndexContinuation parsed = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(lastResult.getContinuation().toBytes());
@@ -1311,9 +1283,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(0, parsed.getPartitionId());
             final Set<Tuple> expectedKeys;
             if (sortType == SortType.ASCENDING || sortType == SortType.UNSORTED) {
-                expectedKeys = Set.copyOf(primaryKeys.subList(0, 18));
+                expectedKeys = Set.copyOf(primaryKeys.subList(0, 15));
             } else {
-                expectedKeys = Set.copyOf(primaryKeys.subList(7, 25));
+                expectedKeys = Set.copyOf(primaryKeys.subList(10, 25));
             }
 
             assertEquals(expectedKeys, entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
@@ -1338,31 +1310,26 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
 
-            RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, scanQuery, continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(11).build().asScanProperties(false));
+            RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, scanQuery, continuation, ExecuteProperties.newBuilder().build().asScanProperties(false));
 
             // so now we should get the remaining docs
             List<IndexEntry> entries = indexEntryCursor.asList().join();
             final Set<Tuple> expectedKeys;
-            final RecordCursor.NoNextReason noNextReason;
             final RecordCursorResult<IndexEntry> lastResult = indexEntryCursor.onNext().get();
             final int expectedCount;
             if (sortType == SortType.ASCENDING) {
-                expectedKeys = Set.copyOf(primaryKeys.subList(18, 25));
-                expectedCount = 7;
-                noNextReason = RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
+                expectedKeys = Set.copyOf(primaryKeys.subList(15, 25));
+                expectedCount = 10;
             } else if (sortType == SortType.DESCENDING) {
-                expectedKeys = Set.copyOf(primaryKeys.subList(0, 7));
-                expectedCount = 7;
-                noNextReason = RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
+                expectedKeys = Set.copyOf(primaryKeys.subList(0, 10));
+                expectedCount = 10;
             } else {
-                expectedKeys = new HashSet<>(primaryKeys.subList(6, 11));
-                expectedKeys.addAll(primaryKeys.subList(12, 18));
-                expectedCount = 11;
-                noNextReason = RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
+                expectedKeys = Set.copyOf(primaryKeys.subList(0, 18));
+                expectedCount = 18;
             }
             assertEquals(expectedCount, entries.size());
             assertEquals(expectedKeys, entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
-            assertEquals(noNextReason, lastResult.getNoNextReason());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, lastResult.getNoNextReason());
         }
     }
 

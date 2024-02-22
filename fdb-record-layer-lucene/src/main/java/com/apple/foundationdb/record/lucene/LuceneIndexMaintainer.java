@@ -159,6 +159,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // if partitioning is enabled, a non-null continuation will include the current partition info
             LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = continuation == null ? partitioner.selectQueryPartition(scanQuery.getGroupKey(), scanQuery.getSort()) : null;
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
+                    partitioner,
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
                     scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
@@ -399,23 +400,23 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         LOG.trace("update oldFields={}, newFields{}", oldRecordFields, newRecordFields);
 
         // delete old
-        return AsyncUtil.whenAll(oldRecordFields.keySet().stream().map(t -> partitioner.removeFromAndSavePartitionMetadata(Objects.requireNonNull(oldRecord), t).thenCompose(partitionId -> {
+        return AsyncUtil.whenAll(oldRecordFields.keySet().stream().map(t -> partitioner.removeFromAndSavePartitionMetadata(Objects.requireNonNull(oldRecord), t).thenApply(partitionId -> {
             try {
                 deleteDocument(t, partitionId, oldRecord.getPrimaryKey());
             } catch (IOException e) {
-                throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
+                throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord.getPrimaryKey(), e);
             }
-            return AsyncUtil.DONE;
+            return null;
         })).collect(Collectors.toList())).thenCompose(ignored ->
                 // update new
-                AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> partitioner.addToAndSavePartitionMetadata(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(partitionId -> {
+                AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> partitioner.addToAndSavePartitionMetadata(Objects.requireNonNull(newRecord), entry.getKey()).thenApply(partitionId -> {
                     try {
                         writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
                     } catch (IOException e) {
                         throw new RecordCoreException("Issue updating new index keys", e)
-                                .addLogInfo("newRecord", newRecord);
+                                .addLogInfo("newRecord", newRecord.getPrimaryKey());
                     }
-                    return AsyncUtil.DONE;
+                    return null;
                 })).collect(Collectors.toList()))
         );
     }
