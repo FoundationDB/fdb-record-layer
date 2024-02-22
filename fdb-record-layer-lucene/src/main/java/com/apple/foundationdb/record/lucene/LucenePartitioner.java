@@ -870,10 +870,9 @@ public class LucenePartitioner {
         } else {
             final Range range = new TupleRange(
                     partitionMetadataKeyTuple(groupingKey, currentPartitionFromTimestamp),
-                    partitionMetadataKeyTuple(groupingKey, Long.MAX_VALUE),
-                    EndpointType.TREE_START,
-                    EndpointType.RANGE_EXCLUSIVE)
-                    .toRange(indexSubspace);
+                    groupingKey.add(PARTITION_META_SUBSPACE),
+                    EndpointType.RANGE_EXCLUSIVE,
+                    EndpointType.TREE_END).toRange(indexSubspace);
             final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
             return AsyncUtil.collect(rangeIterable)
                     .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).findFirst().orElse(null));
