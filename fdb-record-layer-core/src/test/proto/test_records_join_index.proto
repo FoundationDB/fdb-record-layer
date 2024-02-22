@@ -43,7 +43,7 @@ message MyOtherRecord {
 
 message JoiningRecord {
   required int64 rec_no = 1 [(field).primary_key = true];
-  optional int32 simple_rec_no = 2 [(field).index = {}];
+  optional int64 simple_rec_no = 2 [(field).index = {}];
   optional int64 other_rec_no = 3 [(field).index = {}];
 }
 

@@ -105,6 +105,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
                             @Nullable Index sourceIndex,
                             int agents,
                             boolean overlap) {
+        final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         setIndexMaintenanceFilter(filter);
         Index index = new Index("newSumIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
         IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
@@ -127,24 +128,8 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
             }
         };
 
-        List<TestRecords1Proto.MySimpleRecord> updatedRecords;
-        if (recordsWhileBuilding == null || recordsWhileBuilding.size() == 0) {
-            updatedRecords = records;
-        } else {
-            updatedRecords = updated(records, recordsWhileBuilding);
-        }
-
-        final List<Tuple> deletePrimaryKeys;
-        if (deletedIds != null && !deletedIds.isEmpty()) {
-            updatedRecords = updatedRecords.stream()
-                    .filter(rec -> !deletedIds.contains(rec.getRecNo()))
-                    .collect(Collectors.toList());
-            deletePrimaryKeys = deletedIds.stream()
-                    .map(Tuple::from)
-                    .collect(Collectors.toList());
-        } else {
-            deletePrimaryKeys = null;
-        }
+        final List<Tuple> deletePrimaryKeys = deletedIds == null ? null : deletedIds.stream().map(Tuple::from).collect(Collectors.toList());
+        List<TestRecords1Proto.MySimpleRecord> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deletePrimaryKeys);
         long expected = sumFunction.apply(updatedRecords);
 
         Runnable afterReadable = () -> {
@@ -154,7 +139,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, deletePrimaryKeys, agents, overlap, false, index, sourceIndex, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(recordHandler, records, recordsWhileBuilding, deletePrimaryKeys, agents, overlap, false, index, sourceIndex, beforeBuild, afterBuild, afterReadable);
     }
 
     @SuppressWarnings("try")

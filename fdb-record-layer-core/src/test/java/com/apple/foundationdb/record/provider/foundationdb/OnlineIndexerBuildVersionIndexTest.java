@@ -61,6 +61,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Test building version indexes.
  */
+@SuppressWarnings("try")
 public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
 
     private OnlineIndexerBuildVersionIndexTest(boolean safeBuild) {
@@ -69,6 +70,7 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
 
     private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                                 int agents, boolean overlap) {
+        final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         final Index index = new Index("newVersionIndex", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
         final Function<FDBQueriedRecord<Message>, Tuple> projection = rec -> {
             TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
@@ -127,12 +129,12 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         List<TestRecords1Proto.MySimpleRecord> updatedRecords;
         List<RecordQuery> updatedQueries;
         Map<Integer, List<Message>> updatedValueMap;
-        if (recordsWhileBuilding == null || recordsWhileBuilding.size() == 0) {
+        if (recordsWhileBuilding == null || recordsWhileBuilding.isEmpty()) {
             updatedRecords = records;
             updatedQueries = queries;
             updatedValueMap = valueMap;
         } else {
-            updatedRecords = updated(records, recordsWhileBuilding);
+            updatedRecords = updated(recordHandler, records, recordsWhileBuilding, null);
             updatedQueries = updatedRecords.stream()
                     .map(record -> {
                         Integer value2 = (record.hasNumValue2()) ? record.getNumValue2() : null;
@@ -151,39 +153,35 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         Map<Long, FDBRecordVersion> updatedVersionMap = new HashMap<>(versionMap.size());
         Set<Long> newRecordKeys = (recordsWhileBuilding == null) ? Collections.emptySet() : recordsWhileBuilding.stream().map(TestRecords1Proto.MySimpleRecord::getRecNo).collect(Collectors.toSet());
 
-        Runnable afterBuild = new Runnable() {
-            @SuppressWarnings("try")
-            @Override
-            public void run() {
-                try (FDBRecordContext context = openContext()) {
-                    // The build job shouldn't affect the reads.
-                    for (int i = 0; i < updatedQueries.size(); i++) {
-                        Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                        try {
-                            executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", updatedValueMap.get(value2));
-                            fail("somehow executed query with new index before readable");
-                        } catch (RecordCoreException e) {
-                            assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
-                        }
+        Runnable afterBuild = () -> {
+            try (FDBRecordContext context = openContext()) {
+                // The build job shouldn't affect the reads.
+                for (int i = 0; i < updatedQueries.size(); i++) {
+                    Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
+                    try {
+                        executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", updatedValueMap.get(value2));
+                        fail("somehow executed query with new index before readable");
+                    } catch (RecordCoreException e) {
+                        assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
                     }
+                }
 
-                    // Load all the version information for records that are there now and that values are sane.
-                    for (TestRecords1Proto.MySimpleRecord simple : updatedRecords) {
-                        recordStore.loadRecordVersion(Tuple.from(simple.getRecNo())).ifPresent(version -> {
-                            assertTrue(version.isComplete());
-                            if (newRecordKeys.contains(simple.getRecNo())) {
-                                assertThat(version, greaterThan(greatestVersion.get()));
-                                if (versionMap.containsKey(simple.getRecNo())) {
-                                    assertThat(version, greaterThan(versionMap.get(simple.getRecNo())));
-                                }
-                            } else {
-                                if (versionMap.containsKey(simple.getRecNo())) {
-                                    assertEquals(versionMap.get(simple.getRecNo()), version);
-                                }
+                // Load all the version information for records that are there now and that values are sane.
+                for (TestRecords1Proto.MySimpleRecord simple : updatedRecords) {
+                    recordStore.loadRecordVersion(Tuple.from(simple.getRecNo())).ifPresent(version -> {
+                        assertTrue(version.isComplete());
+                        if (newRecordKeys.contains(simple.getRecNo())) {
+                            assertThat(version, greaterThan(greatestVersion.get()));
+                            if (versionMap.containsKey(simple.getRecNo())) {
+                                assertThat(version, greaterThan(versionMap.get(simple.getRecNo())));
                             }
-                            updatedVersionMap.put(simple.getRecNo(), version);
-                        });
-                    }
+                        } else {
+                            if (versionMap.containsKey(simple.getRecNo())) {
+                                assertEquals(versionMap.get(simple.getRecNo()), version);
+                            }
+                        }
+                        updatedVersionMap.put(simple.getRecNo(), version);
+                    });
                 }
             }
         };
@@ -206,7 +204,7 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
             }
         };
 
-        singleRebuild(records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
+        singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
     private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
