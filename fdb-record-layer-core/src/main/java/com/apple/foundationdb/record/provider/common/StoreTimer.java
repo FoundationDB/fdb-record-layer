@@ -134,7 +134,7 @@ public class StoreTimer {
 
                 // Do not add events that weren't changed since the snapshot
                 if (count > 0) {
-                    differenceCounters.put(event, new Counter(count, counter.getTimeNanos() - snapShotCounter.getTimeNanos()));
+                    differenceCounters.put(event, new Counter(count, counter.getCumulativeValue() - snapShotCounter.getCumulativeValue()));
                 }
             }
         }
@@ -376,7 +376,7 @@ public class StoreTimer {
 
     /**
      * {@link Event}s that only count occurrences or total size.
-     * There is no meaningful time duration associated with these events.
+     * There is no meaningful time duration/cumulative value associated with these events.
      */
     public interface Count extends StoreTimer.Event {
         /**
@@ -388,10 +388,18 @@ public class StoreTimer {
     }
 
     /**
-     * Contains the number of occurrences and cummulative time spent on an associated {@link StoreTimer.Event}.
+     * {@link Event}s that count the number of occurrences of an operation and also the size of the operation.
+     * There is no meaningful time duration associated with these events.
+     */
+    public interface SizeEvent extends StoreTimer.Event {
+    }
+
+    /**
+     * Contains the number of occurrences and cumulative time spent/cumulative value of all occurrences of the associated
+     * {@link StoreTimer.Event}.
      */
     public static class Counter {
-        private final AtomicLong timeNanos;
+        private final AtomicLong cumulativeValue;
         private final AtomicInteger count;
         private boolean immutable;
 
@@ -404,7 +412,7 @@ public class StoreTimer {
         }
 
         private Counter(Counter counter, boolean immutable) {
-            this(counter.getCount(), counter.getTimeNanos(), immutable);
+            this(counter.getCount(), counter.getCumulativeValue(), immutable);
         }
 
         public Counter(boolean immutable) {
@@ -415,9 +423,9 @@ public class StoreTimer {
             this(count, timeNanos, false);
         }
 
-        public Counter(int count, long timeNanos, boolean immutable) {
+        public Counter(int count, long cumulativeValue, boolean immutable) {
             this.count = new AtomicInteger(count);
-            this.timeNanos = new AtomicLong(timeNanos);
+            this.cumulativeValue = new AtomicLong(cumulativeValue);
             this.immutable = immutable;
         }
 
@@ -436,17 +444,26 @@ public class StoreTimer {
          * @return the cumulative time spent on the associated event
          */
         public long getTimeNanos() {
-            return timeNanos.get();
+            return getCumulativeValue();
         }
 
         /**
-         * Add additional time spent performing the associated event.
+         * Get the cumulative value of the associated event.
          *
-         * @param timeDifference additional time spent performing the associated event
+         * @return the cumulative value of the associated event
          */
-        public void record(long timeDifference) {
+        public long getCumulativeValue() {
+            return cumulativeValue.get();
+        }
+
+        /**
+         * Add value incurred in the occurrence of the associated event.
+         *
+         * @param occurrenceValue additional value incurred in performing the associated event
+         */
+        public void record(long occurrenceValue) {
             checkImmutable();
-            timeNanos.addAndGet(timeDifference);
+            cumulativeValue.addAndGet(occurrenceValue);
             count.incrementAndGet();
         }
 
@@ -467,7 +484,7 @@ public class StoreTimer {
          */
         public void add(@Nonnull Counter counter) {
             checkImmutable();
-            timeNanos.addAndGet(counter.getTimeNanos());
+            cumulativeValue.addAndGet(counter.getCumulativeValue());
             count.addAndGet(counter.getCount());
         }
 
@@ -530,6 +547,18 @@ public class StoreTimer {
      */
     public void record(Event event, long timeDifferenceNanos) {
         getCounter(event, true).record(timeDifferenceNanos);
+    }
+
+    /**
+     * Record an event that has a size. For instance, an IO event having the number of bytes of data read or written.
+     * Subclasses can extend this to also update metrics aggregation or
+     * monitoring services.
+     *
+     * @param event the event being recorded
+     * @param size size of IO that instrumented event performed.
+     */
+    public void recordSize(SizeEvent event, long size) {
+        getCounter(event, true).record(size);
     }
 
     /**
@@ -607,7 +636,7 @@ public class StoreTimer {
      */
     public long getTimeNanos(Event event) {
         @Nullable Counter counter = getCounter(event, false);
-        return counter == null ? 0L : counter.getTimeNanos();
+        return counter == null ? 0L : counter.getCumulativeValue();
     }
 
     /**
@@ -623,6 +652,18 @@ public class StoreTimer {
     }
 
     /**
+     * Get the total size for a given event.
+     *
+     * @param event the event to get size information for
+     *
+     * @return the total size of the recorded event
+     */
+    public long getSize(SizeEvent event) {
+        @Nullable Counter counter = getCounter(event, false);
+        return counter == null ? 0 : counter.getCumulativeValue();
+    }
+
+    /**
      * Get the total time spent for a given event that timed out.
      *
      * @param event the event to get time information for
@@ -631,7 +672,7 @@ public class StoreTimer {
      */
     public long getTimeoutTimeNanos(Event event) {
         @Nullable Counter counter = getTimeoutCounter(event, false);
-        return counter == null ? 0L : counter.getTimeNanos();
+        return counter == null ? 0L : counter.getCumulativeValue();
     }
 
     /**
@@ -703,8 +744,10 @@ public class StoreTimer {
             Event event = entry.getKey();
             Counter counter = entry.getValue();
             result.put(event.logKeyWithSuffix("_count"), counter.count.get());
-            if (!(event instanceof Count)) {
-                result.put(event.logKeyWithSuffix("_micros"), counter.timeNanos.get() / 1000L);
+            if (event instanceof SizeEvent) {
+                result.put(event.logKeyWithSuffix("_size"), counter.getCumulativeValue());
+            } else if (!(event instanceof Count)) {
+                result.put(event.logKeyWithSuffix("_micros"), counter.getTimeNanos() / 1000L);
             }
         }
 
@@ -719,7 +762,7 @@ public class StoreTimer {
             if (counter != null) {
                 result.put(aggregate.logKeyWithSuffix("_count"), counter.count.get());
                 if (!(aggregate instanceof Count)) {
-                    result.put(aggregate.logKeyWithSuffix("_micros"), counter.timeNanos.get() / 1000L);
+                    result.put(aggregate.logKeyWithSuffix("_micros"), counter.getTimeNanos() / 1000L);
                 }
             }
         }

@@ -118,9 +118,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("test1");
         assertNotNull(luceneFileReference, "fileReference should exist");
 
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE,
+        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, 2,
                 LuceneSerializer.encode(reference1.getBytes(), true, false).length + LuceneSerializer.encode(reference2.getBytes(), true, false).length);
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL, 2);
     }
 
     @Test
@@ -149,8 +148,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                 directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
         directory.getCallerContext().commit();
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_SIZE, LuceneSerializer.encode(data, true, false).length);
-        assertCorrectMetricCount(LuceneEvents.Counts.LUCENE_WRITE_CALL, 1);
+        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, LuceneSerializer.encode(data, true, false).length);
     }
 
     @Test
@@ -226,10 +224,16 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertCorrectMetricCount(LuceneEvents.Waits.WAIT_LUCENE_RENAME, 1);
     }
 
-
     private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {
         assertEquals(expectedValue, timer.getCount(metric),
                 () -> String.format("Incorrect call count for metric %s", metric));
+    }
+
+    private void assertCorrectMetricSize(StoreTimer.SizeEvent metric, int expectedNumber, long expectedCumulativeBytes) {
+        assertEquals(expectedNumber, timer.getCount(metric),
+                () -> String.format("Incorrect call count for metric %s", metric));
+        assertEquals(expectedCumulativeBytes, timer.getSize(metric),
+                () -> String.format("Incorrect size for metric %s", metric));
     }
 
     private void assertMetricCountAtMost(StoreTimer.Event metric, int maximumValue) {
