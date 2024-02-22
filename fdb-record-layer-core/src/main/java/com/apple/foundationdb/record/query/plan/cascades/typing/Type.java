@@ -485,6 +485,21 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return null;
         }
 
+        if (t1.isEnum() != t2.isEnum()) {
+            return null;
+        }
+
+        if (t1.isEnum()) {
+            final var t1Enum = (Enum)t1;
+            final var t2Enum = (Enum)t2;
+            final var t1EnumValues = t1Enum.enumValues;
+            final var t2EnumValues = t2Enum.enumValues;
+            if (t1EnumValues == null) {
+                return t2EnumValues == null ? t1Enum.withNullability(isResultNullable) : null;
+            }
+            return t1EnumValues.equals(t2EnumValues) ? t1Enum.withNullability(isResultNullable) : null;
+        }
+
         if (t1.getTypeCode() != t2.getTypeCode()) {
             return null;
         }
@@ -1525,7 +1540,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return getTypeCode() + "<" +
                    Objects.requireNonNull(enumValues)
                            .stream()
-                           .map(Object::toString)
+                           .map(EnumValue::toString)
                            .collect(Collectors.joining(", ")) + ">";
         }
 
@@ -1630,6 +1645,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             @Override
             public int hashCode() {
                 return Objects.hash(name, number);
+            }
+
+            @Override
+            public String toString() {
+                return name + '(' + number + ')';
             }
 
             @Nonnull
