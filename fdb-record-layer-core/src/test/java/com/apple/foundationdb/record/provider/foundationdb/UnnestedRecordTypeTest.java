@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1EvolvedWithMapProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -71,10 +72,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -98,6 +102,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -1243,6 +1248,81 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
             assertEquals(IndexState.DISABLED, recordStore.getIndexState(simpleIndex));
             // The new unnested index is on the new MyMapRecord type, and so it can be marked as readable without a real build
             assertEquals(IndexState.READABLE, recordStore.getIndexState(unnestedIndex));
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void validateBuildDuringCheckVersion() {
+        final RecordMetaData metaDataWithoutIndex = mapMetaData(metaDataBuilder -> { });
+        final FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataWithoutIndex);
+            storeBuilder = recordStore.asBuilder();
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                recordStore.saveRecord(outerRecord);
+                // Save a second OtherRecord which should not participate during the index build
+                recordStore.saveRecord(TestRecordsNestedMapProto.OtherRecord.newBuilder()
+                        .setRecId(-1 * outerRecord.getRecId())
+                        .setOtherId(outerRecord.getOtherId())
+                        .build());
+            }
+            commit(context);
+        }
+
+        final RecordMetaData metaDataWithIndex = mapMetaData(addMapType().andThen(addKeyOtherIntValueIndex()));
+        assertThat(metaDataWithIndex.getVersion(), greaterThan(metaDataWithoutIndex.getVersion()));
+        try (FDBRecordContext context = openContext()) {
+            final Set<Index> newIndexesToBuild = new HashSet<>();
+            final FDBStoreTimer timer = context.getTimer();
+            assertNotNull(timer);
+            timer.reset();
+            final FDBRecordStore storeWithIndex = storeBuilder
+                    .setContext(context)
+                    .setMetaDataProvider(metaDataWithIndex)
+                    .setUserVersionChecker(new FDBRecordStoreBase.UserVersionChecker() {
+                        @Deprecated
+                        @Override
+                        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
+                            return fail("deprecated method should not be called");
+                        }
+
+                        @Override
+                        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+                        }
+
+                        @Nonnull
+                        @Override
+                        public CompletableFuture<IndexState> needRebuildIndex(final Index index, final Supplier<CompletableFuture<Long>> lazyRecordCount, final Supplier<CompletableFuture<Long>> lazyEstimatedSize, final boolean indexOnNewRecordTypes) {
+                            newIndexesToBuild.add(index);
+                            assertFalse(indexOnNewRecordTypes, "Unnested index should not have been identified as being on new types");
+                            // Return READABLE to force the store to rebuild the index during check version
+                            return CompletableFuture.completedFuture(IndexState.READABLE);
+                        }
+                    })
+                    .open();
+            final Index index = metaDataWithIndex.getIndex(KEY_OTHER_INT_VALUE_INDEX);
+            assertEquals(Set.of(index), newIndexesToBuild);
+            assertEquals(sampleMapRecords().size(), timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+
+
+            final List<IndexEntry> expectedEntries = new ArrayList<>();
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                final Tuple outerPrimaryKey = Tuple.from(outerRecord.getRecId());
+                for (int i = 0; i < outerRecord.getMap().getEntryCount(); i++) {
+                    final Tuple syntheticPrimaryKey = Tuple.from(metaDataWithIndex.getSyntheticRecordType(UNNESTED_MAP).getRecordTypeKey(), outerPrimaryKey, Tuple.from(i));
+                    final TestRecordsNestedMapProto.MapRecord.Entry entry = outerRecord.getMap().getEntry(i);
+                    final Tuple indexKey = Tuple.from(entry.getKey(), outerRecord.getOtherId(), entry.getIntValue());
+                    expectedEntries.add(new IndexEntry(index, indexKey.addAll(syntheticPrimaryKey), TupleHelpers.EMPTY, syntheticPrimaryKey));
+                }
+            }
+            expectedEntries.sort(Comparator.comparing(IndexEntry::getKey));
+            final List<IndexEntry> scannedEntries = storeWithIndex.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asList()
+                    .join();
+            assertEquals(expectedEntries, scannedEntries);
 
             commit(context);
         }
