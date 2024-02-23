@@ -50,16 +50,15 @@ public class MaxMatchMapTranslator extends Translator {
      * @param maxMatchMapBelow The {@link MaxMatchMap} of matches of values referenced by the query and candidate correlations.
      * @param queryCorrelation The query correlation.
      * @param candidateCorrelation The candidate correlation.
-     * @param constantAliases A list of constant aliases, i.e. aliases the remain unchanged after translating a {@link Value}.
      */
     public MaxMatchMapTranslator(@Nonnull final MaxMatchMap maxMatchMapBelow,
                                  @Nonnull final CorrelationIdentifier queryCorrelation,
                                  @Nonnull final CorrelationIdentifier candidateCorrelation,
-                                 @Nonnull final AliasMap constantAliases) {
-        super(constantAliases.toBuilder().put(candidateCorrelation, candidateCorrelation).build());
+                                 @Nonnull final AliasMap constantAliasesMap) {
+        super(constantAliasesMap.toBuilder().put(candidateCorrelation, candidateCorrelation).build());
         this.translationMapBuilder = TranslationMap.builder()
                 .when(queryCorrelation)
-                .then(candidateCorrelation, (src, tgt, quantifiedValue) -> getTranslatedQueryValue(maxMatchMapBelow, candidateCorrelation));
+                .then(candidateCorrelation, (src, tgt, quantifiedValue) -> getTranslatedQueryValue(maxMatchMapBelow, candidateCorrelation, constantAliasesMap));
         this.translationMap = translationMapBuilder.build();
     }
 
@@ -79,14 +78,15 @@ public class MaxMatchMapTranslator extends Translator {
     }
 
     @Nonnull
-    private Value getTranslatedQueryValue(@Nonnull final MaxMatchMap maxMatchMap,
-                                          @Nonnull final CorrelationIdentifier candidateCorrelation) {
+    private static Value getTranslatedQueryValue(@Nonnull final MaxMatchMap maxMatchMap,
+                                                 @Nonnull final CorrelationIdentifier candidateCorrelation,
+                                                 @Nonnull final AliasMap constantAliasesMap) {
         final var belowMapping = maxMatchMap.getMapping();
         final var belowCandidateResultValue = maxMatchMap.getCandidateResultValue();
         final Map<Value, Value> pulledUpMaxMatchMap = belowMapping.entrySet().stream().map(entry -> {
             final var queryPart = entry.getKey();
             final var candidatePart = entry.getValue();
-            final var pulledUpCandidatesMap = belowCandidateResultValue.pullUp(List.of(candidatePart), getConstantAliasMap(), Set.of(), candidateCorrelation);
+            final var pulledUpCandidatesMap = belowCandidateResultValue.pullUp(List.of(candidatePart), constantAliasesMap, Set.of(), candidateCorrelation);
             final var pulledUpdateCandidatePart = pulledUpCandidatesMap.get(candidatePart);
             if (pulledUpdateCandidatePart == null) {
                 throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
@@ -99,7 +99,7 @@ public class MaxMatchMapTranslator extends Translator {
                 pulledUpMaxMatchMap
                         .entrySet()
                         .stream()
-                        .filter(maxMatchMapItem -> maxMatchMapItem.getKey().semanticEquals(valuePart, getConstantAliasMap()))
+                        .filter(maxMatchMapItem -> maxMatchMapItem.getKey().semanticEquals(valuePart, constantAliasesMap))
                         .map(Map.Entry::getValue)
                         .findAny()
                         .orElse(valuePart)));

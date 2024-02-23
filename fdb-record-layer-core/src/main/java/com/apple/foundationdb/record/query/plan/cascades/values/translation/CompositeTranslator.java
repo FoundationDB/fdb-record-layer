@@ -37,10 +37,10 @@ import java.util.Optional;
 public class CompositeTranslator extends Translator {
 
     @Nonnull
-    private final Optional<TrivialTranslator> simpleTranslatorMaybe;
+    private final Optional<TrivialTranslator> trivialTranslatorOptional;
 
     @Nonnull
-    private final Optional<MaxMatchMapTranslator> maxMatchMapTranslatorMaybe;
+    private final Optional<MaxMatchMapTranslator> maxMatchMapTranslatorOptional;
 
     /**
      * Creates a new instance of {@link CompositeTranslator}.
@@ -60,8 +60,8 @@ public class CompositeTranslator extends Translator {
                 compositeTranslationMapBuilder.merge(((MaxMatchMapTranslator)translator).getTranslationMapBuilder());
             } else if (translator instanceof CompositeTranslator) {
                 final var compositeTranslator = (CompositeTranslator)translator;
-                compositeTranslator.simpleTranslatorMaybe.map(trivialTranslator -> compositeTranslationAliasMapBuilder.putAll(trivialTranslator.getTranslationAliasMap()));
-                compositeTranslator.maxMatchMapTranslatorMaybe.map(maxMatchMapTranslator -> compositeTranslationMapBuilder.merge(maxMatchMapTranslator.getTranslationMapBuilder()));
+                compositeTranslator.trivialTranslatorOptional.map(trivialTranslator -> compositeTranslationAliasMapBuilder.putAll(trivialTranslator.getTranslationAliasMap()));
+                compositeTranslator.maxMatchMapTranslatorOptional.map(maxMatchMapTranslator -> compositeTranslationMapBuilder.merge(maxMatchMapTranslator.getTranslationMapBuilder()));
             } else {
                 throw new RecordCoreException(String.format("Unexpected translator type %s", translator.getClass().getSimpleName()));
             }
@@ -71,15 +71,15 @@ public class CompositeTranslator extends Translator {
         final var compositeTranslationMap = compositeTranslationMapBuilder.build();
 
         if (compositeTranslationAliasMap != AliasMap.emptyMap()) {
-            simpleTranslatorMaybe = Optional.of(new TrivialTranslator(getConstantAliasMap(), compositeTranslationAliasMap));
+            trivialTranslatorOptional = Optional.of(new TrivialTranslator(getConstantAliasMap(), compositeTranslationAliasMap));
         } else {
-            simpleTranslatorMaybe = Optional.empty();
+            trivialTranslatorOptional = Optional.empty();
         }
 
         if (compositeTranslationMap != TranslationMap.empty()) {
-            maxMatchMapTranslatorMaybe = Optional.of(new MaxMatchMapTranslator(getConstantAliasMap(), compositeTranslationMapBuilder));
+            maxMatchMapTranslatorOptional = Optional.of(new MaxMatchMapTranslator(getConstantAliasMap(), compositeTranslationMapBuilder));
         } else {
-            maxMatchMapTranslatorMaybe = Optional.empty();
+            maxMatchMapTranslatorOptional = Optional.empty();
         }
     }
 
@@ -94,11 +94,11 @@ public class CompositeTranslator extends Translator {
     @Override
     public Value translate(@Nonnull final Value value) {
         var result = value;
-        if (simpleTranslatorMaybe.isPresent()) {
-            result = simpleTranslatorMaybe.get().translate(result);
+        if (trivialTranslatorOptional.isPresent()) {
+            result = trivialTranslatorOptional.get().translate(result);
         }
-        if (maxMatchMapTranslatorMaybe.isPresent()) {
-            result = maxMatchMapTranslatorMaybe.get().translate(result);
+        if (maxMatchMapTranslatorOptional.isPresent()) {
+            result = maxMatchMapTranslatorOptional.get().translate(result);
         }
         return result;
     }
