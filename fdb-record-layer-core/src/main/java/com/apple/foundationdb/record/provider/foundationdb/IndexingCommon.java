@@ -133,7 +133,7 @@ public class IndexingCommon {
             boolean isSynthetic = false;
             if (types.stream().anyMatch(RecordType::isSynthetic)) {
                 if (presetTypes) {
-                    throw new IndexingBase.ValidationException("Can't use preset record types with synthetic a records index");
+                    throw new IndexingBase.ValidationException("Can't use preset record types with a synthetic records index");
                 }
                 types = SyntheticRecordPlanner.storedRecordTypesForIndex(metaData, targetIndex, types);
                 isSynthetic = true;
