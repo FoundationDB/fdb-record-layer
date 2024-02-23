@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -88,7 +89,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -113,25 +116,44 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
                                          Supplier<EvaluationContext> contextSupplier,
-                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord)
+                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord)
             throws Exception {
         return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, context -> { });
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
                                          Supplier<EvaluationContext> contextSupplier,
-                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord,
+                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord,
+                                         TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded)
+            throws Exception {
+        return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, null, false, checkDiscarded);
+    }
+
+    protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
+                                         Supplier<EvaluationContext> contextSupplier,
+                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord,
+                                         @Nullable Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey,
+                                         boolean reverse,
                                          TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded)
             throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
             int i = 0;
+            @Nullable Tuple sortValue = null;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, contextSupplier.get()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
-                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    TestRecords1Proto.MySimpleRecord myrec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .mergeFrom(rec.getRecord())
+                            .build();
                     checkRecord.accept(myrec);
+                    if (sortKey != null) {
+                        Tuple nextSortValue = sortKey.apply(myrec);
+                        if (sortValue != null) {
+                            assertThat(nextSortValue, reverse ? lessThanOrEqualTo(sortValue) : greaterThanOrEqualTo(sortValue));
+                        }
+                        sortValue = nextSortValue;
+                    }
                     i++;
                 }
             }
@@ -513,6 +535,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
                     .asBuilder()
                     .setOmitPrimaryKeyInUnionOrderingKey(shouldOmitPrimaryKeyInUnionOrderingKey)
+                    .setOmitPrimaryKeyInOrderingKeyForInUnion(shouldOmitPrimaryKeyInUnionOrderingKey)
                     .build());
         }
     }
