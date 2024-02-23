@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
@@ -735,7 +736,12 @@ public abstract class IndexingBase {
                 .thenCompose(ignore ->
                         AsyncUtil.whileTrue(() -> cursor.onNext()
                                 .thenCompose(result ->
-                                        iterateCursorOnly(store, result,
+                                        policy.isReverseScanOrder() ?
+                                        handleCursorResultReverse(store, result,
+                                                getRecordToIndex, nextResultCont,
+                                                recordsScannedCounter, hasMore, isIdempotent)
+                                        :
+                                        handleCursorResult(store, result,
                                                 getRecordToIndex, nextResult, nextResultCont,
                                                 recordsScannedCounter, hasMore, isIdempotent)
                                 ), cursor.getExecutor()))
@@ -755,20 +761,21 @@ public abstract class IndexingBase {
                 });
     }
 
-    private <T> CompletableFuture<Boolean> iterateCursorOnly(@Nonnull FDBRecordStore store,
-                                                             @Nonnull RecordCursorResult<T> rangeCursor,
-                                                             @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
-                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
-                                                             @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
-                                                             @Nonnull AtomicLong recordsScannedCounter,
-                                                             @Nonnull AtomicBoolean hasMore,
-                                                             final boolean isIdempotent) {
+    @SuppressWarnings("squid:S00107") // too many parameters
+    private <T> CompletableFuture<Boolean> handleCursorResult(@Nonnull FDBRecordStore store,
+                                                              @Nonnull RecordCursorResult<T> cursorResult,
+                                                              @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResult,
+                                                              @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                              @Nonnull AtomicLong recordsScannedCounter,
+                                                              @Nonnull AtomicBoolean hasMore,
+                                                              final boolean isIdempotent) {
         RecordCursorResult<T> currResult;
         final boolean isExhausted;
-        if (rangeCursor.hasNext()) {
+        if (cursorResult.hasNext()) {
             // has next, process one previous item (if exists)
             currResult = nextResult.get();
-            nextResult.set(rangeCursor);
+            nextResult.set(cursorResult);
             if (currResult == null) {
                 // that was the first item, nothing to process
                 return AsyncUtil.READY_TRUE;
@@ -777,7 +784,7 @@ public abstract class IndexingBase {
         } else {
             // end of the cursor list
             timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-            if (!rangeCursor.getNoNextReason().isSourceExhausted()) {
+            if (!cursorResult.getNoNextReason().isSourceExhausted()) {
                 nextResultCont.set(nextResult.get());
                 hasMore.set(true);
                 return AsyncUtil.READY_FALSE;
@@ -825,6 +832,57 @@ public abstract class IndexingBase {
                                     .thenApply(shouldCommit -> {
                                         if (shouldCommit) {
                                             nextResultCont.set(nextResult.get());
+                                            hasMore.set(true);
+                                            return false;
+                                        }
+                                        return true;
+                                    })
+                    );
+                });
+    }
+
+    @SuppressWarnings("squid:S00107") // too many parameters
+    private <T> CompletableFuture<Boolean> handleCursorResultReverse(@Nonnull FDBRecordStore store,
+                                                                     @Nonnull RecordCursorResult<T> cursorResult,
+                                                                     @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                                     @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                                     @Nonnull AtomicLong recordsScannedCounter,
+                                                                     @Nonnull AtomicBoolean hasMore,
+                                                                     final boolean isIdempotent) {
+        // When setting the rangeSet the first item is inclusive, the last one is exclusive. Hence, if scanning in reverse order (which is rare),
+        // the 'lastResultCont' item should also be processed
+        if (!cursorResult.hasNext()) {
+            timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+            if (cursorResult.getNoNextReason().isSourceExhausted()) {
+                timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_DEPLETION);
+                hasMore.set(false);
+            } else {
+                hasMore.set(true);
+            }
+            return AsyncUtil.READY_FALSE; // all done
+        }
+
+        // here: rangeCursor must have value
+        timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+        recordsScannedCounter.incrementAndGet();
+        nextResultCont.set(cursorResult);
+
+        return getRecordToIndex.apply(store, cursorResult)
+                .thenCompose(rec -> {
+                    if (null == rec) {
+                        return AsyncUtil.READY_TRUE; // next
+                    }
+                    // This record should be indexed. Add it to the transaction.
+                    if (isIdempotent) {
+                        store.addRecordReadConflict(rec.getPrimaryKey());
+                    }
+                    timerIncrement(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+
+                    final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(store, rec);
+                    return updateMaintainer.thenCompose(vignore ->
+                            hadTransactionReachedLimits(store)
+                                    .thenApply(shouldCommit -> {
+                                        if (shouldCommit) {
                                             hasMore.set(true);
                                             return false;
                                         }
@@ -896,6 +954,16 @@ public abstract class IndexingBase {
                 typeStamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
     }
 
+    @Nonnull
+    SyntheticRecordFromStoredRecordPlan syntheticPlanForIndex(@Nonnull FDBRecordStore store, @Nonnull IndexingCommon.IndexContext indexContext) {
+        if (!indexContext.isSynthetic) {
+            throw new RecordCoreException("unable to create synthetic plan for non-synthetic index");
+        }
+        final RecordQueryPlanner queryPlanner = new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())));
+        final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store, queryPlanner);
+        return syntheticPlanner.forIndex(indexContext.index);
+    }
+
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
                                                             FDBStoredRecord<Message> rec) {
         return forEachTargetIndexContext(indexContext -> {
@@ -905,8 +973,7 @@ public abstract class IndexingBase {
             }
             if (indexContext.isSynthetic) {
                 // This particular index is synthetic, handle with care
-                final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())), store.getTimer());
-                final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(indexContext.index);
+                final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
                 final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
                 return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
             }
@@ -981,17 +1048,18 @@ public abstract class IndexingBase {
                 isIdempotent ?
                 IsolationLevel.SNAPSHOT :
                 IsolationLevel.SERIALIZABLE;
-
+        final boolean isReverse = policy.isReverseScanOrder();
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(isolationLevel)
-                .setReturnedRowLimit(getLimit() + 1); // always respect limit in this path; +1 allows a continuation item
+                .setReturnedRowLimit(getLimit() + (isReverse ? 0 : 1)); // always respect limit in this path; +1 allows a continuation item in forward scan
 
-        return new ScanProperties(executeProperties.build());
+        return new ScanProperties(executeProperties.build(), isReverse);
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
+        validateOrThrowEx(!policy.isReverseScanOrder(), "rebuild do not support reverse scan order");
         return forEachTargetIndex(index -> store.clearAndMarkIndexWriteOnly(index).thenCompose(bignore -> {
             // Insert the full range into the range set. (The internal rebuild method only indexes the records and
             // does not update the range set.) This is important because if marking the index as readable fails (for

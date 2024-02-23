@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -81,7 +82,9 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         NULL_TO_STRING(Type.TypeCode.NULL, Type.TypeCode.STRING, (descriptor, in) -> (String) null),
         NULL_TO_ARRAY(Type.TypeCode.NULL, Type.TypeCode.ARRAY, (descriptor, in) -> null),
         NULL_TO_RECORD(Type.TypeCode.NULL, Type.TypeCode.RECORD, (descriptor, in) -> null),
-        NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in);
+        NONE_TO_ARRAY(Type.TypeCode.NONE, Type.TypeCode.ARRAY, (descriptor, in) -> in),
+        NULL_TO_ENUM(Type.TypeCode.NULL, Type.TypeCode.ENUM, (descriptor, in) -> null),
+        STRING_TO_ENUM(Type.TypeCode.STRING, Type.TypeCode.ENUM, ((descriptor, in) -> ((Descriptors.EnumDescriptor)descriptor).findValueByName((String)in)));
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
@@ -92,10 +95,10 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         @Nonnull
         private final Type.TypeCode to;
         @Nonnull
-        private final BiFunction<Descriptors.Descriptor, Object, Object> promotionFunction;
+        private final BiFunction<Descriptors.GenericDescriptor, Object, Object> promotionFunction;
 
         PhysicalOperator(@Nonnull final Type.TypeCode from, @Nonnull final Type.TypeCode to,
-                         @Nonnull final BiFunction<Descriptors.Descriptor, Object, Object> promotionFunction) {
+                         @Nonnull final BiFunction<Descriptors.GenericDescriptor, Object, Object> promotionFunction) {
             this.from = from;
             this.to = to;
             this.promotionFunction = promotionFunction;
@@ -112,11 +115,11 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         @Nonnull
-        public BiFunction<Descriptors.Descriptor, Object, Object> getPromotionFunction() {
+        public BiFunction<Descriptors.GenericDescriptor, Object, Object> getPromotionFunction() {
             return promotionFunction;
         }
 
-        public Object apply(@Nullable final Descriptors.Descriptor descriptor, @Nullable Object in) {
+        public Object apply(@Nullable final Descriptors.GenericDescriptor descriptor, @Nullable Object in) {
             return promotionFunction.apply(descriptor, in);
         }
 
@@ -185,8 +188,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
         this.isSimplePromotion = promoteToType.isPrimitive() ||
-                                 (promoteToType instanceof Type.Array &&
-                                  Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
+                (promoteToType instanceof Type.Array &&
+                         Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
     }
 
     @Nonnull
@@ -214,9 +217,20 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             return result;
         }
 
+        final Descriptors.GenericDescriptor genericDescriptor;
+        if (isSimplePromotion) {
+            genericDescriptor = null;
+        } else {
+            if (promoteToType.isEnum()) {
+                genericDescriptor = context.getTypeRepository().getEnumDescriptor(promoteToType);
+            } else {
+                Verify.verify(promoteToType.isRecord());
+                genericDescriptor = context.getTypeRepository().getMessageDescriptor(promoteToType);
+            }
+        }
         return MessageHelpers.coerceObject(promotionTrie,
                 promoteToType,
-                isSimplePromotion ? null : context.getTypeRepository().getMessageDescriptor(promoteToType),
+                genericDescriptor,
                 inValue.getResultType(),
                 result);
     }
@@ -227,11 +241,17 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         return promoteToType;
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, promoteToType);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, inValue, promoteToType);
@@ -298,6 +318,10 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     public static CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
                                                          @Nonnull Type currentType,
                                                          @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
+        if (targetType.getTypeCode() == Type.TypeCode.ANY) {
+            return null;
+        }
+
         if (transformationsTrie != null && transformationsTrie.getValue() != null) {
             currentType = transformationsTrie.getValue().getResultType();
         }
@@ -313,6 +337,12 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
+
+        if (currentType.isEnum()) {
+            SemanticException.check(currentType.withNullability(false).equals(targetType.withNullability(false)),
+                    SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            return null;
+        }
 
         if (currentType.isArray()) {
             final var targetArrayType = (Type.Array)targetType;
@@ -389,7 +419,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             SemanticException.check(!inArray.isErased() && !promoteToArray.isErased(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return isPromotionNeeded(Verify.verifyNotNull(inArray.getElementType()), Verify.verifyNotNull(promoteToArray.getElementType()));
         }
-        SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+        SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive() ||
+                inType.isPrimitive() && promoteToType.isEnum(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();
     }
 
@@ -405,7 +436,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         @Override
-        public Object apply(final Descriptors.Descriptor targetDescriptor, final Object current) {
+        public Object apply(final Descriptors.GenericDescriptor targetDescriptor, final Object current) {
             return operator.apply(targetDescriptor, current);
         }
 
@@ -492,7 +523,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
 
         @Override
-        public Object apply(final Descriptors.Descriptor targetDescriptor, final Object current) {
+        public Object apply(final Descriptors.GenericDescriptor targetDescriptor, final Object current) {
             return MessageHelpers.coerceArray(toArrayType, fromArrayType, targetDescriptor, elementsTrie, current);
         }
 

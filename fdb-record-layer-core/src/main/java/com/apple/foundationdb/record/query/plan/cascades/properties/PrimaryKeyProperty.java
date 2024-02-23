@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
@@ -312,8 +313,7 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
         @Nonnull
         @Override
         public Optional<List<Value>> visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
-            return Optional.of(ScalarTranslationVisitor.translateKeyExpression(scanPlan.getCommonPrimaryKey(),
-                    Objects.requireNonNull(scanPlan.getResultType().getInnerType())));
+            return scanPlan.getMatchCandidateMaybe().flatMap(WithPrimaryKeyMatchCandidate::getPrimaryKeyValuesMaybe);
         }
 
         @Nonnull

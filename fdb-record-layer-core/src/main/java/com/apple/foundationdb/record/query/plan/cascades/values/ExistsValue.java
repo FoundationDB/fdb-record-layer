@@ -88,7 +88,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
@@ -136,6 +136,12 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
                                         @Nonnull final PExistsValue existsValueProto) {
         return new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext,
                 Objects.requireNonNull(existsValueProto.getChild())));
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
     }
 
     /**

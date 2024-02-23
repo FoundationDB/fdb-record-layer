@@ -163,13 +163,23 @@ public class IndexingByIndex extends IndexingBase {
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
-                    .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
-                                          rangeEnd)
-                    .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
-                                .thenApply(ignore -> notAllRangesExhausted(cont, rangeEnd)));
-
+                    .thenCompose(ignore -> postIterateRangeOnly(rangeSet, hasMore.get(), lastResult,
+                            rangeStart, rangeEnd, scanProperties.isReverse()));
         });
+    }
+
+    private CompletableFuture<Boolean> postIterateRangeOnly(IndexingRangeSet rangeSet, boolean hasMore,
+                                                            AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult,
+                                                            Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
+        if (isReverse) {
+            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeStart;
+            return rangeSet.insertRangeAsync(packOrNull(continuation), packOrNull(rangeEnd), true)
+                    .thenApply(ignore -> hasMore || rangeStart != null);
+        } else {
+            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeEnd;
+            return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
+                    .thenApply(ignore -> hasMore || rangeEnd != null);
+        }
     }
 
     @Nonnull
@@ -238,6 +248,7 @@ public class IndexingByIndex extends IndexingBase {
 
         validateOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
         validateOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
+        validateOrThrowEx(srcRecordTypes.stream().noneMatch(RecordType::isSynthetic), "source index is on synthetic record types");
         validateOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
         validateOrThrowEx(IndexTypes.VALUE.equals(srcIndex.getType()), "source index is not a VALUE index");
         validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");

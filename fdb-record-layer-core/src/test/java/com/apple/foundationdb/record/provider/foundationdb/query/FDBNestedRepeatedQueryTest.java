@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -54,9 +55,28 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexAggregate;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -69,7 +89,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -77,6 +100,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -101,20 +125,26 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionComparisonKey;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.isNotReverse;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.isReverse;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -236,12 +266,28 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         return new Index(MAX_EVER_VALUE_BY_KEY_UNNESTED, field("entry").nest("value").groupBy(field("entry").nest("key")), IndexTypes.MAX_EVER_TUPLE);
     }
 
+    private static Index maxEverIntValueByKey() {
+        return new Index(MAX_EVER_VALUE_BY_KEY, new GroupingKeyExpression(onEntry(() -> concatenateFields("key", "int_value")), 1), IndexTypes.MAX_EVER_LONG);
+    }
+
+    private static Index maxEverIntValueByKeyUnnested() {
+        return new Index(MAX_EVER_VALUE_BY_KEY_UNNESTED, field("entry").nest("int_value").groupBy(field("entry").nest("key")), IndexTypes.MAX_EVER_LONG);
+    }
+
     private static Index maxEverRecordValueByKey() {
         return new Index(MAX_EVER_RECORD_VALUE_BY_KEY, new GroupingKeyExpression(concat(onEntry(() -> field("key")), onEntry(() -> field("value"))), 1), IndexTypes.MAX_EVER_TUPLE);
     }
 
     private static Index maxEverRecordValueByKeyUnnested() {
         return new Index(MAX_EVER_RECORD_VALUE_BY_KEY_UNNESTED, field("e2").nest("value").groupBy(field("e1").nest("key")), IndexTypes.MAX_EVER_TUPLE);
+    }
+
+    private static Index maxEverRecordIntValueByKey() {
+        return new Index(MAX_EVER_RECORD_VALUE_BY_KEY, new GroupingKeyExpression(concat(onEntry(() -> field("key")), onEntry(() -> field("int_value"))), 1), IndexTypes.MAX_EVER_LONG);
+    }
+
+    private static Index maxEverRecordIntValueByKeyUnnested() {
+        return new Index(MAX_EVER_RECORD_VALUE_BY_KEY_UNNESTED, field("e2").nest("int_value").groupBy(field("e1").nest("key")), IndexTypes.MAX_EVER_LONG);
     }
 
     private static Index sumValueByKey() {
@@ -370,13 +416,26 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    private List<TestRecordsNestedMapProto.OuterRecord> setUpDataWithInts(RecordMetaDataHook hook) {
+    private List<TestRecordsNestedMapProto.OuterRecord> setUpDataWithInts(@Nonnull RecordMetaDataHook hook) {
         return setUpData(hook, i -> {
             var mapBuilder = TestRecordsNestedMapProto.MapRecord.newBuilder();
             for (int j = 0; j < 10; j++) {
                 mapBuilder.addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
                         .setKey("" + (i + j))
                         .setIntValue(j));
+            }
+            return mapBuilder.build();
+        });
+    }
+
+    private List<TestRecordsNestedMapProto.OuterRecord> setUpDataWithDuplicateInts(@Nonnull RecordMetaDataHook hook) {
+        return setUpData(hook, i -> {
+            var mapBuilder = TestRecordsNestedMapProto.MapRecord.newBuilder();
+            for (int j = 0; j < 12; j++) {
+                // Add map entries with a small number of keys, some of which appear multiple times
+                mapBuilder.addEntry(TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                        .setKey("" + (i + (j % 3)))
+                        .setIntValue(j % 2));
             }
             return mapBuilder.build();
         });
@@ -655,6 +714,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaDataHook hook = addUnnestedType()
                 .andThen(metaData -> metaData.addIndex(OUTER_WITH_ENTRIES, keyIdValueIndex));
         final List<TestRecordsNestedMapProto.OuterRecord> data = setUpData(hook);
+
         final Set<String> keys = mapKeys(data);
         assertThat(keys, not(empty()));
 
@@ -714,6 +774,161 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     assertEquals(expected, actual);
                 }
             }
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest(name = "inFilterOnKeyAndOrderByValue[reverse={0}]")
+    @BooleanSource
+    void inFilterOnKeyAndOrderByValue(boolean reverse) {
+        final Index unnestedOtherKeyValueIndex = new Index("unnestedOtherKeyValue",
+                concat(field(PARENT_CONSTITUENT).nest("other_id"), field("entry").nest(concatenateFields("key", "value"))));
+        final RecordMetaDataHook hook = addUnnestedType()
+                .andThen(metaData -> {
+                    final RecordTypeBuilder outerRecord = metaData.getRecordType("OuterRecord");
+                    outerRecord.setPrimaryKey(concatenateFields("other_id", "rec_id"));
+
+                    metaData.addIndex(OUTER_WITH_ENTRIES, unnestedOtherKeyValueIndex);
+                });
+        final List<TestRecordsNestedMapProto.OuterRecord> data = setUpData(hook);
+        final Set<Long> otherIds = data.stream().map(TestRecordsNestedMapProto.OuterRecord::getOtherId).collect(Collectors.toSet());
+        assertThat(otherIds, not(empty()));
+        final Set<String> keys = mapKeys(data);
+        assertThat(keys, not(empty()));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            final String otherParam = "otherParam";
+            final String keyListParam = "keyListParam";
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(OUTER_WITH_ENTRIES)
+                    .setFilter(
+                            Query.and(
+                                    Query.field(PARENT_CONSTITUENT).matches(
+                                            Query.field("other_id").equalsParameter(otherParam)),
+                                    Query.field("entry").matches(Query.field("key").in(keyListParam))
+                            )
+                    )
+                    .setSort(field("entry").nest("value"), reverse)
+                    .build();
+
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setOmitPrimaryKeyInOrderingKeyForInUnion(true)
+                    .setAttemptFailedInJoinAsUnionMaxSize(100)
+                    .build());
+            final RecordQueryPlan plan = planQuery(query);
+            assertEquals(reverse, plan.isReverse());
+            final List<KeyExpression> comparisonKeyComponents = ImmutableList.<KeyExpression>builder()
+                    .add(field("entry").nest("value"))
+                    .addAll(recordStore.getRecordMetaData().getSyntheticRecordType(OUTER_WITH_ENTRIES).getPrimaryKey().normalizeKeyForPositions())
+                    .build();
+            assertThat(comparisonKeyComponents, hasSize(4));
+            assertEquals(5, comparisonKeyComponents.stream().mapToInt(KeyExpression::getColumnSize).sum());
+            assertMatchesExactly(plan, inUnionOnExpressionPlan(indexPlan()
+                    .where(indexName(unnestedOtherKeyValueIndex.getName()))
+                    .and(scanComparisons(range("[EQUALS $" + otherParam + ", EQUALS $__in_key__0]")))
+                    .and(reverse ? isReverse() : isNotReverse())
+            ).where(inUnionComparisonKey(list(comparisonKeyComponents))));
+            assertEquals(reverse ? -1181713337L : -1181714298L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(reverse ? 1959162892L : 1959341638L, plan.planHash(CURRENT_FOR_CONTINUATION));
+
+            for (long otherId : otherIds) {
+                for (String key1 : keys) {
+                    for (String key2 : keys) {
+                        final List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> expected = data.stream()
+                                .filter(rec -> rec.getOtherId() == otherId)
+                                .flatMap(rec -> rec.getMap().getEntryList().stream()
+                                        .filter(entry -> entry.getKey().equals(key1) || entry.getKey().equals(key2))
+                                        .map(entry -> Pair.of(rec, entry)))
+                                .sorted((p1, p2) -> {
+                                    int comparison = p1.getRight().getValue().compareTo(p2.getRight().getValue());
+                                    if (comparison != 0) {
+                                        return reverse ? (comparison * -1) : comparison;
+                                    }
+                                    comparison = Long.compare(p1.getLeft().getRecId(), p2.getLeft().getRecId());
+                                    if (comparison != 0) {
+                                        return reverse ? (comparison * -1) : comparison;
+                                    }
+                                    comparison = Integer.compare(p1.getLeft().getMap().getEntryList().indexOf(p1.getRight()), p2.getLeft().getMap().getEntryList().indexOf(p2.getRight()));
+                                    return reverse ? (comparison * -1) : comparison;
+                                })
+                                .collect(Collectors.toList());
+
+                        final Bindings bindings = Bindings.newBuilder()
+                                .set(otherParam, otherId)
+                                .set(keyListParam, List.of(key1, key2))
+                                .build();
+                        final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
+                        final List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> queried = plan.execute(recordStore, evaluationContext)
+                                .map(FDBQueriedRecord::getSyntheticRecord)
+                                .map(synthetic -> {
+                                    TestRecordsNestedMapProto.OuterRecord outer = TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                                            .mergeFrom(synthetic.getConstituent(PARENT_CONSTITUENT).getRecord())
+                                            .build();
+                                    TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                            .mergeFrom(synthetic.getConstituent("entry").getRecord())
+                                            .build();
+                                    return Pair.of(outer, entry);
+                                })
+                                .asList()
+                                .join();
+                        assertEquals(expected, queried);
+                    }
+                }
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "inFilterOrderByValueAsOr[reverse={0}]")
+    @BooleanSource
+    void inFilterOrderByValueAsOr(boolean reverse) {
+        final Index unnestedOtherKeyValueIndex = new Index("unnestedOtherKeyValue",
+                concat(field(PARENT_CONSTITUENT).nest("other_id"), field("entry").nest(concatenateFields("key", "value"))));
+        final RecordMetaDataHook hook = addUnnestedType()
+                .andThen(metaData -> {
+                    final RecordTypeBuilder outerRecord = metaData.getRecordType("OuterRecord");
+                    outerRecord.setPrimaryKey(concatenateFields("other_id", "rec_id"));
+
+                    metaData.addIndex(OUTER_WITH_ENTRIES, unnestedOtherKeyValueIndex);
+                });
+        final List<TestRecordsNestedMapProto.OuterRecord> data = setUpData(hook);
+        final Set<Long> otherIds = data.stream().map(TestRecordsNestedMapProto.OuterRecord::getOtherId).collect(Collectors.toSet());
+        assertThat(otherIds, not(empty()));
+        final Set<String> keys = mapKeys(data);
+        assertThat(keys, not(empty()));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            final long otherId = 1L;
+            assertThat(otherId, in(otherIds));
+            final List<String> keyList = List.of("2", "4", "6");
+            keyList.forEach(key -> assertThat(key, in(keys)));
+
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(OUTER_WITH_ENTRIES)
+                    .setFilter(
+                            Query.and(
+                                    Query.field(PARENT_CONSTITUENT).matches(
+                                            Query.field("other_id").equalsValue(otherId)),
+                                    Query.field("entry").matches(Query.field("key").in(keyList))
+                            )
+                    )
+                    .setSort(field("entry").nest("value"), reverse)
+                    .build();
+
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setAttemptFailedInJoinAsOr(true)
+                    .setOmitPrimaryKeyInUnionOrderingKey(true)
+                    .setNormalizeNestedFields(true)
+                    .build());
+            // The way the Boolean expression is normalized after replacing the IN with an OR results in an expression
+            // that is not matched, so query planning fails. This could be fixed by using the BooleanNormalizer
+            // after re-writing the query, but this code path is more-or-less deprecated in favor of planning as
+            // an in-union, so just assert that this fails until we start planning this as an ordinary union
+            final RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planQuery(query));
+            assertThat(rce.getMessage(), containsString("Cannot sort without appropriate index"));
         }
     }
 
@@ -1069,7 +1284,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void countByKeyIndexes() {
         final RecordMetaDataHook hook = addUnnestedType().andThen(metaDataBuilder -> {
             metaDataBuilder.addIndex(OUTER, countByKey());
@@ -1085,6 +1300,12 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(dataCountedByKey.size());
             dataCountedByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
             return asTuples;
+        }, () -> {
+            final Quantifier outerQun = outerRecQun();
+            final Quantifier entryQun = explodeEntryKeys(outerQun);
+            final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryQun);
+            final Quantifier groupBy = groupAggregateByKey(selectWhere, new CountValue.CountFn(), RecordConstructorValue.ofColumns(List.of()));
+            return unsorted(selectHaving(groupBy));
         });
     }
 
@@ -1097,13 +1318,38 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final IndexAggregateFunction maxEverOuter = new IndexAggregateFunction(FunctionNames.MAX_EVER, onEntry(() -> field("key")), MAX_EVER_VALUE_BY_KEY);
         final IndexAggregateFunction maxEverUnnested = new IndexAggregateFunction(FunctionNames.MAX_EVER, field("entry").nest("key"), MAX_EVER_VALUE_BY_KEY_UNNESTED);
         testAggregateIndex(hook, setUpData(hook) , maxEverOuter, maxEverUnnested, data -> {
-            Map<String, String> dataCountedByKey = new HashMap<>();
+            Map<String, String> maxDataByKey = new HashMap<>();
             data.stream()
                     .flatMap(rec -> rec.getMap().getEntryList().stream())
-                    .forEach(entry -> dataCountedByKey.compute(entry.getKey(), (k, v) -> v == null ? entry.getValue() : (entry.getValue().compareTo(v) < 0 ? v : entry.getValue())));
-            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(dataCountedByKey.size());
-            dataCountedByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
+                    .forEach(entry -> maxDataByKey.compute(entry.getKey(), (k, v) -> v == null ? entry.getValue() : (entry.getValue().compareTo(v) < 0 ? v : entry.getValue())));
+            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(maxDataByKey.size());
+            maxDataByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
             return asTuples;
+        }, null);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void maxEverIntByKeyIndexes() {
+        final RecordMetaDataHook hook = addUnnestedType().andThen(metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, maxEverIntValueByKey());
+            metaDataBuilder.addIndex(OUTER_WITH_ENTRIES, maxEverIntValueByKeyUnnested());
+        });
+        final IndexAggregateFunction maxEverOuter = new IndexAggregateFunction(FunctionNames.MAX_EVER, onEntry(() -> field("key")), MAX_EVER_VALUE_BY_KEY);
+        final IndexAggregateFunction maxEverUnnested = new IndexAggregateFunction(FunctionNames.MAX_EVER, field("entry").nest("key"), MAX_EVER_VALUE_BY_KEY_UNNESTED);
+        testAggregateIndex(hook, setUpDataWithInts(hook) , maxEverOuter, maxEverUnnested, data -> {
+            Map<String, Long> maxDataByKey = new HashMap<>();
+            data.stream()
+                    .flatMap(rec -> rec.getMap().getEntryList().stream())
+                    .forEach(entry -> maxDataByKey.compute(entry.getKey(), (k, v) -> v == null ? entry.getIntValue() : Math.max(entry.getIntValue(), v)));
+            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(maxDataByKey.size());
+            maxDataByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
+            return asTuples;
+        }, () -> {
+            final Quantifier outerQun = outerRecQun();
+            final Quantifier entryQun = explodeEntryQun(outerQun, "key", "int_value");
+            final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryQun);
+            final Quantifier groupBy = groupAggregateByKey(selectWhere, new IndexOnlyAggregateValue.MaxEverLongFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryQun.getAlias().getId(), "int_value")));
+            return unsorted(selectHaving(groupBy));
         });
     }
 
@@ -1123,7 +1369,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final IndexAggregateFunction maxEverOuter = new IndexAggregateFunction(FunctionNames.MAX_EVER, onEntry(() -> field("key")), MAX_EVER_RECORD_VALUE_BY_KEY);
         final IndexAggregateFunction maxEverUnnested = new IndexAggregateFunction(FunctionNames.MAX_EVER, field("e1").nest("key"), MAX_EVER_RECORD_VALUE_BY_KEY_UNNESTED);
         testAggregateIndex(hook, setUpData(hook), maxEverOuter, maxEverUnnested, data -> {
-            Map<String, String> dataCountedByKey = new HashMap<>();
+            Map<String, String> maxDataByKey = new HashMap<>();
             for (TestRecordsNestedMapProto.OuterRecord outerRecord : data) {
                 final String maxValueInRecord = outerRecord.getMap().getEntryList().stream()
                         .map(TestRecordsNestedMapProto.MapRecord.Entry::getValue)
@@ -1131,15 +1377,47 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                         .orElseGet(() -> fail("Should be at least one entry in map"));
                 outerRecord.getMap().getEntryList().stream()
                         .map(TestRecordsNestedMapProto.MapRecord.Entry::getKey)
-                        .forEach(key -> dataCountedByKey.compute(key, (k, v) -> v == null ? maxValueInRecord : (maxValueInRecord.compareTo(v) < 0 ? v : maxValueInRecord)));
+                        .forEach(key -> maxDataByKey.compute(key, (k, v) -> v == null ? maxValueInRecord : (maxValueInRecord.compareTo(v) < 0 ? v : maxValueInRecord)));
             }
-            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(dataCountedByKey.size());
-            dataCountedByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
+            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(maxDataByKey.size());
+            maxDataByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
             return asTuples;
+        }, null);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void maxEverRecordIntValueByKeyIndexes() {
+        final RecordMetaDataHook hook = addDoubleUnnestedType().andThen(metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, maxEverRecordIntValueByKey());
+            metaDataBuilder.addIndex(OUTER_WITH_TWO_ENTRIES, maxEverRecordIntValueByKeyUnnested());
+        });
+        final IndexAggregateFunction maxEverOuter = new IndexAggregateFunction(FunctionNames.MAX_EVER, onEntry(() -> field("key")), MAX_EVER_RECORD_VALUE_BY_KEY);
+        final IndexAggregateFunction maxEverUnnested = new IndexAggregateFunction(FunctionNames.MAX_EVER, field("e1").nest("key"), MAX_EVER_RECORD_VALUE_BY_KEY_UNNESTED);
+        testAggregateIndex(hook, setUpDataWithInts(hook), maxEverOuter, maxEverUnnested, data -> {
+            Map<String, Long> maxDataByKey = new HashMap<>();
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : data) {
+                final Long maxValueInRecord = outerRecord.getMap().getEntryList().stream()
+                        .map(TestRecordsNestedMapProto.MapRecord.Entry::getIntValue)
+                        .max(Comparator.naturalOrder())
+                        .orElseGet(() -> fail("Should be at least one entry in map"));
+                outerRecord.getMap().getEntryList().stream()
+                        .map(TestRecordsNestedMapProto.MapRecord.Entry::getKey)
+                        .forEach(key -> maxDataByKey.compute(key, (k, v) -> v == null ? maxValueInRecord : Math.max(maxValueInRecord, v)));
+            }
+            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(maxDataByKey.size());
+            maxDataByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
+            return asTuples;
+        }, () -> {
+            final Quantifier outerQun = outerRecQun();
+            final Quantifier entryKeyQun = explodeEntryQun(outerQun, "key");
+            final Quantifier entryValueQun = explodeEntryQun(outerQun, "int_value");
+            final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryKeyQun, entryValueQun);
+            final Quantifier groupBy = groupAggregateByKey(selectWhere, new IndexOnlyAggregateValue.MaxEverLongFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryValueQun.getAlias().getId(), "int_value")));
+            return unsorted(selectHaving(groupBy));
         });
     }
 
-    @Test
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void sumByKey() {
         final RecordMetaDataHook hook = addUnnestedType().andThen(metaDataBuilder -> {
             metaDataBuilder.addIndex(OUTER, sumValueByKey());
@@ -1156,14 +1434,14 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(sumsByKey.size());
             sumsByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
             return asTuples;
-        });
+        }, this::querySumIntValueByKey);
     }
 
     /**
      * Similar to {@link #maxEverRecordValueByKeyIndexes()} but with a {@link IndexTypes#SUM} index. Like with the other index,
      * this pairs each key in the record with <em>every</em> value in the record rather than just the one in the same entry.
      */
-    @Test
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void sumWholeRecordValueByKey() {
         final RecordMetaDataHook hook = addDoubleUnnestedType().andThen(metaDataBuilder -> {
             metaDataBuilder.addIndex(OUTER, sumWholeRecordByKey());
@@ -1185,17 +1463,78 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(sumsByKey.size());
             sumsByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
             return asTuples;
+        }, this::querySumIntValueForRecordByKey);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void sumByKeyWithDuplicates() {
+        final RecordMetaDataHook hook = addUnnestedType().andThen(metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, sumValueByKey());
+            metaDataBuilder.addIndex(OUTER_WITH_ENTRIES, sumValueByKeyUnnested());
         });
+        final IndexAggregateFunction sumOuter = new IndexAggregateFunction(FunctionNames.SUM, onEntry(() -> field("key")), SUM_VALUE_BY_KEY);
+        final IndexAggregateFunction sumUnnested = new IndexAggregateFunction(FunctionNames.SUM, field("entry").nest("key"), SUM_VALUE_BY_KEY_UNNESTED);
+        testAggregateIndex(hook, setUpDataWithDuplicateInts(hook), sumOuter, sumUnnested, data -> {
+            Map<String, Long> sumsByKey = new HashMap<>();
+            data.stream()
+                    .flatMap(rec -> rec.getMap().getEntryList().stream())
+                    .forEach(entry -> sumsByKey.compute(entry.getKey(), (k, v) -> (v == null ? entry.getIntValue() : (v + entry.getIntValue()))));
+
+            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(sumsByKey.size());
+            sumsByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
+            return asTuples;
+        }, this::querySumIntValueByKey);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void sumWholeRecordValueWithDuplicatesByKey() {
+        final RecordMetaDataHook hook = addDoubleUnnestedType().andThen(metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, sumWholeRecordByKey());
+            metaDataBuilder.addIndex(OUTER_WITH_TWO_ENTRIES, sumWholeRecordByKeyUnnested());
+        });
+        final IndexAggregateFunction sumOuter = new IndexAggregateFunction(FunctionNames.SUM, onEntry(() -> field("key")), SUM_WHOLE_RECORD_VALUE_BY_KEY);
+        final IndexAggregateFunction sumUnnested = new IndexAggregateFunction(FunctionNames.SUM, field("e1").nest("key"), SUM_WHOLE_RECORD_VALUE_BY_KEY_UNNESTED);
+        testAggregateIndex(hook, setUpDataWithDuplicateInts(hook), sumOuter, sumUnnested, data -> {
+            Map<String, Long> sumsByKey = new HashMap<>();
+            for (TestRecordsNestedMapProto.OuterRecord outerRecord : data) {
+                long recordSum = outerRecord.getMap().getEntryList().stream()
+                        .mapToLong(TestRecordsNestedMapProto.MapRecord.Entry::getIntValue)
+                        .sum();
+                outerRecord.getMap().getEntryList().stream()
+                        .map(TestRecordsNestedMapProto.MapRecord.Entry::getKey)
+                        .forEach(key -> sumsByKey.compute(key, (k, v) -> v == null ? recordSum : (v + recordSum)));
+            }
+
+            Map<String, Tuple> asTuples = Maps.newHashMapWithExpectedSize(sumsByKey.size());
+            sumsByKey.forEach((k, v) -> asTuples.put(k, Tuple.from(v)));
+            return asTuples;
+        }, this::querySumIntValueForRecordByKey);
     }
 
     private void testAggregateIndex(RecordMetaDataHook hook, List<TestRecordsNestedMapProto.OuterRecord> data,
                                     IndexAggregateFunction normalAggregate, IndexAggregateFunction unnestedAggregate,
-                                    Function<List<TestRecordsNestedMapProto.OuterRecord>, Map<String, Tuple>> aggregator) {
+                                    Function<List<TestRecordsNestedMapProto.OuterRecord>, Map<String, Tuple>> aggregator,
+                                    @Nullable Supplier<GroupExpressionRef<RelationalExpression>> querySupplier) {
         Map<String, Tuple> aggregatedByKey = aggregator.apply(data);
         Set<String> keys = mapKeys(data);
 
         try (FDBRecordContext context = openContext()) {
             createOrOpenMapStore(context, hook);
+
+            @Nullable Map<String, Tuple> cascadeResults = null;
+            if (useCascadesPlanner && querySupplier != null) {
+                final RecordQueryPlan plan = planGraph(querySupplier);
+                cascadeResults = new HashMap<>();
+                try (RecordCursor<QueryResult> cascadeCursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+                    for (RecordCursorResult<QueryResult> result = cascadeCursor.getNext(); result.hasNext(); result = cascadeCursor.getNext()) {
+                        Message protoResult = result.get().getMessage();
+                        String key = (String) protoResult.getField(protoResult.getDescriptorForType().findFieldByName("key"));
+                        Object aggregate = protoResult.getField(protoResult.getDescriptorForType().findFieldByName("aggregate"));
+                        cascadeResults.put(key, Tuple.from(aggregate));
+                    }
+                }
+                assertEquals(keys, cascadeResults.keySet());
+            }
 
             for (String key : keys) {
                 assertThat(aggregatedByKey, hasKey(key));
@@ -1207,15 +1546,123 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 Tuple byUnnestedIndex = recordStore.evaluateAggregateFunction(List.of(OUTER_WITH_ENTRIES), unnestedAggregate, groupEvaluated, IsolationLevel.SERIALIZABLE)
                         .join();
                 assertEquals(expected, byUnnestedIndex, () -> "mismatched aggregate value for key " + key + " when using unnested count index");
+                if (cascadeResults != null) {
+                    assertEquals(expected, cascadeResults.get(key));
+                }
             }
 
             commit(context);
         }
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void chooseCorrectAggregateIndex() {
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, sumValueByKey());
+            metaDataBuilder.addIndex(OUTER, sumWholeRecordByKey());
+        };
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            // Verify that the byKey plan chooses the index that keeps entries together
+            final RecordQueryPlan byKeyPlan = planGraph(this::querySumIntValueByKey);
+            assertThat(byKeyPlan.getUsedIndexes(), contains(SUM_VALUE_BY_KEY));
+            assertEquals(byKeyPlan, planGraph(this::querySumIntValueByKey, SUM_VALUE_BY_KEY));
+
+            // Verify that the other byWholeRecord plan chooses the index that does not keep entries together
+            final RecordQueryPlan byWholeRecordPlan = planGraph(this::querySumIntValueForRecordByKey);
+            assertThat(byWholeRecordPlan.getUsedIndexes(), contains(SUM_WHOLE_RECORD_VALUE_BY_KEY));
+            assertEquals(byWholeRecordPlan, planGraph(this::querySumIntValueForRecordByKey, SUM_WHOLE_RECORD_VALUE_BY_KEY));
+
+            // Validate that when restricted to the wrong index, we fail to plan.
+            assertFailsToPlan(this::querySumIntValueByKey, SUM_WHOLE_RECORD_VALUE_BY_KEY);
+            assertFailsToPlan(this::querySumIntValueForRecordByKey, SUM_VALUE_BY_KEY);
+
+            commit(context);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void aggregateByGroupingKeyIndexScan() {
+        final Index keyIndex = new Index("entryKeyIndex", onEntry(() -> field("key")));
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex(OUTER, keyIndex);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            // In theory, both of these queries could be executed by going down the entryKeyIndex and grouping
+            // by key
+            assertFailsToPlan(this::querySumIntValueByKey);
+            assertFailsToPlan(this::querySumIntValueForRecordByKey);
+
+            commit(context);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void aggregateByGroupingKeyAndValueIndexScan() {
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, nestedConcatIndex());
+            metaDataBuilder.addIndex(OUTER, concatNestedIndex());
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            // In both cases, the index _almost_ aligns with the query. For the first query,
+            // the nestedConcat index seems to contain all of the key-value pairs needed
+            // to satisfy the query, and it would be sufficient to collect those values
+            // up. However, this will only count each unique key-value pair once, so the
+            // value under-counts. If we had a constraint, e.g., on the map entry keys,
+            // so that no key appeared more than once in the same record, then this index
+            // could be used without issue.
+            assertFailsToPlan(this::querySumIntValueByKey);
+            assertFailsToPlan(this::querySumIntValueForRecordByKey);
+
+            commit(context);
+        }
+    }
+
+    /**
+     * Query for a sum where the key and value are from the same entry quantifier. So the query is something like:
+     *
+     * <pre>{@code
+     * SELECT sum(e.int_value) FROM Outer, Outer.entry AS e GROUP BY e.key
+     * }</pre>
+     *
+     * @return a query that sums the int values associated with a single key
+     */
+    @Nonnull
+    private GroupExpressionRef<RelationalExpression> querySumIntValueByKey() {
+        final Quantifier outerQun = outerRecQun();
+        final Quantifier entryQun = explodeEntryQun(outerQun, "key", "int_value");
+        final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryQun);
+        final Quantifier groupBy = groupAggregateByKey(selectWhere, new NumericAggregationValue.SumFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryQun.getAlias().getId(), "int_value")));
+        return unsorted(selectHaving(groupBy));
+    }
+
+    /**
+     * Query for a sum where the key and value are from diferent entry quantifiers. So the query is something like:
+     *
+     * <pre>{@code
+     * SELECT sum(e2.int_value) FROM Outer, Outer.entry AS e1, Outer.entry AS e2 GROUP BY e1.key
+     * }</pre>
+     *
+     * @return a query that sums the int values for all entries in a record associated with a single key
+     */
+    @Nonnull
+    private GroupExpressionRef<RelationalExpression> querySumIntValueForRecordByKey() {
+        final Quantifier outerQun = outerRecQun();
+        final Quantifier entryKeyQun = explodeEntryQun(outerQun, "key");
+        final Quantifier entryIntValueQun = explodeEntryQun(outerQun, "int_value");
+        final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryKeyQun, entryIntValueQun);
+        final Quantifier groupBy = groupAggregateByKey(selectWhere, new NumericAggregationValue.SumFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryIntValueQun.getAlias().getId(), "int_value")));
+        return unsorted(selectHaving(groupBy));
+    }
+
     @Test
     void countIndexByPairOfKeys() {
-        RecordMetaDataHook hook = addDoubleUnnestedType().andThen(metaDataBuilder -> {
+        final RecordMetaDataHook hook = addDoubleUnnestedType().andThen(metaDataBuilder -> {
             metaDataBuilder.addIndex(OUTER, countByPairOfKeys());
             metaDataBuilder.addIndex(OUTER_WITH_TWO_ENTRIES, countByPairOfKeysUnnested());
         });
@@ -1430,5 +1877,80 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                             .map(i -> idx * 8 + start + i);
                 })
                 .boxed();
+    }
+
+    private Quantifier outerRecQun() {
+        return FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "OuterRecord");
+    }
+
+    private Quantifier explodeEntryQun(@Nonnull Quantifier outerQun, @Nonnull String... fields) {
+        ExplodeExpression explodeExpression = ExplodeExpression.explodeField((Quantifier.ForEach)outerQun, List.of("map", "entry"));
+        Quantifier explodeQun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
+        var selectBuilder = GraphExpansion.builder();
+        List<Column<? extends Value>> resultFields = Arrays.stream(fields)
+                .map(fieldName -> {
+                    FieldValue value = FieldValue.ofFieldName(explodeQun.getFlowedObjectValue(), fieldName);
+                    return Column.of(Type.Record.Field.of(value.getResultType(), Optional.of(fieldName)), value);
+                })
+                .collect(Collectors.toList());
+        SelectExpression select = selectBuilder.addQuantifier(explodeQun)
+                .addAllResultColumns(resultFields)
+                .build()
+                .buildSelect();
+        return Quantifier.forEach(GroupExpressionRef.of(select));
+    }
+
+    private void assertFailsToPlan(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> querySupplier, String... allowedIndexes) {
+        final RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planGraph(querySupplier, allowedIndexes));
+        assertThat(rce.getMessage(), containsString("Cascades planner could not plan query"));
+    }
+
+    @Nonnull
+    private Quantifier explodeEntryKeys(@Nonnull Quantifier outerQun) {
+        return explodeEntryQun(outerQun, "key");
+    }
+
+    @Nonnull
+    private Quantifier selectWhereGroupByKey(Quantifier outerQun, Quantifier... entryQuns) {
+        final var selectWhereBuilder = GraphExpansion.builder()
+                .addQuantifier(outerQun)
+                .addAllQuantifiers(List.of(entryQuns));
+        final Quantifier keyQun = entryQuns[0];
+        final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
+                Column.unnamedOf(FieldValue.ofFieldNames(keyQun.getFlowedObjectValue(), List.of("key")))
+        ));
+        selectWhereBuilder
+                .addResultColumn(Column.unnamedOf(groupingValue))
+                .addResultColumn(Column.of(Type.Record.Field.of(outerQun.getFlowedObjectType(), Optional.of(outerQun.getAlias().getId())), outerQun.getFlowedObjectValue()));
+        for (Quantifier entryQun : entryQuns) {
+            selectWhereBuilder.addResultColumn(Column.of(Type.Record.Field.of(entryQun.getFlowedObjectType(), Optional.of(entryQun.getAlias().getId())), entryQun.getFlowedObjectValue()));
+        }
+        return Quantifier.forEach(GroupExpressionRef.of(selectWhereBuilder.build().buildSelect()));
+    }
+
+    @Nonnull
+    private Quantifier groupAggregateByKey(@Nonnull Quantifier selectWhere, @Nonnull BuiltInFunction<AggregateValue> aggregate, @Nonnull Value argument) {
+        final Value aggregateValue = (Value) aggregate.encapsulate(List.of(argument));
+        final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
+        final GroupByExpression groupBy = new GroupByExpression(RecordConstructorValue.ofUnnamed(List.of(aggregateValue)), groupingValue, selectWhere);
+        return Quantifier.forEach(GroupExpressionRef.of(groupBy));
+    }
+
+    @Nonnull
+    private Quantifier selectHaving(@Nonnull Quantifier groupBy) {
+        final var selectHavingBuilder = GraphExpansion.builder().addQuantifier(groupBy);
+        final FieldValue groupVal = FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0);
+        final FieldValue aggregate = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 1), 0);
+        final SelectExpression selectHaving = selectHavingBuilder
+                .addResultColumn(Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("key")), FieldValue.ofOrdinalNumberAndFuseIfPossible(groupVal, 0)))
+                .addResultColumn(Column.of(Type.Record.Field.of(aggregate.getResultType(), Optional.of("aggregate")), aggregate))
+                .build()
+                .buildSelect();
+        return Quantifier.forEach(GroupExpressionRef.of(selectHaving));
+    }
+
+    @Nonnull
+    public GroupExpressionRef<RelationalExpression> unsorted(@Nonnull Quantifier qun) {
+        return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, qun));
     }
 }

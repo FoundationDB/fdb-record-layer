@@ -76,6 +76,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeOrBuilder;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
@@ -123,6 +124,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -1637,8 +1639,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
+        }
+
         preloadCache.invalidateAll();
-        return new RecordsWhereDeleter(component).run();
+        recordStoreStateRef.get().beginRead();
+        boolean async = false;
+        try {
+            CompletableFuture<Void> future = new RecordsWhereDeleter(component).run();
+            async = true;
+            return future.whenComplete((ignore, err) -> recordStoreStateRef.get().endRead());
+        } finally {
+            if (!async) {
+                recordStoreStateRef.get().endRead();
+            }
+        }
     }
 
     /**
@@ -1654,6 +1670,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nonnull final RecordMetaData recordMetaData;
         @Nullable final RecordType recordType;
 
+        @Nonnull final QueryComponent component;
+        @Nullable final QueryComponent typelessComponent;
         @Nonnull final QueryToKeyMatcher matcher;
         @Nullable final QueryToKeyMatcher indexMatcher;
 
@@ -1666,6 +1684,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable final Key.Evaluated indexEvaluated;
 
         public RecordsWhereDeleter(@Nonnull QueryComponent component) {
+            this.component = component;
+
             RecordTypeKeyComparison recordTypeKeyComparison = null;
             QueryComponent remainingComponent = null;
             if (component instanceof RecordTypeKeyComparison) {
@@ -1697,6 +1717,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 allRecordTypes = recordMetaData.getRecordTypes().values();
                 allIndexes = recordMetaData.getAllIndexes();
                 recordType = null;
+                typelessComponent = component;
             } else {
                 recordType = recordMetaData.getRecordType(recordTypeKeyComparison.getName());
                 if (remainingComponent == null) {
@@ -1705,10 +1726,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     indexMatcher = new QueryToKeyMatcher(remainingComponent);
                 }
                 allRecordTypes = Collections.singletonList(recordType);
-                allIndexes = recordType.getAllIndexes();
+                final List<Index> recordTypeIndexes = recordType.getAllIndexes();
+                allIndexes = new LinkedHashSet<>(recordTypeIndexes);
+                for (SyntheticRecordType<?> syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
+                    if (syntheticType.getConstituents().stream().anyMatch(c -> c.getRecordType().equals(recordType))) {
+                        allIndexes.addAll(syntheticType.getAllIndexes());
+                    }
+                }
+                typelessComponent = remainingComponent;
             }
 
-            indexMaintainers = allIndexes.stream().map(FDBRecordStore.this::getIndexMaintainer).collect(Collectors.toList());
+            indexMaintainers = allIndexes.stream()
+                    .filter(index -> !isIndexDisabled(index))
+                    .map(FDBRecordStore.this::getIndexMaintainer)
+                    .collect(Collectors.toList());
 
             evaluated = deleteRecordsWhereCheckRecordTypes();
             if (recordTypeKeyComparison == null) {
@@ -1763,29 +1794,113 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return;
             }
             for (IndexMaintainer index : indexMaintainers) {
-                boolean canDelete;
-                if (recordType == null) {
-                    canDelete = index.canDeleteWhere(matcher, evaluated);
-                } else {
-                    if (Key.Expressions.hasRecordTypePrefix(index.state.index.getRootExpression())) {
-                        canDelete = index.canDeleteWhere(matcher, evaluated);
-                    } else {
-                        if (recordMetaData.recordTypesForIndex(index.state.index).size() > 1) {
-                            throw recordCoreException("Index " + index.state.index.getName() +
-                                                      " applies to more record types than just " + recordType.getName());
-                        }
-                        if (indexMatcher != null) {
-                            canDelete = index.canDeleteWhere(indexMatcher, indexEvaluated);
-                        } else {
-                            canDelete = true;
-                        }
-                    }
-                }
+                boolean canDelete = canDeleteWhereForIndex(index);
                 if (!canDelete) {
                     throw new Query.InvalidExpressionException("deleteRecordsWhere not supported by index " +
-                                                               index.state.index.getName());
+                            index.state.index.getName());
                 }
             }
+        }
+
+        private boolean canDeleteWhereForIndex(@Nonnull final IndexMaintainer indexMaintainer) {
+            final Index index = indexMaintainer.state.index;
+            final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
+            boolean containsSyntheticTypes = false;
+            boolean containsStoredTypes = false;
+            for (RecordType indexRecordType : recordTypesForIndex) {
+                if (indexRecordType.isSynthetic()) {
+                    containsSyntheticTypes = true;
+                } else {
+                    containsStoredTypes = true;
+                }
+            }
+            if (containsStoredTypes && containsSyntheticTypes) {
+                return false;
+            } else if (containsStoredTypes) {
+                return canDeleteWhereForIndexOnStoredTypes(indexMaintainer);
+            } else {
+                return canDeleteWhereForIndexOnSyntheticTypes(indexMaintainer);
+            }
+        }
+
+        private boolean canDeleteWhereForIndexOnStoredTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+            final Index index = indexMaintainer.state.index;
+            final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
+
+            if (recordType == null || (Key.Expressions.hasRecordTypePrefix(index.getRootExpression()))) {
+                return indexMaintainer.canDeleteWhere(matcher, evaluated);
+            } else if (recordTypesForIndex.size() > 1) {
+                throw recordCoreException("Index " + index.getName() +
+                        " applies to more record types than just " + recordType.getName());
+            } else if (indexMatcher == null) {
+                return true;
+            } else {
+                return indexMaintainer.canDeleteWhere(indexMatcher, indexEvaluated);
+            }
+        }
+
+        private boolean canDeleteWhereForIndexOnSyntheticTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+            final Index index = indexMaintainer.state.index;
+            final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
+
+            if (Key.Expressions.hasRecordTypePrefix(index.getRootExpression())) {
+                // If the index has a record type prefix, we need to reject the deletion, as the referenced
+                // record type key is different for the synthetic type and the requested type
+                return false;
+            }
+            // Synthetic types nest stored records under named constituents. Find a constituent corresponding
+            // to the appropriate record type(s) under which the original predicate can be nested to find the
+            // set of index entries corresponding to the deleted stored records
+            String constituentName = null;
+            for (RecordType indexRecordType : recordTypesForIndex) {
+                final SyntheticRecordType<?> syntheticRecordType = (SyntheticRecordType<?>)indexRecordType;
+                if (syntheticRecordType instanceof UnnestedRecordType) {
+                    UnnestedRecordType unnestedRecordType = (UnnestedRecordType) syntheticRecordType;
+                    UnnestedRecordType.NestedConstituent parent = unnestedRecordType.getParentConstituent();
+                    if (recordType != null && !recordType.equals(parent.getRecordType())) {
+                        // If the delete is limited to a single type, only process indexes on unnested records of
+                        // precisely that type. In theory, we could use the constituent name as a predicate here,
+                        // but if the different record types have different constituent names, then they can't
+                        // be used to form a prefix.
+                        return false;
+                    }
+                    if (constituentName != null && !constituentName.equals(parent.getName())) {
+                        return false;
+                    }
+                    constituentName = parent.getName();
+                } else {
+                    // JoinedRecordTypes are difficult to handle correctly, for a few reasons. First,
+                    // if we don't have a recordType comparison, then we have to match the comparison
+                    // to _all_ constituents. That may actually be possible if the relevant fields are
+                    // used in the join conditions, but it requires additional matching. Additionally,
+                    // we have to check whether any of the Joins are outer joins, as if they are, then
+                    // we either need to make sure that _all_ join constituents are deleted or reject
+                    // the deletion, as the correct operation would replace all deleted records with
+                    // nulls
+                    return false;
+                }
+            }
+            if (constituentName == null) {
+                return false;
+            }
+            if (typelessComponent == null) {
+                // The only predicate was the one on type. If we get here, all records should be synthesized from the
+                // stored type being deleted, so return true (which will clear the index)
+                return true;
+            }
+            final QueryComponent syntheticQueryComponent;
+            if (typelessComponent instanceof AndComponent) {
+                final List<QueryComponent> originalQueryComponents = ((AndComponent)typelessComponent).getChildren();
+                List<QueryComponent> syntheticQueryComponents = new ArrayList<>(originalQueryComponents.size());
+                for (QueryComponent c : originalQueryComponents) {
+                    syntheticQueryComponents.add(Query.field(constituentName).matches(c));
+                }
+                syntheticQueryComponent = Query.and(syntheticQueryComponents);
+            } else {
+                syntheticQueryComponent = Query.field(constituentName).matches(typelessComponent);
+            }
+            final QueryToKeyMatcher syntheticMatcher = new QueryToKeyMatcher(syntheticQueryComponent);
+            return indexMaintainer.canDeleteWhere(syntheticMatcher, indexEvaluated);
         }
 
         @SuppressWarnings("PMD.CloseResource")
@@ -3942,7 +4057,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case READABLE:
             default:
                 errMessageBuilder.append("rebuild index");
-                return rebuildIndex(index, recordTypes, reason);
+                return rebuildIndex(index, reason);
         }
     }
 
@@ -3989,12 +4104,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Void> rebuildIndex(@Nonnull Index index) {
-        return rebuildIndex(index, getRecordMetaData().recordTypesForIndex(index), RebuildIndexReason.EXPLICIT);
+        return rebuildIndex(index, RebuildIndexReason.EXPLICIT);
     }
 
+    @API(API.Status.INTERNAL)
     @Nonnull
+    @VisibleForTesting
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Resource usage for indexBuilder is too complicated for rules.
-    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nullable final Collection<RecordType> recordTypes, @Nonnull RebuildIndexReason reason) {
+    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nonnull RebuildIndexReason reason) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
@@ -4015,7 +4132,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         long startTime = System.nanoTime();
-        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).setRecordTypes(recordTypes).build();
+        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
                 .thenCompose(vignore -> markIndexReadable(index))
                 .handle((b, t) -> {

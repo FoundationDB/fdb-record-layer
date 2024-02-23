@@ -124,6 +124,12 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     @Nonnull
     @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
+    @Nonnull
+    @Override
     public Type getResultType() {
         return child.getResultType();
     }

@@ -69,6 +69,10 @@ message PType {
     // nothing
   }
 
+  message PAnyRecordType {
+    optional bool is_nullable = 1;
+  }
+
   message PEnumType {
     message PEnumValue {
       optional string name = 1;
@@ -110,6 +114,7 @@ message PType {
     PRecordType record_type = 6;
     PRelationType relation_type = 7;
     PArrayType array_type = 8;
+    PAnyRecordType any_record_type = 9;
   }
 }
 
@@ -152,6 +157,8 @@ message PPrimitiveCoercionBiFunction {
     NULL_TO_ARRAY = 13;
     NULL_TO_RECORD = 14;
     NONE_TO_ARRAY = 15;
+    NULL_TO_ENUM = 16;
+    STRING_TO_ENUM = 17;
   }
   optional PPhysicalOperator operator = 1;
 }

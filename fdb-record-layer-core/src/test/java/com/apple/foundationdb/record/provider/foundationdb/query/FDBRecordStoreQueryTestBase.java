@@ -48,17 +48,22 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -67,7 +72,9 @@ import org.junit.jupiter.api.Assertions;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -82,6 +89,10 @@ import java.util.stream.IntStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -106,25 +117,44 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
                                          Supplier<EvaluationContext> contextSupplier,
-                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord)
+                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord)
             throws Exception {
         return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, context -> { });
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
                                          Supplier<EvaluationContext> contextSupplier,
-                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord,
+                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord,
+                                         TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded)
+            throws Exception {
+        return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, null, false, checkDiscarded);
+    }
+
+    protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
+                                         Supplier<EvaluationContext> contextSupplier,
+                                         TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord> checkRecord,
+                                         @Nullable Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey,
+                                         boolean reverse,
                                          TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded)
             throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
             int i = 0;
+            @Nullable Tuple sortValue = null;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, contextSupplier.get()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
-                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    TestRecords1Proto.MySimpleRecord myrec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .mergeFrom(rec.getRecord())
+                            .build();
                     checkRecord.accept(myrec);
+                    if (sortKey != null) {
+                        Tuple nextSortValue = sortKey.apply(myrec);
+                        if (sortValue != null) {
+                            assertThat(nextSortValue, reverse ? lessThanOrEqualTo(sortValue) : greaterThanOrEqualTo(sortValue));
+                        }
+                        sortValue = nextSortValue;
+                    }
                     i++;
                 }
             }
@@ -506,6 +536,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
                     .asBuilder()
                     .setOmitPrimaryKeyInUnionOrderingKey(shouldOmitPrimaryKeyInUnionOrderingKey)
+                    .setOmitPrimaryKeyInOrderingKeyForInUnion(shouldOmitPrimaryKeyInUnionOrderingKey)
                     .build());
         }
     }
@@ -541,8 +572,22 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (planner instanceof RecordQueryPlanner) {
             return plannedPlan;
         }
-        Assertions.assertTrue(planner instanceof CascadesPlanner);
+        assertThat(planner, instanceOf(CascadesPlanner.class));
         return verifySerialization(plannedPlan);
+    }
+
+    @Nonnull
+    protected RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> querySupplier, @Nonnull String... allowedIndexes) {
+        assertThat(planner, instanceOf(CascadesPlanner.class));
+        final CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
+        final Optional<Collection<String>> allowedIndexesOptional;
+        if (allowedIndexes.length > 0) {
+            allowedIndexesOptional = Optional.of(List.of(allowedIndexes));
+        } else {
+            allowedIndexesOptional = Optional.empty();
+        }
+        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+        return verifySerialization(planResult.getPlan());
     }
 
     /**

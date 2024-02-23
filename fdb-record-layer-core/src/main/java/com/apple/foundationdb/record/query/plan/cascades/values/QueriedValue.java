@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -48,6 +49,12 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
 
     public QueriedValue() {
         this(Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     public QueriedValue(@Nonnull final Type resultType) {

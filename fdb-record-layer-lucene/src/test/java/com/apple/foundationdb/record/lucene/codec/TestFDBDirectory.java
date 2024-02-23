@@ -62,6 +62,11 @@ public class TestFDBDirectory extends FDBDirectory {
 
     private static final AtomicReference<Pair<String, FieldInfos>> previousFieldInfos = new AtomicReference<>();
     private static final AtomicReference<Pair<String, Map<Long, byte[]>>> previousStoredFields = new AtomicReference<>();
+    /**
+     * Whether to block any calls to {@code addIndexes}. This is useful if we need tests are failing in a way that could
+     * indicate that {@code addIndexes} is being called.
+     */
+    private static boolean blockAddIndexes = true;
 
     public TestFDBDirectory() {
         super(new Subspace(Tuple.from("record-test", "unit", "lucene")),
@@ -166,6 +171,8 @@ public class TestFDBDirectory extends FDBDirectory {
                     }
                 }
             }
+        } else if (blockAddIndexes) {
+            Assert.assertFalse("Tried to add indexes", isStacktraceCopySegmentAsIs());
         }
         return indexInput;
     }

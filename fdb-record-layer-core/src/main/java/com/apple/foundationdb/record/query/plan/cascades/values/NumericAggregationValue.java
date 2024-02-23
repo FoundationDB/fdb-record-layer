@@ -132,6 +132,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         return child;
     }
 
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of(getChild());
+    }
+
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);

@@ -2134,6 +2134,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final String allowUnblockId;
         private final boolean deferMergeDuringIndexing;
         private final long initialMergesCountLimit;
+        private final boolean reverseScanOrder;
 
         /**
          * Possible actions when an index is already partially built.
@@ -2162,6 +2163,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
          * @param deferMergeDuringIndexing if true, do not merge indexes in indexing transactions but in a separate ones
          * @param initialMergesCountLimit the initial max merges count for index merger
+         * @param reverseScanOrder if true, scan records in reverse order
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -2169,7 +2171,8 @@ public class OnlineIndexer implements AutoCloseable {
                                boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
                                boolean allowUnblock, String allowUnblockId,
-                               boolean deferMergeDuringIndexing, long initialMergesCountLimit) {
+                               boolean deferMergeDuringIndexing, long initialMergesCountLimit,
+                               boolean reverseScanOrder) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -2186,6 +2189,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.allowUnblockId = allowUnblockId;
             this.deferMergeDuringIndexing = deferMergeDuringIndexing;
             this.initialMergesCountLimit = initialMergesCountLimit;
+            this.reverseScanOrder = reverseScanOrder;
         }
 
         /**
@@ -2255,6 +2259,9 @@ public class OnlineIndexer implements AutoCloseable {
                     .setMutualIndexing(mutualIndexing)
                     .setMutualIndexingBoundaries(mutualIndexingBoundaries)
                     .setAllowUnblock(allowUnblock, allowUnblockId)
+                    .setDeferMergeDuringIndexing(deferMergeDuringIndexing)
+                    .setInitialMergesCountLimit(initialMergesCountLimit)
+                    .setReverseScanOrder(reverseScanOrder)
                     ;
         }
 
@@ -2370,6 +2377,14 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Get caller's request to scan records in reverse order while indexing.
+         * @return true if reverse scan order was requested
+         */
+        public boolean isReverseScanOrder() {
+            return reverseScanOrder;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -2400,6 +2415,7 @@ public class OnlineIndexer implements AutoCloseable {
             private String allowUnblockId = null;
             private boolean deferMergeDuringIndexing = false;
             private long initialMergesCountLimit = 0;
+            private boolean reverseScanOrder = false;
 
             protected Builder() {
             }
@@ -2672,6 +2688,18 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+
+            /**
+             * Set a reverse records scan order for indexing. Calling it will make sense only if the scan order matters.
+             * Note that reverse scan order is supported only for ByIndex and MultiTarget index builds (but not rebuild).
+             * @param reverseScanOrder if true, scan records in reverse order
+             * @return this builder
+             */
+            public Builder setReverseScanOrder(final boolean reverseScanOrder) {
+                this.reverseScanOrder = reverseScanOrder;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -2680,7 +2708,7 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        deferMergeDuringIndexing, initialMergesCountLimit);
+                        deferMergeDuringIndexing, initialMergesCountLimit, reverseScanOrder);
             }
         }
     }

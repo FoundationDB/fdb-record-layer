@@ -74,14 +74,11 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Nonnull
     protected final List<Column<? extends Value>> columns;
     @Nonnull
-    private final Supplier<List<? extends Value>> childrenSupplier;
-    @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
     private RecordConstructorValue(@Nonnull Collection<Column<? extends Value>> columns, @Nonnull final Type.Record resultType) {
         this.resultType = resultType;
         this.columns = ImmutableList.copyOf(columns);
-        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
@@ -92,11 +89,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
-        return childrenSupplier.get();
-    }
-
-    private List<? extends Value> computeChildren() {
+    protected List<? extends Value> computeChildren() {
         return columns
                 .stream()
                 .map(Column::getValue)
@@ -201,6 +194,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)field).getName());
         }
 
+        //TODO if we encounter an AnyRecord we cannot ever correctly deal with this
         Verify.verify(fieldType instanceof Type.Record);
         final var message = (Message)field;
         final var declaredDescriptor = Verify.verifyNotNull(typeRepository.getMessageDescriptor(fieldType));
@@ -387,8 +381,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             columnsBuilder.add(Column.fromProto(serializationContext, columnProto));
         }
         final ImmutableList<Column<? extends Value>> columns = columnsBuilder.build();
-        Verify.verify(!columns.isEmpty());
-        return new RecordConstructorValue(columnsBuilder.build(),
+        return new RecordConstructorValue(columns,
                 (Type.Record)Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
     }
 

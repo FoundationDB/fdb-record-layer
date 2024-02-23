@@ -183,32 +183,38 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                                             @Nonnull final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var availableRecordTypeNames = getAvailableRecordTypeNames();
-        final var availableType =
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes()))
-                        .narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor"));
-        final var scanPlan =
-                new RecordQueryScanPlan(availableRecordTypeNames,
-                        availableType,
-                        primaryKey,
-                        toScanComparisons(comparisonRanges),
-                        reverseScanOrder,
-                        false,
-                        this);
-
         final var queriedRecordTypeNames = getQueriedRecordTypeNames();
         Verify.verify(availableRecordTypeNames.containsAll(queriedRecordTypeNames));
 
+        RecordQueryScanPlan scanPlan;
         if (queriedRecordTypeNames.size() == availableRecordTypeNames.size()) {
+            scanPlan =
+                    new RecordQueryScanPlan(availableRecordTypeNames,
+                            Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getAvailableRecordTypes()))
+                                    .narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
+                            primaryKey,
+                            toScanComparisons(comparisonRanges),
+                            reverseScanOrder,
+                            false,
+                            this);
             return scanPlan;
+        } else {
+            scanPlan =
+                    new RecordQueryScanPlan(availableRecordTypeNames,
+                            new Type.AnyRecord(false),
+                            primaryKey,
+                            toScanComparisons(comparisonRanges),
+                            reverseScanOrder,
+                            false,
+                            this);
+            final var queriedType =
+                    Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes()));
+
+            return new RecordQueryTypeFilterPlan(
+                    Quantifier.physical(memoizer.memoizePlans(scanPlan)),
+                    queriedRecordTypeNames,
+                    queriedType);
         }
-
-        final var queriedType =
-                Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes()));
-
-        return new RecordQueryTypeFilterPlan(
-                Quantifier.physical(memoizer.memoizePlans(scanPlan)),
-                queriedRecordTypeNames,
-                queriedType);
     }
 
     @Nonnull

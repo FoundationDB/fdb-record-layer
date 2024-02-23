@@ -108,15 +108,31 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
         return RecordCursor.fromList(store.getExecutor(), resultRecords);
     }
 
-    private List<FDBSyntheticRecord> iterateTree(NestingNode root) {
+    private List<FDBSyntheticRecord> iterateTree(@Nonnull NestingNode root) {
         List<FDBSyntheticRecord> records = new ArrayList<>();
-        Map<String, FDBStoredRecord<?>> constituentMap = Maps.newHashMapWithExpectedSize(recordType.getConstituents().size());
-        root.initializeState(constituentMap);
-        records.add(FDBSyntheticRecord.of(recordType, ImmutableMap.copyOf(constituentMap)));
-        while (root.incrementState(constituentMap)) {
-            records.add(FDBSyntheticRecord.of(recordType, ImmutableMap.copyOf(constituentMap)));
-        }
+        do {
+            addRecord(records, root);
+        } while (root.incrementState());
         return records;
+    }
+
+    private void addRecord(@Nonnull List<FDBSyntheticRecord> records, @Nonnull NestingNode node) {
+        @Nullable FDBSyntheticRecord syntheticRecord = constructRecord(node);
+        if (syntheticRecord != null) {
+            records.add(syntheticRecord);
+        }
+    }
+
+    @Nullable
+    private FDBSyntheticRecord constructRecord(@Nonnull NestingNode node) {
+        ImmutableMap.Builder<String, FDBStoredRecord<?>> mapBuilder = ImmutableMap.builderWithExpectedSize(recordType.getConstituents().size());
+        node.collectConstituents(mapBuilder);
+        Map<String, FDBStoredRecord<?>> constituentMap = mapBuilder.build();
+        if (constituentMap.size() == recordType.getConstituents().size()) {
+            return FDBSyntheticRecord.of(recordType, constituentMap);
+        } else {
+            return null;
+        }
     }
 
     private static class NestingNode {
@@ -185,23 +201,13 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             return keys;
         }
 
-        /**
-         * Set up the state for this node. This will make sure this node's stored record is in the
-         * constituent map, and it will ensure that all of the child constituents have been set up
-         * to begin iterating through. This method should be called before {@link #incrementState(Map)}.
-         *
-         * @param constituentMap constituent map to populate with this node's value
-         */
-        public void initializeState(@Nonnull Map<String, FDBStoredRecord<?>> constituentMap) {
-            constituentMap.put(constituent.getName(), storedRecord);
+        private void initializeState() {
             if (children != null) {
                 if (state == null) {
                     state = Maps.newHashMapWithExpectedSize(children.size());
-                }
-                for (String key : getKeys()) {
-                    NestingNode child = children.get(key).get(0);
-                    child.initializeState(constituentMap);
-                    state.put(key, 0);
+                    for (String key : getKeys()) {
+                        state.put(key, 0);
+                    }
                 }
             }
         }
@@ -212,10 +218,9 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
          * the nodes in the tree. Once one subtree has been entirely iterated through, this continues
          * by incrementing the next one.
          *
-         * @param constituentMap map to store the current constituens in for the updated state
          * @return whether this sub-node is done iterating
          */
-        public boolean incrementState(@Nonnull Map<String, FDBStoredRecord<?>> constituentMap) {
+        public boolean incrementState() {
             if (children == null) {
                 // No children. In this case, there is only one state
                 return false;
@@ -233,19 +238,40 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
                 int pos = state.get(key);
                 List<NestingNode> keyChildren = children.get(key);
                 NestingNode child = keyChildren.get(pos);
-                if (child.incrementState(constituentMap)) {
+                if (child.incrementState()) {
+                    // We have not exhausted this child's sub-tree
                     return true;
                 } else if (pos + 1 < keyChildren.size()) {
+                    // We have exhausted this child's sub-tree, but there are additional children for
+                    // this key. Move on to that child, resetting it to the beginning
                     state.put(key, pos + 1);
-                    NestingNode newChild = keyChildren.get(pos + 1);
-                    newChild.initializeState(constituentMap);
                     return true;
                 } else {
+                    // We have exhausted all the children for this key. Reset the key to
+                    // the first child. If this is the last child, we terminate iteration.
+                    // Otherwise, we move on to the next child
                     state.put(key, 0);
-                    keyChildren.get(0).initializeState(constituentMap);
                 }
             }
             return false;
+        }
+
+        /**
+         * Collect the constituents in the tree for the current state. This will add this record to
+         * the map builder, and then recursively find the current values for each child constituent.
+         *
+         * @param mapBuilder the map builder to collect results into
+         */
+        void collectConstituents(@Nonnull ImmutableMap.Builder<String, FDBStoredRecord<?>> mapBuilder) {
+            mapBuilder.put(constituent.getName(), storedRecord);
+            if (children != null) {
+                initializeState();
+                for (String key : getKeys()) {
+                    int childPos = state.get(key);
+                    NestingNode child = children.get(key).get(childPos);
+                    child.collectConstituents(mapBuilder);
+                }
+            }
         }
     }
 }

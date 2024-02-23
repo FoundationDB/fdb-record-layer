@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
@@ -81,6 +82,12 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Set.of();
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<? extends Value> computeChildren() {
+        return ImmutableList.of();
     }
 
     @Override

@@ -29,21 +29,19 @@ jacocoTestReport {
     }
 }
 
-def skipFDB = System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true'
-def skipSlow = System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true'
 test {
     useJUnitPlatform {
-        if (skipFDB) {
-            excludeTags 'RequiresFDB'
-        }
-        if (skipSlow) {
-            excludeTags 'Slow'
-            systemProperty "junit.jupiter.execution.timeout.default", "2s"
-        } else {
-            systemProperty "junit.jupiter.execution.timeout.default", "5m"
-        }
-        excludeTags 'Performance'
         excludeTags 'WipesFDB'
+    }
+}
+
+task destructiveTest(type: Test) {
+    useJUnitPlatform {
+        includeTags 'WipesFDB'
+        maxParallelForks = 1
+    }
+    reports {
+        junitXml.destination = file("${buildDir}/test-results/destructive")
     }
 }
 
@@ -51,24 +49,6 @@ task performanceTest(type: Test) {
     useJUnitPlatform {
         includeTags 'Performance'
         enableAssertions = false
-    }
-}
-
-task destructiveTest(type: Test) {
-    useJUnitPlatform {
-        if (System.getenv('SKIP_FDB_TESTS') != null && System.getenv('SKIP_FDB_TESTS') == 'true') {
-            excludeTags 'RequiresFDB'
-        }
-        if (System.getenv('SKIP_SLOW_TESTS') != null && System.getenv('SKIP_SLOW_TESTS') == 'true') {
-            excludeTags 'Slow'
-        }
-        excludeTags 'Performance'
-
-        includeTags 'WipesFDB'
-        maxParallelForks = 1
-    }
-    reports {
-        junitXml.destination = file("${buildDir}/test-results/destructive")
     }
 }
 
@@ -165,6 +145,45 @@ tasks.withType(Test) { theTask ->
         }
         theTask.finalizedBy("jacoco${theTask.name.capitalize()}Report")
     }
+}
+
+tasks.withType(Test).configureEach { task ->
+    if (task.name != 'performanceTest') {
+        // Configure whether or not tests will validate that asyncToSync isn't being called in async
+        // context.  See BlockingInAsyncDetection class for details on values.
+        // disable BLOCKING_DETECTION to better simulate performance
+        task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
+                System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
+
+        // setup tag inclusion/exclusion
+        if (project.hasProperty('tests.skipFDB')) {
+            task.testFramework.options.excludeTags.add('RequiresFDB')
+        }
+        if (project.hasProperty('tests.skipSlow')) {
+            task.testFramework.options.excludeTags.add('Slow')
+            systemProperties["junit.jupiter.execution.timeout.default"] = "2s"
+        } else {
+            systemProperties["junit.jupiter.execution.timeout.default"] = "5m"
+        }
+        if (!project.hasProperty('tests.includeRandom')) {
+            task.testFramework.options.excludeTags.add('Random')
+        } else {
+            if (!project.hasProperty('randomTestsLocale')) {
+                def random = new Random()
+                def availableLocales = Locale.getAvailableLocales()
+                rootProject.ext.randomTestsLocale = availableLocales[random.nextInt(availableLocales.size())]
+                logger.warn("Running tests with locale: ${rootProject.ext.randomTestsLocale}")
+            }
+            task.systemProperty('user.language', rootProject.ext.randomTestsLocale.language)
+            task.systemProperty('user.country', rootProject.ext.randomTestsLocale.country)
+            systemProperties['tests.includeRandom'] = 'true'
+        }
+        if (project.hasProperty('tests.iterations')) {
+            systemProperties['tests.iterations'] = project.getProperty('tests.iterations')
+        }
+        task.testFramework.options.excludeTags.add('Performance')
+    }
+
 }
 
 task testJar(type: Jar, dependsOn: testClasses) {
