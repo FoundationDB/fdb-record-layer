@@ -192,9 +192,10 @@ public class IndexingScrubDangling extends IndexingBase {
         final IndexEntry indexEntry = indexEntryResult.get();
         if (indexContext.isSynthetic) {
             return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).handle((syntheticRecord, ex) -> {
-                final boolean dangling = ((findException(ex, RecordDoesNotExistException.class) != null) ||
+                // The null hypothesis is that it is not dangling.
+                final boolean isDangling = ((findException(ex, RecordDoesNotExistException.class) != null) ||
                                                   (syntheticRecord != null && syntheticRecord.getConstituents().isEmpty()));
-                if (dangling) {
+                if (isDangling) {
                     // None of the constituents of this synthetic type are present, so it must be dangling
                     List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
                     SyntheticRecordType<?> syntheticRecordType = store.getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(indexEntry.getPrimaryKey().get(0));
