@@ -22,13 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -97,33 +93,6 @@ public abstract class Translator {
      */
     @Nonnull
     public abstract Value translate(@Nonnull Value value);
-
-    /**
-     * Calculates the maximum sub-{@link Value}s in {@code rewrittenQueryValue} that has an exact match in the {@code candidateValue}.
-     * @param rewrittenQueryValue the query {@code Value}, it must be translated using {@code this} translator.
-     * @param candidateValue the candidate {@code Value} we want to search for maximum matches.
-     * @return A {@code Map} of all maximum matches.
-     */
-    @Nonnull
-    public MaxMatchMap calculateMaxMatches(@Nonnull final Value rewrittenQueryValue,
-                                           @Nonnull final Value candidateValue) {
-        final BiMap<Value, Value> newMapping = HashBiMap.create();
-        //final var aliasMap = AliasMap.identitiesFor(candidateValue.getCorrelatedTo());
-        rewrittenQueryValue.preOrderPruningIterator(queryValuePart -> {
-            // now that we have rewritten this query value part using candidate value(s) we proceed to look it up in the candidate value.
-            final var match = Streams.stream(candidateValue
-                            // when traversing the candidate in pre-order, only descend into structures that can be referenced
-                            // from the top expression. For example, RCV's components can be referenced however an Arithmetic
-                            // operator's children can not be referenced.
-                            .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, getConstantAliasMap()))
-                    .findAny();
-            match.ifPresent(value -> newMapping.put(queryValuePart, value));
-            return match.isEmpty();
-        }).forEachRemaining(ignored -> {
-        });
-        return new MaxMatchMap(newMapping, rewrittenQueryValue, candidateValue);
-    }
 
     @Nonnull
     public AliasMap getConstantAliasMap() {

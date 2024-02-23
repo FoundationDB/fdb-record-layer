@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.Translator;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -270,6 +272,7 @@ public class ValueTranslationTest {
          */
 
         final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+        final var l1EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias));
         final var l1TranslatedQueryValue = l1Translator.translate(pv);
         final var expectedL1TranslatedQueryValue = rcv(
                 fv(t_, "a", "q"),
@@ -283,7 +286,7 @@ public class ValueTranslationTest {
           let's construct a max match map (m3) using the translated value with the candidate value.
          */
 
-        final var l1m3 = l1Translator.calculateMaxMatches(l1TranslatedQueryValue, p_v);
+        final var l1m3 = MaxMatchMap.calculateMaxMatches(l1EquivalenceMap, l1TranslatedQueryValue, p_v);
 
         Map<Value, Value> l1ExpectedMapping = Map.of(
                 fv(t_, "a", "q"), fv(t_, "a", "q"),
@@ -317,6 +320,7 @@ public class ValueTranslationTest {
         final var r_v = rcv(fv(p_, 1, 0));
 
         final var l2Translator = Translator.builder().ofCorrelations(pAlias, p_Alias).using(l1m3).build();
+        final var l2EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(p_Alias));
 
         /*
            translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
@@ -338,7 +342,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(List.of(fv(p_, 0, 0), LiteralValue.ofScalar(42))), l2TranslatedPredicate);
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
-        final var l2m3 = l2Translator.calculateMaxMatches(l2TranslatedQueryValue, r_v);
+        final var l2m3 = MaxMatchMap.calculateMaxMatches(l2EquivalenceMap, l2TranslatedQueryValue, r_v);
         Assertions.assertEquals(l2ExpectedMapping, l2m3.getMapping());
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
         Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
@@ -370,7 +374,8 @@ public class ValueTranslationTest {
         );
 
         final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
-        final var l1M3 = l1Translator.calculateMaxMatches(l1Translator.translate(pv), p_v);
+        final var l1EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias));
+        final var l1M3 = MaxMatchMap.calculateMaxMatches(l1EquivalenceMap, l1Translator.translate(pv), p_v);
 
         final var expectedMapping = Map.of(
                 add(fv(t_, "a", "q"), fv(t_, "a", "r")), add(fv(t_, "a", "q"), fv(t_, "a", "r")),
@@ -413,7 +418,8 @@ public class ValueTranslationTest {
         );
 
         final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
-        final var l1M3 = l1Translator.calculateMaxMatches(l1Translator.translate(pv), p_v);
+        final var l1EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias));
+        final var l1M3 = MaxMatchMap.calculateMaxMatches(l1EquivalenceMap, l1Translator.translate(pv), p_v);
 
         final var expectedMapping = Map.of(
                 add(fv(t_, "a", "q"), fv(t_, "a", "r")), add(fv(t_, "a", "q"), fv(t_, "a", "r")),
@@ -458,7 +464,8 @@ public class ValueTranslationTest {
         );
 
         final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
-        final var l1M3 = l1Translator.calculateMaxMatches(l1Translator.translate(pv), p_v);
+        final var l1EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias));
+        final var l1M3 = MaxMatchMap.calculateMaxMatches(l1EquivalenceMap, l1Translator.translate(pv), p_v);
 
         final var expectedMapping = Map.of(
                 fv(t_, "a", "q"), fv(t_, "a", "q"),
@@ -510,6 +517,7 @@ public class ValueTranslationTest {
          */
 
         final var l1Translator = Translator.builder().ofCorrelations(tAlias, t_Alias).withConstantAliasMap(AliasMap.of(sAlias, s_Alias)).build();
+        final var l1EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias)).combine(AliasMap.of(sAlias, s_Alias));
         final var l1TranslatedQueryValue = l1Translator.translate(pv);
         final var expectedL1TranslatedQueryValue = rcv(
                 add(fv(t_, "a", "q"), s),
@@ -523,7 +531,7 @@ public class ValueTranslationTest {
           let's construct a max match map (m3) using the translated value with the candidate value.
          */
 
-        final var l1m3 = l1Translator.calculateMaxMatches(l1TranslatedQueryValue, p_v);
+        final var l1m3 = MaxMatchMap.calculateMaxMatches(l1EquivalenceMap, l1TranslatedQueryValue, p_v);
 
         Map<Value, Value> l1ExpectedMapping = Map.of(
                 add(fv(t_, "a", "q"), s),  add(fv(t_, "a", "q"), s_),
@@ -557,6 +565,7 @@ public class ValueTranslationTest {
         final var r_v = rcv(fv(p_, 1, 0));
 
         final var l2Translator = Translator.builder().ofCorrelations(pAlias, p_Alias).using(l1m3).build();
+        final var l2EquivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(p_Alias));
 
         /*
            translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
@@ -578,7 +587,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(List.of(fv(p_, 0, 0), LiteralValue.ofScalar(42))), l2TranslatedPredicate);
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
-        final var l2m3 = l2Translator.calculateMaxMatches(l2TranslatedQueryValue, r_v);
+        final var l2m3 = MaxMatchMap.calculateMaxMatches(l2EquivalenceMap, l2TranslatedQueryValue, r_v);
         Assertions.assertEquals(l2ExpectedMapping, l2m3.getMapping());
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2m3.getQueryResultValue());
         Assertions.assertEquals(r_v, l2m3.getCandidateResultValue());
@@ -671,6 +680,7 @@ public class ValueTranslationTest {
          */
 
         final var l1TranslatorTValue = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+        final var l1EquivalenceTMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias));
         final var l1TranslatedQueryTValue = l1TranslatorTValue.translate(tv);
         final var expectedL1TranslatedQueryTValue = rcv(
                 fv(t_, "a", "q"),
@@ -681,6 +691,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1TranslatedQueryTValue);
 
         final var l1TranslatorMValue = Translator.builder().ofCorrelations(mAlias, m_Alias).build();
+        final var l1EquivalenceMMap = AliasMap.identitiesFor(ImmutableSet.of(m_Alias));
         final var l1TranslatedQueryMValue = l1TranslatorMValue.translate(mv);
         final var expectedL1TranslatedQueryMValue = rcv(
                 rcv(fv(m_, "m1", "m11")),
@@ -689,6 +700,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1TranslatedQueryMValue);
 
         final var l1TranslatorNValue = Translator.builder().ofCorrelations(nAlias, n_Alias).build();
+        final var l1EquivalenceNMap = AliasMap.identitiesFor(ImmutableSet.of(n_Alias));
         final var l1TranslatedQueryNValue = l1TranslatorNValue.translate(nv);
         final var expectedL1TranslatedQueryNValue = rcv(
                 fv(n_, "n2", "n21"),
@@ -700,7 +712,7 @@ public class ValueTranslationTest {
           let's construct a max match map (m3) using the translated value with the candidate value, for tv, mv, and nv.
          */
 
-        final var l1m3ForTValue = l1TranslatorTValue.calculateMaxMatches(l1TranslatedQueryTValue, t_v);
+        final var l1m3ForTValue = MaxMatchMap.calculateMaxMatches(l1EquivalenceTMap, l1TranslatedQueryTValue, t_v);
 
         Map<Value, Value> l1ExpectedMappingForTValue = Map.of(
                 fv(t_, "a", "q"), fv(t_, "a", "q"),
@@ -711,7 +723,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1m3ForTValue.getQueryResultValue());
         Assertions.assertEquals(t_v, l1m3ForTValue.getCandidateResultValue());
 
-        final var l1m3ForMValue = l1TranslatorMValue.calculateMaxMatches(l1TranslatedQueryMValue, m_v);
+        final var l1m3ForMValue = MaxMatchMap.calculateMaxMatches(l1EquivalenceMMap, l1TranslatedQueryMValue, m_v);
 
         Map<Value, Value> l1ExpectedMappingForMValue = Map.of(
                 fv(m_, "m1", "m11"), fv(m_, "m1", "m11"),
@@ -720,7 +732,7 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1m3ForMValue.getQueryResultValue());
         Assertions.assertEquals(m_v, l1m3ForMValue.getCandidateResultValue());
 
-        final var l1m3ForNValue = l1TranslatorNValue.calculateMaxMatches(l1TranslatedQueryNValue, n_v);
+        final var l1m3ForNValue = MaxMatchMap.calculateMaxMatches(l1EquivalenceNMap, l1TranslatedQueryNValue, n_v);
 
         Map<Value, Value> l1ExpectedMappingForNValue = Map.of(
                 fv(n_, "n2", "n21"), fv(n_, "n2", "n21"),
@@ -951,18 +963,21 @@ public class ValueTranslationTest {
          */
 
         final var l1TranslatorTValue = Translator.builder().ofCorrelations(tAlias, t_Alias).build();
+        final var l1EquivalenceTMap = AliasMap.identitiesFor(ImmutableSet.of(t_Alias));
         final var l1TranslatedQueryTValue = l1TranslatorTValue.translate(tv);
         final var l1TranslatorMValue = Translator.builder().ofCorrelations(mAlias, m_Alias).build();
+        final var l1EquivalenceMMap = AliasMap.identitiesFor(ImmutableSet.of(m_Alias));
         final var l1TranslatedQueryMValue = l1TranslatorMValue.translate(mv);
         final var l1TranslatorNValue = Translator.builder().ofCorrelations(nAlias, n_Alias).build();
+        final var l1EquivalenceNMap = AliasMap.identitiesFor(ImmutableSet.of(n_Alias));
         final var l1TranslatedQueryNValue = l1TranslatorNValue.translate(nv);
         /*
           let's construct a max match map (m3) using the translated value with the candidate value, for tv, mv, and nv.
          */
 
-        final var l1m3ForTValue = l1TranslatorTValue.calculateMaxMatches(l1TranslatedQueryTValue, t_v);
-        final var l1m3ForMValue = l1TranslatorMValue.calculateMaxMatches(l1TranslatedQueryMValue, m_v);
-        final var l1m3ForNValue = l1TranslatorNValue.calculateMaxMatches(l1TranslatedQueryNValue, n_v);
+        final var l1m3ForTValue = MaxMatchMap.calculateMaxMatches(l1EquivalenceTMap, l1TranslatedQueryTValue, t_v);
+        final var l1m3ForMValue = MaxMatchMap.calculateMaxMatches(l1EquivalenceMMap, l1TranslatedQueryMValue, m_v);
+        final var l1m3ForNValue = MaxMatchMap.calculateMaxMatches(l1EquivalenceNMap, l1TranslatedQueryNValue, n_v);
 
         // translate a complex join condition, each quantifier in the join condition is assumed to match a corresponding
         // quantifier in a non-joined index candidate.
