@@ -1454,7 +1454,7 @@ public class Comparisons {
                 return this;
             }
 
-            return new ValueComparison(type, comparandValue.translateCorrelations(translationMap), parameterRelationshipGraph);
+            return new ValueComparison(type, comparandValue.translateCorrelations(translationMap, false), parameterRelationshipGraph);
         }
 
         @Nonnull

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Correlated.BoundEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -31,16 +32,16 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
- * Represents a max match between a (Rewritten) query result {@link Value} and the candidate result {@link Value}.
+ * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
  */
 public class MaxMatchMap {
     @Nonnull
@@ -94,8 +95,7 @@ public class MaxMatchMap {
                                                @Nonnull final CorrelationIdentifier candidateCorrelation) {
         final var translatedQueryValue = translatedQueryValue(candidateCorrelation);
         return TranslationMap.builder()
-                .when(queryCorrelation)
-                .then(candidateCorrelation, (src, tgt, quantifiedValue) -> translatedQueryValue)
+                .when(queryCorrelation).then(candidateCorrelation, (src, tgt, quantifiedValue) -> translatedQueryValue)
                 .build();
     }
 
@@ -103,29 +103,38 @@ public class MaxMatchMap {
     private Value translatedQueryValue(@Nonnull final CorrelationIdentifier candidateCorrelation) {
         final var belowMapping = getMapping();
         final var belowCandidateResultValue = getCandidateResultValue();
-        final Map<Value, Value> pulledUpMaxMatchMap = belowMapping.entrySet().stream().map(entry -> {
-            final var queryPart = entry.getKey();
-            final var candidatePart = entry.getValue();
-            final var pulledUpCandidatesMap =
-                    belowCandidateResultValue.pullUp(ImmutableList.of(candidatePart),
-                            AliasMap.identitiesFor(belowCandidateResultValue.getCorrelatedTo()),
-                            ImmutableSet.of(), candidateCorrelation);
-            final var pulledUpdateCandidatePart = pulledUpCandidatesMap.get(candidatePart);
-            if (pulledUpdateCandidatePart == null) {
-                throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
-            }
-            return Map.entry(queryPart, pulledUpdateCandidatePart);
-        }).collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        final var pulledUpCandidateSide =
+                belowCandidateResultValue.pullUp(belowMapping.values(),
+                        AliasMap.identitiesFor(belowCandidateResultValue.getCorrelatedTo()),
+                        ImmutableSet.of(), candidateCorrelation);
+        //
+        // We now have the right side pulled up, specifically we have a map from each candidate value blow,
+        // to a candidate value pulled up along the candidateCorrelation. We also have this max match map, which
+        // encapsulates a map from query values to candidate value.
+        // In other words we have in this max match map m1 := MAP(queryValues over q -> candidateValues over q') and
+        // we just computed m2 := MAP(candidateValues over p' -> candidateValues over candidateCorrelation). We now
+        // chain these two maps to get m1 ○ m2 := MAP(queryValues over q -> candidateValues over candidateCorrelation).
+        // As we will use this map in the subsequent step to look up values over semantic equivalency using
+        // equivalencesMap, we immediately create m1 ○ m2 using a boundEquivalence based on equivalencesMap.
+        //
+        final var boundEquivalence = new BoundEquivalence<Value>(equivalencesMap);
+        final var pulledUpMaxMatchMap = belowMapping.entrySet()
+                .stream()
+                .map(entry -> {
+                    final var queryPart = entry.getKey();
+                    final var candidatePart = entry.getValue();
+                    final var pulledUpdateCandidatePart = pulledUpCandidateSide.get(candidatePart);
+                    if (pulledUpdateCandidatePart == null) {
+                        throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
+                    }
+                    return Map.entry(boundEquivalence.wrap(queryPart), pulledUpdateCandidatePart);
+                }).collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         final var queryResultValueFromBelow = getQueryResultValue();
-        return Verify.verifyNotNull(queryResultValueFromBelow.replace(valuePart ->
-                pulledUpMaxMatchMap
-                        .entrySet()
-                        .stream()
-                        .filter(maxMatchMapItem -> maxMatchMapItem.getKey().semanticEquals(valuePart, equivalencesMap))
-                        .map(Map.Entry::getValue)
-                        .findAny()
-                        .orElse(valuePart)));
+        return Verify.verifyNotNull(queryResultValueFromBelow.replace(valuePart -> {
+            final var maxMatch = pulledUpMaxMatchMap.get(boundEquivalence.wrap(valuePart));
+            return maxMatch == null ? valuePart : maxMatch;
+        }));
     }
 
     /**
@@ -133,29 +142,51 @@ public class MaxMatchMap {
      * {@code candidateValue}.
      *
      * @param queryResultValue the query result {@code Value}.
-     * @param candidateResulyValue the candidate result {@code Value} we want to search for maximum matches.
+     * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
+     *
+     * @return a {@link  MaxMatchMap} of all maximum matches.
+     */
+    @Nonnull
+    public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
+                                        @Nonnull final Value candidateResultValue) {
+        return calculate(AliasMap.emptyMap(),
+                queryResultValue,
+                candidateResultValue);
+    }
+
+    /**
+     * Calculates the maximum sub-{@link Value}s in {@code rewrittenQueryValue} that has an exact match in the
+     * {@code candidateValue}.
+     * @param equivalenceAliasMap an alias map that informs the logic about equivalent aliases
+     * @param queryResultValue the query result {@code Value}.
+     * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
      *
      * @return a {@link  MaxMatchMap} of all maximum matches.
      */
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final AliasMap equivalenceAliasMap,
                                         @Nonnull final Value queryResultValue,
-                                        @Nonnull final Value candidateResulyValue) {
+                                        @Nonnull final Value candidateResultValue) {
+        final var aliasesToBeAdded = Sets.difference(queryResultValue.getCorrelatedTo(), equivalenceAliasMap.sources());
+        final var amendedEquivalenceMap = equivalenceAliasMap.toBuilder()
+                .identitiesFor(aliasesToBeAdded)
+                .build();
+
         final BiMap<Value, Value> newMapping = HashBiMap.create();
         queryResultValue.preOrderPruningIterator(queryValuePart -> {
             // look up the query side sub values in the candidate value.
-            final var match = Streams.stream(candidateResulyValue
+            final var match = Streams.stream(candidateResultValue
                             // when traversing the candidate in pre-order, only descend into structures that can be referenced
                             // from the top expression. For example, RCV's components can be referenced however an Arithmetic
                             // operator's children can not be referenced.
                             .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, equivalenceAliasMap))
+                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, amendedEquivalenceMap))
                     .findAny();
             match.ifPresent(value -> newMapping.put(queryValuePart, value));
             return match.isEmpty();
         }).forEachRemaining(ignored -> {
             // nothing
         });
-        return new MaxMatchMap(equivalenceAliasMap, newMapping, queryResultValue, candidateResulyValue);
+        return new MaxMatchMap(equivalenceAliasMap, newMapping, queryResultValue, candidateResultValue);
     }
 }

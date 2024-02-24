@@ -89,7 +89,8 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     @Nonnull
     @Override
     public Placeholder translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new Placeholder(getValue().translateCorrelations(translationMap), getRanges().stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()), getParameterAlias());
+        return new Placeholder(getValue().translateCorrelations(translationMap, false),
+                getRanges().stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()), getParameterAlias());
     }
 
     @Nonnull

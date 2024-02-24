@@ -234,15 +234,15 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Replaces elements in the tree with new elements returned by the user-defined operator.
      * It traverses the tree in pre-order fashion, and is CoW, i.e. it is guaranteed to only make a copy of a node's
      * children iff one of the children is replaced by the replacement operator, otherwise, no allocation is made.
-     *
+     * <br>
      * @param replacementOperator The replacement operator defined by the user, the operator is called on every node of
-     *                            the tree, and is expected to return the node itself if no changes to be made, this is
-     *                            necessary for replacement algorithm to avoid unnecessary allocations.
+     *        the tree, and is expected to return the node itself if no changes to be made, this is
+     *        necessary for replacement algorithm to avoid unnecessary allocations.
      * @return potentially a new tree which originates from {@code this} but having its nodes replaced with new ones,
      *         if no changes are made, {@code this} is returned.
      * <br>
-     * Note: this can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
-     *           function domain is of the same type because that enables us to perform copy-on-write optimization.
+     * Note: This can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
+     *       function domain is of the same type because that enables us to perform copy-on-write optimization.
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
     @Nullable
