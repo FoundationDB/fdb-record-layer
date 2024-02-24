@@ -219,7 +219,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
             // create yet another physical quantifier on top of the fetch
             final Quantifier.Physical newQuantifierOverFetch = Quantifier.physical(call.memoizePlans(newFetchPlan));
 
-            final AliasMap translationMap = AliasMap.of(quantifierOverFetch.getAlias(), newQuantifierOverFetch.getAlias());
+            final AliasMap translationMap = AliasMap.ofAliases(quantifierOverFetch.getAlias(), newQuantifierOverFetch.getAlias());
 
             // rebase all residual predicates to use that quantifier's alias
             final ImmutableList<QueryPredicate> rebasedResidualPredicates = residualPredicates.stream()

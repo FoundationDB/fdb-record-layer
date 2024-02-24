@@ -195,7 +195,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rebasedGroupingAndArgumentValues =
                 groupingAndArgumentValues
                         .stream()
-                        .map(value -> value.rebase(AliasMap.of(innerBaseAlias, baseAlias)))
+                        .map(value -> value.rebase(AliasMap.ofAliases(innerBaseAlias, baseAlias)))
                         .collect(ImmutableList.toImmutableList());
         return ImmutableList.<Value>builder()
                 .addAll(rebasedGroupingAndArgumentValues)
@@ -247,7 +247,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 continue;
             }
 
-            final var rebasedPlaceholder = (Placeholder)placeholder.rebase(AliasMap.of(innerBaseAlias, baseAlias));
+            final var rebasedPlaceholder = (Placeholder)placeholder.rebase(AliasMap.ofAliases(innerBaseAlias, baseAlias));
             expansions.add(GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(rebasedPlaceholder.getValue()), rebasedPlaceholder));
         }
 

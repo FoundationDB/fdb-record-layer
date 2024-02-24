@@ -141,7 +141,7 @@ public class Quantifiers {
      */
     @Nonnull
     public static AliasMap translate(@Nonnull final Quantifier from, @Nonnull final Quantifier to) {
-        return AliasMap.of(from.getAlias(), to.getAlias());
+        return AliasMap.ofAliases(from.getAlias(), to.getAlias());
     }
 
     /**

@@ -598,7 +598,7 @@ public class AliasMap {
      * @return a new {@link AliasMap} containing exactly the binding {@code source -> target}
      */
     @Nonnull
-    public static AliasMap of(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
+    public static AliasMap ofAliases(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
         return new AliasMap(ImmutableBiMap.of(source, target), source.equals(target));
     }
 
