@@ -102,7 +102,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        final var translatedValue = value.translateCorrelations(translationMap);
+        final var translatedValue = value.translateCorrelations(translationMap, false);
         final Comparison newComparison;
         if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
             newComparison = comparison.translateCorrelations(translationMap);

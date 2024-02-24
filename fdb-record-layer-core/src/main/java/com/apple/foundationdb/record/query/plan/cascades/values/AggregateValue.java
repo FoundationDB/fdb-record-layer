@@ -53,7 +53,7 @@ public interface AggregateValue extends Value {
 
     @Nonnull
     @Override
-    default AggregateValue translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return (AggregateValue)Value.super.translateCorrelations(translationMap);
+    default AggregateValue translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNeeded) {
+        return (AggregateValue)Value.super.translateCorrelations(translationMap, simplifyIfNeeded);
     }
 }

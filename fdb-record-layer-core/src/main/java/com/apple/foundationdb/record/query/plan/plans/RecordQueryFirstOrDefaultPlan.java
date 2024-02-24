@@ -123,7 +123,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
     @Override
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final Value rebasedResultValues = onEmptyResultValue.translateCorrelations(translationMap);
+        final Value rebasedResultValues = onEmptyResultValue.translateCorrelations(translationMap, false);
         return new RecordQueryFirstOrDefaultPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
     }
 
