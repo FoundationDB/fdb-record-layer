@@ -24,7 +24,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -105,7 +107,22 @@ public class TranslationMap {
         return new AliasMapBasedTranslationMap(translationMapBuilder.build(), aliasMap);
     }
 
-    private static class AliasMapBasedTranslationMap  extends TranslationMap {
+    @Nonnull
+    public static TranslationMap ofAliases(@Nonnull final CorrelationIdentifier source,
+                                           @Nonnull final CorrelationIdentifier target) {
+        return rebaseWithAliasMap(AliasMap.ofAliases(source, target));
+    }
+
+    @Nonnull
+    public static TranslationMap compose(@Nonnull final Iterable<TranslationMap> translationMaps) {
+        final var builder = TranslationMap.builder();
+        for (final var translationMap : translationMaps) {
+            builder.compose(translationMap);
+        }
+        return builder.build();
+    }
+
+    private static class AliasMapBasedTranslationMap extends TranslationMap {
         @Nonnull
         private final AliasMap aliasMap;
 
@@ -160,24 +177,22 @@ public class TranslationMap {
      */
     public static class Builder {
         @Nonnull
-        private final ImmutableMap.Builder<CorrelationIdentifier, TranslationTarget> translationMapBuilder;
+        private final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap;
 
         public Builder() {
-            this.translationMapBuilder = ImmutableMap.builder();
+            this.aliasToTargetMap = Maps.newLinkedHashMap();
         }
 
-        Builder(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> translationMap) {
-            this.translationMapBuilder = ImmutableMap.builder();
-            this.translationMapBuilder.putAll(translationMap);
+        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap) {
+            this.aliasToTargetMap = Maps.newLinkedHashMap(aliasToTargetMap);
         }
 
         @Nonnull
         public TranslationMap build() {
-            final var translationMap = translationMapBuilder.build();
-            if (translationMap.isEmpty()) {
+            if (aliasToTargetMap.isEmpty()) {
                 return TranslationMap.empty();
             }
-            return new TranslationMap(translationMap);
+            return new TranslationMap(aliasToTargetMap);
         }
 
         @Nonnull
@@ -186,8 +201,12 @@ public class TranslationMap {
         }
 
         @Nonnull
-        public Builder merge(@Nonnull final Builder other) {
-            translationMapBuilder.putAll(other.translationMapBuilder.build());
+        public Builder compose(@Nonnull final TranslationMap other) {
+            other.aliasToTargetMap
+                    .forEach((key, value) -> {
+                        Verify.verify(!aliasToTargetMap.containsKey(key));
+                        aliasToTargetMap.put(key, value);
+                    });
             return this;
         }
 
@@ -204,7 +223,7 @@ public class TranslationMap {
 
             @Nonnull
             public Builder then(@Nonnull CorrelationIdentifier targetAlias, @Nonnull TranslationFunction translationFunction) {
-                translationMapBuilder.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
+                aliasToTargetMap.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
                 return Builder.this;
             }
         }

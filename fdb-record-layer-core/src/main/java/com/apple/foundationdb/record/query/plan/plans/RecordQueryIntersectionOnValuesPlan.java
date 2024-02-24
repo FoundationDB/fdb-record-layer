@@ -76,7 +76,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.ofSimplificationRules();
         return getComparisonKeyValues().stream()
-                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.of(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
+                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());
     }
 

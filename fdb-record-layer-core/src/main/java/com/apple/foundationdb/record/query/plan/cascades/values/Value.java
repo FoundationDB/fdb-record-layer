@@ -263,7 +263,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
     @Nonnull
     default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return replaceLeavesMaybe(value -> {
+        return translateCorrelations(translationMap, false);
+    }
+
+    @Nonnull
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNecessary) {
+        final var newValue = replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
@@ -282,6 +287,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
         }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+        if (simplifyIfNecessary && newValue != this) {
+            if (height() < newValue.height()) {
+                return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
+            }
+        }
+        return newValue;
     }
 
     @Nonnull
@@ -477,11 +488,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .map(Correlated::getCorrelatedTo)
                 .collect(ImmutableList.toImmutableList());
 
-        final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
-        correlatedTos.forEach(correlatedToIntersection::retainAll);
+        final var correlatedToDifference = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
+        correlatedTos.forEach(correlatedToDifference::retainAll);
 
         final var equivalenceMap = aliasMap.toBuilder()
-                .identitiesFor(correlatedToIntersection)
+                .identitiesFor(correlatedToDifference)
                 .build();
 
         final var resultPair =

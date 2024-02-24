@@ -72,7 +72,7 @@ public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSo
                     RequestedOrderingConstraint.REQUESTED_ORDERING,
                     ImmutableSet.of(RequestedOrdering.preserve()));
         } else {
-            final AliasMap translationMap = AliasMap.of(innerQuantifier.getAlias(), Quantifier.current());
+            final AliasMap translationMap = AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current());
 
             final ImmutableList.Builder<OrderingPart> keyPartBuilder = ImmutableList.builder();
             for (final var sortValue : sortValues) {

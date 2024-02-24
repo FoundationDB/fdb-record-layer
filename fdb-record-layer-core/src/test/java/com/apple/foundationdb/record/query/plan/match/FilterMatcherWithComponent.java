@@ -79,7 +79,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
                         component.expand(expandBaseQuantifier, () -> {
                             throw new UnsupportedOperationException();
                         });
-                return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.of(planBaseQuantifier.getAlias(), singlePredicateAlias))
+                return predicate.semanticEquals(graphExpansion.asAndPredicate(), AliasMap.ofAliases(planBaseQuantifier.getAlias(), singlePredicateAlias))
                        && super.matchesSafely(plan);
             } else {
                 return false;

@@ -190,7 +190,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
-        final AliasMap aliasMap = AliasMap.of(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
+        final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
         // Compute the ordering for this index by collecting the result values of the selectHaving statement
         // associated with each sortParameterId. Note that for most aggregate indexes, the aggregate value is
@@ -260,7 +260,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
 
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
-        final AliasMap aliasMap = AliasMap.of(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
+        final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
         // TODO include the aggregate Value itself in the ordering.
         final var normalizedKeyExpressions = groupingKey.normalizeKeyForPositions();
