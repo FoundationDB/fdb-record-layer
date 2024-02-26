@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import org.apache.commons.lang3.time.DateUtils;
 
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -98,4 +99,8 @@ public final class LuceneRecordContextProperties {
      * Number of documents to move from a partition when its size exceeds {@link com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK}.
      */
     public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 10);
+    /**
+     * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
+     */
+    public static final RecordLayerPropertyKey<Long> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.longPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 2 * DateUtils.MILLIS_PER_HOUR);
 }
