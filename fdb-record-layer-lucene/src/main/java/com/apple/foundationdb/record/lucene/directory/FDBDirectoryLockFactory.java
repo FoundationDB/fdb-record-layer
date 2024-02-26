@@ -34,17 +34,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Produce a lock over {@link FDBDirectory}.
  */
 public final class FDBDirectoryLockFactory extends LockFactory {
     final FDBDirectory directory;
-    final long timeWindowMilliseconds;
+    final int timeWindowMilliseconds;
 
-    public FDBDirectoryLockFactory(FDBDirectory directory, long timeWindowMilliseconds) {
+    public FDBDirectoryLockFactory(FDBDirectory directory, int timeWindowMilliseconds) {
         this.directory = directory;
-        this.timeWindowMilliseconds = timeWindowMilliseconds;
+        this.timeWindowMilliseconds = timeWindowMilliseconds > TimeUnit.SECONDS.toMillis(10) ? timeWindowMilliseconds : (int) TimeUnit.HOURS.toMillis(2);
     }
 
     @Override
@@ -58,12 +59,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         final AgilityContext agilityContext;
         final String lockName;
         final long timeStampMillis;
-        final long timeWindowMilliseconds;
+        final int timeWindowMilliseconds;
         final byte[] fileLockKey;
         boolean closed;
         private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
 
-        public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, long timeWindowMilliseconds) {
+        public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;

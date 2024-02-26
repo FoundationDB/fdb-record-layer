@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
-import org.apache.commons.lang3.time.DateUtils;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -102,5 +102,5 @@ public final class LuceneRecordContextProperties {
     /**
      * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
      */
-    public static final RecordLayerPropertyKey<Long> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.longPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 2 * DateUtils.MILLIS_PER_HOUR);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", (int)(TimeUnit.HOURS.toMillis(2)));
 }

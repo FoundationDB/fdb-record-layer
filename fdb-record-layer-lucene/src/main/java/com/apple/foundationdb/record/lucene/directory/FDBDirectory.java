@@ -52,7 +52,6 @@ import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ByteBuffersDataInput;
@@ -204,7 +203,7 @@ public class FDBDirectory extends Directory  {
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
-        this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 2 * DateUtils.MILLIS_PER_HOUR));
+        this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
         this.blockCache = CacheBuilder.newBuilder()
