@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
@@ -348,6 +349,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (!partitioner.isPartitioningEnabled()) {
             return CompletableFuture.completedFuture(null);
         }
+        final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+        if (mergeControl.shouldSkipRebalance()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
         final Index index = state.index;

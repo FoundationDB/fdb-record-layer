@@ -37,6 +37,7 @@ public class IndexDeferredMaintenanceControl {
     private long mergesTried;
     private long timeQuotaMillis;
     private long sizeQuotaBytes;
+    private boolean skipRebalance = false;
 
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
@@ -154,5 +155,21 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setSizeQuotaBytes(final long sizeQuotaBytes) {
         this.sizeQuotaBytes = sizeQuotaBytes;
+    }
+
+    /**
+     * If true, skip partition balancing during merge.
+     * @return true if should skip
+     */
+    public boolean shouldSkipRebalance() {
+        return skipRebalance;
+    }
+
+    /**
+     * Set by the caller - if applicable, set to skip partition re-balance.
+     * @param skipRebalance true to skip partition re-balancing, false to allow.
+     */
+    public void setSkipRebalance(final boolean skipRebalance) {
+        this.skipRebalance = skipRebalance;
     }
 }

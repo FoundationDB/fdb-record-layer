@@ -52,6 +52,7 @@ public class IndexingMerger {
     private long timeQuotaMillis = 0;
     private final IndexingCommon common;
     private SubspaceProvider subspaceProvider = null;
+    private boolean skipPartitionRebalace = false;
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
@@ -78,6 +79,7 @@ public class IndexingMerger {
                                     mergeControlRef.set(mergeControl);
                                     mergeControl.setMergesLimit(mergesLimit);
                                     mergeControl.setTimeQuotaMillis(timeQuotaMillis);
+                                    mergeControl.setSkipRebalance(skipPartitionRebalace);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
@@ -110,6 +112,7 @@ public class IndexingMerger {
         }
         // after a successful merge, reset the time quota. It is unlikely to be applicable for the next merge.
         timeQuotaMillis = 0;
+        skipPartitionRebalace = false; // do not skip it during the next call
         // Here: no errors, stop the iteration unless has more
         final boolean hasMore = mergeControl.getMergesFound() > mergeControl.getMergesTried();
         return  hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
@@ -121,7 +124,9 @@ public class IndexingMerger {
             giveUpMerging(mergeControl, e);
         }
         // Here: this exception might be resolved by reducing the number of merges or forcing shorter intervals between auto-commits
-        if (mergeControl.getMergesTried() < 2) {
+        if (! skipPartitionRebalace) {
+            handlePotentialRebalanceFailure(mergeControl, e);
+        } else if (mergeControl.getMergesTried() < 2) {
             handleSingleMergeFailure(mergeControl, e);
         } else {
             handleMultiMergeFailure(mergeControl, e);
@@ -134,6 +139,14 @@ public class IndexingMerger {
         mergesLimit = mergeControl.getMergesTried() / 2;
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(mergerLogMessage("IndexMerge: Merges diluted", mergeControl), e);
+        }
+    }
+
+    private void handlePotentialRebalanceFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        // Here: retry merge, but without partition re-balance
+        skipPartitionRebalace = true;
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(mergerLogMessage("IndexMerge: Forbid partition re-balance", mergeControl), e);
         }
     }
 

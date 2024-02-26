@@ -27,7 +27,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Implement a proper copy-on-write `replace` for `TreeLike` [(Issue #2500)](https://github.com/FoundationDB/fdb-record-layer/issues/2500)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** IndexingMerger: if merge fails, retry with a "skip rebalancing" flag [(Issue #2537)](https://github.com/FoundationDB/fdb-record-layer/issues/2537)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
