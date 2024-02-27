@@ -391,11 +391,12 @@ public class StoreTimer {
      * {@link Event}s that count the number of occurrences of an operation and also the size of the operation.
      * {@link SizeEvent} is similar in implementation to (Time){@link Event} except for the fact that the recorded value
      * is not the time. It is also different from {@link Count} since along with the size of the event in concern, it
-     * also records the number of times the record has occurred.
+     * also records the number of times the event has occurred.
      *
-     * This is in principle similar to having 2 {@link Count} event like, {@code COUNT_NUM} and {@code COUNT_SIZE} with
-     * {@link Count#isSize()} is equal to true for the latter. However, in this case the consumer ends up registering 2
-     * events in case of an occurrence and also maintains how they are interpreted by viewers.
+     * Since {@link SizeEvent} tracks count and size together, it is easier for the consumer than having two {@link Count}
+     * events that track them separately. In essence, the consumer benefits from recording only a single event to capture
+     * both pieces of information and also from the fact that the link between count and size is more obvious when
+     * reading metrics.
      */
     public interface SizeEvent extends StoreTimer.Event {
     }
@@ -638,7 +639,7 @@ public class StoreTimer {
     /**
      * Get the total time spent for a given event.
      *
-     * @param event the event to get time information for.
+     * @param event the event to get time information for
      *
      * @return the total number of nanoseconds recorded for the event
      */
