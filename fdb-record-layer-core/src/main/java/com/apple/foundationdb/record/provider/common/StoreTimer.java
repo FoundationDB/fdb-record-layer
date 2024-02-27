@@ -389,7 +389,13 @@ public class StoreTimer {
 
     /**
      * {@link Event}s that count the number of occurrences of an operation and also the size of the operation.
-     * There is no meaningful time duration associated with these events.
+     * {@link SizeEvent} is similar in implementation to (Time){@link Event} except for the fact that the recorded value
+     * is not the time. It is also different from {@link Count} since along with the size of the event in concern, it
+     * also records the number of times the record has occurred.
+     *
+     * This is in principle similar to having 2 {@link Count} event like, {@code COUNT_NUM} and {@code COUNT_SIZE} with
+     * {@link Count#isSize()} is equal to true for the latter. However, in this case the consumer ends up registering 2
+     * events in case of an occurrence and also maintains how they are interpreted by viewers.
      */
     public interface SizeEvent extends StoreTimer.Event {
     }
@@ -439,7 +445,9 @@ public class StoreTimer {
         }
 
         /**
-         * Get the cumulative time spent on the associated event.
+         * Get the cumulative time spent on the associated event. This method is identical to {@link Counter#getCumulativeValue()}
+         * in the way that both returns the underlying cumulative value. Hence, this method should strictly be used for
+         * time-based events that are cumulating time over different occurrences.
          *
          * @return the cumulative time spent on the associated event
          */
@@ -630,7 +638,7 @@ public class StoreTimer {
     /**
      * Get the total time spent for a given event.
      *
-     * @param event the event to get time information for
+     * @param event the event to get time information for.
      *
      * @return the total number of nanoseconds recorded for the event
      */
