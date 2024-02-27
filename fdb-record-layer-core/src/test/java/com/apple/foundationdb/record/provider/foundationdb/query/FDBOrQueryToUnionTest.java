@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -92,6 +93,7 @@ import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -125,6 +127,7 @@ import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
@@ -1570,13 +1573,257 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
         orQueryParams.setPlannerConfiguration(this);
 
-        final RecordQueryPlan plan = planner.plan(query);
+        final RecordQueryPlan plan = planQuery(query);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + value2Param + ", EQUALS $" + strValue1Param + "]"))),
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + value2Param + ", EQUALS $" + strValue2Param + "]")))
         ), useCascadesPlanner ? concatenateFields("num_value_3_indexed", "str_value_indexed", "rec_no") : concatenateFields("num_value_3_indexed", "rec_no"));
         assertMatchesExactly(plan, planMatcher);
         assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
+        if (useCascadesPlanner) {
+            assertEquals(orQueryParams.isSortReverse() ? 973132101L : 973132068L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(orQueryParams.isSortReverse() ? 1977118987L : 1982839045L, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            assertEquals(orQueryParams.isSortReverse() ? -2058994186L : -2058994219L, plan.planHash(CURRENT_LEGACY));
+            if (orQueryParams.shouldDeferFetch()) {
+                assertEquals(orQueryParams.isSortReverse() ? -1347044477L : -1341324419L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(orQueryParams.isSortReverse() ? -1116904445L : -1111184387L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            // Execute the query. Validate the sort order is followed
+            @Nullable Integer numValue3 = null;
+            final Bindings bindings = Bindings.newBuilder()
+                    .set(value2Param, 1)
+                    .set(strValue1Param, "even")
+                    .set(strValue2Param, "odd")
+                    .build();
+            final Set<Long> ids = new HashSet<>();
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = executeQuery(plan, bindings)) {
+                while (iterator.hasNext()) {
+                    final FDBQueriedRecord<Message> queriedRecord = iterator.next();
+                    TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .mergeFrom(queriedRecord.getRecord())
+                            .build();
+                    assertEquals(1, simpleRecord.getNumValue2());
+                    assertThat(simpleRecord.getStrValueIndexed(), either(equalTo("even")).or(equalTo("odd")));
+                    int queriedNumValue3 = simpleRecord.getNumValue3Indexed();
+                    if (numValue3 != null) {
+                        assertThat(queriedNumValue3, orQueryParams.isSortReverse() ? lessThanOrEqualTo(numValue3) : greaterThanOrEqualTo(numValue3));
+                    }
+                    numValue3 = queriedNumValue3;
+                    assertTrue(ids.add(simpleRecord.getRecNo()), () -> "set should not have already contained ID " + simpleRecord.getRecNo());
+                }
+            }
+
+            // Make sure the correct IDs are collected
+            assertThat(ids, not(empty()));
+            final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
+            final Set<Long> expectedIds = new HashSet<>();
+            recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .filter(rec -> type.equals(rec.getRecordType()))
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .filter(msg -> msg.getNumValue2() == 1 && ("even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed())))
+                    .map(TestRecords1Proto.MySimpleRecord::getRecNo)
+                    .forEach(expectedIds::add)
+                    .join();
+            assertEquals(expectedIds, ids);
+        }
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest(name = "testOrderedUnionHasRepeatedColumnsNotInPrefix[{0}]")
+    @MethodSource("baseForwardAndReverseParams")
+    void testOrderedUnionHasRepeatedColumnsNotInPrefix(OrQueryParams orQueryParams) throws Exception {
+        final Index index = new Index("index_with_two_num_value_2s", concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed", "num_value_2"));
+        RecordMetaDataHook hook = complexQuerySetupHook()
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+        complexQuerySetup(hook);
+
+        final String strValue1Param = "strParam1";
+        final String strValue2Param = "strParam2";
+        final RecordQuery query = orQueryParams.queryBuilder(field("num_value_2"))
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("str_value_indexed").equalsParameter(strValue1Param),
+                        Query.field("str_value_indexed").equalsParameter(strValue2Param))
+                )
+                .setRequiredResults(List.of(field("num_value_2"), field("num_value_3_indexed")))
+                .setAllowedIndex(index.getName())
+                .build();
+        orQueryParams.setPlannerConfiguration(this);
+
+        if (!useCascadesPlanner && !orQueryParams.shouldOmitPrimaryKeyInOrderingKey()) {
+            RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planQuery(query));
+            assertThat(rce.getMessage(), containsString("Cannot sort without appropriate index"));
+            return;
+        }
+        final RecordQueryPlan plan = planQuery(query);
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams, List.of(
+                indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + strValue1Param + "]"))),
+                indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + strValue2Param + "]")))
+        ), useCascadesPlanner ? concatenateFields("num_value_2", "str_value_indexed", "num_value_3_indexed", "rec_no") : concatenateFields("num_value_2", "num_value_3_indexed", "rec_no"));
+        assertMatchesExactly(plan, planMatcher);
+        assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
+        if (useCascadesPlanner) {
+            assertEquals(orQueryParams.isSortReverse() ? 1380802846L : 1380802813L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(orQueryParams.isSortReverse() ? -1854530652L : -1848810594L, plan.planHash(CURRENT_FOR_CONTINUATION));
+        } else {
+            assertEquals(orQueryParams.isSortReverse() ? 336481815L : 336481782L, plan.planHash(CURRENT_LEGACY));
+            if (orQueryParams.shouldDeferFetch()) {
+                assertEquals(orQueryParams.isSortReverse() ? 426190694L : 431910752L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            } else {
+                assertEquals(orQueryParams.isSortReverse() ? 656330726L : 662050784L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            // Execute the query. Validate the sort order is followed
+            @Nullable Integer numValue2 = null;
+            final Bindings bindings = Bindings.newBuilder()
+                    .set(strValue1Param, "even")
+                    .set(strValue2Param, "odd")
+                    .build();
+            final Set<Long> ids = new HashSet<>();
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = executeQuery(plan, bindings)) {
+                while (iterator.hasNext()) {
+                    final FDBQueriedRecord<Message> queriedRecord = iterator.next();
+                    TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .mergeFrom(queriedRecord.getRecord())
+                            .build();
+                    assertThat(simpleRecord.getStrValueIndexed(), either(equalTo("even")).or(equalTo("odd")));
+                    int queriedNumValue2 = simpleRecord.getNumValue2();
+                    if (numValue2 != null) {
+                        assertThat(queriedNumValue2, orQueryParams.isSortReverse() ? lessThanOrEqualTo(numValue2) : greaterThanOrEqualTo(numValue2));
+                    }
+                    numValue2 = queriedNumValue2;
+                    assertTrue(ids.add(simpleRecord.getRecNo()), () -> "set should not have already contained ID " + simpleRecord.getRecNo());
+                }
+            }
+
+            // Make sure the correct IDs are collected
+            assertThat(ids, not(empty()));
+            final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
+            final Set<Long> expectedIds = new HashSet<>();
+            recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                    .filter(rec -> type.equals(rec.getRecordType()))
+                    .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
+                    .filter(msg -> "even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed()))
+                    .map(TestRecords1Proto.MySimpleRecord::getRecNo)
+                    .forEach(expectedIds::add)
+                    .join();
+            assertEquals(expectedIds, ids);
+        }
+    }
+
+    @SuppressWarnings("unused") // used as parameter source for parameterized test
+    static Stream<Arguments> orderByIncludingValuePortion() {
+        final List<KeyExpression> sortKeys = List.of(
+                field("num_value_2"),
+                concatenateFields("num_value_2", "rec_no")
+        );
+        return baseForwardAndReverseParams().flatMap(orQueryParams ->
+                sortKeys.stream().map(sortKey ->
+                        Arguments.of(orQueryParams, sortKey)));
+    }
+
+    @DualPlannerTest
+    @ParameterizedTest(name = "orderByIncludingValuePortion[orQueryParams={0}, sortKey={1}]")
+    @MethodSource
+    void orderByIncludingValuePortion(@Nonnull OrQueryParams orQueryParams, @Nonnull KeyExpression sortKey) throws Exception {
+        final Index keyWithValueIndex = new Index("simple$keyWithValue", keyWithValue(
+                concatenateFields("num_value_3_indexed", "num_value_2", "num_value_unique"), 2));
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex("MySimpleRecord", keyWithValueIndex);
+        complexQuerySetup(hook);
+        boolean sortKeyContainsPrimaryKey = sortKey.getColumnSize() == 2;
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final String param1 = "p1";
+            final String param2 = "p2";
+            final RecordQuery query = orQueryParams.queryBuilder(sortKey)
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.or(Query.field("num_value_3_indexed").equalsParameter(param1), Query.field("num_value_3_indexed").equalsParameter(param2)))
+                    .setRequiredResults(List.of(field("num_value_unique"), field("num_value_3_indexed")))
+                    .build();
+            orQueryParams.setPlannerConfiguration(this);
+            final RecordQueryPlan plan = planQuery(query);
+            final KeyExpression expectedComparisonKey;
+            if (useCascadesPlanner) {
+                if (sortKeyContainsPrimaryKey) {
+                    expectedComparisonKey = concatenateFields("num_value_2", "rec_no", "num_value_3_indexed");
+                } else {
+                    expectedComparisonKey = concatenateFields("num_value_2", "num_value_3_indexed", "rec_no");
+                }
+            } else {
+                expectedComparisonKey = concatenateFields("num_value_2", "rec_no");
+            }
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams, List.of(
+                    indexPlan().where(indexName(keyWithValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + param1 + "]"))),
+                    indexPlan().where(indexName(keyWithValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + param2 + "]")))
+            ), expectedComparisonKey);
+            assertMatchesExactly(plan, planMatcher);
+            assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
+
+            final int legacyHash = plan.planHash(CURRENT_LEGACY);
+            final int continuationHash = plan.planHash(CURRENT_FOR_CONTINUATION);
+            if (useCascadesPlanner) {
+                if (sortKeyContainsPrimaryKey) {
+                    assertEquals(orQueryParams.isSortReverse() ? 951372169L : 951372136L, legacyHash);
+                    assertEquals(orQueryParams.isSortReverse() ? 477401359L : 483121417L, continuationHash);
+                } else {
+                    assertEquals(orQueryParams.isSortReverse() ? 951372289L : 951372256L, legacyHash);
+                    assertEquals(orQueryParams.isSortReverse() ? 477401479L : 483121537L, continuationHash);
+                }
+            } else {
+                if (orQueryParams.shouldDeferFetch()) {
+                    assertEquals(orQueryParams.isSortReverse() ? 442484585L : 442484552L, legacyHash);
+                    // The planHash can differ here because the choice of comparison key can result in the index plan
+                    // either being "strictly sorted" or not
+                    if (sortKeyContainsPrimaryKey) {
+                        assertEquals(orQueryParams.isSortReverse() ? -1935987792L : -1930267734L, continuationHash);
+                    } else {
+                        assertEquals(orQueryParams.isSortReverse() ? -1935803280L : -1930083222L, continuationHash);
+                    }
+                } else {
+                    assertEquals(orQueryParams.isSortReverse() ? 442484585L : 442484552L, legacyHash);
+                    if (sortKeyContainsPrimaryKey) {
+                        assertEquals(orQueryParams.isSortReverse() ? -1705847760L : -1700127702L, continuationHash);
+                    } else {
+                        assertEquals(orQueryParams.isSortReverse() ? -1705663248L : -1699943190L, continuationHash);
+                    }
+                }
+            }
+
+            @Nullable Tuple lastSortValue = null;
+            final Bindings bindings = Bindings.newBuilder()
+                    .set(param1, 0)
+                    .set(param2, 2)
+                    .build();
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> iter = executeQuery(plan, bindings)) {
+                while (iter.hasNext()) {
+                    TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .mergeFrom(iter.next().getRecord())
+                            .build();
+                    assertThat(simpleRecord.getNumValue3Indexed(), either(equalTo(0)).or(equalTo(2)));
+                    Tuple sortValue = sortKeyContainsPrimaryKey ? Tuple.from(simpleRecord.getNumValue2(), simpleRecord.getRecNo()) : Tuple.from(simpleRecord.getNumValue2());
+                    if (lastSortValue != null) {
+                        if (orQueryParams.isSortReverse()) {
+                            assertThat(lastSortValue.compareTo(sortValue), greaterThanOrEqualTo(0));
+                        } else {
+                            assertThat(lastSortValue.compareTo(sortValue), lessThanOrEqualTo(0));
+                        }
+                    }
+                    lastSortValue = sortValue;
+                }
+            }
+        }
     }
 
     @DualPlannerTest

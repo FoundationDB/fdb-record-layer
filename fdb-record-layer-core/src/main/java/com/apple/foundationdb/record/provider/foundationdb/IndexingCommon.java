@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -136,8 +135,7 @@ public class IndexingCommon {
             }
             boolean isSynthetic = false;
             if (types.stream().anyMatch(RecordType::isSynthetic)) {
-                types = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null), getRunner().getTimer())
-                        .storedRecordTypesForIndex(targetIndex, types);
+                types = SyntheticRecordPlanner.storedRecordTypesForIndex(metaData, targetIndex, types);
                 isSynthetic = true;
             }
             targetIndexContexts.add(new IndexContext(targetIndex, types, isSynthetic));
@@ -192,13 +190,18 @@ public class IndexingCommon {
     }
 
     @Nonnull
-    public Index getIndex() {
+    IndexContext getIndexContext() {
         if (isMultiTarget()) {
             // backward compatibility safeguard - modules that do not support multi targets (yet) will continue calling
             // this function, which verifies a very lonely target index
             throw new IndexingBase.ValidationException("Multi target index exist, but an operation that assumes a single index was called");
         }
-        return targetIndexContexts.get(0).index;
+        return targetIndexContexts.get(0);
+    }
+
+    @Nonnull
+    public Index getIndex() {
+        return getIndexContext().index;
     }
 
     @Nonnull

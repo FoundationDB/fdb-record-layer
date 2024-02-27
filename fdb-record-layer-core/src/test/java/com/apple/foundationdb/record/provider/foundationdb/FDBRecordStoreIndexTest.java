@@ -1348,7 +1348,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), null, FDBRecordStore.RebuildIndexReason.TEST).get();
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), FDBRecordStore.RebuildIndexReason.TEST).get();
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_TEST), "should build new index");
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX), "should build new index");
             assertTrue(recordStore.isIndexReadable(indexName));

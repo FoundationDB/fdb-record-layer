@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.Lock;
@@ -42,15 +41,17 @@ import java.util.concurrent.TimeUnit;
  */
 public final class FDBDirectoryLockFactory extends LockFactory {
     final FDBDirectory directory;
+    final int timeWindowMilliseconds;
 
-    public FDBDirectoryLockFactory(FDBDirectory directory) {
+    public FDBDirectoryLockFactory(FDBDirectory directory, int timeWindowMilliseconds) {
         this.directory = directory;
+        this.timeWindowMilliseconds = timeWindowMilliseconds > TimeUnit.SECONDS.toMillis(10) ? timeWindowMilliseconds : (int) TimeUnit.HOURS.toMillis(2);
     }
 
     @Override
     public Lock obtainLock(final Directory dir, final String lockName) {
         // dir is ignored
-        return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName));
+        return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
     }
 
     private static class FDBDirectoryLock extends Lock {
@@ -58,14 +59,16 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         final AgilityContext agilityContext;
         final String lockName;
         final long timeStampMillis;
+        final int timeWindowMilliseconds;
         final byte[] fileLockKey;
         boolean closed;
         private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
 
-        public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey) {
+        public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
+            this.timeWindowMilliseconds = timeWindowMilliseconds;
             this.timeStampMillis = System.currentTimeMillis();
             fileLockSet(timeStampMillis);
         }
@@ -82,7 +85,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 throw new AlreadyClosedException("Lock instance already released. This=" + this);
             }
             final long now = System.currentTimeMillis();
-            if (now > timeStampMillis + TimeUnit.MINUTES.toMillis(30)) {
+            if (now > timeStampMillis + timeWindowMilliseconds) {
                 throw new AlreadyClosedException("Lock is too old. This=" + this + " now=" + now);
             }
             long existingValue = fileLockGet();
@@ -106,14 +109,14 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         public void fileLockSet(long timeStampMillis) {
             byte[] value = fileLockValue(timeStampMillis);
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
                     agilityContext.apply(aContext ->
                             aContext.ensureActive().get(fileLockKey)
                                     .thenAccept(val -> {
                                         if (val != null) {
                                             long existingTimeStamp =  fileLockValueToTimestamp(val);
-                                            if (existingTimeStamp > (timeStampMillis - DateUtils.MILLIS_PER_HOUR) &&
-                                                    existingTimeStamp < (timeStampMillis + DateUtils.MILLIS_PER_HOUR)) {
+                                            if (existingTimeStamp > (timeStampMillis - timeWindowMilliseconds) &&
+                                                    existingTimeStamp < (timeStampMillis + timeWindowMilliseconds)) {
                                                 // Here: this lock is valid
                                                 throw new RecordCoreException("FileLock: Set: found old lock")
                                                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
@@ -133,13 +136,13 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         public long fileLockGet() {
             // return time stamp if exists, 0 if not
-            byte[] val = agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK, agilityContext.get(fileLockKey));
+            byte[] val = agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_GET, agilityContext.get(fileLockKey));
             return fileLockValueToTimestamp(val);
         }
 
         public void fileLockClear(long timeStampMillis) {
             byte[] value = fileLockValue(timeStampMillis);
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK,
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                     agilityContext.apply(aContext ->
                             aContext.ensureActive().get(fileLockKey)
                                     .thenAccept(val -> {

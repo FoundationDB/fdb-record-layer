@@ -157,6 +157,8 @@ message PPrimitiveCoercionBiFunction {
     NULL_TO_ARRAY = 13;
     NULL_TO_RECORD = 14;
     NONE_TO_ARRAY = 15;
+    NULL_TO_ENUM = 16;
+    STRING_TO_ENUM = 17;
   }
   optional PPhysicalOperator operator = 1;
 }
