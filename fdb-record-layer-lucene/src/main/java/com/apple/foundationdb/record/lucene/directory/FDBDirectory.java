@@ -193,7 +193,7 @@ public class FDBDirectory extends Directory  {
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
                          int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
                          boolean deferDeleteToCompoundFile) {
-        Verify.verify(subspace != null);
+        this.agilityContext = agilityContext;
         this.indexOptions = indexOptions == null ? Collections.emptyMap() : indexOptions;
         this.subspace = subspace;
         final Subspace sequenceSubspace = subspace.subspace(Tuple.from(SEQUENCE_SUBSPACE));
@@ -203,7 +203,7 @@ public class FDBDirectory extends Directory  {
         this.fieldInfosSubspace = subspace.subspace(Tuple.from(FIELD_INFOS_SUBSPACE));
         this.storedFieldsSubspace = subspace.subspace(Tuple.from(STORED_FIELDS_SUBSPACE));
         this.fileLockSubspace = subspace.subspace(Tuple.from(FILE_LOCK_SUBSPACE));
-        this.lockFactory = new FDBDirectoryLockFactory(this);
+        this.lockFactory = new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
         this.blockSize = blockSize;
         this.fileReferenceCache = new AtomicReference<>();
         this.blockCache = CacheBuilder.newBuilder()
@@ -221,7 +221,6 @@ public class FDBDirectory extends Directory  {
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
-        this.agilityContext = agilityContext;
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
