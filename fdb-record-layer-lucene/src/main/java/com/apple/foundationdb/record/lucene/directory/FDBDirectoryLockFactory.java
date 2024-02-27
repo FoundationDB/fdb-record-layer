@@ -45,7 +45,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
     public FDBDirectoryLockFactory(FDBDirectory directory, int timeWindowMilliseconds) {
         this.directory = directory;
-        this.timeWindowMilliseconds = timeWindowMilliseconds > TimeUnit.SECONDS.toMillis(10) ? timeWindowMilliseconds : (int) TimeUnit.HOURS.toMillis(2);
+        this.timeWindowMilliseconds = timeWindowMilliseconds > TimeUnit.SECONDS.toMillis(10) ? timeWindowMilliseconds : (int) TimeUnit.MINUTES.toMillis(10);
     }
 
     @Override
@@ -58,7 +58,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         final AgilityContext agilityContext;
         final String lockName;
-        final long timeStampMillis;
+        long timeStampMillis;
         final int timeWindowMilliseconds;
         final byte[] fileLockKey;
         boolean closed;
@@ -69,18 +69,18 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
             this.timeWindowMilliseconds = timeWindowMilliseconds;
-            this.timeStampMillis = System.currentTimeMillis();
-            fileLockSet(timeStampMillis);
+            fileLockSet(false);
         }
 
         @Override
         public void close() {
-            fileLockClear(timeStampMillis);
+            fileLockClear();
             closed = true;
         }
 
         @Override
         public void ensureValid() {
+            // .. and implement heartbeat
             if (closed) {
                 throw new AlreadyClosedException("Lock instance already released. This=" + this);
             }
@@ -88,13 +88,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (now > timeStampMillis + timeWindowMilliseconds) {
                 throw new AlreadyClosedException("Lock is too old. This=" + this + " now=" + now);
             }
-            long existingValue = fileLockGet();
-            if (existingValue == 0) {
-                throw new AlreadyClosedException("Lock file was deleted. This=" + this);
-            }
-            if (existingValue != timeStampMillis) {
-                throw new AlreadyClosedException("Lock file changed by an external force at " + existingValue + ". This=" + this);
-            }
+            fileLockSet(true);
         }
 
 
@@ -107,40 +101,56 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                    Tuple.fromBytes(value).getLong(0);
         }
 
-        public void fileLockSet(long timeStampMillis) {
-            byte[] value = fileLockValue(timeStampMillis);
+        public void fileLockSet(boolean isHeartbeat) {
+            final long nowMillis = System.currentTimeMillis();
             agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
                     agilityContext.apply(aContext ->
                             aContext.ensureActive().get(fileLockKey)
                                     .thenAccept(val -> {
-                                        if (val != null) {
-                                            long existingTimeStamp =  fileLockValueToTimestamp(val);
-                                            if (existingTimeStamp > (timeStampMillis - timeWindowMilliseconds) &&
-                                                    existingTimeStamp < (timeStampMillis + timeWindowMilliseconds)) {
-                                                // Here: this lock is valid
-                                                throw new RecordCoreException("FileLock: Set: found old lock")
-                                                        .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
-                                                                LuceneLogMessageKeys.LOCK_DIRECTORY, this);
-                                            }
-                                            // Here: this lock is either too old, or in the future. Steal it
-                                            if (LOGGER.isWarnEnabled()) {
-                                                LOGGER.warn(KeyValueLogMessage.of("FileLock: Set: found old lock, discard it",
-                                                        LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
-                                                        LuceneLogMessageKeys.LOCK_DIRECTORY, this));
-                                            }
+                                        long existingTimeStamp =  fileLockValueToTimestamp(val);
+                                        if (isHeartbeat) {
+                                            fileLockCheckHeartBeat(existingTimeStamp);
+                                        } else {
+                                            fileLockCheckNewLock(existingTimeStamp, nowMillis);
                                         }
+                                        this.timeStampMillis = nowMillis;
+                                        byte[] value = fileLockValue(timeStampMillis);
                                         aContext.ensureActive().set(fileLockKey, value);
                                     })
                     ));
         }
 
-        public long fileLockGet() {
-            // return time stamp if exists, 0 if not
-            byte[] val = agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_GET, agilityContext.get(fileLockKey));
-            return fileLockValueToTimestamp(val);
+        private void fileLockCheckHeartBeat(long existingTimeStamp) {
+            if (existingTimeStamp == 0) {
+                throw new AlreadyClosedException("Lock file was deleted. This=" + this);
+            }
+            if (existingTimeStamp != timeStampMillis) {
+                throw new AlreadyClosedException("Lock file changed by an external force at " + existingTimeStamp + ". This=" + this);
+            }
         }
 
-        public void fileLockClear(long timeStampMillis) {
+        private void fileLockCheckNewLock(long existingTimeStamp, long nowMillis) {
+            if (existingTimeStamp <= 0) {
+                // all clear
+                return;
+            }
+            if (existingTimeStamp > (nowMillis - timeWindowMilliseconds) &&
+                    existingTimeStamp < (nowMillis + timeWindowMilliseconds)) {
+                // Here: this lock is valid
+                throw new RecordCoreException("FileLock: Set: found old lock")
+                        .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
+                                LuceneLogMessageKeys.LOCK_DIRECTORY, this);
+            }
+            // Here: this lock is either too old, or in the future. Steal it
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(KeyValueLogMessage.of("FileLock: Set: found old lock, discard it",
+                        LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
+                        LuceneLogMessageKeys.LOCK_DIRECTORY, this));
+            }
+        }
+
+
+        private void fileLockClear() {
             byte[] value = fileLockValue(timeStampMillis);
             agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                     agilityContext.apply(aContext ->
