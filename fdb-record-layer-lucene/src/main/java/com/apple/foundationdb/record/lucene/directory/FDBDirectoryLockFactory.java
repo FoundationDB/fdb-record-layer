@@ -62,6 +62,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         final int timeWindowMilliseconds;
         final byte[] fileLockKey;
         boolean closed;
+        private final Object fileLockSetLock = new Object();
         private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
 
         public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
@@ -102,22 +103,24 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         public void fileLockSet(boolean isHeartbeat) {
-            final long nowMillis = System.currentTimeMillis();
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
-                    agilityContext.apply(aContext ->
-                            aContext.ensureActive().get(fileLockKey)
-                                    .thenAccept(val -> {
-                                        long existingTimeStamp =  fileLockValueToTimestamp(val);
-                                        if (isHeartbeat) {
-                                            fileLockCheckHeartBeat(existingTimeStamp);
-                                        } else {
-                                            fileLockCheckNewLock(existingTimeStamp, nowMillis);
-                                        }
-                                        this.timeStampMillis = nowMillis;
-                                        byte[] value = fileLockValue(timeStampMillis);
-                                        aContext.ensureActive().set(fileLockKey, value);
-                                    })
-                    ));
+            synchronized (fileLockSetLock) {
+                final long nowMillis = System.currentTimeMillis();
+                agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
+                        agilityContext.apply(aContext ->
+                                aContext.ensureActive().get(fileLockKey)
+                                        .thenAccept(val -> {
+                                            long existingTimeStamp = fileLockValueToTimestamp(val);
+                                            if (isHeartbeat) {
+                                                fileLockCheckHeartBeat(existingTimeStamp);
+                                            } else {
+                                                fileLockCheckNewLock(existingTimeStamp, nowMillis);
+                                            }
+                                            this.timeStampMillis = nowMillis;
+                                            byte[] value = fileLockValue(timeStampMillis);
+                                            aContext.ensureActive().set(fileLockKey, value);
+                                        })
+                        ));
+            }
         }
 
         private void fileLockCheckHeartBeat(long existingTimeStamp) {
