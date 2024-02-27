@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -88,6 +89,8 @@ public class AvailableFields {
     public boolean hasAllFields() {
         return fields == null;
     }
+
+    public Set<KeyExpression> getFields() {return fields.keySet();}
 
     public boolean containsAll(@Nonnull Collection<KeyExpression> requiredFields) {
         if (fields == null) {

@@ -240,6 +240,7 @@ public class PlanOrderingKey {
     public static KeyExpression mergedComparisonKey(@Nonnull List<RecordQueryPlanner.ScoredPlan> plans,
                                                     @Nullable KeyExpression candidateKey,
                                                     boolean candidateOnly) {
+        System.out.println("mergedComparisonKey called with candidateOnly:" + candidateOnly + " candidateKey:" + candidateKey);
         if (candidateOnly) {
             if (candidateKey == null) {
                 return null;
@@ -264,6 +265,7 @@ public class PlanOrderingKey {
                 if (planKey == null) {
                     return null;
                 }
+                System.out.println("plan.planOrderingKey:" + plan.planOrderingKey + " planKey:" + planKey);
                 candidateKey = planKey;
             }
             return candidateKey;

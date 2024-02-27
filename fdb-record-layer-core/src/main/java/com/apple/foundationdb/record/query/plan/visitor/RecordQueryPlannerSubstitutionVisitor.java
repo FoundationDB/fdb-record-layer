@@ -35,12 +35,15 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -63,10 +66,9 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
     }
 
     public static RecordQueryPlan applyRegularVisitors(@Nonnull RecordQueryPlannerConfiguration configuration, @Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
-        plan = plan
-                .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+        plan = plan.accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
+        plan = plan.accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey));
+        plan = plan.accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey));
 
         if (configuration.shouldDeferFetchAfterInJoinAndInUnion()) {
@@ -74,7 +76,6 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                     .accept(new InJoinVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                     .accept(new InUnionVisitor(recordMetaData, indexTypes, commonPrimaryKey));
         }
-
         return plan.accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }
@@ -93,6 +94,9 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                                                    @Nullable KeyExpression commonPrimaryKey,
                                                    @Nonnull RecordQueryPlan plan,
                                                    @Nonnull Set<KeyExpression> requiredFields) {
+        System.out.println("removeIndexFetch called instanceof PlanWithIndex:" +
+                (plan instanceof RecordQueryPlanWithIndex) + " instanceofFetchFromPartial:" + (plan instanceof RecordQueryFetchFromPartialRecordPlan) + " plan class:" + plan.getClass());
+        System.out.println("removeIndexFetch requiredFields:" + requiredFields);
         if (plan instanceof RecordQueryPlanWithIndex) {
             RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex) plan;
             if (!indexPlan.allowedForCoveringIndexPlan()) {
@@ -107,6 +111,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey, indexPlan);
+            System.out.println("RecordQueryPlanWithIndex fieldsFromIndex:" + fieldsFromIndex.getFields());
 
             final Set<KeyExpression> fields = new HashSet<>(requiredFields);
             if (commonPrimaryKey != null) {
@@ -123,6 +128,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
         } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
             RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan) plan;
+            System.out.println("RecordQueryFetchFromPartialRecordPlan child:" + fetchPlan.getChild() + " availableFields:" + fetchPlan.getChild().getAvailableFields().getFields());
             if (fetchPlan.getChild().getAvailableFields().containsAll(requiredFields)) {
                 return ((RecordQueryFetchFromPartialRecordPlan)plan).getChild();
             }
