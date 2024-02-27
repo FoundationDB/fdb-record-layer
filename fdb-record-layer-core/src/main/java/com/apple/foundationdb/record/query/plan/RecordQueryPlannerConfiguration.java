@@ -63,6 +63,7 @@ public class RecordQueryPlannerConfiguration {
     private static final long DONT_DEFER_CROSS_PRODUCTS_MASK = 1L << 8;
     private static final long PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK = 1L << 9;
     private static final long NORMALIZE_NESTED_FIELDS_MASK = 1L << 10;
+    private static final long OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK = 1L << 11;
 
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
@@ -179,8 +180,32 @@ public class RecordQueryPlannerConfiguration {
         return flagSet(DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK);
     }
 
+    /**
+     * Get whether the query planner should omit the common primary key from the ordering key for {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan}s.
+     * By default, the query planner always requires that all legs of an ordered union plan are ordered first by the requested
+     * sort and then by the common primary key (if one is present between queried types). This can restrict the indexes
+     * that can be matched for queries with {@link com.apple.foundationdb.record.query.expressions.OrComponent}s, and so the
+     * suggestion is to set this parameter to be more permissive. This property exists mainly for backwards compatibility
+     * reasons, as flipping this value can result in plans changing.
+     *
+     * @return whether to allow union ordering keys that do not contain the primary key
+     */
     public boolean shouldOmitPrimaryKeyInUnionOrderingKey() {
         return flagSet(OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK);
+    }
+
+    /**
+     * Get whether the query planner should omit the common primary key from the ordering key for {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan}s.
+     * By default, the query planner always requires that all legs of an in-union plan are ordered first by the requested
+     * sort and then by the common primary key (if one is present between queried types). This can restrict the indexes
+     * that can be matched for queries with that have both {@code IN} predicates and a specified sort constraint, and so the
+     * suggestion is to set this parameter to be more permissive. This property exists mainly for backwards compatibility
+     * reasons, as flipping this value can result in plans changing.
+     *
+     * @return whether to allow in-union ordering keys that do not contain the primary key
+     */
+    public boolean shouldOmitPrimaryKeyInOrderingKeyForInUnion() {
+        return flagSet(OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK);
     }
 
     /**
@@ -421,6 +446,12 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder setOmitPrimaryKeyInUnionOrderingKey(boolean omitPrimaryKeyInUnionOrderingKey) {
             updateFlags(omitPrimaryKeyInUnionOrderingKey, OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK);
+            return this;
+        }
+
+        @Nonnull
+        public Builder setOmitPrimaryKeyInOrderingKeyForInUnion(boolean omitPrimaryKeyInOrderingKeyForInUnion) {
+            updateFlags(omitPrimaryKeyInOrderingKeyForInUnion, OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK);
             return this;
         }
 

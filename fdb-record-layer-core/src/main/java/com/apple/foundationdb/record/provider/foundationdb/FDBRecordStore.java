@@ -4057,7 +4057,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             case READABLE:
             default:
                 errMessageBuilder.append("rebuild index");
-                return rebuildIndex(index, recordTypes, reason);
+                return rebuildIndex(index, reason);
         }
     }
 
@@ -4104,12 +4104,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Void> rebuildIndex(@Nonnull Index index) {
-        return rebuildIndex(index, getRecordMetaData().recordTypesForIndex(index), RebuildIndexReason.EXPLICIT);
+        return rebuildIndex(index, RebuildIndexReason.EXPLICIT);
     }
 
+    @API(API.Status.INTERNAL)
     @Nonnull
+    @VisibleForTesting
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Resource usage for indexBuilder is too complicated for rules.
-    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nullable final Collection<RecordType> recordTypes, @Nonnull RebuildIndexReason reason) {
+    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nonnull RebuildIndexReason reason) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
@@ -4130,7 +4132,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         long startTime = System.nanoTime();
-        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).setRecordTypes(recordTypes).build();
+        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
                 .thenCompose(vignore -> markIndexReadable(index))
                 .handle((b, t) -> {

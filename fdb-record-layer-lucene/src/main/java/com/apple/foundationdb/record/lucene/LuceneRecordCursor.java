@@ -43,10 +43,12 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -136,12 +138,43 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     private boolean closed;
+    /**
+     * true when the query is sorted by the partitioning field.
+     */
+    private boolean sortedByPartitioningKey = false;
+    /**
+     * the cursor was instantiated with a non-null continuation token.
+     */
+    private boolean withContinuation = false;
+    /**
+     * upon continuation, we need to perform a <b>one-time</b> adjustment of the
+     * searchAfter location with respect to partitions. This indicates that
+     * this has been done, when true.
+     */
+    private boolean continuationPartitionSanitized = false;
+    /**
+     * when we need to "jump" to a new partition as a result of
+     * searchAfter location adjustment (due to underlying data
+     * changes), we need to preserve the searchAfter doc, in order
+     * to use it in the correct partition.
+     */
+    private boolean dontResetSearchAfter = false;
+    /**
+     * the timestamp of the document that we are continuing from. This is
+     * only non-null when search is sorted by the partition field.
+     */
+    private Long searchAfterTimestamp = null;
+    /**
+     * true when the search is sorted in descending order.
+     */
+    private boolean isReverseSort = false;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
     @SuppressWarnings("squid:S107")
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nullable ExecutorService executorService,
+                       @Nonnull LucenePartitioner partitioner,
                        int pageSize,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state,
@@ -173,11 +206,21 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.timer = state.context.getTimer();
         this.query = query;
         this.sort = sort;
+        this.partitioner = partitioner;
         if (partitionInfo != null) {
             this.partitionTimestamp = LucenePartitioner.getFrom(partitionInfo);
             this.partitionId = partitionInfo.getId();
         }
+        if (sort != null && partitioner.isPartitioningEnabled()) {
+            Pair<Boolean, Boolean> sortCriteria = partitioner.isSortedByPartitionField(sort);
+            sortedByPartitioningKey = sortCriteria.getLeft();
+            isReverseSort = sortCriteria.getRight();
+            if (sortedByPartitioningKey) {
+                storedFieldsToReturn.add(partitioner.getPartitionTimestampFieldNameInLucene());
+            }
+        }
         if (continuation != null) {
+            withContinuation = true;
             try {
                 LuceneContinuationProto.LuceneIndexContinuation parsed = LuceneContinuationProto.LuceneIndexContinuation.parseFrom(continuation);
                 searchAfter = LuceneCursorContinuation.toScoreDoc(parsed);
@@ -192,11 +235,25 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     this.partitionId = parsed.getPartitionId();
                     this.partitionTimestamp = parsed.getPartitionTimestamp();
                 }
+                // if we're sorted by partition field, then the ScoreDoc in the continuation
+                // must be a FieldDoc that has the partition field value... otherwise something
+                // isn't right and we bail
+                if (sortedByPartitioningKey) {
+                    // get the timestamp from scoreDoc
+                    if (searchAfter instanceof FieldDoc) {
+                        FieldDoc fieldDoc = (FieldDoc)searchAfter;
+                        if (fieldDoc.fields != null && fieldDoc.fields.length > 0 && fieldDoc.fields[0] instanceof Long) {
+                            searchAfterTimestamp = (Long)fieldDoc.fields[0];
+                        }
+                    }
+                    if (searchAfterTimestamp == null) {
+                        throw new RecordCoreException("expecting timestamp in continuation token");
+                    }
+                }
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
             }
         }
-        partitioner = new LucenePartitioner(state);
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
         this.groupingKey = groupingKey;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
@@ -215,70 +272,134 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return CompletableFuture.completedFuture(nextResult);
         }
 
-        // Scan all the pages within skip range firstly
-        CompletableFuture<Void> scanPages = AsyncUtil.whileTrue(() -> {
-            if (leftToSkip < pageSize) {
-                return CompletableFuture.completedFuture(false);
-            }
-            try {
-                TopDocs topDocs = searchForTopDocs(pageSize);
-                leftToSkip -= topDocs.scoreDocs.length;
-            } catch (IndexNotFoundException indexNotFoundException) {
-                // Trying to open an empty directory results in an IndexNotFoundException,
-                // but this should be interpreted as there not being any data to read
-                nextResult = RecordCursorResult.exhausted();
-            } catch (IOException ioException) {
-                throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
-                        .addLogInfo(LogMessageKeys.QUERY, query);
-            }
-            return CompletableFuture.completedFuture(leftToSkip >= pageSize);
-        }, executor);
+        return handleCrossPartitionDiscontinuity().thenCompose(noval -> {
+            // Scan all the pages within skip range firstly
+            CompletableFuture<Void> scanPages = AsyncUtil.whileTrue(() -> {
+                if (leftToSkip < pageSize) {
+                    return CompletableFuture.completedFuture(false);
+                }
+                try {
+                    TopDocs topDocs = searchForTopDocs(pageSize);
+                    leftToSkip -= topDocs.scoreDocs.length;
+                } catch (IndexNotFoundException indexNotFoundException) {
+                    // Trying to open an empty directory results in an IndexNotFoundException,
+                    // but this should be interpreted as there not being any data to read
+                    nextResult = RecordCursorResult.exhausted();
+                } catch (IOException ioException) {
+                    throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
+                            .addLogInfo(LogMessageKeys.QUERY, query);
+                }
+                return CompletableFuture.completedFuture(leftToSkip >= pageSize);
+            }, executor);
 
-        return scanPages.thenCompose(vignore -> {
-            if (lookupResults == null || !exhausted && (leftToSkip > 0 || (currentPosition + skip) % pageSize == 0) && limitRemaining > 0) {
-                return CompletableFuture.supplyAsync(() -> {
-                    try {
-                        maybePerformScan();
-                    } catch (IndexNotFoundException indexNotFoundException) {
-                        // Trying to open an empty directory results in an IndexNotFoundException,
-                        // but this should be interpreted as there not being any data to read
-                        nextResult = RecordCursorResult.exhausted();
-                        return CompletableFuture.completedFuture(nextResult);
-                    } catch (IOException ioException) {
-                        throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
-                                .addLogInfo(LogMessageKeys.QUERY, query);
-                    }
-                    return lookupResults.onNext().thenCompose(this::switchToNextOlderPartitionAndContinue);
-                }).thenCompose(Function.identity());
-            }
-            return lookupResults.onNext().thenCompose(this::switchToNextOlderPartitionAndContinue);
+            return scanPages.thenCompose(vignore -> {
+                if (lookupResults == null || !exhausted && (leftToSkip > 0 || (currentPosition + skip) % pageSize == 0) && limitRemaining > 0) {
+                    return CompletableFuture.supplyAsync(() -> {
+                        try {
+                            maybePerformScan();
+                        } catch (IndexNotFoundException indexNotFoundException) {
+                            // Trying to open an empty directory results in an IndexNotFoundException,
+                            // but this should be interpreted as there not being any data to read
+                            nextResult = RecordCursorResult.exhausted();
+                            return CompletableFuture.completedFuture(nextResult);
+                        } catch (IOException ioException) {
+                            throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
+                                    .addLogInfo(LogMessageKeys.QUERY, query);
+                        }
+                        return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
+                    }).thenCompose(Function.identity());
+                }
+                return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
+            });
         });
     }
 
-    private CompletableFuture<RecordCursorResult<IndexEntry>> switchToNextOlderPartitionAndContinue(RecordCursorResult<IndexEntry> recordCursorResult) {
+    private CompletableFuture<Void> handleCrossPartitionDiscontinuity() {
+        if (!withContinuation ||
+                continuationPartitionSanitized ||
+                !partitioner.isPartitioningEnabled()) {
+            return AsyncUtil.DONE;
+        }
+
+        // here: this is a continuation in a partitioned index, and we haven't yet "sanitized" the partition info
+        // with respect to the continuation, do that now:
+        return partitioner.getPartitionMetaInfoById(Objects.requireNonNull(partitionId), groupingKey).thenCompose(partitionInfo -> {
+            // the boundaries of the partition may have changed (due to re-balancing, explicit doc removal etc.)
+            long currentFrom = LucenePartitioner.getFrom(partitionInfo);
+            long currentTo = LucenePartitioner.getTo(partitionInfo);
+            partitionTimestamp = currentFrom;
+
+            final CompletableFuture<Void> getProperContinuationPartition;
+
+            // next, if the current partition's new boundary excludes the continuation's "search after" timestamp,
+            // we need to change the current partition to the one that does contain this timestamp.
+            if (searchAfterTimestamp != null && (searchAfterTimestamp < currentFrom || searchAfterTimestamp > currentTo)) {
+
+                // need to preserve the current "searchAfter" doc across the partition change
+                dontResetSearchAfter = true;
+
+                // get the proper partition
+                getProperContinuationPartition = partitioner.findPartitionInfo(groupingKey, searchAfterTimestamp - 1).thenCompose(properPartitionInfo -> {
+                    // if a "proper" partition no longer exists (e.g. there's no more records past the current continuation point in any partition),
+                    // we keep the original partition info as is and let the normal "exhausted" condition be met.
+                    if (properPartitionInfo != null) {
+                        partitionId = properPartitionInfo.getId();
+                        partitionTimestamp = LucenePartitioner.getFrom(properPartitionInfo);
+                        // EXPERIMENTAL: reset the doc id if necessary in order to pass the Lucene check in searchAfter()
+                        Objects.requireNonNull(searchAfter).doc = Math.min(searchAfter.doc, properPartitionInfo.getCount() - 1);
+                    }
+                    return AsyncUtil.DONE;
+                });
+            } else {
+                // EXPERIMENTAL: reset the doc id if necessary in order to pass the Lucene check in searchAfter()
+                if (searchAfter != null) {
+                    searchAfter.doc = Math.min(searchAfter.doc, partitionInfo.getCount() - 1);
+                }
+                getProperContinuationPartition = AsyncUtil.DONE;
+            }
+
+            return getProperContinuationPartition.thenApply(ignored -> {
+                continuationPartitionSanitized = true;
+                return null;
+            });
+        });
+    }
+
+    private CompletableFuture<RecordCursorResult<IndexEntry>> switchToNextPartitionAndContinue(RecordCursorResult<IndexEntry> recordCursorResult) {
         if (recordCursorResult.hasNext() ||
                 partitionTimestamp == null ||
                 recordCursorResult.getNoNextReason() != SOURCE_EXHAUSTED) {
             return CompletableFuture.completedFuture(recordCursorResult);
         }
 
-        // see if there's a next older partition by looking for the partition covering the timestamp equal to the `from` value of the
-        // current partition minus a millisecond (lowest resolution of timestamp)
+        final CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> nextPartitionFuture;
+        if (sortedByPartitioningKey && !isReverseSort) {
+            // if we're in a partitioning-field-ascending-sort query, get the next more recent partition
+            nextPartitionFuture = partitioner.getPartitionMetaInfoById(partitionId, groupingKey)
+                    .thenCompose(curPartition -> LucenePartitioner.getNextNewerPartitionInfo(state.context, groupingKey, partitionTimestamp, state.indexSubspace));
+        } else {
+            // otherwise get the next older partition
+            nextPartitionFuture = partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), partitionTimestamp - 1);
+        }
 
-        return partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), partitionTimestamp - 1).thenCompose(previousPartition -> {
-            if (previousPartition != null) {
+        return nextPartitionFuture.thenCompose(nextPartition -> {
+            if (nextPartition != null && nextPartition.getId() != partitionId) {
                 // reset scan params/state
                 exhausted = false;
-                this.partitionTimestamp = LucenePartitioner.getFrom(previousPartition);
-                this.partitionId = previousPartition.getId();
-                searchAfter = null;
+                this.partitionTimestamp = LucenePartitioner.getFrom(nextPartition);
+                this.partitionId = nextPartition.getId();
+                if (!dontResetSearchAfter) {
+                    searchAfter = null;
+                } else {
+                    dontResetSearchAfter = false;
+                }
                 currentPosition = 0;
                 if (skip > 0) {
                     skip = leftToSkip;
                 }
                 try {
                     maybePerformScan();
-                    return lookupResults.onNext();
+                    return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
                 } catch (IOException ioException) {
                     throw new RecordCoreException(ioException)
                             .addLogInfo(LogMessageKeys.QUERY, query);
@@ -331,7 +452,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 .mapPipelined(this::buildIndexEntryFromScoreDocAsync, state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .mapResult(result -> {
                     if (result.hasNext() && limitManager.tryRecordScan()) {
-                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(result.get().scoreDoc, partitionId, partitionTimestamp);
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(Objects.requireNonNull(result.get()).scoreDoc, partitionId, partitionTimestamp);
                         currentPosition++;
                         if (limitRemaining != Integer.MAX_VALUE) {
                             limitRemaining--;
@@ -449,7 +570,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
                 return new ScoreDocIndexEntry(scoreDoc, state.index, tuple, luceneQueryHighlightParameters, termMap,
                         analyzerSelector, autoCompleteAnalyzerSelector);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 throw new RecordCoreException("Failed to get document", e)
                         .addLogInfo("currentPosition", currentPosition);
             }

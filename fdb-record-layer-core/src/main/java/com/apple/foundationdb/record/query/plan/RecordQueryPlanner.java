@@ -622,6 +622,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return planContext.rankComparisons.getPlanComparison(asEquals) != null;
     }
 
+    @Nullable
     private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
         final ScoredPlan scoredPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), true);
         if (scoredPlan != null) {
@@ -629,8 +630,16 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (scoredPlan.planOrderingKey == null) {
                 return null;
             }
-            final KeyExpression candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
-            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, true);
+            @Nullable final KeyExpression candidateKey;
+            boolean candidateOnly;
+            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
+                candidateKey = planContext.query.getSort();
+                candidateOnly = false;
+            } else {
+                candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
+                candidateOnly = true;
+            }
+            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, candidateOnly);
             if (comparisonKey == null) {
                 return null;
             }

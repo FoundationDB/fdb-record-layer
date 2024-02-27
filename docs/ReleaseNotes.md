@@ -20,7 +20,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The `PlanOrderingKey` can now handle multiple instances of the same expression appearing within the same key [(Issue #2452)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
+* **Bug fix** The value portion of a `KeyWithValueExpression` no longer contributes to the `PlanOrderingKey` [(Issue #2469)](https://github.com/FoundationDB/fdb-record-layer/issues/2469)
+* **Bug fix** Synthetic indexes built during `checkVersion` use the correct index maintainers. Adopters using synthetic records may need to rebuild or scrub older indexes [(Issue #2530)](https://github.com/FoundationDB/fdb-record-layer/issues/2530)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -29,9 +31,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Harden Lucene continuations with respect to background work [(Issue #2523)](https://github.com/FoundationDB/fdb-record-layer/issues/2523)
+* **Feature** FDBDirectoryLockFactory: better handling of lock's TTL [(Issue #2535)](https://github.com/FoundationDB/fdb-record-layer/issues/2535)
+* **Feature** The planner will now select in-union plans in cases when the index contains additional columns that are not specified in the requested ordering [(Issue #2493)](https://github.com/FoundationDB/fdb-record-layer/issues/2493)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +42,14 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.458.0
+
+* **Bug fix** Coercion logic does not handle `Enum` type correctly [(Issue #2517)](https://github.com/FoundationDB/fdb-record-layer/issues/2517)
+
+### 3.4.457.0
+
+* **Bug fix** The index scrubbers now can handle value indexes on synthetic record types [(Issue #2513)](https://github.com/FoundationDB/fdb-record-layer/issues/2513)
 
 ### 3.4.456.0
 

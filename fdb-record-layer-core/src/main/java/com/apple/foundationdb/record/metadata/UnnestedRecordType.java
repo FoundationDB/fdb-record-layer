@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
+import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -264,6 +265,10 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey) {
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
         return store.loadRecordAsync(parentPrimaryKey).thenApply(storedRecord -> {
+            if (storedRecord == null) {
+                throw new RecordDoesNotExistException("constituent record not found: " + parentConstituent.getName())
+                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, parentPrimaryKey);
+            }
             Map<String, FDBStoredRecord<?>> constituentValues = new HashMap<>();
             constituentValues.put(getParentConstituent().getName(), storedRecord);
 

@@ -265,6 +265,13 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<RecordQueryPlan> isNotReverse() {
+        return typedWithDownstream(RecordQueryPlan.class,
+                Extractor.of(RecordQueryPlan::isReverse, name -> "isNotReversed(" + name + ")"),
+                PrimitiveMatchers.equalsObject(false));
+    }
+
+    @Nonnull
     public static BindingMatcher<RecordQueryPlanWithIndex> indexName(@Nonnull String indexName) {
         return typedWithDownstream(RecordQueryPlanWithIndex.class,
                 Extractor.of(RecordQueryPlanWithIndex::getIndexName, name -> "indexName(" + name + ")"),
@@ -577,6 +584,13 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryInUnionOnValuesPlan> inUnionOnValuesPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryInUnionOnValuesPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionOnValuesPlan> inUnionComparisonValues(@Nonnull CollectionMatcher<? extends Value> comparisonValuesMatcher) {
+        return typedWithDownstream(RecordQueryInUnionOnValuesPlan.class,
+                Extractor.of(RecordQueryInUnionOnValuesPlan::getComparisonKeyValues, name -> "comparisonValues(" + name + ")"),
+                comparisonValuesMatcher);
     }
 
     @Nonnull

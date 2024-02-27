@@ -39,6 +39,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.NestedRecordType;
+import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -48,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -157,18 +160,17 @@ public class IndexingScrubDangling extends IndexingBase {
             final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
             final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
 
-            RecordCursor<FDBIndexedRecord<Message>> cursor =
-                    store.scanIndexRecords(index.getName(), IndexScanType.BY_VALUE, tupleRange, null, IndexOrphanBehavior.RETURN, scanProperties);
+            RecordCursor<IndexEntry> cursor = store.scanIndex(index, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
 
             final AtomicBoolean hasMore = new AtomicBoolean(true);
-            final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
+            final AtomicReference<RecordCursorResult<IndexEntry>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final long scanLimit = scrubbingPolicy.getEntriesScanLimit();
 
             return iterateRangeOnly(store, cursor,
                     this::deleteIndexIfDangling,
                     lastResult, hasMore, recordsScanned, true)
                     .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          lastResult.get().get().getKey() :
                                           rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(cont), true)
                             .thenApply(ignore -> {
@@ -184,33 +186,58 @@ public class IndexingScrubDangling extends IndexingBase {
     }
 
     @Nullable
-    private CompletableFuture<FDBStoredRecord<Message>> deleteIndexIfDangling(FDBRecordStore store, final RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
+    private CompletableFuture<FDBStoredRecord<Message>> deleteIndexIfDangling(FDBRecordStore store, final RecordCursorResult<IndexEntry> indexEntryResult) {
         // This will always return null (!) - but sometimes will delete a dangling index
-        FDBIndexedRecord<Message> indexResult = cursorResult.get();
-
-        if (! indexResult.hasStoredRecord() ) {
-            // Here: Oh, No! this index is dangling!
-            danglingCount.incrementAndGet();
-            timerIncrement(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
-            final IndexEntry indexEntry = indexResult.getIndexEntry();
-            final Tuple valueKey = indexEntry.getKey();
-            final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
-
-            if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
-                logWarningCounter --;
-                LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
-                        LogMessageKeys.KEY, valueKey.toString())
-                        .addKeysAndValues(common.indexLogMessageKeyValues())
-                        .toString());
-            }
-            if (scrubbingPolicy.allowRepair()) {
-                // remove this index entry
-                // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
-                store.addRecordReadConflict(indexEntry.getPrimaryKey());
-                store.getContext().ensureActive().clear(keyBytes);
-            }
+        final IndexingCommon.IndexContext indexContext = common.getIndexContext();
+        final IndexEntry indexEntry = indexEntryResult.get();
+        if (indexContext.isSynthetic) {
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).thenApply(syntheticRecord -> {
+                if (syntheticRecord.getConstituents().isEmpty()) {
+                    // None of the constituents of this synthetic type are present, so it must be dangling
+                    List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
+                    SyntheticRecordType<?> syntheticRecordType = store.getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(indexEntry.getPrimaryKey().get(0));
+                    for (int i = 0; i < syntheticRecordType.getConstituents().size(); i++) {
+                        if (!(syntheticRecordType.getConstituents().get(i).getRecordType() instanceof NestedRecordType) && indexEntry.getPrimaryKey().get(i + 1) != null) {
+                            primaryKeysForConflict.add(indexEntry.getPrimaryKey().getNestedTuple(i + 1));
+                        }
+                    }
+                    scrubDanglingEntry(store, indexEntry, primaryKeysForConflict);
+                }
+                return null;
+            });
+        } else {
+            return store.loadIndexEntryRecord(indexEntry, IndexOrphanBehavior.RETURN).thenApply(indexedRecord -> {
+                if (!indexedRecord.hasStoredRecord()) {
+                    // Here: Oh, No! this index is dangling!
+                    scrubDanglingEntry(store, indexEntry, List.of(indexEntry.getPrimaryKey()));
+                }
+                return null;
+            });
         }
-        return CompletableFuture.completedFuture(null);
+    }
+
+    private void scrubDanglingEntry(@Nonnull FDBRecordStore store, @Nonnull IndexEntry indexEntry, @Nonnull List<Tuple> conflictPrimaryKeys) {
+        danglingCount.incrementAndGet();
+        timerIncrement(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
+        final Tuple valueKey = indexEntry.getKey();
+        final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
+
+        if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
+            logWarningCounter--;
+            LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
+                            LogMessageKeys.KEY, valueKey,
+                            LogMessageKeys.PRIMARY_KEY, indexEntry.getPrimaryKey())
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .toString());
+        }
+        if (scrubbingPolicy.allowRepair()) {
+            // remove this index entry
+            // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
+            for (Tuple primaryKey : conflictPrimaryKeys) {
+                store.addRecordReadConflict(primaryKey);
+            }
+            store.getContext().ensureActive().clear(keyBytes);
+        }
     }
 
     @Override
