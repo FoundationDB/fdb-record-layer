@@ -20,6 +20,8 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The `PlanOrderingKey` can now handle multiple instances of the same expression appearing within the same key [(Issue #2452)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
+* **Bug fix** The value portion of a `KeyWithValueExpression` no longer contributes to the `PlanOrderingKey` [(Issue #2469)](https://github.com/FoundationDB/fdb-record-layer/issues/2469)
 * **Bug fix** Synthetic indexes built during `checkVersion` use the correct index maintainers. Adopters using synthetic records may need to rebuild or scrub older indexes [(Issue #2530)](https://github.com/FoundationDB/fdb-record-layer/issues/2530)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
