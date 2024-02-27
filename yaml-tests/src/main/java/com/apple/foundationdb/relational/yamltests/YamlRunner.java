@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -159,13 +158,13 @@ public final class YamlRunner {
         Assert.thatUnchecked(Block.isConfigBlock(documents.get(0)), "Illegal Format: The first document in the file is required to be a Setup block.");
         executeConfigBlock(documents.get(0));
 
-        final var testBlockResults = new ArrayList<Pair<Integer, Optional<Throwable>>>();
+        final var testBlocks = new ArrayList<Block.TestBlock>();
         for (int i = 1; i < documents.size() - 1; i++) {
             final var document = documents.get(i);
             if (Block.isConfigBlock(document)) {
                 executeConfigBlock(document);
             } else {
-                executeTestBlock(document, testBlockResults);
+                executeTestBlock(document, testBlocks);
             }
         }
 
@@ -173,7 +172,7 @@ public final class YamlRunner {
         Assert.thatUnchecked(Block.isConfigBlock(documents.get(documents.size() - 1)), "Illegal Format: The last document in the file is required to be a destruct block.");
         executeConfigBlock(documents.get(documents.size() - 1));
 
-        evaluateTestBlockResults(testBlockResults);
+        evaluateTestBlockResults(testBlocks);
         replaceTestFileIfRequired();
     }
 
@@ -183,37 +182,38 @@ public final class YamlRunner {
         block.execute();
     }
 
-    private void executeTestBlock(@Nonnull Object document, List<Pair<Integer, Optional<Throwable>>> testBlockResults) {
+    private void executeTestBlock(@Nonnull Object document, List<Block.TestBlock> testBlocks) {
         final var block = Block.parse(document, executionContext);
         Assert.thatUnchecked(block instanceof Block.TestBlock, "Expect the block to be a test_block at line " + block.getLineNumber());
         logger.debug("⚪️ Executing `test` block at line {} in {}", block.getLineNumber(), resourcePath);
+
         block.execute();
-        testBlockResults.add(Pair.of(block.getLineNumber(), block.getThrowableIfExists()));
+        testBlocks.add((Block.TestBlock) block);
     }
 
-    private void evaluateTestBlockResults(List<Pair<Integer, Optional<Throwable>>> testBlockResults) {
-        int failures = 0;
+    private void evaluateTestBlockResults(List<Block.TestBlock> testBlocks) {
+        RuntimeException failure = null;
         logger.info("");
         logger.info("");
         logger.info("--------------------------------------------------------------------------------------------------------------");
         logger.info("TEST RESULTS");
         logger.info("--------------------------------------------------------------------------------------------------------------");
 
-        for (int i = 0; i < testBlockResults.size(); i++) {
-            final var result = testBlockResults.get(i);
-            if (result.getRight().isEmpty()) {
-                logger.info("🟢 TestBlock {}/{} runs successfully", i + 1, testBlockResults.size());
+        for (int i = 0; i < testBlocks.size(); i++) {
+            final var block = testBlocks.get(i);
+            if (block.getFailureExceptionIfPresent().isEmpty()) {
+                logger.info("🟢 TestBlock {}/{} runs successfully", i + 1, testBlocks.size());
             } else {
-                logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlockResults.size(), result.getLeft());
+                logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlocks.size(), block.getLineNumber());
                 logger.error("--------------------------------------------------------------------------------------------------------------");
-                logger.error("Error:", result.getRight().get());
+                logger.error("Error:", block.getFailureExceptionIfPresent().get());
                 logger.error("--------------------------------------------------------------------------------------------------------------");
-                failures++;
+                failure = failure == null ? block.getFailureExceptionIfPresent().get() : failure;
             }
         }
-        if (failures > 0) {
-            logger.error("⚠️ Some TestBlocks in {} do not pass.", resourcePath);
-            Assertions.fail();
+        if (failure != null) {
+            logger.error("⚠️ Some TestBlocks in {} do not pass. ", resourcePath);
+            throw failure;
         } else {
             logger.info("🟢 All tests in {} pass successfully.", resourcePath);
         }

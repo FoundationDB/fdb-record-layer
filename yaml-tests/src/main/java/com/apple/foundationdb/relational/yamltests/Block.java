@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
@@ -70,10 +71,11 @@ public abstract class Block {
     int lineNumber;
     @Nonnull
     YamlRunner.YamlExecutionContext executionContext;
-    @Nullable
-    Throwable throwable;
-    @Nullable
+    @Nonnull
+    protected final AtomicReference<RuntimeException> failureException = new AtomicReference<>(null);
     URI connectPath;
+    @Nonnull
+    List<Consumer<RelationalConnection>> executables = new ArrayList<>();
 
     Block(int lineNumber, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
         this.lineNumber = lineNumber;
@@ -85,18 +87,20 @@ public abstract class Block {
     }
 
     /**
-     * Executes the parsed block.
+     * Executes the executables from the parsed block in a single connection.
      */
-    public abstract void execute();
+    public void execute() {
+        execute(executables);
+    }
 
-    /**
-     * Returns the throwable, if the block do not execute normally.
-     *
-     * @return An error or exception that might have been encountered while executing the block.
-     */
-    @Nonnull
-    public final Optional<Throwable> getThrowableIfExists() {
-        return Optional.ofNullable(this.throwable);
+    protected void execute(@Nonnull Collection<Consumer<RelationalConnection>> list) {
+        connectToDatabaseAndExecute(connection -> list.forEach(t -> {
+            if (failureException.get() != null) {
+                logger.trace("⚠️ Aborting test as one of the test has failed.");
+                return;
+            }
+            t.accept(connection);
+        }));
     }
 
     /**
@@ -125,8 +129,8 @@ public abstract class Block {
             logger.debug("✅ Connected to database: `" + connectPath + "`");
             consumer.accept(connection);
         } catch (SQLException sqle) {
-            throw new RuntimeException(String.format("‼️ Error connecting to the database `%s` in block at line %d",
-                    connectPath, lineNumber), sqle);
+            failureException.set(new RuntimeException(String.format("‼️ Error connecting to the database `%s` in block at line %d",
+                    connectPath, lineNumber), sqle));
         }
     }
 
@@ -179,6 +183,10 @@ public abstract class Block {
         return ((CustomYamlConstructor.LinedObject) Matchers.notNull(commandAndArgument, "command").getKey()).getStartMark().getLine() + 1;
     }
 
+    public Optional<RuntimeException> getFailureExceptionIfPresent() {
+        return failureException.get() == null ? Optional.empty() : Optional.of(failureException.get());
+    }
+
     /**
      * Implementation of block that serves the purpose of creating the 'environment' needed to run the {@link TestBlock}
      * that follows it. In essence, it consists of a `connectPath` that is required to connect to a database and an
@@ -195,9 +203,6 @@ public abstract class Block {
         static final String CONFIG_BLOCK_STEPS = "steps";
         static final String CONFIG_BLOCK_DESTRUCT = "destruct";
 
-        @Nonnull
-        List<Consumer<RelationalConnection>> executableSteps = new ArrayList<>();
-
         private ConfigBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
             super((((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "config").getKey()).getStartMark().getLine() + 1), executionContext);
             final var configMap = Matchers.map(Matchers.firstEntry(document, "config").getValue());
@@ -207,13 +212,12 @@ public abstract class Block {
                 Assert.thatUnchecked(Matchers.map(step).size() == 1, "Illegal Format: A configuration step should be a single command");
                 final var commandString = getCommandString(Matchers.firstEntry(step, "configuration step"));
                 final var resolvedCommand = Objects.requireNonNull(Command.resolve(commandString));
-                executableSteps.add(connection -> {
+                executables.add(connection -> {
                     try {
                         resolvedCommand.invoke(List.of(step), connection, executionContext);
                     } catch (Exception e) {
-                        this.throwable = new RuntimeException(String.format("‼️ Error executing config step at line %d",
-                                getCommandLineNumber(Matchers.firstEntry(step, "configuration step"))), e);
-                        throw (RuntimeException) this.throwable;
+                        failureException.set(new RuntimeException(String.format("‼️ Error executing config step at line %d",
+                                getCommandLineNumber(Matchers.firstEntry(step, "configuration step"))), e));
                     }
                 });
             }
@@ -228,7 +232,10 @@ public abstract class Block {
 
         @Override
         public void execute() {
-            connectToDatabaseAndExecute(connection -> executableSteps.forEach(e -> e.accept(connection)));
+            super.execute();
+            if (getFailureExceptionIfPresent().isPresent()) {
+                throw getFailureExceptionIfPresent().get();
+            }
         }
     }
 
@@ -289,7 +296,6 @@ public abstract class Block {
         private boolean checkCache;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         @Nonnull
-        private final List<Consumer<RelationalConnection>> executableTests = new ArrayList<>();
         private final List<Consumer<RelationalConnection>> executableTestsWithCacheCheck = new ArrayList<>();
 
         private TestBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
@@ -298,48 +304,47 @@ public abstract class Block {
             setConnectPath(testsMap.getOrDefault(BLOCK_CONNECT, null));
             setTestBlockOptions(testsMap.getOrDefault(TEST_BLOCK_OPTIONS, null));
             setupTests(testsMap.getOrDefault(TEST_BLOCK_TESTS, null));
-            Assert.thatUnchecked(!executableTests.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
+            Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
         }
 
         @Override
         public void execute() {
             logger.info("⚪️ Executing `test` block at line {} with options {}", getLineNumber(), printOptions());
-            try {
-                if (mode == ExecutionMode.PARALLELIZED) {
-                    executeInParallelizedMode(executableTests);
-                    executeInNonParallelizedMode(executableTestsWithCacheCheck);
-                } else {
-                    final var allExecutables = new ArrayList<Consumer<RelationalConnection>>();
-                    allExecutables.addAll(executableTests);
-                    allExecutables.addAll(executableTestsWithCacheCheck);
-                    executeInNonParallelizedMode(allExecutables);
-                }
-            } catch (Exception e) {
-                this.throwable = new RuntimeException("‼️ Test Block failed at line " + getLineNumber() + " with option " + printOptions(), e);
+            if (mode == ExecutionMode.PARALLELIZED) {
+                executeInParallelizedMode(executables);
+                executeInNonParallelizedMode(executableTestsWithCacheCheck);
+            } else {
+                final var allExecutables = new ArrayList<Consumer<RelationalConnection>>();
+                allExecutables.addAll(executables);
+                allExecutables.addAll(executableTestsWithCacheCheck);
+                executeInNonParallelizedMode(allExecutables);
             }
         }
 
         private void executeInNonParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
             if (connectionLifecycle == ConnectionLifecycle.BLOCK) {
-                connectToDatabaseAndExecute(connection -> testsToExecute.forEach(t -> t.accept(connection)));
+                super.execute(testsToExecute);
             } else if (connectionLifecycle == ConnectionLifecycle.TEST) {
-                testsToExecute.forEach(this::connectToDatabaseAndExecute);
+                testsToExecute.forEach(t -> {
+                    if (failureException.get() != null) {
+                        logger.trace("⚠️ Aborting test as one of the test has failed.");
+                        return;
+                    }
+                    connectToDatabaseAndExecute(t);
+                });
             }
         }
 
-        private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws Exception {
+        private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
             final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
-            testsToExecute.forEach(t -> executorService.submit(() -> {
-                if (throwable != null) {
-                    logger.debug("⚠️ Aborting test as one of the test has failed.");
-                    return;
-                }
-                // connection lifecycle is irrelevant as we run a suite comprising only a single test.
-                executeInNonParallelizedMode(List.of(t));
-            }));
+            testsToExecute.forEach(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t))));
             executorService.shutdown();
-            if (!executorService.awaitTermination(15, TimeUnit.MINUTES)) {
-                this.throwable = new RuntimeException("Parallel executor did not terminate before the 15 minutes timeout.");
+            try {
+                if (!executorService.awaitTermination(15, TimeUnit.MINUTES)) {
+                    failureException.set(new RuntimeException("Parallel executor did not terminate before the 15 minutes timeout."));
+                }
+            } catch (Exception e) {
+                failureException.set(new RuntimeException("Parallel executor did not terminate."));
             }
         }
 
@@ -429,7 +434,7 @@ public abstract class Block {
                 return;
             }
             final var tests = Matchers.arrayList(testsObject, "tests");
-            executableTests.clear();
+            executables.clear();
             executableTestsWithCacheCheck.clear();
             for (var testObject : tests) {
                 final var test = Matchers.arrayList(testObject, "test");
@@ -437,14 +442,14 @@ public abstract class Block {
                 final var resolvedCommand = Objects.requireNonNull(Command.resolve(getCommandString(testQuery)));
                 Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
                 for (int i = 0; i < repetition; i++) {
-                    executableTests.add(createTestExecutable(test, getCommandLineNumber(testQuery), false));
+                    executables.add(createTestExecutable(test, getCommandLineNumber(testQuery), false));
                 }
                 if (checkCache) {
                     executableTestsWithCacheCheck.add(createTestExecutable(test, getCommandLineNumber(testQuery), true));
                 }
             }
             if (mode != ExecutionMode.ORDERED) {
-                Collections.shuffle(executableTests, new Random(seed));
+                Collections.shuffle(executables, new Random(seed));
             }
         }
 
@@ -453,19 +458,25 @@ public abstract class Block {
                 try {
                     new QueryCommand(checkCache).invoke(test, connection, executionContext);
                 } catch (SQLException e) {
-                    throw new RuntimeException(String.format("‼️ Cannot run query at line %d", lineNumber), e);
+                    failureException.set(new RuntimeException(String.format("‼️ Cannot run query at line %d", lineNumber), e));
                 } catch (RelationalException e) {
-                    throw new RuntimeException(String.format("‼️ Error executing test at line %d", lineNumber), e);
+                    failureException.set(new RuntimeException(String.format("‼️ Error executing test at line %d", lineNumber), e));
                 } catch (TestAbortedException e) {
                     logger.debug("⚠️ Aborting test as the assumption are not fulfilled: " + e.getMessage());
                 } catch (AssertionFailedError | Exception e) {
-                    throw new RuntimeException(String.format("‼️ Test failed at line %d", lineNumber), e);
+                    failureException.set(new RuntimeException(String.format("‼️ Test failed at line %d", lineNumber), e));
                 }
             };
         }
 
         private String printOptions() {
             return String.format("{mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s}", mode, repetition, seed, checkCache, connectionLifecycle);
+        }
+
+        @Override
+        public Optional<RuntimeException> getFailureExceptionIfPresent() {
+            final var failure = super.getFailureExceptionIfPresent();
+            return failure.map(throwable -> new RuntimeException("‼️ Test Block failed at line " + getLineNumber() + " with option " + printOptions(), throwable));
         }
     }
 }

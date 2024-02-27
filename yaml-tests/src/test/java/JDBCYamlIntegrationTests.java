@@ -183,4 +183,11 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     public void showcasingTests() throws Exception {
         super.showcasingTests();
     }
+
+    @Override
+    @Test
+    @Disabled("TODO: Not supported")
+    public void insertEnum() throws Exception {
+        super.insertEnum();
+    }
 }
