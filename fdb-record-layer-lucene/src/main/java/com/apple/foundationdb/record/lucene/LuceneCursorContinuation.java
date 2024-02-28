@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 import org.apache.lucene.search.FieldDoc;
@@ -74,7 +75,8 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
 
     public static LuceneCursorContinuation fromScoreDoc(ScoreDoc scoreDoc,
                                                         @Nullable Integer partitionId,
-                                                        @Nullable Long partitionTimestamp) {
+                                                        @Nullable Tuple partitionKey,
+                                                        @Nullable Tuple searchAfterPrimaryKey) {
         LuceneContinuationProto.LuceneIndexContinuation.Builder builder = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                 .setDoc(scoreDoc.doc)
                 .setShard(scoreDoc.shardIndex)
@@ -83,14 +85,18 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
         if (partitionId != null) {
             builder.setPartitionId(partitionId);
         }
-        if (partitionTimestamp != null) {
-            builder.setPartitionTimestamp(partitionTimestamp);
+        if (partitionKey != null) {
+            builder.setPartitionKey(ByteString.copyFrom(partitionKey.pack()));
+        }
+        if (searchAfterPrimaryKey != null) {
+            builder.setSearchAfterPrimaryKey(ByteString.copyFrom(searchAfterPrimaryKey.pack()));
         }
         if (scoreDoc instanceof FieldDoc) {
             for (Object field : ((FieldDoc)scoreDoc).fields) {
                 final LuceneContinuationProto.LuceneIndexContinuation.Field.Builder value = builder.addFieldsBuilder();
                 if (field instanceof BytesRef) {
-                    value.setB(ZeroCopyByteString.wrap(((BytesRef)field).bytes));
+                    BytesRef bytesRefField = (BytesRef)field;
+                    value.setB(ZeroCopyByteString.wrap(bytesRefField.bytes, 0, bytesRefField.length));
                 } else if (field instanceof String) {
                     value.setS((String)field);
                 } else if (field instanceof Float) {

@@ -38,8 +38,9 @@ message LuceneIndexContinuation {
         }
     }
     repeated Field fields = 4;
-    optional int64 partitionTimestamp = 5;
     optional int32 partitionId = 6;
+    optional bytes partitionKey = 7;
+    optional bytes searchAfterPrimaryKey = 8;
 }
 
 message LuceneAutoCompleteIndexContinuation {
