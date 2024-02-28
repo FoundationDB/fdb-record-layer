@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -114,6 +115,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKey;
@@ -137,7 +139,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
@@ -699,6 +703,78 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     }
                 }
             }
+        }
+    }
+
+    @ParameterizedTest(name = "orQueryWithIdInOrdering[reverse={0}]")
+    @BooleanSource
+    void orQueryWithIdInOrdering(boolean reverse) {
+        final Index keyIdValueIndex = new Index("synthetic$keyIdValue",
+                concat(field("entry").nest("key"), field(PARENT_CONSTITUENT).nest("rec_id"), field("entry").nest("value")));
+        final RecordMetaDataHook hook = addUnnestedType()
+                .andThen(metaData -> metaData.addIndex(OUTER_WITH_ENTRIES, keyIdValueIndex));
+        final List<TestRecordsNestedMapProto.OuterRecord> data = setUpData(hook);
+
+        final Set<String> keys = mapKeys(data);
+        assertThat(keys, not(empty()));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            final String key1Param = "key1Param";
+            final String key2Param = "key2Param";
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(OUTER_WITH_ENTRIES)
+                    .setFilter(Query.field("entry").matches(
+                            Query.or(Query.field("key").equalsParameter(key1Param), Query.field("key").equalsParameter(key2Param))
+                    ))
+                    .setSort(field(PARENT_CONSTITUENT).nest("rec_id"), reverse)
+                    .build();
+            setNormalizeNestedFields(true);
+            setOmitPrimaryKeyInUnionOrderingKey(true);
+
+            final RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan, unionOnExpressionPlan(
+                    indexPlan().where(indexName(keyIdValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + key1Param + "]"))),
+                    indexPlan().where(indexName(keyIdValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + key2Param + "]")))
+            ).where(comparisonKey(concat(field(PARENT_CONSTITUENT).nest("rec_id"), field("entry").nest("value"), recordType(), field(UnnestedRecordType.POSITIONS_FIELD).nest("entry")))));
+            assertEquals(reverse ? 1518478779L : 1518478746L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(reverse ? 1391408828L : 1397128886L, plan.planHash(CURRENT_FOR_CONTINUATION));
+
+            for (String key1 : keys) {
+                for (String key2 : keys) {
+                    final Bindings bindings = Bindings.newBuilder()
+                            .set(key1Param, key1)
+                            .set(key2Param, key2)
+                            .build();
+                    final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
+
+                    final List<Pair<Long, String>> expected = data.stream()
+                            .flatMap(outerRecord -> outerRecord.getMap().getEntryList().stream()
+                                    .filter(entry -> entry.getKey().equals(key1) || entry.getKey().equals(key2))
+                                    .map(entry -> Pair.of(outerRecord.getRecId(), entry.getValue()))
+                            )
+                            .sorted(reverse ? Comparator.reverseOrder() : Comparator.naturalOrder())
+                            .collect(Collectors.toList());
+                    final List<Pair<Long, String>> actual = plan.execute(recordStore, evaluationContext)
+                            .map(FDBQueriedRecord::getSyntheticRecord)
+                            .map(synthetic -> {
+                                TestRecordsNestedMapProto.OuterRecord outerRecord = TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                                        .mergeFrom(synthetic.getConstituent(PARENT_CONSTITUENT).getRecord())
+                                        .build();
+                                TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                        .mergeFrom(synthetic.getConstituent("entry").getRecord())
+                                        .build();
+                                assertThat(entry.getKey(), either(equalTo(key1)).or(equalTo(key2)));
+                                assertTrue(outerRecord.getMap().getEntryList().contains(entry), () -> "outer record should contain entry.\n  Outer record:\n" + outerRecord + "\n  Entry:\n" + entry);
+                                return Pair.of(outerRecord.getRecId(), entry.getValue());
+                            })
+                            .asList()
+                            .join();
+                    assertEquals(expected, actual);
+                }
+            }
+            commit(context);
         }
     }
 

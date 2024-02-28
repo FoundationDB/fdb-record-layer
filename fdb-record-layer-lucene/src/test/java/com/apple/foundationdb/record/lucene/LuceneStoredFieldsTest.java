@@ -114,7 +114,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
-                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
             }
         }
     }
@@ -147,7 +147,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     1624L, "Document 2"));
             if (useOptimizedStoredFieldsFormat) {
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
-                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     final String[] strings = directory.listAll();
                     // TODO: Find a way to force a merge and make sure the old segments are gone
@@ -335,7 +335,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 5);
-                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
             }
         }
     }
