@@ -333,8 +333,6 @@ public class LucenePartitioner {
     }
 
     private static Tuple partitionMetadataKeyTuple(final @Nonnull Tuple groupKey, @Nonnull Tuple partitionKey) {
-        // If/when we support generic tuples for the `from` we should use `addAll` here to be consistent with the data
-        // layout used here
         return groupKey.add(PARTITION_META_SUBSPACE).addAll(partitionKey);
     }
 
@@ -813,6 +811,7 @@ public class LucenePartitioner {
      * @param indexSubspace index subspace
      * @return partition future
      */
+    @Nonnull
     public static CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getNextOlderPartitionInfo(
             @Nonnull final FDBRecordContext context,
             @Nonnull final Tuple groupingKey,
@@ -841,6 +840,7 @@ public class LucenePartitioner {
      * @param indexSubspace index subspace
      * @return partition future
      */
+    @Nonnull
     public static CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getNextNewerPartitionInfo(
             @Nonnull final FDBRecordContext context,
             @Nonnull final Tuple groupingKey,
@@ -866,6 +866,7 @@ public class LucenePartitioner {
      * @param <M> record message
      * @return partitioning key tuple
      */
+    @Nonnull
     private <M extends Message> Tuple toPartitionKey(@Nonnull final FDBIndexableRecord<M> record) {
         return toPartitionKey(getPartitioningFieldValue(record), record.getPrimaryKey());
     }
@@ -878,9 +879,10 @@ public class LucenePartitioner {
      * @param primaryKey record primary key
      * @return partitioning key value tuple
      */
+    @Nonnull
     public Tuple toPartitionKey(@Nonnull Object partitioningFieldValue,
                                 @Nonnull final Tuple primaryKey) {
-        return Tuple.from(partitioningFieldValue).add(primaryKey);
+        return Tuple.from(partitioningFieldValue).addAll(primaryKey);
     }
 
     /**
@@ -913,7 +915,8 @@ public class LucenePartitioner {
      * @param partitionInfo partition metadata
      * @return partition key tuple
      */
-    public Tuple getPartitionKey(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+    @Nonnull
+    public static Tuple getPartitionKey(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
         return Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
     }
 }

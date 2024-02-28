@@ -251,7 +251,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     if (searchAfterPartitioningField == null) {
                         throw new RecordCoreException("expecting partitioning field in continuation token");
                     }
-                    searchAfterPartitioningKey = Tuple.from(searchAfterPartitioningField).add(Tuple.fromBytes(parsed.getSearchAfterPrimaryKey().toByteArray()));
+                    searchAfterPartitioningKey = Tuple.from(searchAfterPartitioningField).addAll(Tuple.fromBytes(parsed.getSearchAfterPrimaryKey().toByteArray()));
                 }
             } catch (Exception e) {
                 throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, "exception", e);

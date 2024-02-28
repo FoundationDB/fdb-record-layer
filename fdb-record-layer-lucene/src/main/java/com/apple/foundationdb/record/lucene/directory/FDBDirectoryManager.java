@@ -175,7 +175,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     private CompletableFuture<Integer> getNextPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
                                                             final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
         return agileContext.apply(context -> LucenePartitioner.getNextOlderPartitionInfo(
-                        context, groupingKey, lastPartitionInfo.get() == null ? null : Tuple.fromBytes(lastPartitionInfo.get().getFrom().toByteArray()), state.indexSubspace)
+                        context, groupingKey, lastPartitionInfo.get() == null ? null : LucenePartitioner.getPartitionKey(lastPartitionInfo.get()), state.indexSubspace)
                 .thenApply(partitionInfo -> {
                     lastPartitionInfo.set(partitionInfo);
                     return partitionInfo == null ? null : partitionInfo.getId();
