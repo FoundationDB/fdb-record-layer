@@ -30,22 +30,29 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,20 +70,24 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
 
     private static final String JOIN_TYPE = "JoinChildren";
     private static final String JOIN_INDEX = "AJoinIndex";
+    private static final String PARENT_TYPE = "MyParentRecord";
+    private static final String CHILD_TYPE = "MyChildRecord";
 
-    @Test
-    void deleteWhereValue() {
+    @ParameterizedTest
+    @BooleanSource
+    void deleteWhereValue(boolean reverseJoinOrder) {
         Data data;
-        try (FDBRecordContext context = open(FDBJoinIndexTest::addJoinedValueIndex)) {
+        final RecordMetaDataHook metadataHook = builder -> new JoinBuilder().reverseJoinOrder(reverseJoinOrder).build(builder);
+        try (FDBRecordContext context = open(metadataHook)) {
             data = createGroupedData();
             context.commit();
         }
-        try (FDBRecordContext context = open(FDBJoinIndexTest::addJoinedValueIndex)) {
+        try (FDBRecordContext context = open(metadataHook)) {
             recordStore.deleteRecordsWhere(Query.field("group").equalsValue(2));
             context.commit();
         }
 
-        try (FDBRecordContext context = open(FDBJoinIndexTest::addJoinedValueIndex)) {
+        try (FDBRecordContext context = open(metadataHook)) {
             final List<Tuple> joinChildren = scanAndSort(JOIN_INDEX);
             assertEquals(joinChildren, data.primaryKeysWithoutGroup(recordStore.getRecordMetaData(), 2));
             context.commit();
@@ -84,10 +95,12 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static Arguments badIndex(String name, JoinBuilder builder) {
-        return Arguments.of(name, (RecordMetaDataHook)builder::build);
+        return Arguments.of(name, builder);
     }
 
     public static Stream<Arguments> badIndexes() {
+        // Note: Some of these could potentially be supported, but aren't currently because getting the logic correct
+        // without accidentally expending it to things that should not be supported is hard
         return Stream.of(
                 badIndex("No group join", new JoinBuilder().removeGroupJoin()),
                 badIndex("Self group join", new JoinBuilder().selfJoin()),
@@ -95,17 +108,59 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
                 badIndex("Right outer join", new JoinBuilder().rightOuterJoin()),
                 badIndex("Full outer join", new JoinBuilder().leftOuterJoin().rightOuterJoin()),
                 badIndex("no group in index", new JoinBuilder().removeGroupFromIndex()),
-                badIndex("group in wrong spot", new JoinBuilder().groupInWrongSpot())
+                badIndex("group in wrong spot", new JoinBuilder().groupInWrongSpot()),
+                badIndex("addTypeExpression", new JoinBuilder().addTypeExpression()),
+                badIndex("addTypeExpressionAndDeleteByParentType", new JoinBuilder().addTypeExpression().setDeleteByType(PARENT_TYPE)),
+                badIndex("addTypeExpressionAndDeleteByChildType", new JoinBuilder().addTypeExpression().setDeleteByType(CHILD_TYPE)),
+                badIndex("deleteByParentType", new JoinBuilder().setDeleteByType(PARENT_TYPE)),
+                badIndex("deleteByChildType", new JoinBuilder().setDeleteByType(CHILD_TYPE)),
+                badIndex("justDeleteByParentType", new JoinBuilder().setDeleteByType(PARENT_TYPE).onlyDeleteByType()),
+                badIndex("justDeleteByChildType", new JoinBuilder().setDeleteByType(CHILD_TYPE).onlyDeleteByType())
         );
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("badIndexes")
     @SuppressWarnings("try")
-    void cannotDeleteWhereValue(String description, RecordMetaDataHook addJoinIndex) {
-        try (FDBRecordContext context = open(addJoinIndex)) {
+    void cannotDeleteWhereValue(String description, JoinBuilder addJoinIndex) {
+        try (FDBRecordContext context = open(addJoinIndex::build)) {
             assertThrows(Query.InvalidExpressionException.class,
-                    () -> recordStore.deleteRecordsWhere(Query.field("group").equalsValue(2)));
+                    () -> {
+                        if (addJoinIndex.deleteByType != null) {
+                            if (addJoinIndex.onlyDeleteByType) {
+                                recordStore.deleteRecordsWhere(new RecordTypeKeyComparison(addJoinIndex.deleteByType));
+                            } else {
+                                recordStore.deleteRecordsWhere(addJoinIndex.deleteByType,
+                                        Query.field("group").equalsValue(2));
+                            }
+                        } else {
+                            recordStore.deleteRecordsWhere(Query.field("group").equalsValue(2));
+                        }
+                    });
+        }
+    }
+
+
+    public static Stream<Arguments> deleteWhereByJoinType() {
+        return Stream.of(
+                badIndex("addTypeExpressionAndDeleteByJoinType", new JoinBuilder().addTypeExpression().setDeleteByType(JOIN_TYPE)),
+                badIndex("deleteByJoinType", new JoinBuilder().setDeleteByType(JOIN_TYPE)),
+                badIndex("justDeleteByJoinType", new JoinBuilder().setDeleteByType(JOIN_TYPE).onlyDeleteByType())
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("deleteWhereByJoinType")
+    @SuppressWarnings("try")
+    void cannotDeleteWhereByJoinType(String description, JoinBuilder addJoinIndex) {
+        // it doesn't make sense to delete by a synthetic type
+        MatcherAssert.assertThat(addJoinIndex.deleteByType, Matchers.notNullValue());
+        try (FDBRecordContext context = open(addJoinIndex::build)) {
+            assertThrows(MetaDataException.class,
+                    () -> {
+                        recordStore.deleteRecordsWhere(addJoinIndex.deleteByType,
+                                Query.field("group").equalsValue(2));
+                    });
         }
     }
 
@@ -129,10 +184,6 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
         try {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                     .setRecords(TestRecordsGroupedParentChildProto.getDescriptor());
-            metaDataBuilder.getRecordType("MyParentRecord")
-                    .setPrimaryKey(Key.Expressions.concatenateFields("group", "rec_no"));
-            metaDataBuilder.getRecordType("MyChildRecord")
-                    .setPrimaryKey(Key.Expressions.concatenateFields("group", "rec_no"));
             hook.apply(metaDataBuilder);
             createOrOpenRecordStore(context, metaDataBuilder.build());
             return context;
@@ -179,39 +230,67 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
         private boolean rightOuterJoin;
         private boolean removeGroupFromIndex;
         private boolean groupInWrongSpot;
+        private boolean reverseJoinOrder;
+        private boolean addTypeExpression;
+        /**
+         * An easy means to allow the Arguments to tell the test to delete by the type instead; only currently
+         * used by {@link #cannotDeleteWhereValue}.
+         */
+        private String deleteByType = null;
+        private boolean onlyDeleteByType;
 
         private void build(RecordMetaDataBuilder builder) {
+            List<KeyExpression> primaryKeyExpressions = new ArrayList<>();
+            if (deleteByType != null) {
+                primaryKeyExpressions.add(Key.Expressions.recordType());
+            }
+            primaryKeyExpressions.add(Key.Expressions.field("group"));
+            primaryKeyExpressions.add(Key.Expressions.field("rec_no"));
+            final ThenKeyExpression primaryKey = new ThenKeyExpression(primaryKeyExpressions);
+            builder.getRecordType(PARENT_TYPE).setPrimaryKey(primaryKey);
+            builder.getRecordType(CHILD_TYPE).setPrimaryKey(primaryKey);
+
             final JoinedRecordTypeBuilder joinBuilder = builder.addJoinedRecordType(JOIN_TYPE);
-            joinBuilder.addConstituent("parent", builder.getRecordType("MyParentRecord"), leftOuterJoin);
-            joinBuilder.addConstituent("child", builder.getRecordType("MyChildRecord"), rightOuterJoin);
+            joinBuilder.addConstituent("parent", builder.getRecordType(PARENT_TYPE), leftOuterJoin);
+            joinBuilder.addConstituent("child", builder.getRecordType(CHILD_TYPE), rightOuterJoin);
+            List<Runnable> addJoins = new ArrayList<>();
             if (!removeGroupJoin) {
-                joinBuilder.addJoin("parent", Key.Expressions.field("group"),
-                        selfJoin ? "parent" : "child", Key.Expressions.field("group"));
+                addJoins.add(() -> joinBuilder.addJoin("parent", Key.Expressions.field("group"),
+                        selfJoin ? "parent" : "child", Key.Expressions.field("group")));
             }
-            joinBuilder.addJoin("parent", Key.Expressions.field("child_rec_no"),
-                    "child", Key.Expressions.field("rec_no"));
-            final ThenKeyExpression concat;
-            if (removeGroupFromIndex) {
-                concat = Key.Expressions.concat(
-                        Key.Expressions.field("parent").nest(Key.Expressions.field("int_value")),
-                        Key.Expressions.field("child").nest(Key.Expressions.field("other_value")));
-            } else if (groupInWrongSpot) {
-                concat = Key.Expressions.concat(
-                        Key.Expressions.field("parent").nest(Key.Expressions.field("int_value")),
-                        Key.Expressions.field("parent").nest(Key.Expressions.field("group")),
-                        Key.Expressions.field("child").nest(Key.Expressions.field("other_value")));
-            } else {
-                concat = Key.Expressions.concat(
-                        Key.Expressions.field("parent").nest(Key.Expressions.field("group")),
-                        Key.Expressions.field("parent").nest(Key.Expressions.field("int_value")),
-                        Key.Expressions.field("child").nest(Key.Expressions.field("other_value")));
+            addJoins.add(() -> joinBuilder.addJoin("parent", Key.Expressions.field("child_rec_no"),
+                    "child", Key.Expressions.field("rec_no")));
+            if (reverseJoinOrder) {
+                Collections.reverse(addJoins);
             }
+            addJoins.forEach(Runnable::run);
+            List<KeyExpression> thenExpressions = new ArrayList<>();
+            if (addTypeExpression) {
+                thenExpressions.add(Key.Expressions.recordType());
+            }
+            final KeyExpression parentIntValue = Key.Expressions.field("parent").nest(Key.Expressions.field("int_value"));
+            if (groupInWrongSpot) {
+                thenExpressions.add(parentIntValue);
+            }
+            if (!removeGroupFromIndex) {
+                thenExpressions.add(Key.Expressions.field("parent").nest(Key.Expressions.field("group")));
+            }
+            if (!groupInWrongSpot) {
+                thenExpressions.add(parentIntValue);
+            }
+            thenExpressions.add(Key.Expressions.field("child").nest(Key.Expressions.field("other_value")));
+            final ThenKeyExpression concat = new ThenKeyExpression(thenExpressions);
 
             builder.addIndex(JOIN_TYPE, new Index(JOIN_INDEX, concat));
         }
 
         public JoinBuilder removeGroupJoin() {
             removeGroupJoin = true;
+            return this;
+        }
+
+        public JoinBuilder reverseJoinOrder(boolean newValue) {
+            reverseJoinOrder = newValue;
             return this;
         }
 
@@ -237,6 +316,21 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
 
         public JoinBuilder groupInWrongSpot() {
             groupInWrongSpot = true;
+            return this;
+        }
+
+        public JoinBuilder addTypeExpression() {
+            addTypeExpression = true;
+            return this;
+        }
+
+        public JoinBuilder setDeleteByType(String typeName) {
+            deleteByType = typeName;
+            return this;
+        }
+
+        public JoinBuilder onlyDeleteByType() {
+            onlyDeleteByType = true;
             return this;
         }
     }

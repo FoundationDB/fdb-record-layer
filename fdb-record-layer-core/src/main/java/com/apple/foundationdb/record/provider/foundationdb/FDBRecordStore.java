@@ -1859,6 +1859,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // record type key is different for the synthetic type and the requested type
                 return false;
             }
+            if (recordType != null) {
+                // We currently do not support deleteWhere by type. In theory, it could be supported, but it requires a
+                // bit more thought and testing
+                return false;
+            }
+            if (typelessComponent == null) {
+                // this should only happen if it is just a request to delete all records of a type. We should never
+                // get here, thanks to the check above that `recordType != null`
+                return false;
+            }
             JoinedRecordType joinedRecordType = null;
             for (RecordType indexRecordType : recordTypesForIndex) {
                 // currently do not support multitype indexes with joined types
@@ -1869,7 +1879,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 joinedRecordType = (JoinedRecordType)indexRecordType;
             }
 
-            if (typelessComponent != null &&
+            // Since we don't allow deleteRecordsWhere by a record type, what we are trying to do is delete all
+            // the index entries where any constituent matches the queryToKeyMatcher.
+            // Doing this in the general case is tricky, so we restrict the index to situations where:
+            // 1. There are exactly 2 constituents
+            // 2. neither is an outer join
+            // 3. The join condition also matches the query, ensuring that if either constituent matches, both do
+            // 4. The index has a prefix that matches the query component for one of the constituents
+            // Thus if you delete everything that starts with that prefix it will delete every entry where constituentA
+            // matches the component. Since constituentB and constituentA have the same value for the component, this
+            // guarantees that there aren't entries in the index where you need to delete the entry because a record of
+            // the type for constiuentB was deleted.
+            if (joinedRecordType != null &&
                     joinedRecordType.getConstituents().size() == 2 &&
                     !joinedRecordType.getConstituents().get(0).isOuterJoined() &&
                     !joinedRecordType.getConstituents().get(1).isOuterJoined()) {
