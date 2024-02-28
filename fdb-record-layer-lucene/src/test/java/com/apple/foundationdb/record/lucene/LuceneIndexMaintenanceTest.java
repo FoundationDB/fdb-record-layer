@@ -142,7 +142,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                     final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
                     final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
                     final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
-                    // we currently don't support multiple records with the same timestamp, specifically at the boundaries
                     long timestamp = start + countInGroup + random.nextInt(20) - 5;
                     final Tuple primaryKey = saveRecords(isSynthetic, group, countInGroup, timestamp, random);
                     ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
