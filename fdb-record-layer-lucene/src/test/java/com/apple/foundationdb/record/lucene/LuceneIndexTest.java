@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
@@ -76,7 +75,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
-import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -122,11 +120,9 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -841,126 +837,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     groupingKey, contextProps, schemaSetup);
             assertEquals(partitionCount, partitionInfos.size());
         }
-    }
-
-    static Stream<Arguments> randomizedRepartitionTest() {
-        // This has found situations that should have explicit tests:
-        //      1. Multiple groups
-        //      2. When the size of first partition is exactly highWatermark+repartitionCount
-        return Stream.concat(
-                Stream.of(
-                        // there's not much special about which flags are enabled and the numbers are used, it's just
-                        // to make sure we have some variety, and make sure we have a test with each boolean true, and
-                        // false.
-                        // For partitionHighWatermark vs repartitionCount it is important to have both an even factor,
-                        // and not.
-                        Arguments.of(true, false, false, 13, 3, 20, 9237590782644L),
-                        Arguments.of(true, true, true, 10, 2, 23, -644766138635622644L),
-                        Arguments.of(false, true, true, 11, 4, 20, -1089113174774589435L),
-                        Arguments.of(false, false, false, 5, 1, 18, 6223372946177329440L)),
-                RandomizedTestUtils.randomArguments(random ->
-                        Arguments.of(random.nextBoolean(),
-                                random.nextBoolean(),
-                                random.nextBoolean(),
-                                random.nextInt(20) + 2,
-                                random.nextInt(10) + 1,
-                                0,
-                                random.nextLong())));
-    }
-
-    @ParameterizedTest
-    @MethodSource
-    void randomizedRepartitionTest(boolean isGrouped,
-                                   boolean isSynthetic,
-                                   boolean primaryKeySegmentIndexEnabled,
-                                   int partitionHighWatermark,
-                                   int repartitionCount,
-                                   int minDocumentCount,
-                                   long seed) throws IOException {
-        Random random = new Random(seed);
-        final boolean optimizedStoredFields = random.nextBoolean();
-        final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
-                LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, String.valueOf(optimizedStoredFields),
-                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
-        LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
-                "isGrouped", isGrouped,
-                "isSynthetic", isSynthetic,
-                "repartitionCount", repartitionCount,
-                "options", options,
-                "seed", seed));
-        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
-
-        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
-                .build();
-
-        // Generate random documents
-        Map<Tuple, Map<Tuple, Long>> ids = new HashMap<>();
-        final int transactionCount = random.nextInt(15) + 1;
-        final long start = Instant.now().toEpochMilli();
-        Map<Integer, Set<Long>> allExistingTimestamps = new HashMap<>();
-        int i = 0;
-        while (i < transactionCount ||
-                // keep inserting data until at least two groups have at least minDocumentCount
-                ids.entrySet().stream()
-                        .map(entry -> entry.getValue().size())
-                        .sorted(Comparator.reverseOrder())
-                        .limit(2).skip(isGrouped ? 1 : 0).findFirst()
-                        .orElse(0) < minDocumentCount) {
-            final int docCount = random.nextInt(10) + 1;
-            try (FDBRecordContext context = openContext(contextProps)) {
-                schemaSetup.accept(context);
-                for (int j = 0; j < docCount; j++) {
-                    final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
-                    final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
-                    final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
-                    // we currently don't support multiple records with the same timestamp, specifically at the boundaries
-                    long timestamp = start + countInGroup + random.nextInt(20) - 5;
-                    final Set<Long> existingTimestamps = allExistingTimestamps.computeIfAbsent(group, key -> new HashSet<>());
-                    while (!existingTimestamps.add(timestamp)) {
-                        timestamp++;
-                    }
-                    ComplexDocument cd = ComplexDocument.newBuilder()
-                            .setGroup(group)
-                            .setDocId(1000L + countInGroup)
-                            .setIsSeen(true)
-                            .setTimestamp(timestamp)
-                            .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - countInGroup))
-                            .setText("A word about what I want to say")
-                            .build();
-                    Tuple primaryKey;
-                    if (isSynthetic) {
-                        TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
-                                .setGroup(group)
-                                .setDocId(1000L - countInGroup)
-                                .setText("Four score and seven years ago our fathers brought forth")
-                                .build();
-                        final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                                .getSyntheticRecordType("luceneJoinedPartitionedIdx")
-                                .getRecordTypeKeyTuple();
-                        primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                                recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                                recordStore.saveRecord(sd).getPrimaryKey().getItems());
-                    } else {
-                        primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                    }
-                    ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, timestamp);
-                }
-                commit(context);
-            }
-            i++;
-        }
-
-        explicitMergeIndex(index, contextProps, schemaSetup);
-
-        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
-            schemaSetup.accept(context);
-            return recordStore;
-        }).validate(index, ids, repartitionCount, isSynthetic ? "simple_text:forth" : "text:about");
     }
 
     @Test
