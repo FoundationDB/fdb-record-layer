@@ -323,7 +323,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public CompletableFuture<Void> mergeIndex() {
         return rebalancePartitions()
-                .thenCompose(ignored -> directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer("")));
+                .thenCompose(ignored -> {
+                    state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+                    return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
+                });
     }
 
     @Nonnull
@@ -350,8 +353,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return CompletableFuture.completedFuture(null);
         }
         final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-        if (mergeControl.shouldSkipRebalance()) {
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+        if (mergeControl.getRepartitionDocumentCount() < 0) {
+            // Skip re-balance
             return CompletableFuture.completedFuture(null);
+        }
+        if (mergeControl.getRepartitionDocumentCount() == 0) {
+            // Use default
+            mergeControl.setRepartitionDocumentCount(Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)));
         }
 
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();

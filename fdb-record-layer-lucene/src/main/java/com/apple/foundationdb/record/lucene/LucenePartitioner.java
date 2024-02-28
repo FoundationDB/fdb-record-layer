@@ -657,6 +657,7 @@ public class LucenePartitioner {
                         .map(pi -> "pi[" + pi.getId() + "]@" + pi.getCount() + Tuple.fromBytes(pi.getFrom().toByteArray()) + "->" + Tuple.fromBytes(pi.getTo().toByteArray()))
                         .collect(Collectors.joining(", ", "Rebalancing partitions (group=" + groupingKey + "): ", "")));
             }
+            int repartitionDocumentCount = state.store.getIndexDeferredMaintenanceControl().getRepartitionDocumentCount();
 
             for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : partitionInfos) {
                 if (partitionInfo.getCount() > indexPartitionHighWatermark) {
@@ -664,9 +665,6 @@ public class LucenePartitioner {
 
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
-                    final Integer repartitionDocumentCount = Math.min(
-                            Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)),
-                            indexPartitionHighWatermark);
                     LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(
                             partitionInfo,
                             groupingKey,

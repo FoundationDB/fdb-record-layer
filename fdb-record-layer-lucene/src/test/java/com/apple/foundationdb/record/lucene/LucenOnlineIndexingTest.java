@@ -717,6 +717,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Void> mergeIndex() {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
             final long limit = mergeControl.getMergesLimit();
             if (limit == 0) {
                 mergeControl.setMergesFound(10);
@@ -794,6 +795,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Void> mergeIndex() {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
             mergeControl.setMergesFound(1);
             mergeControl.setMergesTried(1);
             final long timeQuota = mergeControl.getTimeQuotaMillis();

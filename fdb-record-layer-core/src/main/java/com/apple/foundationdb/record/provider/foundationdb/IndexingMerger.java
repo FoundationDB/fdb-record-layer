@@ -52,7 +52,8 @@ public class IndexingMerger {
     private long timeQuotaMillis = 0;
     private final IndexingCommon common;
     private SubspaceProvider subspaceProvider = null;
-    private boolean skipPartitionRebalace = false;
+    private int repartitionDocumentCount = 0;
+    private int repartitionSecondChances = 0;
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
@@ -79,7 +80,8 @@ public class IndexingMerger {
                                     mergeControlRef.set(mergeControl);
                                     mergeControl.setMergesLimit(mergesLimit);
                                     mergeControl.setTimeQuotaMillis(timeQuotaMillis);
-                                    mergeControl.setSkipRebalance(skipPartitionRebalace);
+                                    mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);
+                                    mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
@@ -110,43 +112,75 @@ public class IndexingMerger {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(mergerLogMessage("IndexMerge: Success", mergeControl));
         }
-        // after a successful merge, reset the time quota. It is unlikely to be applicable for the next merge.
+        // after a successful merge, reset the time quota and document count. They are unlikely to be applicable for the next merge.
         timeQuotaMillis = 0;
-        skipPartitionRebalace = false; // do not skip it during the next call
+        repartitionDocumentCount = 0;
         // Here: no errors, stop the iteration unless has more
-        final boolean hasMore = mergeControl.getMergesFound() > mergeControl.getMergesTried();
+        final boolean hasMore =
+                shouldGiveRepartitionSecondChance() ||
+                        mergeControl.getMergesFound() > mergeControl.getMergesTried();
         return  hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
     }
 
     private CompletableFuture<Boolean> handleFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         final FDBException ex = IndexingBase.findException(e, FDBException.class);
+        final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
         if (!IndexingBase.shouldLessenWork(ex)) {
             giveUpMerging(mergeControl, e);
         }
-        // Here: this exception might be resolved by reducing the number of merges or forcing shorter intervals between auto-commits
-        if (! skipPartitionRebalace) {
-            handlePotentialRebalanceFailure(mergeControl, e);
-        } else if (mergeControl.getMergesTried() < 2) {
-            handleSingleMergeFailure(mergeControl, e);
-        } else {
-            handleMultiMergeFailure(mergeControl, e);
+        switch (lastStep) {
+            case REBALANCE:
+                // Here: this exception might be resolved by reducing the number of documents to move during rebalancing
+                handlePotentialRebalanceFailure(mergeControl, e);
+                break;
+
+            case MERGE:
+                // Here: this exception might be resolved by reducing the number of merges or forcing shorter intervals between auto-commits
+                if (mergeControl.getMergesTried() < 2) {
+                    handleSingleMergeFailure(mergeControl, e);
+                } else {
+                    handleMultiMergeFailure(mergeControl, e);
+                }
+                break;
+
+            default:
+                giveUpMerging(mergeControl, e);
+                break; // "A switch statement does not contain a break", croaks a grumpy pmdMain.
         }
         return AsyncUtil.READY_TRUE; // and retry
     }
+
+    private void handlePotentialRebalanceFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
+        if (repartitionDocumentCount == -1) {
+            // Here: failed, despite being set to skip. No recovery.
+            giveUpMerging(mergeControl, e);
+        }
+        repartitionDocumentCount /= 2;
+        if (repartitionDocumentCount == 0) {
+            // Here: retry merge, but without partition re-balance
+            repartitionDocumentCount = -1;
+        }
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(mergerLogMessage("IndexMerge: Forbid partition re-balance", mergeControl), e);
+        }
+    }
+
+    private boolean shouldGiveRepartitionSecondChance() {
+        if (repartitionDocumentCount == -1 && repartitionSecondChances == 0) {
+            repartitionSecondChances++;
+            return true;
+        }
+        repartitionSecondChances = 0;
+        return false;
+    }
+
 
     private void handleMultiMergeFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         // Here: reduce the number of OneMerge items attempted
         mergesLimit = mergeControl.getMergesTried() / 2;
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(mergerLogMessage("IndexMerge: Merges diluted", mergeControl), e);
-        }
-    }
-
-    private void handlePotentialRebalanceFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
-        // Here: retry merge, but without partition re-balance
-        skipPartitionRebalace = true;
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(mergerLogMessage("IndexMerge: Forbid partition re-balance", mergeControl), e);
         }
     }
 
@@ -166,7 +200,7 @@ public class IndexingMerger {
 
     private void giveUpMerging(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         if (LOGGER.isWarnEnabled()) {
-            LOGGER.warn(mergerLogMessage("IndexMerge: Gave up merge dilution", mergeControl), e);
+            LOGGER.warn(mergerLogMessage("IndexMerge: Gave up merge", mergeControl), e);
         }
         throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
     }
@@ -177,7 +211,9 @@ public class IndexingMerger {
                 LogMessageKeys.INDEX_MERGES_LIMIT, mergeControl.getMergesLimit(),
                 LogMessageKeys.INDEX_MERGES_FOUND, mergeControl.getMergesFound(),
                 LogMessageKeys.INDEX_MERGES_TRIED, mergeControl.getMergesTried(),
-                LogMessageKeys.INDEX_MERGES_CONTEXT_TIME_QUOTA, mergeControl.getTimeQuotaMillis()
+                LogMessageKeys.INDEX_MERGES_CONTEXT_TIME_QUOTA, mergeControl.getTimeQuotaMillis(),
+                LogMessageKeys.INDEX_REPARTITION_DOCUMENT_COUNT, mergeControl.getRepartitionDocumentCount(),
+                LogMessageKeys.INDEX_DEFERRED_ACTION_STEP, mergeControl.getLastStep()
         );
     }
 
