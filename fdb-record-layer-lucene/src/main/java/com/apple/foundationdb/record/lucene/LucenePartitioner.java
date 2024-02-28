@@ -274,7 +274,7 @@ public class LucenePartitioner {
             if (isNewerThan(partitioningKey, assignedPartition)) {
                 builder.setTo(ByteString.copyFrom(partitioningKey.pack()));
             }
-            savePartitionMetadata(groupingKey, Tuple.fromBytes(builder.getFrom().toByteArray()), builder);
+            savePartitionMetadata(groupingKey, builder);
             return assignedPartition.getId();
         });
     }
@@ -315,7 +315,7 @@ public class LucenePartitioner {
                 // should never happen
                 throw new RecordCoreException("Issue updating Lucene partition metadata (resulting count < 0)", LogMessageKeys.PARTITION_ID, assignedPartition.getId());
             }
-            savePartitionMetadata(groupingKey, partitioningKey, builder);
+            savePartitionMetadata(groupingKey, builder);
             return assignedPartition.getId();
         });
     }
@@ -339,15 +339,13 @@ public class LucenePartitioner {
     /**
      * save partition metadata persistently.
      *
-     * @param partitioningKey partitioning key
      * @param builder builder instance
      */
     void savePartitionMetadata(@Nonnull Tuple groupingKey,
-                               @Nonnull Tuple partitioningKey,
                                @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo.Builder builder) {
         LucenePartitionInfoProto.LucenePartitionInfo updatedPartition = builder.build();
         state.context.ensureActive().set(
-                partitionMetadataKeyFromPartitioningValue(groupingKey, partitioningKey),
+                partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(updatedPartition)),
                 updatedPartition.toByteArray());
     }
 
@@ -747,7 +745,7 @@ public class LucenePartitioner {
                 LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = partitionInfo.toBuilder()
                         .setCount(partitionInfo.getCount() - records.size())
                         .setFrom(ByteString.copyFrom(newBoundaryPartitionKey.pack()));
-                savePartitionMetadata(groupingKey, newBoundaryPartitionKey, builder);
+                savePartitionMetadata(groupingKey, builder);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.of("Repartitioning Records",
                             LuceneLogMessageKeys.GROUP, groupingKey,
@@ -761,7 +759,7 @@ public class LucenePartitioner {
                 return findPartitionInfo(groupingKey, overflowPartitioningKey).thenCompose(previousPartition -> {
                     if (previousPartition == null || previousPartition.getCount() + records.size() > indexPartitionHighWatermark || previousPartition.getId() == partitionInfo.getId()) {
                         // create a new "overflow" partition
-                        savePartitionMetadata(groupingKey, overflowPartitioningKey, newPartitionMetadata(overflowPartitioningKey,  maxPartitionId + 1).toBuilder());
+                        savePartitionMetadata(groupingKey, newPartitionMetadata(overflowPartitioningKey,  maxPartitionId + 1).toBuilder());
                     }
 
                     Iterator<? extends FDBIndexableRecord<Message>> recordIterator = records.iterator();

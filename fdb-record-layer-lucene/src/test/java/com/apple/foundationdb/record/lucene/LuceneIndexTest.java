@@ -1137,11 +1137,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final Sort sort;
         if (sortType == SortType.UNSORTED) {
             sort = null;
-        } else if (uniqueTimestamps) {
-            sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
         } else {
-            sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING),
-                    new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, sortType == SortType.DESCENDING));
+            sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
         }
 
         LuceneScanQueryParameters scan = new LuceneScanQueryParameters(

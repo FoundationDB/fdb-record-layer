@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -94,15 +93,14 @@ public class LuceneIndexTestValidator {
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Tuple, Map<Tuple, Long>> expectedDocumentInformation,
+    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
                   final int repartitionCount, final String universalSearch) throws IOException {
-        boolean isGrouped = index.getRootExpression() instanceof GroupingKeyExpression;
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
         // If there is less than repartitionCount of free space in the older partition, we'll create a new partition
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
 
-        for (final Map.Entry<Tuple, Map<Tuple, Long>> entry : expectedDocumentInformation.entrySet()) {
+        for (final Map.Entry<Tuple, Map<Tuple, Tuple>> entry : expectedDocumentInformation.entrySet()) {
             final Tuple groupingKey = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
                     "group", groupingKey,

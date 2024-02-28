@@ -145,7 +145,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             }
         } else {
             AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
-            return AsyncUtil.whileTrue(() -> getNextPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
+            return AsyncUtil.whileTrue(() -> getNextOlderPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
                     .thenApply(partitionId -> mergePartition(analyzerWrapper, groupingKey, agileContext, partitionId)));
         }
     }
@@ -172,8 +172,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private CompletableFuture<Integer> getNextPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
-                                                            final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
+    private CompletableFuture<Integer> getNextOlderPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
+                                                                 final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
         return agileContext.apply(context -> LucenePartitioner.getNextOlderPartitionInfo(
                         context, groupingKey, lastPartitionInfo.get() == null ? null : LucenePartitioner.getPartitionKey(lastPartitionInfo.get()), state.indexSubspace)
                 .thenApply(partitionInfo -> {

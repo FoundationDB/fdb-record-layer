@@ -75,8 +75,7 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
 
     public static LuceneCursorContinuation fromScoreDoc(ScoreDoc scoreDoc,
                                                         @Nullable Integer partitionId,
-                                                        @Nullable Tuple partitionKey,
-                                                        @Nullable Tuple searchAfterPrimaryKey) {
+                                                        @Nullable Tuple partitionKey) {
         LuceneContinuationProto.LuceneIndexContinuation.Builder builder = LuceneContinuationProto.LuceneIndexContinuation.newBuilder()
                 .setDoc(scoreDoc.doc)
                 .setShard(scoreDoc.shardIndex)
@@ -87,9 +86,6 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
         }
         if (partitionKey != null) {
             builder.setPartitionKey(ByteString.copyFrom(partitionKey.pack()));
-        }
-        if (searchAfterPrimaryKey != null) {
-            builder.setSearchAfterPrimaryKey(ByteString.copyFrom(searchAfterPrimaryKey.pack()));
         }
         if (scoreDoc instanceof FieldDoc) {
             for (Object field : ((FieldDoc)scoreDoc).fields) {
