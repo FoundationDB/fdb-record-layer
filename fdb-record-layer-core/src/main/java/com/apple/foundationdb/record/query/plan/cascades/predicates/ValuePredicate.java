@@ -35,11 +35,13 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -47,7 +49,7 @@ import java.util.Set;
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValuePredicate extends AbstractQueryPredicate implements PredicateWithValue {
+public class ValuePredicate extends AbstractQueryPredicate implements PredicateWithValue, PredicateWithComparisons {
     @Nonnull
     private final Value value;
     @Nonnull
@@ -69,6 +71,12 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Nonnull
     public Comparison getComparison() {
         return comparison;
+    }
+
+    @Nonnull
+    @Override
+    public List<Comparison> getComparisons() {
+        return ImmutableList.of(getComparison());
     }
 
     @Nonnull

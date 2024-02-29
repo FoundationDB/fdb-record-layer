@@ -69,6 +69,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -833,6 +834,11 @@ public class Comparisons {
         }
 
         @Nonnull
+        default List<Value> getValues() {
+            return ImmutableList.of();
+        }
+
+        @Nonnull
         @SuppressWarnings("unused")
         RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
 
@@ -1143,6 +1149,7 @@ public class Comparisons {
             return internal == Bindings.Internal.CORRELATION;
         }
 
+        @Override
         public boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
             if (!isCorrelation()) {
                 return false;
@@ -1461,6 +1468,12 @@ public class Comparisons {
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return comparandValue.getCorrelatedTo();
+        }
+
+        @Nonnull
+        @Override
+        public List<Value> getValues() {
+            return ImmutableList.of(getComparandValue());
         }
 
         @Override
@@ -2548,6 +2561,12 @@ public class Comparisons {
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return inner.getCorrelatedTo();
+        }
+
+        @Nonnull
+        @Override
+        public List<Value> getValues() {
+            return inner.getValues();
         }
 
         @Override
