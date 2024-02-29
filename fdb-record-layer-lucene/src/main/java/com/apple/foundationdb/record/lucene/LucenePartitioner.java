@@ -579,6 +579,7 @@ public class LucenePartitioner {
      *
      * @param start The continuation at which to resume rebalancing, as returned from a previous call to
      * {@code rebalancePartitions}.
+     * @param documentCount max number of documents to move in each transaction
      * @return a continuation at which to resume rebalancing in another call to {@code rebalancePartitions}
      */
     @Nonnull
@@ -644,6 +645,7 @@ public class LucenePartitioner {
      * they will be processed during subsequent calls.
      *
      * @param groupingKey grouping key
+     * @param repartitionDocumentCount max number of documents to move in each transaction
      * @return {@code true} future if there is more repartitioning to be done in this group
      */
     @Nonnull
