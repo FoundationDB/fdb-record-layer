@@ -582,12 +582,12 @@ public class LucenePartitioner {
      * @return a continuation at which to resume rebalancing in another call to {@code rebalancePartitions}
      */
     @Nonnull
-    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start) {
+    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start, int documentCount) {
         // This function will iterate the grouping keys
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            return processPartitionRebalancing(Tuple.from()).thenApply(result -> {
+            return processPartitionRebalancing(Tuple.from(), documentCount).thenApply(result -> {
                 if (result.getLeft() > 0) {
                     // we did something, repeat
                     return RecordCursorStartContinuation.START;
@@ -617,7 +617,7 @@ public class LucenePartitioner {
             return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
                 if (cursorResult.hasNext()) {
                     final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
-                    return processPartitionRebalancing(groupingKey)
+                    return processPartitionRebalancing(groupingKey, documentCount)
                             .thenCompose(repartitionResult -> {
                                 if (repartitionResult.getLeft() > 0) {
                                     // we did something, stop so we can create a new transaction
@@ -647,7 +647,10 @@ public class LucenePartitioner {
      * @return {@code true} future if there is more repartitioning to be done in this group
      */
     @Nonnull
-    public CompletableFuture<Pair<Integer, Integer>> processPartitionRebalancing(@Nonnull final Tuple groupingKey) {
+    public CompletableFuture<Pair<Integer, Integer>> processPartitionRebalancing(@Nonnull final Tuple groupingKey, int repartitionDocumentCount) {
+        if (repartitionDocumentCount <= 0) {
+            throw new IllegalArgumentException("number of documents to move can't be zero");
+        }
         return getAllPartitionMetaInfo(groupingKey).thenCompose(partitionInfos -> {
             // need to track the next partition id to use when creating a new one
             int maxPartitionId = partitionInfos.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getId).max(Integer::compare).orElse(0);
@@ -657,7 +660,6 @@ public class LucenePartitioner {
                         .map(pi -> "pi[" + pi.getId() + "]@" + pi.getCount() + Tuple.fromBytes(pi.getFrom().toByteArray()) + "->" + Tuple.fromBytes(pi.getTo().toByteArray()))
                         .collect(Collectors.joining(", ", "Rebalancing partitions (group=" + groupingKey + "): ", "")));
             }
-            int repartitionDocumentCount = state.store.getIndexDeferredMaintenanceControl().getRepartitionDocumentCount();
 
             for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : partitionInfos) {
                 if (partitionInfo.getCount() > indexPartitionHighWatermark) {

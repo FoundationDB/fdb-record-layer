@@ -354,31 +354,33 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
         final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
         mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
-        if (mergeControl.getRepartitionDocumentCount() < 0) {
+        int documentCount = mergeControl.getRepartitionDocumentCount();
+        if (documentCount < 0) {
             // Skip re-balance
             return CompletableFuture.completedFuture(null);
         }
-        if (mergeControl.getRepartitionDocumentCount() == 0) {
-            // Use default
-            mergeControl.setRepartitionDocumentCount(Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)));
+        if (documentCount == 0) {
+            // Set default and broadcast it back to the caller
+            documentCount = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT));
+            mergeControl.setRepartitionDocumentCount(documentCount);
         }
 
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
         final Index index = state.index;
-        return rebalancePartitions(runner, storeBuilder, index)
+        return rebalancePartitions(runner, storeBuilder, index, documentCount)
                 .whenComplete((result, error) -> {
                     runner.close();
                 });
     }
 
-    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index) {
+    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index, int documentCount) {
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
                         context -> storeBuilder.setContext(context).openAsync().thenCompose(store -> {
                             store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                            return getPartitioner(index, store).rebalancePartitions(continuation.get())
+                            return getPartitioner(index, store).rebalancePartitions(continuation.get(), documentCount)
                                     .thenApply(newContinuation -> {
                                         if (newContinuation.isEnd()) {
                                             return false;
