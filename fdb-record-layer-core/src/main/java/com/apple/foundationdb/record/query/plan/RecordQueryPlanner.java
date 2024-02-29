@@ -292,6 +292,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                                ? null : queryFilter.withParameterRelationshipMap(parameterRelationshipGraph));
         final KeyExpression sort = query.getSort();
         final boolean sortReverse = query.isSortReverse();
+
         RecordQueryPlan plan = plan(planContext, filter, sort, sortReverse);
         if (plan == null) {
             if (sort == null) {
@@ -762,6 +763,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         if (p == null) {
             p = matchToPlan(candidateScan, matchCandidateScan(candidateScan, indexExpr, filter, sort));
+        }
+        if (p == null) {
             // we can't match the filter, but maybe the sort
             p = planSortOnly(candidateScan, indexExpr, sort);
             if (p != null) {
@@ -1989,6 +1992,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         for (KeyExpression resultField : planContext.query.getRequiredResults()) {
             resultFields.addAll(resultField.normalizeKeyForPositions());
         }
+
         chosenPlan = chosenPlan.accept(new UnorderedPrimaryKeyDistinctVisitor(metaData, indexTypes, planContext.commonPrimaryKey));
         @Nullable RecordQueryPlan withoutFetch = RecordQueryPlannerSubstitutionVisitor.removeIndexFetch(
                 metaData, indexTypes, planContext.commonPrimaryKey, chosenPlan, resultFields);

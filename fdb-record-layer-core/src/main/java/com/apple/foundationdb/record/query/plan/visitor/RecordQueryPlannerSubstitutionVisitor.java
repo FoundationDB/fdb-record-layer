@@ -68,9 +68,10 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
     }
 
     public static RecordQueryPlan applyRegularVisitors(@Nonnull RecordQueryPlannerConfiguration configuration, @Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
-        plan = plan.accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
-        plan = plan.accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey));
-        plan = plan.accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+        plan = plan
+                .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey));
 
         if (configuration.shouldDeferFetchAfterInJoinAndInUnion()) {
@@ -78,6 +79,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                     .accept(new InJoinVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                     .accept(new InUnionVisitor(recordMetaData, indexTypes, commonPrimaryKey));
         }
+
         return plan.accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -75,6 +74,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
     public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryUnionPlanBase) {
             RecordQueryUnionPlanBase unionPlan = (RecordQueryUnionPlanBase) recordQueryPlan;
+
             final Set<KeyExpression> requiredFields = unionPlan.getRequiredFields();
             boolean shouldPullOutFilter = false;
             QueryComponent filter = null;
