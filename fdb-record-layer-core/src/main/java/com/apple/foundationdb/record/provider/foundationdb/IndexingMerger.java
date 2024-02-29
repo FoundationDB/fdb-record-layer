@@ -162,7 +162,7 @@ public class IndexingMerger {
             repartitionDocumentCount = -1;
         }
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(mergerLogMessage("IndexMerge: Forbid partition re-balance", mergeControl), e);
+            LOGGER.trace(mergerLogMessage("IndexMerge: partition rebalance failure", mergeControl), e);
         }
     }
 
