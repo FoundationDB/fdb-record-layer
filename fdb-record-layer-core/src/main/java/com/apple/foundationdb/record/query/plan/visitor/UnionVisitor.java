@@ -75,8 +75,6 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
     public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryUnionPlanBase) {
             RecordQueryUnionPlanBase unionPlan = (RecordQueryUnionPlanBase) recordQueryPlan;
-            System.out.println("unionPlan:" + unionPlan.getClass() + " requiredFields:" + unionPlan.getRequiredFields());
-            System.out.println("unionPlan comparisonKey:" + ((RecordQueryUnionOnKeyExpressionPlan)unionPlan).getComparisonKeyExpression());
             final Set<KeyExpression> requiredFields = unionPlan.getRequiredFields();
             boolean shouldPullOutFilter = false;
             QueryComponent filter = null;

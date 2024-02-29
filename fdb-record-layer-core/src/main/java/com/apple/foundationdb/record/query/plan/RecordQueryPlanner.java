@@ -292,11 +292,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                                ? null : queryFilter.withParameterRelationshipMap(parameterRelationshipGraph));
         final KeyExpression sort = query.getSort();
         final boolean sortReverse = query.isSortReverse();
-        System.out.println("RecordQueryPlanner filter:" + filter);
-        System.out.println("RecordQueryPlanner sort:" + sort);
-        System.out.println("RecordQueryPlanner sortReverse:" + sortReverse);
         RecordQueryPlan plan = plan(planContext, filter, sort, sortReverse);
-        System.out.println("RecordQueryPlanner plan A:" + plan);
         if (plan == null) {
             if (sort == null) {
                 throw new RecordCoreException("Unexpected failure to plan without sort");
@@ -317,7 +313,6 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         if (query.getRequiredResults() != null) {
             plan = tryToConvertToCoveringPlan(planContext, plan);
-            System.out.println("after tryToConvertToCoveringPlan:" + plan);
         }
 
         if (timer != null) {
@@ -372,15 +367,11 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         if (configuration.shouldDeferFetchAfterUnionAndIntersection() || configuration.shouldDeferFetchAfterInJoinAndInUnion()) {
-            System.out.println("get into if before:" + plan.getClass());
             plan = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(configuration, plan, metaData, indexTypes, planContext.commonPrimaryKey);
-            System.out.println("get into if after:" + plan.getClass());
         } else {
-            System.out.println("get into else");
             // Always do filter pushdown
             plan = plan.accept(new FilterVisitor(metaData, indexTypes, planContext.commonPrimaryKey));
         }
-        System.out.println("plan after if else:" + plan + " plan class:" + plan.getClass());
         return plan;
     }
 
@@ -494,7 +485,6 @@ public class RecordQueryPlanner implements QueryPlanner {
     private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter) {
         if (filter instanceof AndComponent) {
             QueryComponent normalized = normalizeAndOr((AndComponent) filter);
-            System.out.println("normalized:" + normalized + " original and:" + filter);
             if (normalized instanceof OrComponent) {
                 // The best we could do with the And version is index for the first part
                 // and checking the Or with a filter for the second part. If we can do a
@@ -543,7 +533,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             inExtractor.sortByClauses();
         }
         final ScoredPlan withInJoin = planFilterWithInJoin(planContext, inExtractor, needOrdering);
-        System.out.println("planFilter filter:" + filter + " withInAsOrUnion:" + withInAsOrUnion + " withInJoin:" + withInJoin);
         if (withInAsOrUnion != null) {
             if (withInJoin == null || withInAsOrUnion.score > withInJoin.score ||
                     FieldWithComparisonCountProperty.evaluate(withInAsOrUnion.getPlan()) < FieldWithComparisonCountProperty.evaluate(withInJoin.getPlan())) {
@@ -657,14 +646,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         Index bestIndex = null;
         if (planContext.commonPrimaryKey != null && !avoidScanPlan(planContext)) {
             bestPlan = planIndex(planContext, filter, null, planContext.commonPrimaryKey, intersectionCandidates);
-            System.out.println("commonPrimaryKey:" + planContext.commonPrimaryKey + " bestPlan:" + bestPlan);
         }
         for (Index index : planContext.indexes) {
             KeyExpression indexKeyExpression = indexKeyExpressionForPlan(planContext.commonPrimaryKey, index);
             ScoredPlan p = planIndex(planContext, filter, index, indexKeyExpression, intersectionCandidates);
-            if (p != null) {
-                System.out.println("index:" + index + " scoredPlan:" + p.getPlan() + " plan class:" + p.getPlan().getClass());
-            }
             if (p != null) {
                 // TODO: Consider more organized score / cost:
                 //   * predicates handled / unhandled.
@@ -684,7 +669,6 @@ public class RecordQueryPlanner implements QueryPlanner {
                 bestPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, bestPlan.getPlan(), planContext.commonPrimaryKey);
             }
         }
-        System.out.println("planFilterForInJoin called with filter:" + filter + " returned bestPlan:" + bestPlan);
         return bestPlan;
     }
 
@@ -755,16 +739,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         ScoredPlan p = null;
         if (index != null) {
             if (indexTypes.getRankTypes().contains(index.getType())) {
-                if (index.getName().equals("msgStateUnnestedLabel")) {
-                    System.out.println("planRank is called!");
-                }
                 GroupingKeyExpression grouping = (GroupingKeyExpression) indexExpr;
                 p = planRank(candidateScan, index, grouping, filter);
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
-                if (index.getName().equals("msgStateUnnestedLabel")) {
-                    System.out.println("planOther is called!");
-                }
                 p = planOther(candidateScan, index, filter, sort, sortReverse, planContext.commonPrimaryKey);
                 if (p != null) {
                     p = planRemoveDuplicates(planContext, p);
@@ -783,11 +761,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         if (p == null) {
-            System.out.println("matchToPlan is called!");
             p = matchToPlan(candidateScan, matchCandidateScan(candidateScan, indexExpr, filter, sort));
-        }
-        if (p == null) {
-            System.out.println("planSortOnly is called!");
             // we can't match the filter, but maybe the sort
             p = planSortOnly(candidateScan, indexExpr, sort);
             if (p != null) {
@@ -1768,7 +1742,6 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     private ScoredPlan planOr(@Nonnull PlanContext planContext, @Nonnull OrComponent filter) {
-        System.out.println("planOr called with filter:" + filter + " children:" + filter.getChildren());
         if (filter.getChildren().isEmpty()) {
             return null;
         }
@@ -1778,7 +1751,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         boolean allHaveSameBasePlan = true;
         for (QueryComponent subfilter : filter.getChildren()) {
             ScoredPlan subplan = planFilter(planContext, subfilter, true);
-            System.out.println("subFilter:" + subfilter + "subplan is null:" + (subplan == null) + " subplan class:" + subplan.getClass());
             if (subplan == null) {
                 return null;
             }
@@ -1799,8 +1771,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             subplans.add(subplan);
         }
-        System.out.println("planOr subplans:" + subplans + " filter:" + filter);
-        System.out.println("allHaveSameBasePlan:" + allHaveSameBasePlan + " allHaveOrderingKey:" + allHaveOrderingKey);
         // If the child plans only differ in their filters, then there is no point in repeating the base
         // scan only to evaluate each of the filters. Just evaluate the scan with an OR filter.
         // Note that this also improves the _second-best_ plan for planFilterWithInJoin, but an IN filter wins
@@ -1821,8 +1791,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (allHaveOrderingKey) {
             final ScoredPlan orderedUnionPlan = planOrderedUnion(planContext, subplans);
             if (orderedUnionPlan != null) {
-                System.out.println("orderedUnionPlan:" + orderedUnionPlan.getPlan() + " class:" + orderedUnionPlan.getPlan().getClass());
-                System.out.println("orderedUnionPlan requiredFields:" + ((RecordQueryUnionOnKeyExpressionPlan) orderedUnionPlan.getPlan()).getRequiredFields());
                 return orderedUnionPlan;
             }
         }
@@ -1836,17 +1804,13 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     private ScoredPlan planOrderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
         @Nullable final KeyExpression sort = planContext.query.getSort();
-        System.out.println("planOrderedUnion sort:" + sort);
         @Nullable KeyExpression candidateKey;
         boolean candidateOnly = false;
         if (configuration.shouldOmitPrimaryKeyInUnionOrderingKey() || planContext.commonPrimaryKey == null) {
-            System.out.println("candidateKey A");
             candidateKey = sort;
         } else if (sort == null) {
-            System.out.println("candidateKey B");
             candidateKey = PlanOrderingKey.candidateContainingPrimaryKey(subplans, planContext.commonPrimaryKey);
         } else {
-            System.out.println("candidateKey C");
             candidateKey = getKeyForMerge(sort, planContext.commonPrimaryKey);
             candidateOnly = true;
         }
@@ -1868,7 +1832,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             includedRankComparisons = mergeRankComparisons(includedRankComparisons, subplan.includedRankComparisons);
         }
         boolean showComparisonKey = !comparisonKey.equals(planContext.commonPrimaryKey);
-        System.out.println("RecordQueryUnionPlan comparisonKey:" + comparisonKey + " showComparisonKey:" + showComparisonKey);
         final RecordQueryPlan unionPlan = RecordQueryUnionPlan.from(childPlans, comparisonKey, showComparisonKey);
         if (unionPlan.getComplexity() > configuration.getComplexityThreshold()) {
             throw new RecordQueryPlanComplexityException(unionPlan);
@@ -2026,7 +1989,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         for (KeyExpression resultField : planContext.query.getRequiredResults()) {
             resultFields.addAll(resultField.normalizeKeyForPositions());
         }
-
         chosenPlan = chosenPlan.accept(new UnorderedPrimaryKeyDistinctVisitor(metaData, indexTypes, planContext.commonPrimaryKey));
         @Nullable RecordQueryPlan withoutFetch = RecordQueryPlannerSubstitutionVisitor.removeIndexFetch(
                 metaData, indexTypes, planContext.commonPrimaryKey, chosenPlan, resultFields);

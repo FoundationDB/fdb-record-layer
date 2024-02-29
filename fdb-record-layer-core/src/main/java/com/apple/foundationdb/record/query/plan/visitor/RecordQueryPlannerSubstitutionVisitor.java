@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChildren;
@@ -94,9 +96,6 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                                                    @Nullable KeyExpression commonPrimaryKey,
                                                    @Nonnull RecordQueryPlan plan,
                                                    @Nonnull Set<KeyExpression> requiredFields) {
-        System.out.println("removeIndexFetch called instanceof PlanWithIndex:" +
-                (plan instanceof RecordQueryPlanWithIndex) + " instanceofFetchFromPartial:" + (plan instanceof RecordQueryFetchFromPartialRecordPlan) + " plan class:" + plan.getClass());
-        System.out.println("removeIndexFetch requiredFields:" + requiredFields);
         if (plan instanceof RecordQueryPlanWithIndex) {
             RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex) plan;
             if (!indexPlan.allowedForCoveringIndexPlan()) {
@@ -111,7 +110,6 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey, indexPlan);
-            System.out.println("RecordQueryPlanWithIndex fieldsFromIndex:" + fieldsFromIndex.getFields());
 
             final Set<KeyExpression> fields = new HashSet<>(requiredFields);
             if (commonPrimaryKey != null) {
@@ -128,8 +126,13 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
         } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
             RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan) plan;
-            System.out.println("RecordQueryFetchFromPartialRecordPlan child:" + fetchPlan.getChild() + " availableFields:" + fetchPlan.getChild().getAvailableFields().getFields());
-            if (fetchPlan.getChild().getAvailableFields().containsAll(requiredFields)) {
+            // normalize requiredFields, and remove RecordTypeKey
+            Set<KeyExpression> normalizedRequiredFields = new HashSet<>();
+            for (KeyExpression k : requiredFields) {
+                normalizedRequiredFields.addAll(k.normalizeKeyForPositions());
+            }
+            normalizedRequiredFields.remove(Key.Expressions.recordType());
+            if (fetchPlan.getChild().getAvailableFields().containsAll(normalizedRequiredFields)) {
                 return ((RecordQueryFetchFromPartialRecordPlan)plan).getChild();
             }
         }
