@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
@@ -34,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -104,23 +106,26 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         public void fileLockSet(boolean isHeartbeat) {
             synchronized (fileLockSetLock) {
-                final long nowMillis = System.currentTimeMillis();
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
-                        agilityContext.apply(aContext ->
-                                aContext.ensureActive().get(fileLockKey)
-                                        .thenAccept(val -> {
-                                            long existingTimeStamp = fileLockValueToTimestamp(val);
-                                            if (isHeartbeat) {
-                                                fileLockCheckHeartBeat(existingTimeStamp);
-                                            } else {
-                                                fileLockCheckNewLock(existingTimeStamp, nowMillis);
-                                            }
-                                            this.timeStampMillis = nowMillis;
-                                            byte[] value = fileLockValue(timeStampMillis);
-                                            aContext.ensureActive().set(fileLockKey, value);
-                                        })
+                        agilityContext.apply(aContext -> fileLockSet(isHeartbeat, aContext)
                         ));
             }
+        }
+
+        private CompletableFuture<Void> fileLockSet(boolean isHeartbeat, FDBRecordContext aContext) {
+            final long nowMillis = System.currentTimeMillis();
+            return aContext.ensureActive().get(fileLockKey)
+                    .thenAccept(val -> {
+                        long existingTimeStamp = fileLockValueToTimestamp(val);
+                        if (isHeartbeat) {
+                            fileLockCheckHeartBeat(existingTimeStamp);
+                        } else {
+                            fileLockCheckNewLock(existingTimeStamp, nowMillis);
+                        }
+                        this.timeStampMillis = nowMillis;
+                        byte[] value = fileLockValue(timeStampMillis);
+                        aContext.ensureActive().set(fileLockKey, value);
+                    });
         }
 
         private void fileLockCheckHeartBeat(long existingTimeStamp) {
