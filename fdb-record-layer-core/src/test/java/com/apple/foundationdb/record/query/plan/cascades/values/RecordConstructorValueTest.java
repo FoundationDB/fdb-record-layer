@@ -173,8 +173,8 @@ public class RecordConstructorValueTest {
 
         final FDBRecordVersion version = FDBRecordVersion.firstInDBVersion(0x5ca1ab1e);
         RecordConstructorValue recordConstructorValue = RecordConstructorValue.ofColumns(List.of(
-                Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), version)),
-                Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), null))
+                Column.of(fields.get(0), new LiteralValue<>(version)),
+                Column.of(fields.get(1), new LiteralValue<>(null))
         ));
 
         Object result = recordConstructorValue.eval(null, evaluationContext);
@@ -192,8 +192,8 @@ public class RecordConstructorValueTest {
 
         // Copy through intermediate protobuf
         RecordConstructorValue copiedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
-                Column.of(fields.get(0), FieldValue.ofFieldName(new LiteralValue<>(type, result), fields.get(0).getFieldName())),
-                Column.of(fields.get(1), FieldValue.ofFieldName(new LiteralValue<>(type, result), fields.get(1).getFieldName()))
+                Column.of(fields.get(0), FieldValue.ofFieldName(new LiteralValue<>(result), fields.get(0).getFieldName())),
+                Column.of(fields.get(1), FieldValue.ofFieldName(new LiteralValue<>(result), fields.get(1).getFieldName()))
         ));
 
         Object result2 = copiedRecordConstructorValue.eval(null, evaluationContext);
@@ -217,21 +217,21 @@ public class RecordConstructorValueTest {
                 FDBRecordVersion.firstInDBVersion(0x1337)
         );
         RecordConstructorValue populatedRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
-                Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), versions)),
-                Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), versions))
+                Column.of(fields.get(0), new LiteralValue<>(versions)),
+                Column.of(fields.get(1), new LiteralValue<>(versions))
         ));
 
         Object populatedResult = populatedRecordConstructorValue.eval(null, evaluationContext);
-        assertEquals(versions, FieldValue.ofFieldName(new LiteralValue<>(type, populatedResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
-        assertEquals(versions, FieldValue.ofFieldName(new LiteralValue<>(type, populatedResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
+        assertEquals(versions, FieldValue.ofFieldName(new LiteralValue<>(populatedResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
+        assertEquals(versions, FieldValue.ofFieldName(new LiteralValue<>(populatedResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
 
         // Now set both fields to null/empty
         RecordConstructorValue nullRecordConstructorValue = RecordConstructorValue.ofColumns(List.of(
-                Column.of(fields.get(0), new LiteralValue<>(fields.get(0).getFieldType(), Collections.emptyList())),
-                Column.of(fields.get(1), new LiteralValue<>(fields.get(1).getFieldType(), null))
+                Column.of(fields.get(0), new LiteralValue<>(Collections.emptyList())),
+                Column.of(fields.get(1), new LiteralValue<>(null))
         ));
         Object nullResult = nullRecordConstructorValue.eval(null, evaluationContext);
-        assertEquals(Collections.emptyList(), FieldValue.ofFieldName(new LiteralValue<>(type, nullResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
-        assertNull(FieldValue.ofFieldName(new LiteralValue<>(type, nullResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
+        assertEquals(Collections.emptyList(), FieldValue.ofFieldName(new LiteralValue<>(nullResult), fields.get(0).getFieldName()).eval(null, evaluationContext));
+        assertNull(FieldValue.ofFieldName(new LiteralValue<>(nullResult), fields.get(1).getFieldName()).eval(null, evaluationContext));
     }
 }

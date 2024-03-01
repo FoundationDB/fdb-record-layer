@@ -52,39 +52,39 @@ import java.util.stream.Stream;
  */
 class VariadicFunctionValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no"))))), "rec_no");
-    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
-    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
-    private static final LiteralValue<Integer> INT_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 3);
+    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(1);
+    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(2);
+    private static final LiteralValue<Integer> INT_3 = new LiteralValue<>(3);
     private static final Typed LIST_INT_1 = AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3);
     private static final Typed LIST_INT_2 = AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_3, INT_2, INT_1);
     private static final Typed LIST_INT_3 = AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_2, INT_3, INT_1);
-    private static final Typed LIST_INT_NULL = new LiteralValue<>(new Type.Array(Type.primitiveType(Type.TypeCode.INT)), null);
-    private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
-    private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
-    private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
-    private static final LiteralValue<Long> LONG_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 3L);
+    private static final Typed LIST_INT_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(1L);
+    private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(2L);
+    private static final LiteralValue<Long> LONG_3 = new LiteralValue<>(3L);
     private static final Typed LIST_LONG_1 = AbstractArrayConstructorValue.LightArrayConstructorValue.of(LONG_1, LONG_2, LONG_3);
-    private static final LiteralValue<Long> LONG_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), null);
-    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
-    private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
-    private static final LiteralValue<Float> FLOAT_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 3.0F);
+    private static final LiteralValue<Long> LONG_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(1.0F);
+    private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(2.0F);
+    private static final LiteralValue<Float> FLOAT_3 = new LiteralValue<>(3.0F);
     private static final Typed LIST_FLOAT_1 = AbstractArrayConstructorValue.LightArrayConstructorValue.of(FLOAT_1, FLOAT_2, FLOAT_3);
-    private static final LiteralValue<Float> FLOAT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), null);
-    private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
-    private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
-    private static final LiteralValue<Double> DOUBLE_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 3.0);
-    private static final LiteralValue<Double> DOUBLE_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), null);
-    private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
-    private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
-    private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
-    private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
-    private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
-    private static final LiteralValue<Boolean> BOOLEAN_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
-    private static final LiteralValue<Boolean> BOOLEAN_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), null);
+    private static final LiteralValue<Float> FLOAT_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(1.0);
+    private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(2.0);
+    private static final LiteralValue<Double> DOUBLE_3 = new LiteralValue<>(3.0);
+    private static final LiteralValue<Double> DOUBLE_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<String> STRING_1 = new LiteralValue<>("a");
+    private static final LiteralValue<String> STRING_2 = new LiteralValue<>("b");
+    private static final LiteralValue<String> STRING_3 = new LiteralValue<>("c");
+    private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(false);
+    private static final LiteralValue<Boolean> BOOLEAN_2 = new LiteralValue<>(true);
+    private static final LiteralValue<Boolean> BOOLEAN_NULL = new LiteralValue<>(null);
     private static final Typed RECORD_1 = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_1, INT_1, FLOAT_1));
     private static final Typed RECORD_2 = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_2, INT_2, FLOAT_2));
     private static final Typed RECORD_3 = new RecordConstructorValue.RecordFn().encapsulate(List.of(STRING_3, INT_3, FLOAT_3));
-    private static final Typed NULL_TYPED = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
+    private static final Typed NULL_TYPED = new LiteralValue<>(null);
     private static final Typed RECORD_NAMED = RecordConstructorValue.ofColumns(ImmutableList.of(
             Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("f1")), LiteralValue.ofScalar("sz")),
             Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f2")), LiteralValue.ofScalar(100)),
@@ -101,7 +101,7 @@ class VariadicFunctionValueTest {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f2")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.FLOAT), Optional.of("f3"))));
 
-    private static final Typed RECORD_NULL = new LiteralValue<>(recordTypeUnnamed, null);
+    private static final Typed RECORD_NULL = new LiteralValue<>(null);
 
     private static TypeRepository typeRepository;
 
