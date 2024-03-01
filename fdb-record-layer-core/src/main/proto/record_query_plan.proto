@@ -757,6 +757,14 @@ message PBinaryRelOpValue {
       GTE_UV = 194;
       GTE_VU = 195;
       GTE_VV = 196;
+
+      EQ_BYU = 197;
+      EQ_BYBY = 198;
+      EQ_UBY = 199;
+      NEQ_BYU = 200;
+      NEQ_BYBY = 201;
+      NEQ_UBY = 202;
+
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -783,6 +791,9 @@ message PUnaryRelOpValue {
       IS_NOT_NULL_DI = 12;
       IS_NOT_NULL_SS = 13;
       IS_NOT_NULL_BI = 14;
+
+      IS_NULL_BY = 15;
+      IS_NOT_NULL_BY = 16;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;

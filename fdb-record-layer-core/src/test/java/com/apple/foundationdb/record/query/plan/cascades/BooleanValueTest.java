@@ -56,6 +56,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -90,6 +91,9 @@ class BooleanValueTest {
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
+    private static final LiteralValue<byte[]> BYTES_1 = new LiteralValue<>("foo".getBytes(StandardCharsets.UTF_8));
+    private static final LiteralValue<byte[]> BYTES_2 = new LiteralValue<>("bar".getBytes(StandardCharsets.UTF_8));
+    private static final LiteralValue<byte[]> BYTES_3 = new LiteralValue<>("baz".getBytes(StandardCharsets.UTF_8));
     private static final ThrowsValue THROWS_VALUE = new ThrowsValue(Type.primitiveType(Type.TypeCode.INT));
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
@@ -182,6 +186,11 @@ class BooleanValueTest {
                     Arguments.of(List.of(STRING_1, STRING_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(STRING_2, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(STRING_1, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+
+                    Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(LONG_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -415,6 +424,9 @@ class BooleanValueTest {
                     Arguments.of(List.of(STRING_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(STRING_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
 
+                    Arguments.of(List.of(BYTES_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
+
                     Arguments.of(List.of(INT_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
 
@@ -489,6 +501,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // INT in [STRING...]
                     Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // INT in [BYTES...]
+                    Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // INT in [BOOLEAN...]
                     Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // LONG in [INT...]
@@ -506,6 +520,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(LONG_1, LONG_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // LONG in [STRING...]
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // LONG in [BYTES...]
+                    Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // LONG in [BOOLEAN...]
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // LONG in []
@@ -523,6 +539,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(FLOAT_1, FLOAT_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // FLOAT in [STRING...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // FLOAT in [BYTES...]
+                    Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // FLOAT in [BOOLEAN...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // FLOAT in []
@@ -538,6 +556,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(DOUBLE_1, DOUBLE_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // DOUBLE in [STRING...]
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // DOUBLE in [BYTES...]
+                    Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // DOUBLE in [BOOLEAN...]
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // DOUBLE in []
@@ -553,10 +573,29 @@ class BooleanValueTest {
                     // STRING in [STRING...]
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    // STRING in [BYTES...]
+                    Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // STRING in [BOOLEAN...]
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // STRING in []
                     Arguments.of(List.of(STRING_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    // BYTES in [INT...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
+                    // BYTES in [LONG...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(LONG_1, LONG_2, LONG_3)), new InOpValue.InFn(), null),
+                    // BYTES in [FLOAT...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(FLOAT_1, FLOAT_2, FLOAT_3)), new InOpValue.InFn(), null),
+                    // BYTES in [DOUBLE...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(DOUBLE_1, DOUBLE_2, DOUBLE_3)), new InOpValue.InFn(), null),
+                    // BYTES in [STRING...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // BYTES in [BYTES...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    // BYTES in [BOOLEAN...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
+                    // BYTES in []
+                    Arguments.of(List.of(BYTES_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // BOOLEAN in [INT...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [LONG...]
@@ -567,6 +606,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(DOUBLE_1, DOUBLE_2, DOUBLE_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [STRING...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // BOOLEAN in [BYTES...]
+                    Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [BOOLEAN...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.FALSE),

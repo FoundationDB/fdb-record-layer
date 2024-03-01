@@ -62,6 +62,7 @@ import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -648,7 +649,15 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         GTE_US(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.STRING, (l, r) -> null),
         GTE_UV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.VERSION, (l, r) -> null),
         GTE_VU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),;
+        GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),
+
+        EQ_BYU(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        EQ_BYBY(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Arrays.equals((byte[])l, (byte[])r)),
+        EQ_UBY(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BYTES, (l, r) -> null),
+        NEQ_BYU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        NEQ_BYBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> !Arrays.equals((byte[])l, (byte[])r)),
+        NEQ_UBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BYTES, (l, r) -> null),
+        ;
 
         @Nonnull
         private static final Supplier<BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator>> protoEnumBiMapSupplier =
@@ -734,7 +743,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_FI(Comparisons.Type.NOT_NULL, Type.TypeCode.FLOAT, Objects::nonNull),
         IS_NOT_NULL_DI(Comparisons.Type.NOT_NULL, Type.TypeCode.DOUBLE, Objects::nonNull),
         IS_NOT_NULL_SS(Comparisons.Type.NOT_NULL, Type.TypeCode.STRING, Objects::nonNull),
-        IS_NOT_NULL_BI(Comparisons.Type.NOT_NULL, Type.TypeCode.BOOLEAN, Objects::nonNull);
+        IS_NOT_NULL_BI(Comparisons.Type.NOT_NULL, Type.TypeCode.BOOLEAN, Objects::nonNull),
+
+        IS_NULL_BY(Comparisons.Type.IS_NULL, Type.TypeCode.BYTES, Objects::isNull),
+        IS_NOT_NULL_BY(Comparisons.Type.NOT_NULL, Type.TypeCode.BYTES, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
