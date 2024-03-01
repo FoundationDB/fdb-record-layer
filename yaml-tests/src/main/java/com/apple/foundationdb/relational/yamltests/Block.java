@@ -359,7 +359,7 @@ public abstract class Block {
         private Map<?, ?> overrideWithExecutionContext(Map<String, Object> optionsMap) {
             // Use the system-provided seed if that is available from the context.
             executionContext.getSeed().ifPresent(s -> optionsMap.put(OPTION_SEED, s));
-            if (executionContext.isNightly() ) {
+            if (executionContext.isNightly()) {
                 // If the test is for nightly, nightlyRepetition is provided and the repetition provided in the
                 // test_block is not 1, then use the nightlyRepetition value. We explicitly check for the provided
                 // repetition to not being 1 because a repetition of 1 means that the tests are non-idempotent.

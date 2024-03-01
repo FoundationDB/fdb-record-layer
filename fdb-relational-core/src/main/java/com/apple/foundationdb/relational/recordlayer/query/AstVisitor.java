@@ -1015,7 +1015,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final Value value = column.getValue();
         final var resultType = value.getResultType();
         if (resultType.isUnresolved() ||
-                    (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
+                (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
             return Column.of(Type.Record.Field.of(targetType, column.getField().getFieldNameOptional()), PromoteValue.inject(value, targetType));
         }
         return column;
