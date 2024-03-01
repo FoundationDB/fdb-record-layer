@@ -1960,17 +1960,24 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         @Override
         public PRecordType toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            final PRecordType.Builder recordTypeProtoBuilder = PRecordType.newBuilder();
-            if (name != null) {
-                recordTypeProtoBuilder.setName(name);
-            }
-            recordTypeProtoBuilder.setIsNullable(isNullable);
+            final Integer referenceId = serializationContext.lookupReferenceIdForRecordType(this);
+            if (referenceId == null) {
+                final PRecordType.Builder recordTypeProtoBuilder =
+                        PRecordType.newBuilder()
+                                .setReferenceId(serializationContext.registerReferenceIdForRecordType(this));
+                if (name != null) {
+                    recordTypeProtoBuilder.setName(name);
+                }
+                recordTypeProtoBuilder.setIsNullable(isNullable);
 
-            for (final Field field : Objects.requireNonNull(fields)) {
-                recordTypeProtoBuilder.addFields(field.toProto(serializationContext));
-            }
+                for (final Field field : Objects.requireNonNull(fields)) {
+                    recordTypeProtoBuilder.addFields(field.toProto(serializationContext));
+                }
 
-            return recordTypeProtoBuilder.build();
+                return recordTypeProtoBuilder.build();
+            } else {
+                return PRecordType.newBuilder().setReferenceId(referenceId).build();
+            }
         }
 
         @Nonnull
@@ -1981,13 +1988,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         public static Record fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PRecordType recordTypeProto) {
+            Verify.verify(recordTypeProto.hasReferenceId());
+            final int referenceId = recordTypeProto.getReferenceId();
+            Type.Record type = serializationContext.lookupRecordTypeForReferenceId(referenceId);
+            if (type != null) {
+                return type;
+            }
+
             Verify.verify(recordTypeProto.hasIsNullable());
             final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
             for (int i = 0; i < recordTypeProto.getFieldsCount(); i ++) {
                 fieldsBuilder.add(Field.fromProto(serializationContext, recordTypeProto.getFields(i)));
             }
             final ImmutableList<Field> fields = fieldsBuilder.build();
-            return new Record(recordTypeProto.hasName() ? recordTypeProto.getName() : null, recordTypeProto.getIsNullable(), fields);
+            type = new Record(recordTypeProto.hasName() ? recordTypeProto.getName() : null, recordTypeProto.getIsNullable(), fields);
+            serializationContext.registerReferenceIdForRecordType(type, referenceId);
+            return type;
         }
 
         /**
