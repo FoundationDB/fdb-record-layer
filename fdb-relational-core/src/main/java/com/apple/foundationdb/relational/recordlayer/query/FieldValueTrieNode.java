@@ -44,7 +44,7 @@ import java.util.function.BiFunction;
 /**
  * a {@link TrieNode} implementation having a {@link FieldValue.ResolvedAccessor} as key.
  */
-public class FieldValueTrieNode extends TrieNode<FieldValue.ResolvedAccessor, Value, FieldValueTrieNode> {
+public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.ResolvedAccessor, Value, FieldValueTrieNode> {
 
     public FieldValueTrieNode(@Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {
         super(EmptyValue.empty(), childrenMap);

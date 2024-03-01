@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 
-public class StringTrieNode extends TrieNode<String, Void, StringTrieNode> {
+public class StringTrieNode extends TrieNode.AbstractTrieNode<String, Void, StringTrieNode> {
     @Nonnull
     private static final StringTrieNode LEAF = new StringTrieNode(null);
 
