@@ -63,7 +63,11 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @VisibleForTesting
     public LiteralValue(@Nullable final T value) {
-        this.resultType = Type.fromObject(value);
+        this(Type.fromObject(value), value);
+    }
+
+    private LiteralValue(@Nullable Type resultType, @Nullable final T value) {
+        this.resultType = resultType;
         this.value = value;
     }
 
@@ -241,7 +245,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         resolvedElementType = resolvedElementType == null
                        ? new Type.Any()
                        : resolvedElementType;
-        return new LiteralValue<>(listValue);
+        return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
     }
 
     @Nonnull
