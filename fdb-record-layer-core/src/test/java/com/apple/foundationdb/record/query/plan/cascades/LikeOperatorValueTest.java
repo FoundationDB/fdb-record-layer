@@ -50,13 +50,13 @@ import java.util.stream.Stream;
  */
 class LikeOperatorValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("rec_no"))))), "rec_no");
-    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
-    private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
-    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
-    private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
-    private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
-    private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
-    private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
+    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(1);
+    private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(1L);
+    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(1.0F);
+    private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(1.0);
+    private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(false);
+    private static final LiteralValue<String> STRING_1 = new LiteralValue<>("a");
+    private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(null);
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
@@ -194,10 +194,10 @@ class LikeOperatorValueTest {
         BuiltInFunction like = new LikeOperatorValue.LikeFn();
         BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
         Typed value = like.encapsulate(Arrays.asList(
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
+                    new LiteralValue<>(lhs),
                     pattern.encapsulate(Arrays.asList(
-                            new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), rhs),
-                            new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), escapeChar)))));
+                            new LiteralValue<>(rhs),
+                            new LiteralValue<>(escapeChar)))));
         Assertions.assertTrue(value instanceof LikeOperatorValue);
         Object actualValue = ((LikeOperatorValue)value).eval(null, evaluationContext);
         Assertions.assertEquals(result, actualValue);

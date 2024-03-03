@@ -50,17 +50,17 @@ import java.util.stream.Stream;
  */
 class ArithmeticValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no"))))), "rec_no");
-    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
-    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
-    private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
-    private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
-    private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
-    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
-    private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
-    private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
-    private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
-    private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
-    private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
+    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(1);
+    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(2);
+    private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(null);
+    private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(1L);
+    private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(2L);
+    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(1.0F);
+    private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(2.0F);
+    private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(1.0);
+    private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(2.0);
+    private static final LiteralValue<String> STRING_1 = new LiteralValue<>("a");
+    private static final LiteralValue<String> STRING_2 = new LiteralValue<>("b");
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})

@@ -66,8 +66,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         this(Type.fromObject(value), value);
     }
 
-    @VisibleForTesting
-    public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
+    private LiteralValue(@Nullable Type resultType, @Nullable final T value) {
         this.resultType = resultType;
         this.value = value;
     }
@@ -148,7 +147,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     @Nonnull
     public static <T> LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PLiteralValue literalValueProto) {
-        return new LiteralValue<>(Type.fromTypeProto(serializationContext, literalValueProto.getResultType()),
+        return new LiteralValue<>(
                 (T)PlanSerialization.protoToValueObject(literalValueProto.getValue()));
     }
 
@@ -224,7 +223,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     public static <T> LiteralValue<T> ofScalar(final T value) {
-        final var result = new LiteralValue<>(Type.fromObject(value), value);
+        final var result = new LiteralValue<>(value);
         Verify.verify(result.resultType.isPrimitive());
         return result;
     }

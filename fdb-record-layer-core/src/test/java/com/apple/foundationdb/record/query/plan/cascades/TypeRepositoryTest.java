@@ -55,12 +55,12 @@ class TypeRepositoryTest {
     private static final Random random = new Random(SEED);
     private static int counter = 0;
 
-    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
-    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
-    private static final LiteralValue<Integer> INT_NOT_NULLABLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), 1);
-    private static final LiteralValue<Integer> INT_NOT_NULLABLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), 2);
-    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
-    private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
+    private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(1);
+    private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(2);
+    private static final LiteralValue<Integer> INT_NOT_NULLABLE_1 = new LiteralValue<>(1);
+    private static final LiteralValue<Integer> INT_NOT_NULLABLE_2 = new LiteralValue<>(2);
+    private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(1.0F);
+    private static final LiteralValue<String> STRING_1 = new LiteralValue<>("a");
 
     private static Type generateRandomType() {
         return generateRandomTypeInternal(0);
