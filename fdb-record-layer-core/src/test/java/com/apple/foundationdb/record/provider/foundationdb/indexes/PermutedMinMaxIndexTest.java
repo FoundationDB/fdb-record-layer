@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -53,6 +54,8 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -69,21 +72,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for permuted min / max type indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
+class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
 
     protected static final String INDEX_NAME = "permuted";
 
+    @Nonnull
     protected static RecordMetaDataHook hook(boolean min) {
+        return hook(min, Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1), 1);
+    }
+
+    @Nonnull
+    protected static RecordMetaDataHook hook(boolean min, @Nonnull GroupingKeyExpression groupingKeyExpression, int permutedSize) {
         return md -> {
             md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
-                    Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1),
+                    groupingKeyExpression,
                     min ? IndexTypes.PERMUTED_MIN : IndexTypes.PERMUTED_MAX,
-                    Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "1")));
+                    Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "" + permutedSize)));
         };
     }
 
     @Test
-    public void min() {
+    void min() {
         final RecordMetaDataHook hook = hook(true);
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -128,7 +137,7 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void max() {
+    void max() {
         final RecordMetaDataHook hook = hook(false);
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -173,7 +182,7 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void tie() {
+    void tie() {
         final RecordMetaDataHook hook = hook(false);
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -198,6 +207,443 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
                     Tuple.from(50, 111)
                     ),
                     scanGroup(Tuple.from("yes"), true));
+        }
+    }
+
+    @ParameterizedTest(name = "repeatedGroupKey[min={0}]")
+    @BooleanSource
+    void repeatedGroupKey(boolean min) {
+        // Index on:
+        //    min/max(num_value_2) GROUP BY repeater, str_value_indexed ORDER BY repeater, min/max(num_value_2), str_value_indexed
+        final RecordMetaDataHook hook = hook(min,
+                Key.Expressions.field("num_value_2").groupBy(Key.Expressions.field("repeater", KeyExpression.FanType.FanOut), Key.Expressions.field("str_value_indexed")),
+                1);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            saveRecord(1, "yes", 3, 0, 1, 2, 3, 4, 5);
+            saveRecord(2, "yes", 5, 0, 1, 3, 5);
+            saveRecord(3, "yes", 7, 0, 2, 4);
+            saveRecord(4, "yes", 9, 0, 5);
+            saveRecord(5, "yes", 11, 0);
+            saveRecord(6, "yes", -1, 0);
+
+            saveRecord(11, "no", 9, 0, 1, 2, 3, 4, 5);
+            saveRecord(12, "no", 7, 0, 1, 3, 5);
+            saveRecord(13, "no", 5, 0, 2, 4);
+            saveRecord(14, "no", 3, 0, 5);
+            saveRecord(15, "no", 11, 0);
+            saveRecord(16, "no", -1, 0);
+
+            if (min) {
+                assertThat(scanGroup(Tuple.from(0), false), empty());
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, "yes"),
+                        Tuple.from(7, "no")
+                ), scanGroup(Tuple.from(1), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, "yes"),
+                        Tuple.from(5, "no")
+                ), scanGroup(Tuple.from(2), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, "yes"),
+                        Tuple.from(7, "no")
+                ), scanGroup(Tuple.from(3), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, "yes"),
+                        Tuple.from(5, "no")
+                ), scanGroup(Tuple.from(4), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, "no"),
+                        Tuple.from(3, "yes")
+                ), scanGroup(Tuple.from(5), false));
+
+                assertThat(scanGroup(Tuple.from(6), false), empty());
+            } else {
+                assertThat(scanGroup(Tuple.from(0), false), empty());
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "yes"),
+                        Tuple.from(9, "no")
+                ), scanGroup(Tuple.from(1), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(7, "yes"),
+                        Tuple.from(9, "no")
+                ), scanGroup(Tuple.from(2), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "yes"),
+                        Tuple.from(9, "no")
+                ), scanGroup(Tuple.from(3), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(7, "yes"),
+                        Tuple.from(9, "no")
+                ), scanGroup(Tuple.from(4), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(9, "no"),
+                        Tuple.from(9, "yes")
+                ), scanGroup(Tuple.from(5), false));
+
+                assertThat(scanGroup(Tuple.from(6), false), empty());
+            }
+
+            recordStore.deleteRecord(Tuple.from(1));
+            recordStore.deleteRecord(Tuple.from(11));
+
+            if (min) {
+                assertThat(scanGroup(Tuple.from(0), false), empty());
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "yes"),
+                        Tuple.from(7, "no")
+                ), scanGroup(Tuple.from(1), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "no"),
+                        Tuple.from(7, "yes")
+                ), scanGroup(Tuple.from(2), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "yes"),
+                        Tuple.from(7, "no")
+                ), scanGroup(Tuple.from(3), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "no"),
+                        Tuple.from(7, "yes")
+                ), scanGroup(Tuple.from(4), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, "no"),
+                        Tuple.from(5, "yes")
+                ), scanGroup(Tuple.from(5), false));
+
+                assertThat(scanGroup(Tuple.from(6), false), empty());
+            } else {
+                assertThat(scanGroup(Tuple.from(0), false), empty());
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "yes"),
+                        Tuple.from(7, "no")
+                ), scanGroup(Tuple.from(1), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "no"),
+                        Tuple.from(7, "yes")
+                ), scanGroup(Tuple.from(2), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "yes"),
+                        Tuple.from(7, "no")
+                ), scanGroup(Tuple.from(3), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, "no"),
+                        Tuple.from(7, "yes")
+                ), scanGroup(Tuple.from(4), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(7, "no"),
+                        Tuple.from(9, "yes")
+                ), scanGroup(Tuple.from(5), false));
+
+                assertThat(scanGroup(Tuple.from(6), false), empty());
+            }
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest(name = "repeatedPermutedSuffix[min={0}]")
+    @BooleanSource
+    void repeatedPermutedSuffix(boolean min) {
+        // Index on:
+        //    min/max(num_value_2) GROUP BY str_value_indexed, repeater ORDER BY str_value_indexed, min/max(num_value_2), repeater
+        final RecordMetaDataHook hook = hook(min,
+                Key.Expressions.field("num_value_2").groupBy(Key.Expressions.field("str_value_indexed"), Key.Expressions.field("repeater", KeyExpression.FanType.FanOut)),
+                1);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            saveRecord(1, "yes", 3, 0, 1, 2, 3, 4, 5);
+            saveRecord(2, "yes", 5, 0, 1, 3, 5);
+            saveRecord(3, "yes", 7, 0, 2, 4);
+            saveRecord(4, "yes", 9, 0, 5);
+            saveRecord(5, "yes", 11, 0);
+            saveRecord(6, "yes", -1, 0);
+
+            saveRecord(11, "no", 9, 0, 1, 2, 3, 4, 5);
+            saveRecord(12, "no", 7, 0, 1, 3, 5);
+            saveRecord(13, "no", 5, 0, 2, 4);
+            saveRecord(14, "no", 3, 0, 5);
+            saveRecord(15, "no", 11, 0);
+            saveRecord(16, "no", -1, 0);
+
+            if (min) {
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, 1),
+                        Tuple.from(3, 2),
+                        Tuple.from(3, 3),
+                        Tuple.from(3, 4),
+                        Tuple.from(3, 5)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, 5),
+                        Tuple.from(5, 2),
+                        Tuple.from(5, 4),
+                        Tuple.from(7, 1),
+                        Tuple.from(7, 3)
+                ), scanGroup(Tuple.from("no"), false));
+
+            } else {
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, 1),
+                        Tuple.from(5, 3),
+                        Tuple.from(7, 2),
+                        Tuple.from(7, 4),
+                        Tuple.from(9, 5)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(9, 1),
+                        Tuple.from(9, 2),
+                        Tuple.from(9, 3),
+                        Tuple.from(9, 4),
+                        Tuple.from(9, 5)
+                ), scanGroup(Tuple.from("no"), false));
+            }
+
+            recordStore.deleteRecord(Tuple.from(1));
+            recordStore.deleteRecord(Tuple.from(11));
+
+            if (min) {
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, 1),
+                        Tuple.from(5, 3),
+                        Tuple.from(5, 5),
+                        Tuple.from(7, 2),
+                        Tuple.from(7, 4)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(3, 5),
+                        Tuple.from(5, 2),
+                        Tuple.from(5, 4),
+                        Tuple.from(7, 1),
+                        Tuple.from(7, 3)
+                ), scanGroup(Tuple.from("no"), false));
+
+            } else {
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, 1),
+                        Tuple.from(5, 3),
+                        Tuple.from(7, 2),
+                        Tuple.from(7, 4),
+                        Tuple.from(9, 5)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(5, 2),
+                        Tuple.from(5, 4),
+                        Tuple.from(7, 1),
+                        Tuple.from(7, 3),
+                        Tuple.from(7, 5)
+                ), scanGroup(Tuple.from("no"), false));
+            }
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest(name = "repeatedValue[min={0}]")
+    @BooleanSource
+    void repeatedValue(boolean min) {
+        // Index on:
+        //    min/max(repeater) GROUP BY str_value_indexed, num_value_2 ORDER BY str_value_indexed, min/max(repeater), num_value_2
+        // Note that all values of repeater will always come from a single group, so at most one entry in the permuted space should ever be updated on record insert
+        final RecordMetaDataHook hook = hook(min,
+                Key.Expressions.field("repeater", KeyExpression.FanType.FanOut).groupBy(Key.Expressions.field("str_value_indexed"), Key.Expressions.field("num_value_2")),
+                1);
+
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            saveRecord(1, "yes", 1, 0, 1, 2, 3, 4, 5);
+            saveRecord(2, "no", 1, 0, 1, 3, 5);
+
+            assertEquals(Collections.singletonList(
+                    Tuple.from(min ? 1 : 5, 1)
+            ), scanGroup(Tuple.from("yes"), false));
+
+            assertEquals(Collections.singletonList(
+                    Tuple.from(min ? 1 : 5, 1)
+            ), scanGroup(Tuple.from("no"), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 1),
+                    Tuple.from(2, 1),
+                    Tuple.from(3, 1),
+                    Tuple.from(4, 1),
+                    Tuple.from(5, 1)
+            ), scanValue(Tuple.from("yes", 1), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 2),
+                    Tuple.from(3, 2),
+                    Tuple.from(5, 2)
+            ), scanValue(Tuple.from("no", 1), false));
+
+            saveRecord(3, "yes", 1, 0, 2, 4);
+            saveRecord(4, "no", 1, 0, 2, 4);
+
+            assertEquals(Collections.singletonList(
+                    Tuple.from(min ? 1 : 5, 1)
+            ), scanGroup(Tuple.from("yes"), false));
+
+            assertEquals(Collections.singletonList(
+                    Tuple.from(min ? 1 : 5, 1)
+            ), scanGroup(Tuple.from("no"), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 1),
+                    Tuple.from(2, 1),
+                    Tuple.from(2, 3),
+                    Tuple.from(3, 1),
+                    Tuple.from(4, 1),
+                    Tuple.from(4, 3),
+                    Tuple.from(5, 1)
+            ), scanValue(Tuple.from("yes", 1), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 2),
+                    Tuple.from(2, 4),
+                    Tuple.from(3, 2),
+                    Tuple.from(4, 4),
+                    Tuple.from(5, 2)
+            ), scanValue(Tuple.from("no", 1), false));
+
+            recordStore.deleteRecord(Tuple.from(1));
+            recordStore.deleteRecord(Tuple.from(2));
+
+            assertEquals(Collections.singletonList(
+                    Tuple.from(min ? 2 : 4, 1)
+            ), scanGroup(Tuple.from("yes"), false));
+
+            assertEquals(Collections.singletonList(
+                    Tuple.from(min ? 2 : 4, 1)
+            ), scanGroup(Tuple.from("no"), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(2, 3),
+                    Tuple.from(4, 3)
+            ), scanValue(Tuple.from("yes", 1), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(2, 4),
+                    Tuple.from(4, 4)
+            ), scanValue(Tuple.from("no", 1), false));
+
+            saveRecord(5, "yes", 2, 0, 1, 2, 3, 4);
+            saveRecord(6, "yes", 2, 0, 5, 6, 7, 8);
+            saveRecord(7, "no", 2, 0, 8, 7, 6, 5);
+            saveRecord(8, "no", 2, 0, 4, 3, 2, 1);
+
+            if (min) {
+                assertEquals(Arrays.asList(
+                        Tuple.from(1, 2),
+                        Tuple.from(2, 1)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(1, 2),
+                        Tuple.from(2, 1)
+                ), scanGroup(Tuple.from("no"), false));
+            } else {
+                assertEquals(Arrays.asList(
+                        Tuple.from(4, 1),
+                        Tuple.from(8, 2)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(4, 1),
+                        Tuple.from(8, 2)
+                ), scanGroup(Tuple.from("no"), false));
+            }
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 5),
+                    Tuple.from(2, 5),
+                    Tuple.from(3, 5),
+                    Tuple.from(4, 5),
+                    Tuple.from(5, 6),
+                    Tuple.from(6, 6),
+                    Tuple.from(7, 6),
+                    Tuple.from(8, 6)
+            ), scanValue(Tuple.from("yes", 2), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 8),
+                    Tuple.from(2, 8),
+                    Tuple.from(3, 8),
+                    Tuple.from(4, 8),
+                    Tuple.from(5, 7),
+                    Tuple.from(6, 7),
+                    Tuple.from(7, 7),
+                    Tuple.from(8, 7)
+            ), scanValue(Tuple.from("no", 2), false));
+
+            recordStore.deleteRecord(Tuple.from(5));
+            recordStore.deleteRecord(Tuple.from(7));
+
+            if (min) {
+                assertEquals(Arrays.asList(
+                        Tuple.from(2, 1),
+                        Tuple.from(5, 2)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(1, 2),
+                        Tuple.from(2, 1)
+                ), scanGroup(Tuple.from("no"), false));
+            } else {
+                assertEquals(Arrays.asList(
+                        Tuple.from(4, 1),
+                        Tuple.from(8, 2)
+                ), scanGroup(Tuple.from("yes"), false));
+
+                assertEquals(Arrays.asList(
+                        Tuple.from(4, 1),
+                        Tuple.from(4, 2)
+                ), scanGroup(Tuple.from("no"), false));
+            }
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(5, 6),
+                    Tuple.from(6, 6),
+                    Tuple.from(7, 6),
+                    Tuple.from(8, 6)
+            ), scanValue(Tuple.from("yes", 2), false));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 8),
+                    Tuple.from(2, 8),
+                    Tuple.from(3, 8),
+                    Tuple.from(4, 8)
+            ), scanValue(Tuple.from("no", 2), false));
+
+            commit(context);
         }
     }
 
@@ -390,20 +836,31 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void saveRecord(int recNo, String strValue, int value2, int value3) {
+    private void saveRecord(int recNo, @Nonnull String strValue, int value2, int value3, int... repeater) {
         recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setStrValueIndexed(strValue)
                 .setNumValue2(value2)
                 .setNumValue3Indexed(value3)
                 .setNumValueUnique(recNo)
+                .addAllRepeater(IntStream.of(repeater).boxed().collect(Collectors.toList()))
                 .build());
     }
 
-    private List<Tuple> scanGroup(Tuple group, boolean reverse) {
+    @Nonnull
+    private List<Tuple> scanGroup(@Nonnull Tuple group, boolean reverse) {
         return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_GROUP,
                 TupleRange.allOf(group), null, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
                 .map(entry -> TupleHelpers.subTuple(entry.getKey(), group.size(), entry.getKeySize()))
+                .asList()
+                .join();
+    }
+
+    @Nonnull
+    private List<Tuple> scanValue(@Nonnull Tuple prefix, boolean reverse) {
+        return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_VALUE,
+                TupleRange.allOf(prefix), null, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
+                .map(entry -> TupleHelpers.subTuple(entry.getKey(), prefix.size(), entry.getKeySize()))
                 .asList()
                 .join();
     }
