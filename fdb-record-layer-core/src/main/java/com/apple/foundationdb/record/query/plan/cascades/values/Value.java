@@ -268,6 +268,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default Value translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNecessary) {
         final var isSimplifyNecessary = new AtomicBoolean(false);
         final var newValue = replaceLeavesMaybe(value -> {
