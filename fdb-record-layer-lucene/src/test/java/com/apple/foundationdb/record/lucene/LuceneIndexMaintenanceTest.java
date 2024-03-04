@@ -52,7 +52,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -125,10 +124,28 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                 .build();
 
         // Generate random documents
+        final Map<Tuple, Map<Tuple, Tuple>> ids = generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup);
+
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+            schemaSetup.accept(context);
+            return recordStore;
+        }).validate(index, ids, repartitionCount, isSynthetic ? "child_str_value:forth" : "text_value:about");
+
+        if (isGrouped) {
+            validateDeleteWhere(isSynthetic, repartitionCount, ids, contextProps, schemaSetup, index);
+        }
+    }
+
+    @Nonnull
+    private Map<Tuple, Map<Tuple, Tuple>> generateDocuments(final boolean isGrouped, final boolean isSynthetic,
+                                                           final int minDocumentCount, final Random random,
+                                                           final RecordLayerPropertyStorage contextProps,
+                                                           final Consumer<FDBRecordContext> schemaSetup) {
         Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
         final int transactionCount = random.nextInt(15) + 1;
         final long start = Instant.now().toEpochMilli();
-        Map<Integer, Set<Long>> allExistingTimestamps = new HashMap<>();
         int i = 0;
         while (i < transactionCount ||
                 // keep inserting data until at least two groups have at least minDocumentCount
@@ -153,17 +170,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
             }
             i++;
         }
-
-        explicitMergeIndex(index, contextProps, schemaSetup);
-
-        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
-            schemaSetup.accept(context);
-            return recordStore;
-        }).validate(index, ids, repartitionCount, isSynthetic ? "child_str_value:forth" : "text_value:about");
-
-        if (isGrouped) {
-            validateDeleteWhere(isSynthetic, repartitionCount, ids, contextProps, schemaSetup, index);
-        }
+        return ids;
     }
 
     @Nonnull
