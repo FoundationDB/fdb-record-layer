@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFun
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.PredicatedMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;

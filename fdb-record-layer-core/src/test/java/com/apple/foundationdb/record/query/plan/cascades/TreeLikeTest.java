@@ -343,6 +343,7 @@ public class TreeLikeTest {
 
         /*
          * n -> node(Q) | n.contents = 'c'
+         * n -> node(S) | n.contents = 'b'
          *            a             ----->                a
          *        /      \                            /      \
          *       b        c         ----->           S        Q
