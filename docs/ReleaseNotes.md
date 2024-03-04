@@ -17,7 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Permuted min and max indexes on repeated fields now index all entries if defined on a `FanOut` expression [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -25,21 +25,28 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Implement a proper copy-on-write `replace` for `TreeLike` [(Issue #2500)](https://github.com/FoundationDB/fdb-record-layer/issues/2500)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** API for robust matching of `Value`s [(Issue #2499)](https://github.com/FoundationDB/fdb-record-layer/issues/2499)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Permuted min or max indexes on repeated fields need to be rebuilt to ensure completeness [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.461.0
+
+* **Bug fix** Permuted min and max indexes on repeated fields now index all entries if defined on a `FanOut` expression [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Performance** Implement a proper copy-on-write `replace` for `TreeLike` [(Issue #2500)](https://github.com/FoundationDB/fdb-record-layer/issues/2500)
+* **Feature** API for robust matching of `Value`s [(Issue #2499)](https://github.com/FoundationDB/fdb-record-layer/issues/2499)
+* **Breaking change** Permuted min or max indexes on repeated fields need to be rebuilt to ensure completeness [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
 
 ### 3.4.459.0
 
