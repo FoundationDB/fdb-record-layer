@@ -244,7 +244,7 @@ public interface Correlated<S extends Correlated<S>> {
 
         @Override
         public String toString() {
-            return "Equivalence Bound to " + aliasMap;
+            return "≌[" + aliasMap + "]";
         }
     }
 }
