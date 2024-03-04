@@ -90,25 +90,37 @@ public class MaxMatchMap {
         return queryResultValue;
     }
 
+    /**
+     * This produces a translation map comprising a single item which replaces {@code queryCorrelation}
+     * with the {@code queryResultValue} that is rewritten in terms of {@code candidateCorrelation} according
+     * this map of maximum matches between the {@code queryResultValue} and the {@code candidateResultValue}.
+     *
+     * @param queryCorrelation The query correlation used as a translation source in the resulting translation
+     *                         map.
+     * @param candidateCorrelation The correlation, according to which, the {@code queryResultValue} will be rewritten.
+     * @return A single-item translation map comprising a replacement of {@code queryCorrelation} with the
+     * {@code queryResultValue} that is rewritten in terms of {@code candidateCorrelation} according this map of maximum
+     * matches between the {@code queryResultValue} and the {@code candidateResultValue}.
+     */
     @Nonnull
     public TranslationMap pullUpTranslationMap(@Nonnull final CorrelationIdentifier queryCorrelation,
                                                @Nonnull final CorrelationIdentifier candidateCorrelation) {
-        final var translatedQueryValue = translatedQueryValue(candidateCorrelation);
+        final var translatedQueryValue = translateQueryValue(candidateCorrelation);
         return TranslationMap.builder()
                 .when(queryCorrelation).then(candidateCorrelation, (src, tgt, quantifiedValue) -> translatedQueryValue)
                 .build();
     }
 
     @Nonnull
-    private Value translatedQueryValue(@Nonnull final CorrelationIdentifier candidateCorrelation) {
-        final var belowMapping = getMapping();
-        final var belowCandidateResultValue = getCandidateResultValue();
+    private Value translateQueryValue(@Nonnull final CorrelationIdentifier candidateCorrelation) {
+        final var mapping = getMapping();
+        final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
-                belowCandidateResultValue.pullUp(belowMapping.values(),
-                        AliasMap.identitiesFor(belowCandidateResultValue.getCorrelatedTo()),
+                candidateResultValue.pullUp(mapping.values(),
+                        AliasMap.identitiesFor(candidateResultValue.getCorrelatedTo()),
                         ImmutableSet.of(), candidateCorrelation);
         //
-        // We now have the right side pulled up, specifically we have a map from each candidate value blow,
+        // We now have the right side pulled up, specifically we have a map from each candidate value below,
         // to a candidate value pulled up along the candidateCorrelation. We also have this max match map, which
         // encapsulates a map from query values to candidate value.
         // In other words we have in this max match map m1 := MAP(queryValues over q -> candidateValues over q') and
@@ -118,7 +130,7 @@ public class MaxMatchMap {
         // equivalencesMap, we immediately create m1 ○ m2 using a boundEquivalence based on equivalencesMap.
         //
         final var boundEquivalence = new BoundEquivalence<Value>(equivalencesMap);
-        final var pulledUpMaxMatchMap = belowMapping.entrySet()
+        final var pulledUpMaxMatchMap = mapping.entrySet()
                 .stream()
                 .map(entry -> {
                     final var queryPart = entry.getKey();
@@ -157,6 +169,19 @@ public class MaxMatchMap {
     /**
      * Calculates the maximum sub-{@link Value}s in {@code rewrittenQueryValue} that has an exact match in the
      * {@code candidateValue}.
+     * <br>
+     * For certain shapes of {@code Value}s, multiple matches can be found, this method is guaranteed to always find the
+     * maximum part of the candidate sub-{@code Value} that matches with a sub-{@code Value} on the query side. For
+     * example, assume we have a query {@code Value} {@code R = RCV(s+t)} and a candidate {@code Value} that is
+     * {@code R` = RCV(s, t, (s+t))}, with R ≡ R`. We could have the following matches:
+     * <ul>
+     *     <li>{@code R.0 --> R`.0 + R`.1}</li>
+     *     <li>{@code R -> R`.0.0}</li>
+     * </ul>
+     * The first match is not <i>maximum</i>, because it involves matching smaller constituents of the index and summing
+     * them together, the other match however, is much better because it matches the entire query {@code Value} with a
+     * single part of the index. The algorithm will always prefer the maximum match.
+     *
      * @param equivalenceAliasMap an alias map that informs the logic about equivalent aliases
      * @param queryResultValue the query result {@code Value}.
      * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
@@ -174,15 +199,17 @@ public class MaxMatchMap {
 
         final BiMap<Value, Value> newMapping = HashBiMap.create();
         queryResultValue.preOrderPruningIterator(queryValuePart -> {
-            // look up the query side sub values in the candidate value.
+            // look up the query sub values in the candidate value.
             final var match = Streams.stream(candidateResultValue
                             // when traversing the candidate in pre-order, only descend into structures that can be referenced
                             // from the top expression. For example, RCV's components can be referenced however an Arithmetic
                             // operator's children can not be referenced.
+                            // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)Value of the candidate.
                             .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
                     .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, amendedEquivalenceMap))
                     .findAny();
             match.ifPresent(value -> newMapping.put(queryValuePart, value));
+            // if match is empty, descend further and look for more fine-grained matches.
             return match.isEmpty();
         }).forEachRemaining(ignored -> {
             // nothing

@@ -270,8 +270,8 @@ public class ValueTranslationTest {
            replace t with t', i.e. the result should be (t'.a.q, t'.a.r, (t'.b.t), t'.j.s)
          */
 
-        final var l1Translator = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1TranslatedQueryValue = pv.translateCorrelations(l1Translator);
+        final var l1TranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1TranslatedQueryValue = pv.translateCorrelations(l1TranslationMap);
         final var expectedL1TranslatedQueryValue = rcv(
                 fv(t_, "a", "q"),
                 fv(t_, "a", "r"),
@@ -316,25 +316,25 @@ public class ValueTranslationTest {
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
 
-        final var l2Translator = l1m3.pullUpTranslationMap(pAlias, p_Alias);
+        final var l2TranslationMap = l1m3.pullUpTranslationMap(pAlias, p_Alias);
 
         /*
            translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
            give the following value (p'.1.0).
-           Note that we have two instances of t'.b.t which are (p'.1.0, or p'.4), theoretically, the translator can
+           Note that we have two instances of t'.b.t which are (p'.1.0, or p'.4), theoretically, the translationMap can
            choose either one, i.e. , however since pre-order traversal is used, the translation algorithm
            will always return the (p'.1.0) because it is the first node that matches the translated version of
            (p.2.0) in pre-order traversal.
          */
 
-        final var l2TranslatedQueryValue = rv.translateCorrelations(l2Translator);
+        final var l2TranslatedQueryValue = rv.translateCorrelations(l2TranslationMap);
         final var expectedL2TranslatedQueryValue = rcv(fv(p_, 1, 0));
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2TranslatedQueryValue);
 
         /*
            translation of the predicate p.0 < 42 should yield p'.0.0 < 42
          */
-        final var l2TranslatedPredicate = pPredicate.translateCorrelations(l2Translator);
+        final var l2TranslatedPredicate = pPredicate.translateCorrelations(l2TranslationMap);
         Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p_, 0, 0), LiteralValue.ofScalar(42))), l2TranslatedPredicate);
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
@@ -369,8 +369,8 @@ public class ValueTranslationTest {
                 fv(t_, "b", "m")
         );
 
-        final var l1Translator = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1M3 = MaxMatchMap.calculate(pv.translateCorrelations(l1Translator), p_v);
+        final var l1TranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1M3 = MaxMatchMap.calculate(pv.translateCorrelations(l1TranslationMap), p_v);
 
         final var expectedMapping = Map.of(
                 add(fv(t_, "a", "q"), fv(t_, "a", "r")), add(fv(t_, "a", "q"), fv(t_, "a", "r")),
@@ -412,8 +412,8 @@ public class ValueTranslationTest {
                 fv(t_, "b", "m")
         );
 
-        final var l1Translator = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1M3 = MaxMatchMap.calculate(pv.translateCorrelations(l1Translator), p_v);
+        final var l1TranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1M3 = MaxMatchMap.calculate(pv.translateCorrelations(l1TranslationMap), p_v);
 
         final var expectedMapping = Map.of(
                 add(fv(t_, "a", "q"), fv(t_, "a", "r")), add(fv(t_, "a", "q"), fv(t_, "a", "r")),
@@ -457,8 +457,8 @@ public class ValueTranslationTest {
                 fv(t_, "b", "m")
         );
 
-        final var l1Translator = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1M3 = MaxMatchMap.calculate(pv.translateCorrelations(l1Translator), p_v);
+        final var l1TranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1M3 = MaxMatchMap.calculate(pv.translateCorrelations(l1TranslationMap), p_v);
 
         final var expectedMapping = Map.of(
                 fv(t_, "a", "q"), fv(t_, "a", "q"),
@@ -509,8 +509,8 @@ public class ValueTranslationTest {
            replace t with t', i.e. the result should be (t'.a.q + s, t'.a.r, (t'.b.t), t'.j.s)
          */
 
-        final var l1Translator = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1TranslatedQueryValue = pv.translateCorrelations(l1Translator);
+        final var l1TranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1TranslatedQueryValue = pv.translateCorrelations(l1TranslationMap);
         final var expectedL1TranslatedQueryValue = rcv(
                 add(fv(t_, "a", "q"), s),
                 fv(t_, "a", "r"),
@@ -556,25 +556,25 @@ public class ValueTranslationTest {
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
 
-        final var l2Translator = l1m3.pullUpTranslationMap(pAlias, p_Alias);
+        final var l2TranslationMap = l1m3.pullUpTranslationMap(pAlias, p_Alias);
 
         /*
            translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
            give the following value (p'.1.0).
-           Note that we have two instances of t'.b.t which are (p'.1.0, or p'.4), theoretically, the translator can
+           Note that we have two instances of t'.b.t which are (p'.1.0, or p'.4), theoretically, the translationMap can
            choose either one, i.e. , however since pre-order traversal is used, the translation algorithm
            will always return the (p'.1.0) because it is the first node that matches the translated version of
            (p.2.0) in pre-order traversal.
          */
 
-        final var l2TranslatedQueryValue = rv.translateCorrelations(l2Translator);
+        final var l2TranslatedQueryValue = rv.translateCorrelations(l2TranslationMap);
         final var expectedL2TranslatedQueryValue = rcv(fv(p_, 1, 0));
         Assertions.assertEquals(expectedL2TranslatedQueryValue, l2TranslatedQueryValue);
 
         /*
            translation of the predicate p.0 < 42 should yield p'.0.0 < 42
          */
-        final var l2TranslatedPredicate = pPredicate.translateCorrelations(l2Translator);
+        final var l2TranslatedPredicate = pPredicate.translateCorrelations(l2TranslationMap);
         Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p_, 0, 0), LiteralValue.ofScalar(42))), l2TranslatedPredicate);
 
         final var l2ExpectedMapping = Map.of(rcv(fv(p_, 1, 0)), rcv(fv(p_, 1, 0)));
@@ -604,7 +604,7 @@ public class ValueTranslationTest {
     }
 
     @Test
-    public void maxMatchValueWithCompositionOfTranslators() {
+    public void maxMatchValueWithCompositionOfTranslationMaps() {
         /*
              1st level:
              (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
@@ -670,8 +670,8 @@ public class ValueTranslationTest {
            of ((m.m1.m11), m.m2.m21) and (n.n2.n21, (n.n1.n12, n.n3.n32)); i.e. m -> m', resp. n -> n'.
          */
 
-        final var l1TranslatorTValue = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1TranslatedQueryTValue = tv.translateCorrelations(l1TranslatorTValue);
+        final var l1TranslationMapTValue = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1TranslatedQueryTValue = tv.translateCorrelations(l1TranslationMapTValue);
         final var expectedL1TranslatedQueryTValue = rcv(
                 fv(t_, "a", "q"),
                 fv(t_, "a", "r"),
@@ -680,16 +680,16 @@ public class ValueTranslationTest {
         );
         Assertions.assertEquals(expectedL1TranslatedQueryTValue, l1TranslatedQueryTValue);
 
-        final var l1TranslatorMValue = TranslationMap.ofAliases(mAlias, m_Alias);
-        final var l1TranslatedQueryMValue = mv.translateCorrelations(l1TranslatorMValue);
+        final var l1TranslationMapMValue = TranslationMap.ofAliases(mAlias, m_Alias);
+        final var l1TranslatedQueryMValue = mv.translateCorrelations(l1TranslationMapMValue);
         final var expectedL1TranslatedQueryMValue = rcv(
                 rcv(fv(m_, "m1", "m11")),
                 fv(m_, "m2", "m21")
         );
         Assertions.assertEquals(expectedL1TranslatedQueryMValue, l1TranslatedQueryMValue);
 
-        final var l1TranslatorNValue = TranslationMap.ofAliases(nAlias, n_Alias);
-        final var l1TranslatedQueryNValue = nv.translateCorrelations(l1TranslatorNValue);
+        final var l1TranslationMapNValue = TranslationMap.ofAliases(nAlias, n_Alias);
+        final var l1TranslatedQueryNValue = nv.translateCorrelations(l1TranslationMapNValue);
         final var expectedL1TranslatedQueryNValue = rcv(
                 fv(n_, "n2", "n21"),
                 rcv(fv(n_, "n1", "n12"), fv(n_, "n3", "n32"))
@@ -802,11 +802,11 @@ public class ValueTranslationTest {
         final var predicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(fv(r, 0), fv(r, 1, 0))));
 
 
-        final var l2TranslatorForPValue = l1m3ForTValue.pullUpTranslationMap(pAlias, p_Alias);
-        final var l2TranslatorForQValue = l1m3ForMValue.pullUpTranslationMap(qAlias, q_Alias);
-        final var l2TranslatorForRValue = l1m3ForNValue.pullUpTranslationMap(rAlias, r_Alias);
-        final var compositeTranslator = TranslationMap.compose(ImmutableList.of(l2TranslatorForPValue, l2TranslatorForQValue, l2TranslatorForRValue));
-        final var translatedPredicate = predicate.translateCorrelations(compositeTranslator);
+        final var l2TranslationMapForPValue = l1m3ForTValue.pullUpTranslationMap(pAlias, p_Alias);
+        final var l2TranslationMapForQValue = l1m3ForMValue.pullUpTranslationMap(qAlias, q_Alias);
+        final var l2TranslationMapForRValue = l1m3ForNValue.pullUpTranslationMap(rAlias, r_Alias);
+        final var compositeTranslationMap = TranslationMap.compose(ImmutableList.of(l2TranslationMapForPValue, l2TranslationMapForQValue, l2TranslationMapForRValue));
+        final var translatedPredicate = predicate.translateCorrelations(compositeTranslationMap);
 
         final var p_ = qov(p_Alias, t_v.getResultType());
         final var q_ = qov(q_Alias, m_v.getResultType());
@@ -818,27 +818,27 @@ public class ValueTranslationTest {
     }
 
     @Test
-    void validTranslatorCompositions() {
+    void validTranslationMapCompositions() {
         final var tv = rcv(
                 fv(t, "a", "q"),
                 add(s, fv(t, "a", "r")),
                 add(s, u)
         );
 
-        // s R s ≡ s R s R s .... R s
+        // s R s ≡ s R s R s .... R s, not allowed.
         {
-            final var translator = TranslationMap.ofAliases(tAlias, t_Alias);
+            final var translationMap = TranslationMap.ofAliases(tAlias, t_Alias);
             Assertions.assertThrows(VerifyException.class,
-                    () -> TranslationMap.compose(ImmutableList.of(translator, translator, translator, translator)));
+                    () -> TranslationMap.compose(ImmutableList.of(translationMap, translationMap, translationMap, translationMap)));
         }
 
         // t R s ≡ s R t
         {
             // t R s
-            final var tTranslator = TranslationMap.ofAliases(tAlias, t_Alias);
-            final var sTranslator = TranslationMap.ofAliases(sAlias, s_Alias);
-            final var compositeTranslator = TranslationMap.compose(ImmutableList.of(tTranslator, sTranslator));
-            final var translatedValue = tv.translateCorrelations(compositeTranslator);
+            final var tTranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+            final var sTranslationMap = TranslationMap.ofAliases(sAlias, s_Alias);
+            final var compositeTranslationMap = TranslationMap.compose(ImmutableList.of(tTranslationMap, sTranslationMap));
+            final var translatedValue = tv.translateCorrelations(compositeTranslationMap);
             final var expectedTranslatedValue = rcv(
                     fv(t_, "a", "q"),
                     add(s_, fv(t_, "a", "r")),
@@ -847,21 +847,21 @@ public class ValueTranslationTest {
             Assertions.assertEquals(expectedTranslatedValue, translatedValue);
 
             // s R t
-            final var symmetricTranslator = TranslationMap.compose(ImmutableList.of(sTranslator, tTranslator));
-            final var identicalTranslatedValue = tv.translateCorrelations(symmetricTranslator);
+            final var symmetricTranslationMap = TranslationMap.compose(ImmutableList.of(sTranslationMap, tTranslationMap));
+            final var identicalTranslatedValue = tv.translateCorrelations(symmetricTranslationMap);
             Assertions.assertEquals(identicalTranslatedValue, expectedTranslatedValue);
         }
 
         // (t R s) R u ≡ t R (s R u)
         {
-            final var tTranslator = TranslationMap.ofAliases(tAlias, t_Alias);
-            final var sTranslator = TranslationMap.ofAliases(sAlias, s_Alias);
-            final var uTranslator = TranslationMap.ofAliases(uAlias, u_Alias);
-            final var tsTranslator = TranslationMap.compose(ImmutableList.of(tTranslator, sTranslator));
+            final var tTranslationMap = TranslationMap.ofAliases(tAlias, t_Alias);
+            final var sTranslationMap = TranslationMap.ofAliases(sAlias, s_Alias);
+            final var uTranslationMap = TranslationMap.ofAliases(uAlias, u_Alias);
+            final var tsTranslationMap = TranslationMap.compose(ImmutableList.of(tTranslationMap, sTranslationMap));
 
             // (t R s) R u
-            final var ts_uTranslator = TranslationMap.compose(ImmutableList.of(tsTranslator, uTranslator));
-            final var translatedValue = tv.translateCorrelations(ts_uTranslator);
+            final var ts_uTranslationMap = TranslationMap.compose(ImmutableList.of(tsTranslationMap, uTranslationMap));
+            final var translatedValue = tv.translateCorrelations(ts_uTranslationMap);
             final var expectedTranslatedValue = rcv(
                     fv(t_, "a", "q"),
                     add(s_, fv(t_, "a", "r")),
@@ -870,35 +870,16 @@ public class ValueTranslationTest {
             Assertions.assertEquals(expectedTranslatedValue, translatedValue);
 
             // t R (s R u)
-            final var suTranslator = TranslationMap.compose(ImmutableList.of(sTranslator, uTranslator));
-            final var t_suTranslator = TranslationMap.compose(ImmutableList.of(suTranslator, tTranslator));
-            final var identicalTranslatedValue = tv.translateCorrelations(t_suTranslator);
+            final var suTranslationMap = TranslationMap.compose(ImmutableList.of(sTranslationMap, uTranslationMap));
+            final var t_suTranslationMap = TranslationMap.compose(ImmutableList.of(suTranslationMap, tTranslationMap));
+            final var identicalTranslatedValue = tv.translateCorrelations(t_suTranslationMap);
             Assertions.assertEquals(identicalTranslatedValue, translatedValue);
         }
     }
 
     @Test
     public void maxMatchDifferentCompositions() {
-        /*
-             1st level:
-             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
-                    |                                                 |
-                  T |                                              T' |
-                    |                                                 |
-                   <T>                                               <T'>
 
-            ((m.m1.m11), m.m2.m21)               (m'.m3.m31, (m'.m2.m21), m'.m1.m11)
-                   |                                                 |
-                M  |                                              M' |
-                   |                                                 |
-                  <M>                                               <M'>
-
-            (n.n2.n21, (n.n1.n12, n.n3.n32))     ((n'.n3.n32), n'.n1.n12, (n'.n3.n31, n'.n2.n22, n'.n2.n21)
-                   |                                                 |
-                 N |                                              N' |
-                   |                                                 |
-                  <N>                                               <N'>
-         */
 
         final var tv = rcv(
                 fv(t, "a", "q"),
@@ -939,18 +920,39 @@ public class ValueTranslationTest {
         );
 
         /*
+             1st level:
+             (t.a.q, t.a.r, (t.b.t), t.j.s)      ((t'.a.q, t'.a.r), (t'.b.t, t'.b.m), t'.j.s, t'.j.q, t'.b.t)
+                    |                                                 |
+                  T |                                              T' |
+                    |                                                 |
+                   <T>                                               <T'>
+
+            ((m.m1.m11), m.m2.m21)               (m'.m3.m31, (m'.m2.m21), m'.m1.m11)
+                   |                                                 |
+                M  |                                              M' |
+                   |                                                 |
+                  <M>                                               <M'>
+
+            (n.n2.n21, (n.n1.n12, n.n3.n32))     ((n'.n3.n32), n'.n1.n12, (n'.n3.n31, n'.n2.n22, n'.n2.n21)
+                   |                                                 |
+                 N |                                              N' |
+                   |                                                 |
+                  <N>                                               <N'>
+         */
+
+        /*
            translation of (t.a.q, t.a.r, (t.b.t), t.j.s) with correlation mapping of t -> t' (and no m3) should merely
            replace t with t', i.e. the result should be (t'.a.q, t'.a.r, (t'.b.t), t'.j.s), same applies for translation
            of ((m.m1.m11), m.m2.m21) and (n.n2.n21, (n.n1.n12, n.n3.n32)); i.e. m -> m', resp. n -> n'.
          */
 
-        final var l1TranslatorTValue = TranslationMap.ofAliases(tAlias, t_Alias);
-        final var l1TranslatorMValue = TranslationMap.ofAliases(mAlias, m_Alias);
-        final var l1TranslatorNValue = TranslationMap.ofAliases(nAlias, n_Alias);
+        final var l1TranslationMapTValue = TranslationMap.ofAliases(tAlias, t_Alias);
+        final var l1TranslationMapMValue = TranslationMap.ofAliases(mAlias, m_Alias);
+        final var l1TranslationMapNValue = TranslationMap.ofAliases(nAlias, n_Alias);
 
-        final var l1TranslatedQueryTValue = tv.translateCorrelations(l1TranslatorTValue);
-        final var l1TranslatedQueryMValue = mv.translateCorrelations(l1TranslatorMValue);
-        final var l1TranslatedQueryNValue = nv.translateCorrelations(l1TranslatorNValue);
+        final var l1TranslatedQueryTValue = tv.translateCorrelations(l1TranslationMapTValue);
+        final var l1TranslatedQueryMValue = mv.translateCorrelations(l1TranslationMapMValue);
+        final var l1TranslatedQueryNValue = nv.translateCorrelations(l1TranslationMapNValue);
 
         //
         //  Let's construct a max match map (m3) using the translated value with the candidate value,
@@ -1018,7 +1020,7 @@ public class ValueTranslationTest {
                              N' |
                                 |
                                <N'>
-             Having (flat) candidate correlations corresponding to SimpleTranslators
+             Having (flat) candidate correlations corresponding to SimpleTranslationMaps
              S':
                    QOV(int)
              U':
@@ -1038,12 +1040,12 @@ public class ValueTranslationTest {
         // p.0 + q.0.0 < r.0 + s + u
         final var predicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(add(fv(r, 0), s), u)));
 
-        final var translators = new ArrayList<TranslationMap>();
-        translators.add(l1m3ForTValue.pullUpTranslationMap(pAlias, p_Alias));
-        translators.add(l1m3ForMValue.pullUpTranslationMap(qAlias, q_Alias));
-        translators.add(l1m3ForNValue.pullUpTranslationMap(rAlias, r_Alias));
-        translators.add(TranslationMap.ofAliases(sAlias, s_Alias));
-        translators.add(TranslationMap.ofAliases(uAlias, u_Alias));
+        final var translationMaps = new ArrayList<TranslationMap>();
+        translationMaps.add(l1m3ForTValue.pullUpTranslationMap(pAlias, p_Alias));
+        translationMaps.add(l1m3ForMValue.pullUpTranslationMap(qAlias, q_Alias));
+        translationMaps.add(l1m3ForNValue.pullUpTranslationMap(rAlias, r_Alias));
+        translationMaps.add(TranslationMap.ofAliases(sAlias, s_Alias));
+        translationMaps.add(TranslationMap.ofAliases(uAlias, u_Alias));
 
         final var p_ = qov(p_Alias, t_v.getResultType());
         final var q_ = qov(q_Alias, m_v.getResultType());
@@ -1053,9 +1055,9 @@ public class ValueTranslationTest {
 
         final var random = new Random(42);
         for (int i = 0; i < 10; i++) {
-            Collections.shuffle(translators, random);
-            final var compositeTranslator = TranslationMap.compose(translators);
-            final var translatedPredicate = predicate.translateCorrelations(compositeTranslator);
+            Collections.shuffle(translationMaps, random);
+            final var compositeTranslationMap = TranslationMap.compose(translationMaps);
+            final var translatedPredicate = predicate.translateCorrelations(compositeTranslationMap);
             Assertions.assertEquals(expectedTranslatedPredicate, translatedPredicate);
         }
     }
