@@ -114,7 +114,9 @@ public class IndexingMerger {
         }
         // after a successful merge, reset the time quota and document count. They are unlikely to be applicable for the next merge.
         timeQuotaMillis = 0;
-        repartitionDocumentCount = 0;
+        if (repartitionDocumentCount > 0) {
+            repartitionDocumentCount = 0;
+        }
         // Here: no errors, stop the iteration unless has more
         final boolean hasMore =
                 shouldGiveRepartitionSecondChance() ||
@@ -131,7 +133,7 @@ public class IndexingMerger {
         switch (lastStep) {
             case REBALANCE:
                 // Here: this exception might be resolved by reducing the number of documents to move during rebalancing
-                handlePotentialRebalanceFailure(mergeControl, e);
+                handleRebalanceFailure(mergeControl, e);
                 break;
 
             case MERGE:
@@ -150,7 +152,7 @@ public class IndexingMerger {
         return AsyncUtil.READY_TRUE; // and retry
     }
 
-    private void handlePotentialRebalanceFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+    private void handleRebalanceFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
         if (repartitionDocumentCount == -1) {
             // Here: failed, despite being set to skip. No recovery.
@@ -161,8 +163,8 @@ public class IndexingMerger {
             // Here: retry merge, but without partition re-balance
             repartitionDocumentCount = -1;
         }
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(mergerLogMessage("IndexMerge: partition rebalance failure", mergeControl), e);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(mergerLogMessage("IndexMerge: partition rebalance failure", mergeControl), e);
         }
     }
 

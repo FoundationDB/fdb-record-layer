@@ -669,10 +669,8 @@ public class LucenePartitioner {
 
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
-                    LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(
-                            partitionInfo,
-                            groupingKey,
-                            repartitionDocumentCount + 1);
+                    final int count = 1 + Math.min(repartitionDocumentCount, indexPartitionHighWatermark);
+                    LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(partitionInfo, groupingKey, count);
 
                     return moveDocsFromPartition(partitionInfo, groupingKey, maxPartitionId, luceneRecordCursor)
                             .thenApply(movedCount -> Pair.of(
