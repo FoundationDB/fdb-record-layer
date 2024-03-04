@@ -76,7 +76,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
 
         final var groupingValue = groupByExpression.getGroupingValue();
 
-        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.current()));
+        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
         // TODO: isConstant is not implemented correctly.
         // for the following FV(col1, QOV( --> RCV(FV(col1(Literal(42))...) ) it is returning false while it should return true.
@@ -104,7 +104,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
         final var newInnerPlanReference = call.memoizeMemberPlans(innerQuantifier.getRangesOver(), planPartition.getPlans());
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
-        final var aliasMap = AliasMap.of(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
+        final var aliasMap = AliasMap.ofAliases(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
         final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
         final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
         return RecordQueryStreamingAggregationPlan.ofNested(

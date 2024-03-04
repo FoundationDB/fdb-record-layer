@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -110,7 +110,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        final var translatedValue = value.translateCorrelations(translationMap);
+        final var translatedValue = value.translateCorrelations(translationMap, false);
         final Comparison newComparison;
         if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
             newComparison = comparison.translateCorrelations(translationMap);

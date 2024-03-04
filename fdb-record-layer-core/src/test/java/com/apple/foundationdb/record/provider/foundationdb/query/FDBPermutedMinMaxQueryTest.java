@@ -182,7 +182,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_2", "num_value_3_indexed", "m"));
-                final AliasMap aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
@@ -292,7 +292,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("m", "num_value_3_indexed"));
-                final AliasMap aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
@@ -402,7 +402,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, new ValuePredicate(aggregateValueReference, new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
-                final AliasMap aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 

@@ -281,7 +281,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         if (matchCandidate.isUnique() && matchCandidate instanceof ValueIndexScanMatchCandidate) {
             // unique index
             final var valueIndexScanMatchCandidate = (ValueIndexScanMatchCandidate)matchCandidate;
-            final var translationMap = AliasMap.of(valueIndexScanMatchCandidate.getBaseAlias(), Quantifier.current());
+            final var translationMap = AliasMap.ofAliases(valueIndexScanMatchCandidate.getBaseAlias(), Quantifier.current());
             final var keyValues =
                     valueIndexScanMatchCandidate.getIndexKeyValues()
                             .stream()

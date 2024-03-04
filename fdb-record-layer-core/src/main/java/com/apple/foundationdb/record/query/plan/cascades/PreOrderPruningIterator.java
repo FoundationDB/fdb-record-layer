@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -30,8 +31,8 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Predicate;
 
 /**
  * An iterator that accesses all elements of a {@link TreeLike} object in pre-order fashion.
@@ -44,20 +45,28 @@ import java.util.NoSuchElementException;
  * @param <T> The type of the iterator element.
  */
 @NotThreadSafe
-public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T> {
+public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Iterator<T> {
 
     @Nonnull
     private final Deque<Pair<Iterable<? extends T>, Integer>> stack;
 
+    @Nonnull
+    private final Predicate<T> descendIntoChildrenPredicate;
+
     private static final int INITIAL_POSITION = -1;
 
-    private PreOrderIterator(@Nonnull final T traversable) {
+    private PreOrderPruningIterator(@Nonnull final T treeLike) {
+        this(treeLike, ignored -> true);
+    }
+
+    private PreOrderPruningIterator(@Nonnull final T treeLike, @Nonnull final Predicate<T> descendIntoChildrenPredicate) {
         // initialize the stack with the {@link TreeLike}'s depth as capacity to avoid resizing.
-        stack = new ArrayDeque<>(traversable.height());
+        stack = new ArrayDeque<>(treeLike.height());
         // this is the only list allocation done to put the root in the stack.
         // all the remaining lists added to the stack are references to children
         // lists (copy by reference).
-        stack.push(MutablePair.of(List.of(traversable.getThis()), INITIAL_POSITION));
+        stack.push(MutablePair.of(ImmutableList.of(treeLike.getThis()), INITIAL_POSITION));
+        this.descendIntoChildrenPredicate = descendIntoChildrenPredicate;
     }
 
     @Override
@@ -97,17 +106,42 @@ public final class PreOrderIterator<T extends TreeLike<T>> implements Iterator<T
         // that incrementing it would lead to finding that next element correctly.
         final var result = Iterables.get(currentLevelItems, nextItemIndex);
         top.setValue(nextItemIndex);
-        final var resultChildren = result.getChildren();
 
-        // descend immediately to the children (if any) so to conform to pre-order DFS semantics.
-        if (!Iterables.isEmpty(resultChildren)) {
-            stack.add(MutablePair.of(resultChildren, INITIAL_POSITION));
+        // test whether we should descend into the children of the current node or prune them
+        // and continue to the next unexplored node in pre-order.
+        if (descendIntoChildrenPredicate.test(result)) {
+            final var resultChildren = result.getChildren();
+
+            // descend immediately to the children (if any) so to conform to pre-order DFS semantics.
+            if (!Iterables.isEmpty(resultChildren)) {
+                stack.add(MutablePair.of(resultChildren, INITIAL_POSITION));
+            }
         }
         return result;
     }
 
+    /**
+     * Retuns an iterator that traverses {@code treeLike} in pre-order.
+     * @param treeLike a {@link TreeLike} treeLike.
+     * @param <T> The type of {@code treeLike} items.
+     * @return an iterator that traverses the items in pre-order.
+     */
     @Nonnull
-    public static <T extends TreeLike<T>> PreOrderIterator<T> over(@Nonnull final T traversable) {
-        return new PreOrderIterator<>(traversable);
+    public static <T extends TreeLike<T>> PreOrderPruningIterator<T> over(@Nonnull final T treeLike) {
+        return new PreOrderPruningIterator<>(treeLike);
+    }
+
+    /**
+     * Retuns an iterator that traverses {@code treeLike} in pre-order with a children-pruning condition.
+     * @param treeLike a {@link TreeLike} treeLike.
+     * @param descendIntoChildrenPredicate a condition that determines whether, for the currently visited node, the iterator
+     *                          should descend to the children or not.
+     * @param <T> The type of {@code treeLike} items.
+     * @return an iterator that traverses the items in pre-order.
+     */
+    @Nonnull
+    public static <T extends TreeLike<T>> PreOrderPruningIterator<T> overWithPruningPredicate(@Nonnull final T treeLike,
+                                                                                              @Nonnull Predicate<T> descendIntoChildrenPredicate) {
+        return new PreOrderPruningIterator<>(treeLike, descendIntoChildrenPredicate);
     }
 }

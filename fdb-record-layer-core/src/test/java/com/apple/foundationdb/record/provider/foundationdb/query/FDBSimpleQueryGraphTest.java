@@ -230,7 +230,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
-                    final var aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                    final var aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                     final var orderByValues = List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap));
                     return GroupExpressionRef.of(new LogicalSortExpression(orderByValues, true, qun));
                 });

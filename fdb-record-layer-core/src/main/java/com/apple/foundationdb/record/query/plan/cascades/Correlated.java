@@ -241,5 +241,10 @@ public interface Correlated<S extends Correlated<S>> {
         public int hashCode() {
             return Objects.hash(aliasMap);
         }
+
+        @Override
+        public String toString() {
+            return "≌[" + aliasMap + "]";
+        }
     }
 }

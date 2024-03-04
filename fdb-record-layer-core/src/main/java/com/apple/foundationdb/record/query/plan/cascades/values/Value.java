@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
@@ -73,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 /**
@@ -258,12 +259,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     @Override
     default Value rebase(@Nonnull final AliasMap aliasMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap), false);
     }
 
     @Nonnull
     default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return replaceLeavesMaybe(value -> {
+        return translateCorrelations(translationMap, true);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNecessary) {
+        final var isSimplifyNecessary = new AtomicBoolean(false);
+        final var newValue = replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
@@ -274,7 +282,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 Verify.verify(correlatedTo.size() == 1);
                 final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
                 if (translationMap.containsSourceAlias(sourceAlias)) {
-                    return translationMap.applyTranslationFunction(sourceAlias, leafValue);
+                    final var translatedValue = translationMap.applyTranslationFunction(sourceAlias, leafValue);
+                    if (translatedValue != leafValue && !Iterables.isEmpty(translatedValue.getChildren())) {
+                        isSimplifyNecessary.set(true);
+                    }
+                    return translatedValue;
                 }  else {
                     return leafValue;
                 }
@@ -282,6 +294,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
         }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+
+        if (simplifyIfNecessary && isSimplifyNecessary.get()) {
+            return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
+        }
+        return newValue;
     }
 
     @Nonnull
@@ -477,11 +494,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .map(Correlated::getCorrelatedTo)
                 .collect(ImmutableList.toImmutableList());
 
-        final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
-        correlatedTos.forEach(correlatedToIntersection::retainAll);
+        final var correlatedToDifference = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
+        correlatedTos.forEach(correlatedToDifference::retainAll);
 
-        final var equivalenceMap = aliasMap.derived()
-                .identitiesFor(correlatedToIntersection)
+        final var equivalenceMap = aliasMap.toBuilder()
+                .identitiesFor(correlatedToDifference)
                 .build();
 
         final var resultPair =

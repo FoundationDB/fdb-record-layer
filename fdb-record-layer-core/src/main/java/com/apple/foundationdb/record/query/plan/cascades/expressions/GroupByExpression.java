@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -161,8 +161,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final AggregateValue translatedAggregateValue = getAggregateValue().translateCorrelations(translationMap);
-        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap);
+        final AggregateValue translatedAggregateValue = getAggregateValue().translateCorrelations(translationMap, false);
+        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap, false);
         Verify.verify(translatedGroupingValue instanceof FieldValue);
         if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
             return new GroupByExpression(translatedAggregateValue, (FieldValue)translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));

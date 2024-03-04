@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
@@ -216,7 +216,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     @Override
     public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
+        return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap, false),
+                ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
     }
 
     public boolean equalsValueOnly(@Nonnull final QueryPredicate other) {

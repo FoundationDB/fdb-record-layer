@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,19 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -83,6 +88,11 @@ public class TranslationMap {
     }
 
     @Nonnull
+    public Builder toBuilder() {
+        return new Builder(aliasToTargetMap);
+    }
+
+    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
@@ -102,7 +112,22 @@ public class TranslationMap {
         return new AliasMapBasedTranslationMap(translationMapBuilder.build(), aliasMap);
     }
 
-    private static class AliasMapBasedTranslationMap  extends TranslationMap {
+    @Nonnull
+    public static TranslationMap ofAliases(@Nonnull final CorrelationIdentifier source,
+                                           @Nonnull final CorrelationIdentifier target) {
+        return rebaseWithAliasMap(AliasMap.ofAliases(source, target));
+    }
+
+    @Nonnull
+    public static TranslationMap compose(@Nonnull final Iterable<TranslationMap> translationMaps) {
+        final var builder = TranslationMap.builder();
+        for (final var translationMap : translationMaps) {
+            builder.compose(translationMap);
+        }
+        return builder.build();
+    }
+
+    private static class AliasMapBasedTranslationMap extends TranslationMap {
         @Nonnull
         private final AliasMap aliasMap;
 
@@ -157,15 +182,22 @@ public class TranslationMap {
      */
     public static class Builder {
         @Nonnull
-        private final ImmutableMap.Builder<CorrelationIdentifier, TranslationTarget> translationMapBuilder;
+        private final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap;
 
         public Builder() {
-            this.translationMapBuilder = ImmutableMap.builder();
+            this.aliasToTargetMap = Maps.newLinkedHashMap();
+        }
+
+        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap) {
+            this.aliasToTargetMap = Maps.newLinkedHashMap(aliasToTargetMap);
         }
 
         @Nonnull
         public TranslationMap build() {
-            return new TranslationMap(translationMapBuilder.build());
+            if (aliasToTargetMap.isEmpty()) {
+                return TranslationMap.empty();
+            }
+            return new TranslationMap(aliasToTargetMap);
         }
 
         @Nonnull
@@ -176,6 +208,16 @@ public class TranslationMap {
         @Nonnull
         public Builder.WhenAny whenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
             return new WhenAny(sourceAliases);
+        }
+
+        @Nonnull
+        public Builder compose(@Nonnull final TranslationMap other) {
+            other.aliasToTargetMap
+                    .forEach((key, value) -> {
+                        Verify.verify(!aliasToTargetMap.containsKey(key));
+                        aliasToTargetMap.put(key, value);
+                    });
+            return this;
         }
 
         /**
@@ -191,7 +233,7 @@ public class TranslationMap {
 
             @Nonnull
             public Builder then(@Nonnull CorrelationIdentifier targetAlias, @Nonnull TranslationFunction translationFunction) {
-                translationMapBuilder.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
+                aliasToTargetMap.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
                 return Builder.this;
             }
         }
@@ -210,7 +252,7 @@ public class TranslationMap {
             @Nonnull
             public Builder then(@Nonnull TranslationFunction translationFunction) {
                 for (final CorrelationIdentifier sourceAlias : sourceAliases) {
-                    translationMapBuilder.put(sourceAlias, new TranslationTarget(Quantifier.current(), translationFunction));
+                    aliasToTargetMap.put(sourceAlias, new TranslationTarget(Quantifier.current(), translationFunction));
                 }
                 return Builder.this;
             }
