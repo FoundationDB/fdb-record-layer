@@ -652,10 +652,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         GTE_VV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> ((FDBRecordVersion)l).compareTo((FDBRecordVersion) r) >= 0),
 
         EQ_BYU(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        EQ_BYBY(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Arrays.equals((byte[])l, (byte[])r)),
+        EQ_BYBY(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, l, r)),
         EQ_UBY(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BYTES, (l, r) -> null),
         NEQ_BYU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.UNKNOWN, (l, r) -> null),
-        NEQ_BYBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> !Arrays.equals((byte[])l, (byte[])r)),
+        NEQ_BYBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, r)),
         NEQ_UBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.BYTES, (l, r) -> null),
         ;
 
