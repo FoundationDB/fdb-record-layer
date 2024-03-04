@@ -73,6 +73,10 @@ message PType {
     optional bool is_nullable = 1;
   }
 
+  message PAnyArrayType {
+      optional bool is_nullable = 1;
+    }
+
   message PEnumType {
     message PEnumValue {
       optional string name = 1;
@@ -115,6 +119,7 @@ message PType {
     PRelationType relation_type = 7;
     PArrayType array_type = 8;
     PAnyRecordType any_record_type = 9;
+    PAnyArrayType any_array_type = 10;
   }
 }
 
