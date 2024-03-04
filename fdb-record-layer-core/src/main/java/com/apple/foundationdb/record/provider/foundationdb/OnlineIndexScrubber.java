@@ -25,12 +25,10 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
-import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
@@ -938,19 +936,12 @@ public class OnlineIndexScrubber implements AutoCloseable {
             if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {
                 throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
             }
-            if (recordTypes == null) {
-                recordTypes = metaData.recordTypesForIndex(index);
-            } else {
+            if (recordTypes != null) {
                 for (RecordType recordType : recordTypes) {
                     if (recordType != metaData.getIndexableRecordType(recordType.getName())) {
                         throw new MetaDataException("Record type " + recordType.getName() + " not contained within specified metadata");
                     }
                 }
-            }
-            if (recordTypes.stream().anyMatch(RecordType::isSynthetic)) {
-                // The (stored) types to scan, not the (synthetic) types that are indexed.
-                recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null), getTimer())
-                        .storedRecordTypesForIndex(index, recordTypes);
             }
         }
 

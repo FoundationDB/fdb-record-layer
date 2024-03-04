@@ -48,7 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -259,7 +259,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap, translatedQuantifiers);
-        final var maybeNewResult = resultValue.translateCorrelations(translationMap);
+        final var maybeNewResult = resultValue.translateCorrelations(translationMap, false);
         if (translatedIndexPlan != indexPlan || maybeNewResult != resultValue) {
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, maybeNewResult);
         }

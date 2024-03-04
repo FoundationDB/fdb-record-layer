@@ -870,11 +870,12 @@ public class SyntheticRecordPlannerTest {
             context.commit();
         }
 
-        metaDataBuilder.addIndex(joined, new Index("simple.num_value_2_other.num_value_3", concat(field("simple").nest("num_value_2"), field("other").nest("num_value_3"))));
+        final Index joinedIndex = new Index("simple.num_value_2_other.num_value_3", concat(field("simple").nest("num_value_2"), field("other").nest("num_value_3")));
+        metaDataBuilder.addIndex(joined, joinedIndex);
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
-            final Index index = recordStore.getRecordMetaData().getIndex("simple.num_value_2_other.num_value_3");
+            recordStore.rebuildIndex(joinedIndex).join();
             final TupleRange range = new ScanComparisons.Builder()
                     .addEqualityComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2))
                     .addEqualityComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 3))
@@ -882,7 +883,7 @@ public class SyntheticRecordPlannerTest {
                     .toTupleRange();
 
             List<Tuple> expected1 = Arrays.asList(Tuple.from(2, 3, -1, Tuple.from(1), Tuple.from(1001)));
-            List<Tuple> results1 = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
+            List<Tuple> results1 = recordStore.scanIndex(joinedIndex, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
             assertEquals(expected1, results1);
         }
     }

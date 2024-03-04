@@ -133,6 +133,11 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
         return inSources;
     }
 
+    @Nonnull
+    public CorrelationIdentifier getInAlias(@Nonnull final InSource inSource) {
+        return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
+    }
+
     @SuppressWarnings("resource")
     @Nonnull
     @Override

@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -117,7 +117,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ExplodeExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap);
+        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap, false);
         if (translatedCollectionValue != collectionValue) {
             return new ExplodeExpression(translatedCollectionValue);
         }

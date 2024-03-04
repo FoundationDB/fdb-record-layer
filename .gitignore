@@ -41,6 +41,7 @@ atlassian-ide-plugin.xml
 .idea/compiler.xml
 .idea/gradle.xml
 .idea/jarRepositories.xml
+.idea/scala_settings.xml
 .idea/shelf
 
 # VSCode specific files/directories

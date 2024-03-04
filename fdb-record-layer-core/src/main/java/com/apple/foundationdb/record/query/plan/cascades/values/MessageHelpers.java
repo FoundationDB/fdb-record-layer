@@ -89,7 +89,6 @@ public class MessageHelpers {
         return getFieldOnMessage(current, fieldNames.get(fieldNames.size() - 1));
     }
 
-    @SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
     @Nullable
     public static Object getFieldValueForFieldOrdinals(@Nonnull MessageOrBuilder message, @Nonnull ImmutableIntArray fieldOrdinals) {
         if (fieldOrdinals.isEmpty()) {
@@ -266,14 +265,13 @@ public class MessageHelpers {
                                                               @Nullable final TransformationTrieNode transformationsTrie,
                                                               @Nullable final CoercionTrieNode coercionsTrie,
                                                               @Nonnull final Type targetType,
-                                                              @Nullable Descriptors.Descriptor targetDescriptor,
+                                                              @Nonnull Descriptors.Descriptor targetDescriptor,
                                                               @Nonnull final Type currentType,
                                                               @Nonnull Descriptors.Descriptor currentDescriptor,
                                                               @Nullable final Object current) {
         final var value = transformationsTrie == null ? null : transformationsTrie.getValue();
         Verify.verify(value == null);
 
-        targetDescriptor = Verify.verifyNotNull(targetDescriptor);
         final var targetDescriptorFields = targetDescriptor.getFields();
         final var targetRecordType = (Type.Record)targetType;
         final var currentRecordType = (Type.Record)currentType;
@@ -287,13 +285,19 @@ public class MessageHelpers {
             final var index = messageFieldDescriptor.getIndex();
             final var transformationTrieForField = transformationsChildrenMap == null ? null : transformationsChildrenMap.get(index);
             final var targetFieldDescriptor = targetDescriptorFields.get(index);
-            final var targetDescriptorForField = targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? targetFieldDescriptor.getMessageType() : null;
+            final var targetDescriptorForField = targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE
+                                                 ? targetFieldDescriptor.getMessageType()
+                                                 : targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.ENUM
+                                                   ? targetFieldDescriptor.getEnumType()
+                                                   : null;
             final var promotionTrieForField = coercionsChildrenMap == null ? null : coercionsChildrenMap.get(index);
             final var targetFieldType = targetRecordType.getField(index).getFieldType();
             if (transformationTrieForField != null) {
                 final var currentFieldType = currentRecordType.getField(index).getFieldType();
                 Object fieldResult;
                 if (transformationTrieForField.getValue() == null) {
+                    Verify.verify(targetDescriptorForField instanceof Descriptors.Descriptor);
+
                     //
                     // Note that this recursive call has to happen even if the field value is null,
                     // as the transformations have to be done exhaustively, which then can create non-null values
@@ -305,7 +309,7 @@ public class MessageHelpers {
                                     transformationTrieForField,
                                     promotionTrieForField,
                                     targetFieldType,
-                                    targetDescriptorForField,
+                                    (Descriptors.Descriptor)targetDescriptorForField,
                                     currentFieldType,
                                     Verify.verifyNotNull(messageFieldDescriptor.getMessageType()),
                                     currentMessage == null ? null : currentMessage.getField(messageFieldDescriptor));
@@ -348,7 +352,7 @@ public class MessageHelpers {
     @Nullable
     public static Object coerceObject(@Nullable final CoercionTrieNode coercionsTrie,
                                       @Nonnull final Type targetType,
-                                      @Nullable final Descriptors.Descriptor targetDescriptor,
+                                      @Nullable final Descriptors.GenericDescriptor targetDescriptor,
                                       @Nonnull final Type currentType,
                                       @Nullable final Object current) {
         SemanticException.check(current != null || targetType.isNullable(), SemanticException.ErrorCode.NULL_ASSIGNMENT);
@@ -360,7 +364,8 @@ public class MessageHelpers {
 
         if (coercionsTrie == null) {
             if (targetDescriptor != null && current instanceof Message) {
-                return deepCopyMessageIfNeeded(targetDescriptor, (Message)current);
+                Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
+                return deepCopyMessageIfNeeded((Descriptors.Descriptor)targetDescriptor, (Message)current);
             }
             return current;
         }
@@ -376,6 +381,14 @@ public class MessageHelpers {
         }
 
         //
+        // This is another leaf case: The target can be an Enum,
+        if (targetType.isEnum()) {
+            Verify.verify(targetDescriptor instanceof Descriptors.EnumDescriptor);
+            final var coercionFunction = Verify.verifyNotNull(coercionsTrie.getValue());
+            return Verify.verifyNotNull(coercionFunction.apply(targetDescriptor, current));
+        }
+
+        //
         // This juggles with a change in nullability for arrays. If we were nullable before, but now we are not or
         // vice versa, we need to change the wrapping in protobuf.
         //
@@ -386,7 +399,8 @@ public class MessageHelpers {
         }
 
         if (targetType.isRecord()) {
-            return coerceMessage(coercionsTrie, targetType, Verify.verifyNotNull(targetDescriptor), currentType, (Message)current);
+            Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
+            return coerceMessage(coercionsTrie, targetType, Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor), currentType, (Message)current);
         }
 
         throw new IllegalStateException("unsupported java type for record field");
@@ -407,7 +421,7 @@ public class MessageHelpers {
     @Nonnull
     public static Object coerceArray(@Nonnull final Type.Array targetArrayType,
                                      @Nonnull final Type.Array currentArrayType,
-                                     @Nullable Descriptors.Descriptor targetDescriptor,
+                                     @Nullable Descriptors.GenericDescriptor targetDescriptor,
                                      @Nullable final CoercionTrieNode elementsTrie,
                                      @Nonnull final Object current) {
         final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
@@ -415,7 +429,8 @@ public class MessageHelpers {
 
         final Descriptors.FieldDescriptor targetElementFieldDescriptor;
         if (targetArrayType.isNullable()) {
-            targetElementFieldDescriptor = Verify.verifyNotNull(targetDescriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+            Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
+            targetElementFieldDescriptor = Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
         } else {
             targetElementFieldDescriptor = null;
         }
@@ -443,7 +458,7 @@ public class MessageHelpers {
 
         if (targetArrayType.isNullable()) {
             // the target descriptor is the wrapping holder
-            final var wrapperBuilder = DynamicMessage.newBuilder(Verify.verifyNotNull(targetDescriptor));
+            final var wrapperBuilder = DynamicMessage.newBuilder(Verify.verifyNotNull((Descriptors.Descriptor)targetDescriptor));
             wrapperBuilder.setField(Verify.verifyNotNull(targetElementFieldDescriptor), coercedArray);
             return wrapperBuilder.build();
         }
@@ -497,7 +512,7 @@ public class MessageHelpers {
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> implements PlanHashable, PlanSerializable {
+    public static class TransformationTrieNode extends TrieNode.AbstractTrieNode<Integer, Value, TransformationTrieNode> implements PlanHashable, PlanSerializable {
 
         public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
             super(value, childrenMap);
@@ -616,7 +631,7 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, CoercionBiFunction, CoercionTrieNode> implements PlanHashable, PlanSerializable {
+    public static class CoercionTrieNode extends TrieNode.AbstractTrieNode<Integer, CoercionBiFunction, CoercionTrieNode> implements PlanHashable, PlanSerializable {
         public CoercionTrieNode(@Nullable final CoercionBiFunction value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }
@@ -690,7 +705,7 @@ public class MessageHelpers {
     /**
      * Coercion (bi)-function which also is plan hashable.
      */
-    public interface CoercionBiFunction extends BiFunction<Descriptors.Descriptor, Object, Object>, PlanHashable, PlanSerializable {
+    public interface CoercionBiFunction extends BiFunction<Descriptors.GenericDescriptor, Object, Object>, PlanHashable, PlanSerializable {
         @Nonnull
         @SuppressWarnings("unused")
         PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull PlanSerializationContext serializationContext);

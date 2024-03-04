@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -159,7 +159,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedExclusiveLimitValue = exclusiveLimitValue.translateCorrelations(translationMap);
+        final var translatedExclusiveLimitValue = exclusiveLimitValue.translateCorrelations(translationMap, false);
         if (translatedExclusiveLimitValue == exclusiveLimitValue) {
             return this;
         }

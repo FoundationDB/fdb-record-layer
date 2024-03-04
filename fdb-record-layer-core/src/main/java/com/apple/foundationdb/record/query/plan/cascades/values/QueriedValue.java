@@ -32,9 +32,12 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -46,6 +49,9 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
 
     @Nonnull
     private final Type resultType;
+
+    @Nullable
+    private List<String> recordTypeNames;
 
     public QueriedValue() {
         this(Type.primitiveType(Type.TypeCode.UNKNOWN));
@@ -61,10 +67,20 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
         this.resultType = resultType;
     }
 
+    public QueriedValue(@Nonnull final Type resultType, @Nullable final Iterable<String> recordTypeNames) {
+        this.resultType = resultType;
+        this.recordTypeNames = recordTypeNames == null ? null : ImmutableList.copyOf(recordTypeNames);
+    }
+
     @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
+    }
+
+    @Nullable
+    public List<String> getRecordTypeNames() {
+        return recordTypeNames;
     }
 
     @Nonnull
@@ -96,7 +112,10 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
 
     @Override
     public String toString() {
-        return "base()";
+        if (recordTypeNames == null) {
+            return "base()";
+        }
+        return "base(" + String.join(",", recordTypeNames) + ")";
     }
 
     @Override
@@ -114,9 +133,13 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
     @Nonnull
     @Override
     public PQueriedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PQueriedValue.newBuilder()
-                .setResultType(resultType.toTypeProto(serializationContext))
-                .build();
+        final PQueriedValue.Builder builder =  PQueriedValue.newBuilder()
+                .setResultType(resultType.toTypeProto(serializationContext));
+        builder.setHasRecordTypeNames(recordTypeNames != null);
+        if (recordTypeNames != null) {
+            builder.addAllRecordTypeNames(recordTypeNames);
+        }
+        return builder.build();
     }
 
     @Nonnull
@@ -128,7 +151,19 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.Comp
     @Nonnull
     public static QueriedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PQueriedValue queriedValueProto) {
-        return new QueriedValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(queriedValueProto.getResultType())));
+        Verify.verify(queriedValueProto.hasHasRecordTypeNames());
+        final List<String> recordTypeNames;
+        if (queriedValueProto.getHasRecordTypeNames()) {
+            final ImmutableList.Builder<String> recordTypeNamesBuilder = ImmutableList.builder();
+            for (int i = 0; i < queriedValueProto.getRecordTypeNamesCount(); i ++) {
+                recordTypeNamesBuilder.add(queriedValueProto.getRecordTypeNames(i));
+            }
+            recordTypeNames = recordTypeNamesBuilder.build();
+        } else {
+            recordTypeNames = null;
+        }
+        return new QueriedValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(queriedValueProto.getResultType())),
+                recordTypeNames);
     }
 
     /**

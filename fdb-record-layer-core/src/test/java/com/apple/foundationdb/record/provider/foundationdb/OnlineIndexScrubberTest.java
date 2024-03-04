@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecordsJoinIndexProto;
+import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -342,5 +344,309 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+    }
+
+    @Test
+    void testScrubUnnestedIndex() {
+        final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
+        final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OnlineIndexerBuildUnnestedIndexTest.UNNESTED, targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final long numRecords = 20;
+        populateNestedMapData(numRecords);
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        // Scanned 5 * numRecords. This is from:
+        //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
+        //     OuterRecord and numRecords of type OtherRecord (so that's 2 * numRecords)
+        //  2. When scanning dangling entries, we look up one for every entry in the index. There are 3 map entries
+        //     for each of type OuterRecord, so that's 3 * numRecords.
+        assertEquals(numRecords * 5, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+    }
+
+    @Test
+    void testDetectDanglingUnnestedIndex() {
+        final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
+        final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OnlineIndexerBuildUnnestedIndexTest.UNNESTED, targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final long numRecords = 30;
+        final List<Message> data = populateNestedMapData(numRecords);
+        int doDelete = 0;
+        try (FDBRecordContext context = openContext()) {
+            for (Message datum : data) {
+                if (!(datum instanceof TestRecordsNestedMapProto.OuterRecord)) {
+                    continue;
+                }
+                // Clear out the record data for 1/3 records
+                if (doDelete == 0) {
+                    Tuple primaryKey = recordHandler.getPrimaryKey(datum);
+                    context.ensureActive().clear(recordStore.recordsSubspace().subspace(primaryKey).range());
+                }
+                doDelete = (doDelete + 1) % 3;
+            }
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .build())
+                .build()) {
+            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            indexScrubber.scrubMissingIndexEntries();
+        }
+    }
+
+    @Test
+    void testDetectMissingUnnestedIndex() {
+        final Index targetIndex = new Index("unnestedIndex", concat(field("entry").nest("key"), field("parent").nest("other_id"), field("entry").nest("int_value")));
+        final OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerBuildUnnestedIndexTest.OnlineIndexerTestUnnestedRecordHandler.instance();
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OnlineIndexerBuildUnnestedIndexTest.UNNESTED, targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final long numRecords = 30;
+        final List<Message> data = populateNestedMapData(numRecords);
+        int doDelete = 0;
+        int deleteCount = 0;
+        try (FDBRecordContext context = openContext()) {
+            for (Message datum : data) {
+                if (!(datum instanceof TestRecordsNestedMapProto.OuterRecord)) {
+                    continue;
+                }
+                if (doDelete == 0) {
+                    // Clear out one of the entries for this record
+                    TestRecordsNestedMapProto.OuterRecord outerRecord = (TestRecordsNestedMapProto.OuterRecord)datum;
+                    if (!outerRecord.getMap().getEntryList().isEmpty()) {
+                        int entryToDeleteIndex = deleteCount % outerRecord.getMap().getEntryCount();
+                        TestRecordsNestedMapProto.MapRecord.Entry entryToDelete = outerRecord.getMap().getEntry(entryToDeleteIndex);
+                        final Tuple indexKey = Tuple.from(entryToDelete.getKey(), outerRecord.getOtherId(), entryToDelete.getIntValue(),
+                                metaData.getSyntheticRecordType(OnlineIndexerBuildUnnestedIndexTest.UNNESTED).getRecordTypeKey(), Tuple.from(outerRecord.getRecId()), Tuple.from(entryToDeleteIndex));
+                        context.ensureActive().clear(recordStore.indexSubspace(targetIndex).pack(indexKey));
+                        deleteCount++;
+                    }
+                }
+                doDelete = (doDelete + 1) % 3;
+            }
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        // numRecords/3 records have been deleted. Each one created 3 entries, so the total number of
+        // dangling entries should equal numRecords
+        assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+    }
+
+    @Test
+    void testScrubJoinedIndex() {
+        final Index targetIndex = new Index("joinedIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
+        final OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler.instance();
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(recordHandler.addIndexHook(targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final long numRecords = 30;
+        populateJoinedData(numRecords);
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        // Scanned 3 * numRecords. This is from:
+        //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
+        //     MySimpleRecord and numRecords of type MyOtherRecord (so that's 2 * numRecords)
+        //  2. When scanning dangling entries, we look up one for every entry in the index. There are is one entry
+        //     for each pair of simple and other records, so that's another numRecords scanned
+        assertEquals(numRecords * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+    }
+
+    @Test
+    void testDetectDanglingFromJoinedIndex() {
+        final Index targetIndex = new Index("joinedIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
+        final OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler.instance();
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(recordHandler.addIndexHook(targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final long numRecords = 100;
+        final List<Message> data = populateJoinedData(numRecords);
+        try (FDBRecordContext context = openContext()) {
+            int doDelete = 0;
+            for (Message datum : data) {
+                if (!(datum instanceof TestRecordsJoinIndexProto.MySimpleRecord)) {
+                    continue;
+                }
+                if (doDelete == 0) {
+                    TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = (TestRecordsJoinIndexProto.MySimpleRecord)datum;
+                    TestRecordsJoinIndexProto.MyOtherRecord otherRecord = recordStore.loadRecordAsync(Tuple.from(simpleRecord.getOtherRecNo()))
+                            .thenApply(storedRec -> TestRecordsJoinIndexProto.MyOtherRecord.newBuilder().mergeFrom(storedRec.getRecord()).build())
+                            .join();
+
+                    // Clear out both records that are a part of this join pair
+                    context.ensureActive().clear(recordStore.recordsSubspace().subspace(recordHandler.getPrimaryKey(simpleRecord)).range());
+                    context.ensureActive().clear(recordStore.recordsSubspace().subspace(recordHandler.getPrimaryKey(otherRecord)).range());
+                }
+                doDelete = (doDelete + 1) % 4;
+            }
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .build())
+                .build()) {
+            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            indexScrubber.scrubMissingIndexEntries();
+        }
+    }
+
+    @Test
+    void testDetectMissingFromJoinedIndex() {
+        final Index targetIndex = new Index("joinedIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
+        final OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerBuildJoinedIndexTest.OnlineIndexerJoinedRecordHandler.instance();
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = recordHandler.baseHook(true, null)
+                .andThen(recordHandler.addIndexHook(targetIndex));
+        openMetaData(recordHandler.getFileDescriptor(), hook);
+
+        final long numRecords = 100;
+        final List<Message> data = populateJoinedData(numRecords);
+        try (FDBRecordContext context = openContext()) {
+            int doDelete = 0;
+            for (Message datum : data) {
+                if (!(datum instanceof TestRecordsJoinIndexProto.MySimpleRecord)) {
+                    continue;
+                }
+                if (doDelete == 0) {
+                    TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = (TestRecordsJoinIndexProto.MySimpleRecord)datum;
+                    TestRecordsJoinIndexProto.MyOtherRecord otherRecord = recordStore.loadRecordAsync(Tuple.from(simpleRecord.getOtherRecNo()))
+                            .thenApply(storedRec -> TestRecordsJoinIndexProto.MyOtherRecord.newBuilder().mergeFrom(storedRec.getRecord()).build())
+                            .join();
+                    // Clear out the index key for this join pair
+                    final Tuple indexKey = Tuple.from(simpleRecord.getNumValue(), otherRecord.getNumValue3(), simpleRecord.getNumValue2(),
+                            metaData.getSyntheticRecordType("SimpleOtherJoin").getRecordTypeKey(), recordHandler.getPrimaryKey(simpleRecord), recordHandler.getPrimaryKey(otherRecord));
+                    context.ensureActive().clear(recordStore.indexSubspace(targetIndex).pack(indexKey));
+                }
+                doDelete = (doDelete + 1) % 4;
+            }
+            context.commit();
+        }
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(true)
+                        .build())
+                .build()) {
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
+        }
+
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
     }
 }

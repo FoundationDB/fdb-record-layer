@@ -65,7 +65,6 @@ import java.util.stream.Collectors;
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
  */
-@SuppressWarnings("UnstableApiUsage") // caused by usage of Guava's ImmutableIntArray.
 @API(API.Status.EXPERIMENTAL)
 public class FieldValue extends AbstractValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
@@ -78,7 +77,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Nonnull
     private final Supplier<List<String>> fieldNamesSupplier;
 
-    private FieldValue(@Nonnull Value childValue, @Nonnull FieldPath fieldPath) {
+    private FieldValue(@Nonnull final Value childValue, @Nonnull final FieldPath fieldPath) {
         this.childValue = childValue;
         this.fieldPath = fieldPath;
         fieldNamesSupplier = Suppliers.memoize(() ->
@@ -243,17 +242,16 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Nonnull
     @Override
     public PFieldValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        PFieldValue.Builder builder = PFieldValue.newBuilder();
-        builder.setChildValue(childValue.toValueProto(serializationContext));
-        builder.setFieldPath(fieldPath.toProto(serializationContext));
-        return builder.build();
+        return PFieldValue.newBuilder()
+                .setChildValue(childValue.toValueProto(serializationContext))
+                .setFieldPath(fieldPath.toProto(serializationContext))
+                .build();
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
-        final var specificValueProto = toProto(serializationContext);
-        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(specificValueProto).build();
+        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -491,6 +489,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             return subList(count, size());
         }
 
+        @SuppressWarnings("BooleanMethodIsAlwaysInverted")
         public boolean isPrefixOf(@Nonnull final FieldPath otherFieldPath) {
             if (otherFieldPath.size() < size()) {
                 return false;
@@ -630,10 +629,11 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         final int ordinal;
 
-        @Nonnull
+        @Nullable
         private final Type type;
 
-        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nonnull final Type type) {
+        protected ResolvedAccessor(@Nullable final String name, final int ordinal, @Nullable final Type type) {
+            Preconditions.checkArgument(ordinal >= 0);
             this.name = name;
             this.ordinal = ordinal;
             this.type = type;
@@ -650,7 +650,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         public Type getType() {
-            return type;
+            return Objects.requireNonNull(type);
         }
 
         @Override
@@ -672,19 +672,32 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         @Override
+        public String toString() {
+            return name + ';' + ordinal + ';' + type;
+        }
+
+        @Nonnull
+        @Override
         public PResolvedAccessor toProto(@Nonnull final PlanSerializationContext serializationContext) {
             PResolvedAccessor.Builder builder = PResolvedAccessor.newBuilder();
             builder.setName(name);
             builder.setOrdinal(ordinal);
-            builder.setType(type.toTypeProto(serializationContext));
+            if (type != null) {
+                builder.setType(type.toTypeProto(serializationContext));
+            }
             return builder.build();
         }
 
         @Nonnull
         public static ResolvedAccessor fromProto(@Nonnull PlanSerializationContext serializationContext,
                                                  @Nonnull final PResolvedAccessor resolvedAccessorProto) {
-            return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(),
-                    Type.fromTypeProto(serializationContext, resolvedAccessorProto.getType()));
+            final Type type;
+            if (resolvedAccessorProto.hasType()) {
+                type = Type.fromTypeProto(serializationContext, resolvedAccessorProto.getType());
+            } else {
+                type = null;
+            }
+            return new ResolvedAccessor(resolvedAccessorProto.getName(), resolvedAccessorProto.getOrdinal(), type);
         }
 
         @Nonnull
@@ -694,8 +707,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
         @Nonnull
         public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber, @Nonnull final Type type) {
-            Preconditions.checkArgument(ordinalFieldNumber >= 0);
             return new ResolvedAccessor(fieldName, ordinalFieldNumber, type);
+        }
+
+        @Nonnull
+        public static ResolvedAccessor of(@Nullable final String fieldName, final int ordinalFieldNumber) {
+            return new ResolvedAccessor(fieldName, ordinalFieldNumber, null);
         }
     }
 

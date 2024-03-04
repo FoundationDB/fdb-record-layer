@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -114,7 +114,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap));
+                getComputationValue().translateCorrelations(translationMap, false));
     }
 
     @Nullable
@@ -128,7 +128,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
             final var value = current.getValue();
             if (value != null) {
                 Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
+                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap, false), null);
             } else {
                 final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();

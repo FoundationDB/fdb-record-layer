@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Expan
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
@@ -164,7 +164,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Override
     public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, false);
         return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 
