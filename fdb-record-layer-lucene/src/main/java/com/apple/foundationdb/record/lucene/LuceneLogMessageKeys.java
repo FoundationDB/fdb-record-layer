@@ -61,6 +61,7 @@ public enum LuceneLogMessageKeys {
     LENGTH,
     LOCK_NAME,
     LOCK_EXISTING_TIMESTAMP,
+    LOCK_EXISTING_UUID,
     LOCK_DIRECTORY,
     MERGE_SOURCE,
     MERGE_TRIGGER,

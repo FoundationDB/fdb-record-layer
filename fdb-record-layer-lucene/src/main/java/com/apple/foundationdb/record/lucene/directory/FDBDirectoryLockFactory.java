@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -34,7 +33,7 @@ import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -60,6 +59,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         final AgilityContext agilityContext;
         final String lockName;
+        final UUID selfStampUuid = UUID.randomUUID();
         long timeStampMillis;
         final int timeWindowMilliseconds;
         final byte[] fileLockKey;
@@ -95,50 +95,58 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
 
-        private static byte[] fileLockValue(long timeStampMillis) {
-            return Tuple.from(timeStampMillis).pack();
+        private byte[] fileLockValue() {
+            return Tuple.from(selfStampUuid, timeStampMillis).pack();
         }
 
         private static long fileLockValueToTimestamp(byte[] value) {
             return value == null ? 0 :
-                   Tuple.fromBytes(value).getLong(0);
+                   Tuple.fromBytes(value).getLong(1);
+        }
+
+        private static UUID fileLockValueToUuid(byte[] value) {
+            return value == null ? null :
+                   Tuple.fromBytes(value).getUUID(0);
         }
 
         public void fileLockSet(boolean isHeartbeat) {
-            synchronized (fileLockSetLock) {
-                agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
-                        agilityContext.apply(aContext -> fileLockSet(isHeartbeat, aContext)
-                        ));
-            }
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET,
+                    agilityContext.apply(aContext -> fileLockSet(isHeartbeat, aContext)
+                    ));
         }
 
         private CompletableFuture<Void> fileLockSet(boolean isHeartbeat, FDBRecordContext aContext) {
             final long nowMillis = System.currentTimeMillis();
             return aContext.ensureActive().get(fileLockKey)
                     .thenAccept(val -> {
-                        long existingTimeStamp = fileLockValueToTimestamp(val);
-                        if (isHeartbeat) {
-                            fileLockCheckHeartBeat(existingTimeStamp);
-                        } else {
-                            fileLockCheckNewLock(existingTimeStamp, nowMillis);
+                        synchronized (fileLockSetLock) {
+                            if (isHeartbeat) {
+                                fileLockCheckHeartBeat(val);
+                            } else {
+                                fileLockCheckNewLock(val, nowMillis);
+                            }
+                            this.timeStampMillis = nowMillis;
+                            byte[] value = fileLockValue();
+                            aContext.ensureActive().set(fileLockKey, value);
                         }
-                        this.timeStampMillis = nowMillis;
-                        byte[] value = fileLockValue(timeStampMillis);
-                        aContext.ensureActive().set(fileLockKey, value);
                     });
         }
 
-        private void fileLockCheckHeartBeat(long existingTimeStamp) {
-            if (existingTimeStamp == 0) {
+        private void fileLockCheckHeartBeat(byte[] val) {
+            long existingTimeStamp = fileLockValueToTimestamp(val);
+            UUID existingUuid = fileLockValueToUuid(val);
+            if (existingTimeStamp == 0 || existingUuid == null) {
                 throw new AlreadyClosedException("Lock file was deleted. This=" + this);
             }
-            if (existingTimeStamp != timeStampMillis) {
-                throw new AlreadyClosedException("Lock file changed by an external force at " + existingTimeStamp + ". This=" + this);
+            if (existingUuid.compareTo(selfStampUuid) != 0) {
+                throw new AlreadyClosedException("Lock file changed by " + existingUuid + " at " + existingTimeStamp + ". This=" + this);
             }
         }
 
-        private void fileLockCheckNewLock(long existingTimeStamp, long nowMillis) {
-            if (existingTimeStamp <= 0) {
+        private void fileLockCheckNewLock(byte[] val, long nowMillis) {
+            long existingTimeStamp = fileLockValueToTimestamp(val);
+            UUID existingUuid = fileLockValueToUuid(val);
+            if (existingUuid == null || existingTimeStamp <= 0) {
                 // all clear
                 return;
             }
@@ -147,6 +155,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 // Here: this lock is valid
                 throw new RecordCoreException("FileLock: Set: found old lock")
                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
+                                LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                                 LuceneLogMessageKeys.LOCK_DIRECTORY, this);
             }
             // Here: this lock is either too old, or in the future. Steal it
@@ -159,18 +168,14 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
 
         private void fileLockClear() {
-            byte[] value = fileLockValue(timeStampMillis);
             agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                     agilityContext.apply(aContext ->
                             aContext.ensureActive().get(fileLockKey)
                                     .thenAccept(val -> {
-                                        if (!Arrays.equals(value, val)) {
-                                            throw new RecordCoreException("FileLock: Clear: found unexpected lock")
-                                                    .addLogInfo(LogMessageKeys.ACTUAL, val,
-                                                            LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, fileLockValueToTimestamp(val),
-                                                            LuceneLogMessageKeys.LOCK_DIRECTORY, this);
+                                        synchronized (fileLockSetLock) {
+                                            fileLockCheckHeartBeat(val); // ensure valid
+                                            aContext.ensureActive().clear(fileLockKey);
                                         }
-                                        aContext.ensureActive().clear(fileLockKey);
                                     })
                     ));
         }
@@ -179,7 +184,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         @Override
         public String toString() {
-            return "FDBDirectoryLock: name=" + lockName + " timeMillis=" + timeStampMillis;
+            return "{FDBDirectoryLock: name=" + lockName + " uuid=" + selfStampUuid + " timeMillis=" + timeStampMillis + "}";
         }
     }
 }
