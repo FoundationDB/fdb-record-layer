@@ -272,14 +272,13 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private void ensurePrimaryKeyIsInSort() {
+        // precondition: sort is by partition key (see LucenePartitioner.isSortedByPartitionField())
+        // so, either partition field + primary key (explicitly) or just partition field.
         SortField[] fields = sort.getSort();
-        if (fields.length < 2 || !LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME.equals(fields[1].getField())) {
-            SortField[] updatedFields = new SortField[fields.length + 1];
+        if (fields.length < 2) {
+            SortField[] updatedFields = new SortField[2];
             updatedFields[0] = fields[0];
             updatedFields[1] = new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, fields[0].getReverse());
-            if (fields.length - 2 >= 0) {
-                System.arraycopy(fields, 1, updatedFields, 2, fields.length - 2);
-            }
             sort.setSort(updatedFields);
         }
     }

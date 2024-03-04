@@ -205,12 +205,14 @@ public class LucenePartitioner {
 
         // check whether the sort is by the partitioning field (could be a multi-field sort order, but
         // we only care if the first sort field is the partitioning one)
-        if (Objects.requireNonNull(sort.getSort()).length > 0) {
+        int sortFieldCount = Objects.requireNonNull(sort.getSort()).length;
+        if (sortFieldCount > 0) {
             SortField sortField = sort.getSort()[0];
             String sortFieldName = sortField.getField();
             String partitioningFieldName = Objects.requireNonNull(getPartitionFieldNameInLucene());
             if (partitioningFieldName.equals(sortFieldName)) {
-                sortedByPartitioningKey = true;
+                sortedByPartitioningKey = sortFieldCount == 1 ||
+                        (sortFieldCount == 2 && LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME.equals(sort.getSort()[1].getField()));
             }
             isReverseSort = sortField.getReverse();
         }
