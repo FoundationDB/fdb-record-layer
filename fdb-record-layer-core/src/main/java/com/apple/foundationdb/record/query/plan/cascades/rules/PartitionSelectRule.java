@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
@@ -294,7 +294,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                             .collect(ImmutableList.toImmutableList());
 
             final var newResultValue =
-                    resultValue.translateCorrelations(translationMap);
+                    resultValue.translateCorrelations(translationMap, false);
 
             final var upperGraphExpansionBuilder = GraphExpansion.builder();
             upperGraphExpansionBuilder.addQuantifier(newUpperQuantifier);

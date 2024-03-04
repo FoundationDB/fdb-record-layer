@@ -498,7 +498,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 var select = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
 
-                AliasMap aliasMap = AliasMap.of(select.getAlias(), Quantifier.current());
+                AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 

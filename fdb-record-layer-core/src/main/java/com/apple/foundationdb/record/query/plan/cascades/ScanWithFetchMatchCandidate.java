@@ -47,8 +47,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             return Optional.empty();
         }
 
-        final AliasMap equivalenceMap = AliasMap.of(sourceAlias, baseAlias);
-        final AliasMap toTargetAliasMap = AliasMap.of(sourceAlias, targetAlias);
+        final AliasMap equivalenceMap = AliasMap.ofAliases(sourceAlias, baseAlias);
+        final AliasMap toTargetAliasMap = AliasMap.ofAliases(sourceAlias, targetAlias);
 
         final var translatedValueOptional =
                 toBePushedValue.<Value>mapMaybe((value, mappedChildren) -> {

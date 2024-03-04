@@ -170,7 +170,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
                     if (i == size) {
                         iterator.skip(i - 1);
-                        return boundAliasesMap.derived(ordered.size()).zip(ordered, otherOrdered, i).build();
+                        return boundAliasesMap.toBuilder(ordered.size()).zip(ordered, otherOrdered, i).build();
                     } else {
                         // we can skip all permutations where the i-th value is bound the way it currently is
                         iterator.skip(i);

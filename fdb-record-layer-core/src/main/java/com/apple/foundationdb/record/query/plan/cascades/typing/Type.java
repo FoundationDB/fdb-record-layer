@@ -122,6 +122,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     /**
+     * Checks whether a {@link Type} is any type.
+     *
+     * @return <code>true</code> if the {@link Type} is any type, otherwise <code>false</code>.
+     */
+    default boolean isAny() {
+        return getTypeCode().equals(TypeCode.ANY);
+    }
+
+    /**
      * Checks whether a {@link Type} is {@link Array}.
      *
      * @return <code>true</code> if the {@link Type} is {@link Array}, otherwise <code>false</code>.
@@ -556,7 +565,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     @Nonnull
     static TypeCode typeCodeFromPrimitive(@Nullable final Object o) {
-        if (o instanceof ByteString) {
+        if (o instanceof ByteString || o instanceof byte[]) {
             return TypeCode.BYTES;
         }
         return getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), TypeCode.UNKNOWN);
@@ -1818,7 +1827,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * Returns a mapping from {@link Field} names to their {@link Type}s.
          * @return a mapping from {@link Field} names to their {@link Type}s.
          */
-        @Nullable
+        @Nonnull
         public Map<String, Field> getFieldNameFieldMap() {
             return fieldNameFieldMapSupplier.get();
         }

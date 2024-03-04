@@ -97,7 +97,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         final var probeResult = probeValue.eval(store, context);
         final var inArrayResult = inArrayValue.eval(store, context);
         Verify.verify(inArrayResult instanceof List<?>);
-        if (((List<?>) inArrayResult).stream().anyMatch(object -> object != null && object.equals(probeResult))) {
+        if (((List<?>) inArrayResult).stream().anyMatch(object -> Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, object, probeResult)))) {
             return true;
         } else if (((List<?>) inArrayResult).stream().anyMatch(Objects::isNull)) {
             return null;

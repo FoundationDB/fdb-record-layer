@@ -20,11 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -35,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
@@ -44,12 +41,12 @@ import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -59,7 +56,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -94,7 +91,10 @@ class BooleanValueTest {
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
-    private static final ThrowsValue THROWS_VALUE = new ThrowsValue();
+    private static final LiteralValue<byte[]> BYTES_1 = new LiteralValue<>("foo".getBytes(StandardCharsets.UTF_8));
+    private static final LiteralValue<byte[]> BYTES_2 = new LiteralValue<>("bar".getBytes(StandardCharsets.UTF_8));
+    private static final LiteralValue<byte[]> BYTES_3 = new LiteralValue<>("baz".getBytes(StandardCharsets.UTF_8));
+    private static final ThrowsValue THROWS_VALUE = new ThrowsValue(Type.primitiveType(Type.TypeCode.INT));
 
     private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
 
@@ -102,56 +102,6 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_LONGS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(LONG_1, LONG_2));
     private static final ArithmeticValue ADD_FLOATS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(FLOAT_1, FLOAT_2));
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
-
-    @SuppressWarnings("ConstantConditions")
-    static class ThrowsValue extends AbstractValue implements BooleanValue {
-
-        @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
-            return 0;
-        }
-
-        @Override
-        public int hashCodeWithoutChildren() {
-            return 0;
-        }
-
-        @SuppressWarnings("NullableProblems") // this is for testing.
-        @Nullable
-        @Override
-        protected Iterable<? extends Value> computeChildren() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        public Value withChildren(final Iterable<? extends Value> newChildren) {
-            return null;
-        }
-
-        @Nullable
-        @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-            throw new RuntimeException("Should not be called!");
-        }
-
-        @Override
-        public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
-            return Optional.empty();
-        }
-
-        @Nonnull
-        @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            throw new RuntimeException("Should not be called!");
-        }
-
-        @Nonnull
-        @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            throw new RuntimeException("Should not be called!");
-        }
-    }
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
@@ -236,6 +186,11 @@ class BooleanValueTest {
                     Arguments.of(List.of(STRING_1, STRING_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(STRING_2, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(STRING_1, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+
+                    Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(LONG_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -469,6 +424,9 @@ class BooleanValueTest {
                     Arguments.of(List.of(STRING_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(STRING_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
 
+                    Arguments.of(List.of(BYTES_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
+
                     Arguments.of(List.of(INT_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
 
@@ -543,6 +501,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // INT in [STRING...]
                     Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // INT in [BYTES...]
+                    Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // INT in [BOOLEAN...]
                     Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // LONG in [INT...]
@@ -560,6 +520,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(LONG_1, LONG_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // LONG in [STRING...]
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // LONG in [BYTES...]
+                    Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // LONG in [BOOLEAN...]
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // LONG in []
@@ -577,6 +539,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(FLOAT_1, FLOAT_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // FLOAT in [STRING...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // FLOAT in [BYTES...]
+                    Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // FLOAT in [BOOLEAN...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // FLOAT in []
@@ -592,6 +556,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(DOUBLE_1, DOUBLE_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // DOUBLE in [STRING...]
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // DOUBLE in [BYTES...]
+                    Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // DOUBLE in [BOOLEAN...]
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // DOUBLE in []
@@ -607,10 +573,29 @@ class BooleanValueTest {
                     // STRING in [STRING...]
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    // STRING in [BYTES...]
+                    Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // STRING in [BOOLEAN...]
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // STRING in []
                     Arguments.of(List.of(STRING_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    // BYTES in [INT...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
+                    // BYTES in [LONG...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(LONG_1, LONG_2, LONG_3)), new InOpValue.InFn(), null),
+                    // BYTES in [FLOAT...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(FLOAT_1, FLOAT_2, FLOAT_3)), new InOpValue.InFn(), null),
+                    // BYTES in [DOUBLE...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(DOUBLE_1, DOUBLE_2, DOUBLE_3)), new InOpValue.InFn(), null),
+                    // BYTES in [STRING...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // BYTES in [BYTES...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    // BYTES in [BOOLEAN...]
+                    Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
+                    // BYTES in []
+                    Arguments.of(List.of(BYTES_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // BOOLEAN in [INT...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [LONG...]
@@ -621,6 +606,8 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(DOUBLE_1, DOUBLE_2, DOUBLE_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [STRING...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
+                    // BOOLEAN in [BYTES...]
+                    Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BYTES_1, BYTES_2, BYTES_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [BOOLEAN...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.FALSE),
@@ -636,9 +623,11 @@ class BooleanValueTest {
             return Stream.of(
                     /* lazy evaluation tests */
                     Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                            THROWS_VALUE), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                                    new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, THROWS_VALUE))),
+                            new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                            THROWS_VALUE), new AndOrValue.OrFn(), ConstantPredicate.TRUE)
+                                    new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, THROWS_VALUE))),
+                            new AndOrValue.OrFn(), ConstantPredicate.TRUE)
             );
         }
     }

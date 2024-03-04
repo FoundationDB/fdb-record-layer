@@ -89,6 +89,11 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    @Nonnull
     public InSource getInSource() {
         return inSource;
     }

@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.Message;
 
@@ -53,7 +53,7 @@ public interface AggregateValue extends Value {
 
     @Nonnull
     @Override
-    default AggregateValue translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        return (AggregateValue)Value.super.translateCorrelations(translationMap);
+    default AggregateValue translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNeeded) {
+        return (AggregateValue)Value.super.translateCorrelations(translationMap, simplifyIfNeeded);
     }
 }

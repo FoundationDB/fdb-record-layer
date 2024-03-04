@@ -199,6 +199,20 @@ public class FDBTransactionContext {
     }
 
     /**
+     * Record an event that has an associated size. For instance, an IO event having the number of bytes of data read or written.
+     *
+     * @param sizeEvent the event being recorded
+     * @param size size the size of the event being recorded
+     * @see StoreTimer#recordSize(StoreTimer.SizeEvent, long)
+     */
+    public void recordSize(@Nonnull StoreTimer.SizeEvent sizeEvent, long size) {
+        FDBStoreTimer eventTimer = getTimerForEvent(sizeEvent);
+        if (eventTimer != null) {
+            eventTimer.recordSize(sizeEvent, size);
+        }
+    }
+
+    /**
      * Record that an event occurred one time.
      *
      * @param count the event being recorded

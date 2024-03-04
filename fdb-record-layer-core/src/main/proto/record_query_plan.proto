@@ -179,6 +179,16 @@ message PTransformationTrieNode {
   optional PValue value = 3;
 }
 
+message PFieldAccessTrieNode {
+  message PResolvedAccessorChildPair {
+    optional PFieldPath.PResolvedAccessor resolved_accessor = 1;
+    optional PFieldAccessTrieNode child_field_access_trie_node = 2;
+  }
+  optional bool children_map_is_null = 1;
+  repeated PResolvedAccessorChildPair child_pair = 2;
+  optional PType type = 3;
+}
+
 //
 // Values
 //
@@ -223,6 +233,8 @@ message PValue {
     PUnaryRelOpValue unary_rel_op_value = 36;
     PVariadicFunctionValue variadic_function_value = 37;
     PVersionValue version_value = 38;
+    PFirstOrDefaultValue first_or_default_value = 39;
+    PThrowsValue throws_value = 40;
   }
 }
 
@@ -398,6 +410,11 @@ message PFieldPath {
   repeated PResolvedAccessor field_accessors = 1;
 }
 
+message PFirstOrDefaultValue {
+  optional PValue child_value = 1;
+  optional PValue on_empty_result_value = 2;
+}
+
 message PIndexedValue {
   optional PType result_type = 1;
 }
@@ -411,17 +428,17 @@ message PIndexOnlyAggregateValue {  // abstract
   optional PValue child = 2;
 }
 
+message PInOpValue {
+  optional PValue probe_value = 1;
+  optional PValue in_array_value = 2;
+}
+
 message PMaxEverLongValue {
   optional PIndexOnlyAggregateValue super = 1;
 }
 
 message PMinEverLongValue {
   optional PIndexOnlyAggregateValue super = 1;
-}
-
-message PInOpValue {
-  optional PValue probe_value = 1;
-  optional PValue in_array_value = 2;
 }
 
 message PLikeOperatorValue {
@@ -515,6 +532,8 @@ message PQuantifiedObjectValue {
 
 message PQueriedValue {
   optional PType result_type = 1;
+  optional bool has_record_type_names = 3;
+  repeated string record_type_names = 2;
 }
 
 message PRankValue {
@@ -738,9 +757,21 @@ message PBinaryRelOpValue {
       GTE_UV = 194;
       GTE_VU = 195;
       GTE_VV = 196;
+
+      EQ_BYU = 197;
+      EQ_BYBY = 198;
+      EQ_UBY = 199;
+      NEQ_BYU = 200;
+      NEQ_BYBY = 201;
+      NEQ_UBY = 202;
+
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
+}
+
+message PThrowsValue {
+  optional PType result_type = 1;
 }
 
 message PUnaryRelOpValue {
@@ -760,6 +791,9 @@ message PUnaryRelOpValue {
       IS_NOT_NULL_DI = 12;
       IS_NOT_NULL_SS = 13;
       IS_NOT_NULL_BI = 14;
+
+      IS_NULL_BY = 15;
+      IS_NOT_NULL_BY = 16;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
@@ -934,6 +968,8 @@ message PQueryPredicate {
       POrPredicate or_predicate = 6;
       PPredicateWithValueAndRanges predicate_with_value_and_ranges = 7;
       PValuePredicate value_predicate = 8;
+      PCompatibleTypeEvolutionPredicate compatible_type_evolution_predicate = 9;
+      PDatabaseObjectDependenciesPredicate database_object_dependencies_predicate = 10;
   }
 }
 
@@ -950,9 +986,25 @@ message PAndPredicate {
   optional PAndOrPredicate super = 1;
 }
 
+message PCompatibleTypeEvolutionPredicate {
+  message PRecordTypeNameFieldAccessPair {
+    optional string record_type_name = 1;
+    optional PFieldAccessTrieNode field_access_trie_node = 2;
+  }
+  repeated PRecordTypeNameFieldAccessPair record_type_name_field_access_pairs = 1;
+}
+
 message PConstantPredicate {
   optional PAbstractQueryPredicate super = 1;
   optional bool value = 2;
+}
+
+message PDatabaseObjectDependenciesPredicate {
+  message PUsedIndex {
+    optional string name = 1;
+    optional int32 last_modified_version = 3;
+  }
+  repeated PUsedIndex used_indexes = 1;
 }
 
 message PExistsPredicate {

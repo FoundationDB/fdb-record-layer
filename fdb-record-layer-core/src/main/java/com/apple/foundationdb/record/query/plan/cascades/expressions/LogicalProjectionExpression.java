@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -88,7 +88,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     public LogicalProjectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final List<? extends Value> rebasedValue =
                 getProjectedValues().stream()
-                        .map(projectedValue -> projectedValue.translateCorrelations(translationMap))
+                        .map(projectedValue -> projectedValue.translateCorrelations(translationMap, false))
                         .collect(ImmutableList.toImmutableList());
 
         return new LogicalProjectionExpression(rebasedValue,

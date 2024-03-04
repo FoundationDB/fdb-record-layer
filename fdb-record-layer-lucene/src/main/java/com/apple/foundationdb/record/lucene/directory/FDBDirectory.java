@@ -320,8 +320,7 @@ public class FDBDirectory extends Directory  {
             throw new RecordCoreArgumentException("FieldInfo id should never be 0");
         }
         byte[] key = fieldInfosSubspace.pack(id);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+        agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, key.length + value.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene stored field infos data",
                     LuceneLogMessageKeys.DATA_SIZE, value.length,
@@ -376,8 +375,7 @@ public class FDBDirectory extends Directory  {
     public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
         final byte[] fileReferenceBytes = reference.getBytes();
         final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(fileReferenceBytes, compressionEnabled, encryptionEnabled));
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
+        agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, encodedBytes.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene file reference",
                     LuceneLogMessageKeys.FILE_NAME, name,
@@ -400,8 +398,7 @@ public class FDBDirectory extends Directory  {
     public int writeData(final long id, final int block, @Nonnull final byte[] value) {
         final byte[] encodedBytes = Objects.requireNonNull(LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled));
         //This may not be correct transactionally
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_CALL);
+        agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE, encodedBytes.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene data",
                     LuceneLogMessageKeys.FILE_ID, id,
@@ -422,8 +419,7 @@ public class FDBDirectory extends Directory  {
      */
     public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] value) {
         byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docID));
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_SIZE, key.length + value.length);
-        agilityContext.increment(LuceneEvents.Counts.LUCENE_WRITE_STORED_FIELDS);
+        agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS, key.length + value.length);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Write lucene stored fields data",
                     LuceneLogMessageKeys.DATA_SIZE, value.length,

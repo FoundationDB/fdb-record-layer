@@ -76,7 +76,11 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @Nonnull
     default Iterator<T> preOrderIterator() {
-        return PreOrderIterator.over(getThis());
+        return PreOrderPruningIterator.over(getThis());
+    }
+
+    default Iterator<T> preOrderPruningIterator(@Nonnull final Predicate<T> descendInChildren) {
+        return PreOrderPruningIterator.overWithPruningPredicate(getThis(), descendInChildren);
     }
 
     /**
@@ -218,32 +222,66 @@ public interface TreeLike<T extends TreeLike<T>> {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
     default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
-        return mapMaybe((t, foldedChildren) -> {
-            if (Iterables.isEmpty(foldedChildren)) {
-                return replaceOperator.apply(t);
+        return Optional.ofNullable(replace(node -> {
+            if (Iterables.isEmpty(node.getChildren())) {
+                return replaceOperator.apply(node);
             }
+            return node;
+        }));
+    }
 
-            final Iterator<? extends T> foldedChildrenIterator = foldedChildren.iterator();
-            boolean isDifferent = false;
-            for (T child : t.getChildren()) {
-                Verify.verify(foldedChildrenIterator.hasNext());
-
-                final T nextFoldedChild = foldedChildrenIterator.next();
-                if (nextFoldedChild == null) {
-                    return null;
+    /**
+     * Replaces elements in the tree with new elements returned by the user-defined operator.
+     * It traverses the tree in pre-order fashion, and is CoW, i.e. it is guaranteed to only make a copy of a node's
+     * children iff one of the children is replaced by the replacement operator, otherwise, no allocation is made.
+     * <br>
+     * @param replacementOperator The replacement operator defined by the user, the operator is called on every node of
+     *        the tree, and is expected to return the node itself if no changes to be made, this is
+     *        necessary for replacement algorithm to avoid unnecessary allocations.
+     * @return potentially a new tree which originates from {@code this} but having its nodes replaced with new ones,
+     *         if no changes are made, {@code this} is returned.
+     * <br>
+     * Note: This can be thought of as a specialization of {@link TreeLike#mapMaybe(BiFunction)} where the mapping
+     *       function domain is of the same type because that enables us to perform copy-on-write optimization.
+     */
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
+    @Nullable
+    default T replace(@Nonnull final UnaryOperator<T> replacementOperator) {
+        final var self = getThis();
+        final var maybeReplaced = replacementOperator.apply(self);
+        if (maybeReplaced == null) {
+            return null;
+        }
+        if (Iterables.isEmpty(maybeReplaced.getChildren())) {
+            return maybeReplaced;
+        }
+        final Iterable<? extends T> children = maybeReplaced.getChildren();
+        int childrenCount = Iterables.size(children);
+        boolean isAdding = false;
+        // the build is initialized to null, so no allocation is made, it is lazily allocated iff a child is replaced.
+        ImmutableList.Builder<T> replacedChildren = null;
+        for (int i = 0; i < childrenCount; i++) {
+            final var child = Iterables.get(children, i);
+            final var maybeReplacedChild = child.replace(replacementOperator);
+            if (maybeReplacedChild == null) {
+                return null;
+            }
+            if (isAdding) {
+                Verify.verifyNotNull(replacedChildren);
+                replacedChildren.add(maybeReplacedChild);
+            } else {
+                if (maybeReplacedChild != child) {
+                    // now that the replaced child is new, allocate the builder (and the tree).
+                    replacedChildren = ImmutableList.builder();
+                    for (int j = 0; j < i; j++) {
+                        replacedChildren.add(Iterables.get(children, j));
+                    }
+                    replacedChildren.add(maybeReplacedChild);
+                    isAdding = true;
                 }
-                // note object identity comparison is desired here as this will tell us if descendant "modified"
-                // the tree
-                if (child != nextFoldedChild) {
-                    isDifferent = true;
-                }
             }
-
-            if (isDifferent) {
-                return t.withChildren(foldedChildren);
-            }
-            return t;
-        });
+        }
+        return replacedChildren != null ? maybeReplaced.withChildren(replacedChildren.build()) : maybeReplaced;
     }
 
     /**
