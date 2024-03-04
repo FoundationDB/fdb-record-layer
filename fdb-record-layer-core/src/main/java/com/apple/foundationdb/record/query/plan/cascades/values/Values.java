@@ -45,17 +45,19 @@ public class Values {
      */
     @Nonnull
     public static List<Value> deconstructRecord(@Nonnull Value recordValue) {
-        Verify.verify(recordValue.getResultType().isRecord());
-        final Type.Record resultType = (Type.Record)recordValue.getResultType();
+        final var resultType = recordValue.getResultType();
+        Verify.verify(resultType.isRecord());
+        Verify.verify(resultType instanceof Type.Record);
+        final Type.Record resultRecordType = (Type.Record)resultType;
 
         if (recordValue instanceof RecordConstructorValue) {
             final var recordConstructorValue = (RecordConstructorValue)recordValue;
             final List<Value> children = ImmutableList.copyOf(recordConstructorValue.getChildren());
-            Verify.verify(Objects.requireNonNull(resultType.getFields()).size() == children.size());
+            Verify.verify(Objects.requireNonNull(resultRecordType.getFields()).size() == children.size());
             return children;
         }
 
-        final List<Type.Record.Field> fields = Objects.requireNonNull(resultType.getFields());
+        final List<Type.Record.Field> fields = Objects.requireNonNull(resultRecordType.getFields());
         final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < fields.size(); i++) {
             resultBuilder.add(FieldValue.ofOrdinalNumberAndFuseIfPossible(recordValue, i));

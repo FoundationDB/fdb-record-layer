@@ -111,6 +111,10 @@ public interface AgilityContext {
         getCallerContext().record(event, timeDelta);
     }
 
+    default void recordSize(@Nonnull StoreTimer.SizeEvent sizeEvent, long size) {
+        getCallerContext().recordSize(sizeEvent, size);
+    }
+
     @Nullable
     default <T> T asyncToSync(StoreTimer.Wait event,
                               @Nonnull CompletableFuture<T> async) {

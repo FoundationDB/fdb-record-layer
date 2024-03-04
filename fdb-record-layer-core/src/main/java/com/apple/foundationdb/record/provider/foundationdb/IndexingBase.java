@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
@@ -953,6 +954,16 @@ public abstract class IndexingBase {
                 typeStamp.getBlockExpireEpochMilliSeconds() > System.currentTimeMillis());
     }
 
+    @Nonnull
+    SyntheticRecordFromStoredRecordPlan syntheticPlanForIndex(@Nonnull FDBRecordStore store, @Nonnull IndexingCommon.IndexContext indexContext) {
+        if (!indexContext.isSynthetic) {
+            throw new RecordCoreException("unable to create synthetic plan for non-synthetic index");
+        }
+        final RecordQueryPlanner queryPlanner = new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())));
+        final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store, queryPlanner);
+        return syntheticPlanner.forIndex(indexContext.index);
+    }
+
     private CompletableFuture<Void> updateMaintainerBuilder(@Nonnull FDBRecordStore store,
                                                             FDBStoredRecord<Message> rec) {
         return forEachTargetIndexContext(indexContext -> {
@@ -962,8 +973,7 @@ public abstract class IndexingBase {
             }
             if (indexContext.isSynthetic) {
                 // This particular index is synthetic, handle with care
-                final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(indexContext.index.getName())), store.getTimer());
-                final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(indexContext.index);
+                final SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanForIndex(store, indexContext);
                 final IndexMaintainer maintainer = store.getIndexMaintainer(indexContext.index);
                 return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
             }

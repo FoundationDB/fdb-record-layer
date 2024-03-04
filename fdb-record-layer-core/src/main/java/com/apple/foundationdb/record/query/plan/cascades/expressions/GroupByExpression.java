@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -92,7 +91,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
         this.computeResultSupplier = Suppliers.memoize(this::computeResultValue);
-        this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestOrdering);
+        this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestedOrdering);
         this.inner = inner;
     }
 
@@ -280,16 +279,16 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Nonnull
-    private RequestedOrdering computeRequestOrdering() {
+    private RequestedOrdering computeRequestedOrdering() {
         if (groupingValue == null || groupingValue.isConstant()) {
             return RequestedOrdering.preserve();
         }
 
         final var groupingValueType = groupingValue.getResultType();
-        Verify.verify(groupingValueType instanceof Type.Record);
+        Verify.verify(groupingValueType.isRecord());
 
         return new RequestedOrdering(
-                ImmutableList.of(OrderingPart.of(groupingValue)),
+                ImmutableList.of(OrderingPart.of(groupingValue)), //TODO this should be deconstructed
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 }

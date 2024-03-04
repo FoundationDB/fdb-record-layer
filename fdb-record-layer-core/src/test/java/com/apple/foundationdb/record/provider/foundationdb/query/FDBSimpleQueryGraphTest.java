@@ -46,11 +46,16 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObjectDependenciesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -71,6 +76,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -111,7 +117,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
         return Quantifier.forEach(GroupExpressionRef.of(
                 new FullUnorderedScanExpression(allRecordTypes,
-                        Type.Record.fromFieldDescriptorsMap(metaData.getFieldDescriptorMapFromNames(allRecordTypes)),
+                        new Type.AnyRecord(false),
                         hints)));
     }
 
@@ -125,7 +131,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         return Quantifier.forEach(GroupExpressionRef.of(
                 new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
                         fullScanQun,
-                        Type.Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor()))));
+                        Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor()))));
     }
 
     @Nonnull
@@ -135,7 +141,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static <V extends Value> Column<V> resultColumn(@Nonnull V value, @Nullable String name) {
-        return Column.of(Type.Record.Field.of(value.getResultType(), Optional.ofNullable(name)), value);
+        return Column.of(Field.of(value.getResultType(), Optional.ofNullable(name)), value);
     }
 
     static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
@@ -338,7 +344,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = planGraph(
+        final var plannedPlan = cascadesPlanner.planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -372,7 +378,12 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                });
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+
+        final var plan = verifySerialization(plannedPlan);
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
@@ -384,14 +395,54 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                 .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
 
         assertMatchesExactly(plan, planMatcher);
+
+        final var compatibleTypeEvolutionPredicate = CompatibleTypeEvolutionPredicate.fromPlan(plannedPlan);
+        final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
+        Assertions.assertTrue(isCompatible);
     }
     
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testPlanSimpleJoin() throws Exception {
+    public void testSimpleJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
-        final var plan = planGraph(
+        final var plan = planSimpleJoin(cascadesPlanner);
+
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                flatMapPlan(
+                        descendantPlans(
+                                indexPlan()
+                                        .where(indexName("RestaurantRecord$name"))
+                                        .and(scanComparisons(range("[[name],[name]]")))),
+                        typeFilterPlan(scanPlan().where(scanComparisons(range("[EQUALS $q6.review.reviewer]"))))
+                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
+
+        assertMatchesExactly(plan, planMatcher);
+    }
+
+    /**
+     * Tests incompatible type evolution, in particular an accessed field was shifted.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testMediumJoinDatabaseObjectDependencies() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+
+        // find restaurants that where at least reviewed by two common reviewers
+        final var plannedPlan = planSimpleJoin(cascadesPlanner);
+
+        final DatabaseObjectDependenciesPredicate predicate =
+                DatabaseObjectDependenciesPredicate.fromPlan(recordStore.getRecordMetaData(), plannedPlan);
+        Assertions.assertTrue(Objects.requireNonNull(predicate.eval(recordStore, EvaluationContext.empty())));
+
+        final var usedIndexes = predicate.getUsedIndexes();
+        Assertions.assertTrue(usedIndexes.contains(
+                new DatabaseObjectDependenciesPredicate.UsedIndex("RestaurantRecord$name", 1)));
+    }
+
+    @Nonnull
+    private RecordQueryPlan planSimpleJoin(@Nonnull final CascadesPlanner cascadesPlanner) {
+        // with index hints (RestaurantRecord$name), plan a different query
+        return planGraph(
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
@@ -431,17 +482,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 });
-
-        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                flatMapPlan(
-                        descendantPlans(
-                                indexPlan()
-                                        .where(indexName("RestaurantRecord$name"))
-                                        .and(scanComparisons(range("[[name],[name]]")))),
-                        typeFilterPlan(scanPlan().where(scanComparisons(range("[EQUALS $q6.review.reviewer]"))))
-                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
-
-        assertMatchesExactly(plan, planMatcher);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -449,7 +489,400 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
-        final var plan = planGraph(
+        final var plannedPlan = planMediumJoin(cascadesPlanner);
+
+        // TODO write a matcher when this plan becomes more stable
+        Assertions.assertTrue(plannedPlan instanceof RecordQueryFlatMapPlan);
+        verifySerialization(plannedPlan);
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testMediumJoinTypeEvolutionIdentical() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+
+        // find restaurants that where at least reviewed by two common reviewers
+        final var plannedPlan = planMediumJoin(cascadesPlanner);
+
+        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var simplifiedLocalValues = derivations.simplifyLocalValues();
+        final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
+        final var compatibleTypeEvolutionPredicate = new CompatibleTypeEvolutionPredicate(fieldAccesses);
+
+        final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
+        Assertions.assertTrue(isCompatible);
+
+        //
+        // RestaurantRecord:
+        // RECORD(LONG as rest_no,
+        //        STRING as name,
+        //        ARRAY(RECORD(LONG as reviewer,
+        //                     INT as rating))(isNullable:false) as reviews,
+        //        ARRAY(RECORD(STRING as value,
+        //                     INT as weight))(isNullable:false) as tags,
+        //        ARRAY(STRING)(isNullable:false) as customer)
+        //
+        final var reviewsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("reviewer")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("rating"))));
+
+        final var tagsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("value")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("weight"))));
+
+        final var restaurantRecordType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rest_no")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
+                        Field.of(new Type.Array(reviewsType), Optional.of("reviews")),
+                        Field.of(new Type.Array(tagsType), Optional.of("tags")),
+                        Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.STRING)), Optional.of("customer"))));
+
+        //
+        // RestaurantReviewer:
+        // RECORD(LONG as id,
+        //        STRING as name,
+        //        STRING as email,
+        //        RECORD(LONG as start_date,
+        //               STRING as school_name,
+        //               STRING as hometown) as stats,
+        //        INT as category)
+        //
+        final var statsType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("start_date")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("school_name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("home_town"))));
+
+        final var restaurantReviewerType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("id")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("email")),
+                        Field.of(statsType, Optional.of("stats")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
+
+        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        //
+        // RestaurantRecord ->
+        //     "[name;1;STRING]→[STRING],
+        //      [reviews;2;ARRAY(RECORD(LONG as reviewer, INT as rating))(isNullable:false)]→[
+        //         [reviewer;0;LONG]→[LONG]
+        //      ],
+        //      [rest_no;0;LONG]→[LONG]"
+        //
+        var childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
+        Assertions.assertNotNull(childrenMap);
+        var childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("name", 1));
+        Assertions.assertNotNull(childFieldAccesses);
+        var leafType = childFieldAccesses.getValue();
+        Assertions.assertNotNull(leafType);
+        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, true));
+
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviews", 2));
+        Assertions.assertNotNull(childFieldAccesses);
+        childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
+        Assertions.assertNotNull(childrenMap);
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviewer", 0));
+        Assertions.assertNotNull(childFieldAccesses);
+        leafType = childFieldAccesses.getValue();
+        Assertions.assertNotNull(leafType);
+        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.LONG, false));
+
+        childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("rest_no", 0));
+        Assertions.assertNotNull(childFieldAccesses);
+        leafType = childFieldAccesses.getValue();
+        Assertions.assertNotNull(leafType);
+        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.LONG, false));
+
+        Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
+
+        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        //
+        // RestaurantReviewer ->
+        //     "[name;1;STRING]→[STRING],
+        //      [id;0;LONG]→[LONG]"
+        //
+        childrenMap = fieldAccessesRestaurantReviewer.getChildrenMap();
+        Assertions.assertNotNull(childrenMap);
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("name", 1));
+        Assertions.assertNotNull(childFieldAccesses);
+        leafType = childFieldAccesses.getValue();
+        Assertions.assertNotNull(leafType);
+        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, false));
+
+        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("id", 0));
+        Assertions.assertNotNull(childFieldAccesses);
+        leafType = childFieldAccesses.getValue();
+        Assertions.assertNotNull(leafType);
+        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.LONG, false));
+
+        Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantReviewer, restaurantReviewerType));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testMediumJoinTypeEvolutionCompatible() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+
+        // find restaurants that where at least reviewed by two common reviewers
+        final var plannedPlan = planMediumJoin(cascadesPlanner);
+
+        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var simplifiedLocalValues = derivations.simplifyLocalValues();
+        final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
+
+        //
+        // RestaurantRecord:
+        // RECORD(LONG as rest_no,
+        //        STRING as name,
+        //        ARRAY(RECORD(LONG as reviewer,
+        //                     INT as rating))(isNullable:false) as reviews,
+        //        STRING new_field1,                                                  <<<< added
+        //        ARRAY(RECORD(STRING new_field2,                                     <<<< added
+        //                     STRING as value,
+        //                     INT as weight))(isNullable:false) as tags,
+        //        ARRAY(STRING)(isNullable:false) as customer                         <<<< deleted
+        //        STRING new_field3)                                                  <<<< added
+        //
+        final var reviewsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("reviewer")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("rating"))));
+
+        final var tagsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("new_field2")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("value")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("weight"))));
+
+        final var restaurantRecordType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rest_no")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
+                        Field.of(new Type.Array(reviewsType), Optional.of("reviews")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("new_field1")),
+                        Field.of(new Type.Array(tagsType), Optional.of("tags")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("new_field3"))));
+
+        //
+        // RestaurantReviewer:
+        // RECORD(LONG as id,
+        //        STRING as name,
+        //        STRING new_field1,                                                  <<<< added
+        //        STRING as email,
+        //        RECORD(INT as start_date,                                           <<<< LONG -> INT
+        //               STRING as school_name,                                       <<<< deleted
+        //               STRING as hometown) as stats,
+        //        INT as category)
+        //
+        final var statsType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("start_date")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("home_town"))));
+
+        final var restaurantReviewerType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("id")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("new_field1")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("email")),
+                        Field.of(statsType, Optional.of("stats")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
+
+        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        //
+        // RestaurantRecord ->
+        //     "[name;1;STRING]→[STRING],
+        //      [reviews;2;ARRAY(RECORD(LONG as reviewer, INT as rating))(isNullable:false)]→[
+        //         [reviewer;0;LONG]→[LONG]
+        //      ],
+        //      [rest_no;0;LONG]→[LONG]"
+        //
+        Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
+
+        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        //
+        // RestaurantReviewer ->
+        //     "[name;1;STRING]→[STRING],
+        //      [id;0;LONG]→[LONG]"
+        //
+        Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantReviewer, restaurantReviewerType));
+    }
+
+    /**
+     * Tests incompatible type evolution, in particular, an accessed field now has a different type.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testMediumJoinTypeEvolutionIncompatible1() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+
+        // find restaurants that where at least reviewed by two common reviewers
+        final var plannedPlan = planMediumJoin(cascadesPlanner);
+
+        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var simplifiedLocalValues = derivations.simplifyLocalValues();
+        final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
+
+        //
+        // RestaurantRecord:
+        // RECORD(INT as rest_no,                                            <<< changed from LONG
+        //        STRING as name,
+        //        ARRAY(RECORD(LONG as reviewer,
+        //                     INT as rating))(isNullable:false) as reviews,
+        //        ARRAY(RECORD(STRING as value,
+        //                     INT as weight))(isNullable:false) as tags,
+        //        ARRAY(STRING)(isNullable:false) as customer)
+        //
+        final var reviewsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("reviewer")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("rating"))));
+
+        final var tagsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("value")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("weight"))));
+
+        final var restaurantRecordType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("rest_no")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
+                        Field.of(new Type.Array(reviewsType), Optional.of("reviews")),
+                        Field.of(new Type.Array(tagsType), Optional.of("tags")),
+                        Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.STRING)), Optional.of("customer"))));
+
+        //
+        // RestaurantReviewer:
+        // RECORD(LONG as id,
+        //        STRING as name,
+        //        STRING as email,
+        //        RECORD(LONG as start_date,
+        //               STRING as school_name,
+        //               STRING as hometown) as stats,
+        //        INT as category)
+        //
+        final var statsType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("start_date")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("school_name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("home_town"))));
+
+        final var restaurantReviewerType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("id")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("email")),
+                        Field.of(statsType, Optional.of("stats")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
+
+        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        //
+        // RestaurantRecord ->
+        //     "[name;1;STRING]→[STRING],
+        //      [reviews;2;ARRAY(RECORD(LONG as reviewer, INT as rating))(isNullable:false)]→[
+        //         [reviewer;0;LONG]→[LONG]
+        //      ],
+        //      [rest_no;0;LONG]→[LONG]"
+        //
+        Assertions.assertFalse(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
+
+        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        //
+        // RestaurantReviewer ->
+        //     "[name;1;STRING]→[STRING],
+        //      [id;0;LONG]→[LONG]"
+        //
+        Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantReviewer, restaurantReviewerType));
+    }
+
+    /**
+     * Tests incompatible type evolution, in particular an accessed field was shifted.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void testMediumJoinTypeEvolutionIncompatible2() throws Exception {
+        CascadesPlanner cascadesPlanner = setUp();
+
+        // find restaurants that where at least reviewed by two common reviewers
+        final var plannedPlan = planMediumJoin(cascadesPlanner);
+
+        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var simplifiedLocalValues = derivations.simplifyLocalValues();
+        final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
+
+        //
+        // RestaurantRecord:
+        // RECORD(LONG as rest_no,
+        //        INT new_field,
+        //        STRING as name,
+        //        ARRAY(RECORD(LONG as reviewer,
+        //                     INT as rating))(isNullable:false) as reviews,
+        //        ARRAY(RECORD(STRING as value,
+        //                     INT as weight))(isNullable:false) as tags,
+        //        ARRAY(STRING)(isNullable:false) as customer)
+        //
+        final var reviewsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("reviewer")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("rating"))));
+
+        final var tagsType = Record.fromFields(false,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("value")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("weight"))));
+
+        final var restaurantRecordType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("rest_no")),
+                        Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("new_field")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
+                        Field.of(new Type.Array(reviewsType), Optional.of("reviews")),
+                        Field.of(new Type.Array(tagsType), Optional.of("tags")),
+                        Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.STRING)), Optional.of("customer"))));
+
+        //
+        // RestaurantReviewer:
+        // RECORD(LONG as id,
+        //        STRING as name,
+        //        STRING as email,
+        //        RECORD(LONG as start_date,
+        //               STRING as school_name,
+        //               STRING as hometown) as stats,
+        //        INT as category)
+        //
+        final var statsType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("start_date")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("school_name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("home_town"))));
+
+        final var restaurantReviewerType = Record.fromFields(true,
+                ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("id")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("email")),
+                        Field.of(statsType, Optional.of("stats")),
+                        Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
+
+        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        //
+        // RestaurantRecord ->
+        //     "[name;1;STRING]→[STRING],
+        //      [reviews;2;ARRAY(RECORD(LONG as reviewer, INT as rating))(isNullable:false)]→[
+        //         [reviewer;0;LONG]→[LONG]
+        //      ],
+        //      [rest_no;0;LONG]→[LONG]"
+        //
+        Assertions.assertFalse(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
+
+        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        //
+        // RestaurantReviewer ->
+        //     "[name;1;STRING]→[STRING],
+        //      [id;0;LONG]→[LONG]"
+        //
+        Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantReviewer, restaurantReviewerType));
+    }
+
+    private RecordQueryPlan planMediumJoin(@Nonnull final CascadesPlanner cascadesPlanner) throws Exception {
+        // find restaurants that where at least reviewed by two common reviewers
+        //
+        // SELECT reviewer1.name AS reviewer1Name,
+        //        reviewer2.name AS reviewer2Name,
+        //        restaurant.name AS restaurantName,
+        //        restaurant.rest_no AS restaurantNo
+        // FROM RestaurantReviewer reviewer1,
+        //      RestaurantReviewer reviewer2,
+        //      RestaurantRecord restaurant
+        // WHERE EXISTS(SELECT review AS review
+        //              FROM RestaurantRecord restaurant, restaurant.reviews review
+        //              WHERE review.reviewer = reviewer1.id) AND
+        //       EXISTS(SELECT review AS review
+        //              FROM RestaurantRecord restaurant, restaurant.reviews review
+        //              WHERE review.reviewer = reviewer2.id)
+        //
+        return cascadesPlanner.planGraph(
                 () -> {
                     var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -512,10 +945,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var qun = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
                     return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
-                });
-
-        // TODO write a matcher when this plan becomes more stable
-        Assertions.assertTrue(plan instanceof RecordQueryFlatMapPlan);
+                },
+                Optional.empty(),
+                IndexQueryabilityFilter.DEFAULT,
+                EvaluationContext.EMPTY
+        ).getPlan();
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

@@ -59,8 +59,6 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Case class that represents a grouping index with aggregate function(s).
@@ -317,8 +315,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         // reset indexes of all fields, such that we can normalize them
         // TODO This is incorrect. Either the type indicates the field indexes or it does not. It is the truth here.
         //      Why do we need to remove the field indexes here? They should not be set for most trivial cases anyway.
-        final var type = reset(groupByResultValue.getResultType());
-        final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(type).build().newMessageBuilder(type);
+        final var resultType = groupByResultValue.getResultType();
+        final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build().newMessageBuilder(resultType);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
         final var constraintMaybe = partialMatch.getMatchInfo().getConstraintMaybe();
 
@@ -409,17 +407,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 addCoveringField(builder, (FieldValue)keyValue, fieldData);
             }
         }
-    }
-
-    @Nonnull
-    private static Type reset(@Nonnull final Type type) {
-        if (type instanceof Type.Record) {
-            return Type.Record.fromFields(((Type.Record)type).getFields().stream().map(f -> Type.Record.Field.of(
-                            reset(f.getFieldType()),
-                            f.getFieldNameOptional(),
-                            Optional.empty())).collect(Collectors.toList()));
-        }
-        return type;
     }
 
     private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,

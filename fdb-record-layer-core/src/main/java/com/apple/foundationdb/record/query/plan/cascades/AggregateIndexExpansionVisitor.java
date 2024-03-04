@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -191,8 +192,21 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         }
 
         // add an RCV column representing the grouping columns as the first result set column
+        // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
         final var groupingValue = RecordConstructorValue.ofColumns(
-                baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount()));
+                baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount())
+                        .stream()
+                        .map(column -> {
+                            if (column.getValue() instanceof FieldValue) {
+                                final var fieldValueNameMaybe = ((FieldValue)column.getValue()).getLastFieldName();
+                                final var namedField = fieldValueNameMaybe.map(fieldValueName -> column.getField().withName(fieldValueName)).orElse(column.getField());
+                                if (column.getField() != namedField) {
+                                    return Column.of(namedField, column.getValue());
+                                }
+                            }
+                            return column;
+                        })
+                        .collect(Collectors.toUnmodifiableList()));
 
         // flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
@@ -248,10 +262,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
 
-        if (groupingColsValue.getResultType() instanceof Type.Record && ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
-            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)), null, selectWhereQun)));
+        if (groupingColsValue.getResultType() instanceof Type.Record &&
+                ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
+            return Quantifier.forEach(GroupExpressionRef.of(
+                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            null, selectWhereQun)));
         } else {
-            return Quantifier.forEach(GroupExpressionRef.of(new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)), groupingColsValue, selectWhereQun)));
+            return Quantifier.forEach(GroupExpressionRef.of(
+                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            groupingColsValue, selectWhereQun)));
         }
     }
 

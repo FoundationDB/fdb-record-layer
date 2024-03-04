@@ -74,6 +74,17 @@ public class FDBStoreTimerTest {
     private Subspace subspace;
     ExecuteProperties ep;
 
+    enum DummySizeEvents implements StoreTimer.SizeEvent {
+        SIZE_EVENT_1,
+        SIZE_EVENT_2
+        ;
+
+        @Override
+        public String title() {
+            return null;
+        }
+    }
+
     @BeforeEach
     void setup() throws Exception {
         fdb = FDBDatabaseFactory.instance().getDatabase();
@@ -195,19 +206,25 @@ public class FDBStoreTimerTest {
         timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
         timer.record(FDBStoreTimer.Events.CHECK_VERSION, 1L);
         timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 3L);
+        timer.recordSize(DummySizeEvents.SIZE_EVENT_1, 10L);
+        timer.record(DummySizeEvents.SIZE_EVENT_2, 20L);
 
         StoreTimerSnapshot snapshot = StoreTimerSnapshot.from(timer);
 
         timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
         timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 7L);
+        timer.recordSize(DummySizeEvents.SIZE_EVENT_2, 30L);
 
         StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
         assertThat(diff.getCounter(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.nullValue());
         assertThat(diff.getCounter(FDBStoreTimer.Events.CHECK_VERSION), Matchers.nullValue());
+        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_1), Matchers.nullValue());
         assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
         assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
         assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
         assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
+        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCumulativeValue(), Matchers.is(30L));
     }
 
     @Test
@@ -220,12 +237,60 @@ public class FDBStoreTimerTest {
 
         timer.increment(FDBStoreTimer.Counts.DELETE_RECORD_KEY);
         timer.record(FDBStoreTimer.Events.DIRECTORY_READ, 7L);
+        timer.recordSize(DummySizeEvents.SIZE_EVENT_2, 2L);
 
         StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
         assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
         assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
         assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
         assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
+        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCount(), Matchers.is(1));
+        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCumulativeValue(), Matchers.is(2L));
+    }
+
+    @Test
+    void metricsInSnapshots() {
+        StoreTimer timer = new FDBStoreTimer();
+
+        timer.increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        timer.record(FDBStoreTimer.Events.CHECK_VERSION, 2L);
+        timer.recordSize(DummySizeEvents.SIZE_EVENT_1, 10L);
+
+        StoreTimerSnapshot snapshot = StoreTimerSnapshot.from(timer);
+
+        assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Counts.DELETE_RECORD_KEY), Matchers.nullValue());
+        assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.notNullValue());
+        StoreTimerSnapshot.CounterSnapshot counterSnapshot1 = snapshot.getCounterSnapshot(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        assertThat(counterSnapshot1.getCount(), Matchers.is(1));
+        assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Events.DIRECTORY_READ), Matchers.nullValue());
+        assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Events.CHECK_VERSION), Matchers.notNullValue());
+        StoreTimerSnapshot.CounterSnapshot counterSnapshot2 = snapshot.getCounterSnapshot(FDBStoreTimer.Events.CHECK_VERSION);
+        assertThat(counterSnapshot2.getCount(), Matchers.is(1));
+        assertThat(counterSnapshot2.getTimeNanos(), Matchers.is(2L));
+        assertThat(snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_2), Matchers.nullValue());
+        assertThat(snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_1), Matchers.notNullValue());
+        StoreTimerSnapshot.CounterSnapshot counterSnapshot3 = snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_1);
+        assertThat(counterSnapshot3.getCount(), Matchers.is(1));
+        assertThat(counterSnapshot3.getCumulativeValue(), Matchers.is(10L));
+    }
+
+    @Test
+    void noMetricsAfterReset() {
+        StoreTimer timer = new FDBStoreTimer();
+
+        timer.increment(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        timer.record(FDBStoreTimer.Events.CHECK_VERSION, 2L);
+        timer.recordSize(DummySizeEvents.SIZE_EVENT_1, 10L);
+
+        assertThat(timer.getCounter(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.notNullValue());
+        assertThat(timer.getCounter(FDBStoreTimer.Events.CHECK_VERSION), Matchers.notNullValue());
+        assertThat(timer.getCounter(DummySizeEvents.SIZE_EVENT_1), Matchers.notNullValue());
+
+        timer.reset();
+
+        assertThat(timer.getCounter(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.nullValue());
+        assertThat(timer.getCounter(FDBStoreTimer.Events.CHECK_VERSION), Matchers.nullValue());
+        assertThat(timer.getCounter(DummySizeEvents.SIZE_EVENT_1), Matchers.nullValue());
     }
 
     private enum TestEvent implements StoreTimer.Event {
