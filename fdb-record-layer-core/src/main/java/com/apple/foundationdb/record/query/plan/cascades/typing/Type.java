@@ -565,7 +565,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     @Nonnull
     static TypeCode typeCodeFromPrimitive(@Nullable final Object o) {
-        if (o instanceof ByteString) {
+        if (o instanceof ByteString || o instanceof byte[]) {
             return TypeCode.BYTES;
         }
         return getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), TypeCode.UNKNOWN);

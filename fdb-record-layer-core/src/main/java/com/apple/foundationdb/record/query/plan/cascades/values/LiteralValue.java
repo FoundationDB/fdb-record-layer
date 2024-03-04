@@ -107,7 +107,10 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         }
 
         final LiteralValue<?> that = (LiteralValue<?>)other;
-        return Objects.equals(value, that.value);
+        if (value == null && that.value == null) {
+            return true;
+        }
+        return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value));
     }
 
     @Override
