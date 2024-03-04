@@ -17,7 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Permuted min and max indexes on repeated fields now index all entries if defined on a `FanOut` expression [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -36,10 +36,15 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Permuted min or max indexes on repeated fields need to be rebuilt to ensure completeness [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.0.0
+
+* **Bug fix** Permuted min and max indexes on repeated fields now index all entries if defined on a `FanOut` expression [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Breaking change** Permuted min or max indexes on repeated fields need to be rebuilt to ensure completeness [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
 
 ### 3.4.459.0
 
