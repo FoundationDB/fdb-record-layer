@@ -188,7 +188,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         final var scanAlias = qun.getAlias();
         final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
-        final var groupingCol = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value);
+        final var groupingCol = Column.of(Optional.of("num_value_2"), num2Value);
         final var groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingCol));
 
         // 1. build the underlying select, result expr = ( (num_value_2 as GB) <group1>, ($qun as qun) <group2>)
@@ -196,11 +196,11 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var selectBuilder = GraphExpansion.builder();
 
             // <group1>
-            final var col1 = Column.of(Type.Record.Field.of(groupingColGroup.getResultType(), Optional.of(groupByColAlias.getId())), groupingColGroup);
+            final var col1 = Column.of(Optional.of(groupByColAlias.getId()), groupingColGroup);
 
             // <group2>
             final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-            final var col2 = Column.of(Type.Record.Field.of(quantifiedValue.getResultType(), Optional.of(qun.getAlias().getId())), quantifiedValue);
+            final var col2 = Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue);
 
             selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
 
@@ -230,7 +230,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // construct a result set that makes sense.
             final var numValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "num_value_2");
-            final var numValue2Reference = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), numValue2FieldValue);
+            final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
             final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
 
             final var graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference));

@@ -55,8 +55,7 @@ class ValueSimplificationTest {
         // (_ as a)
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
-                                someCurrentValue));
+                        Column.of(Optional.of("a"), someCurrentValue));
         // (_ as a).a
         final var fieldValue = FieldValue.ofFieldName(RecordConstructorValue.ofColumns(columns), "a");
 
@@ -74,8 +73,7 @@ class ValueSimplificationTest {
         // (_ as a, 5 as b)
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
-                                someCurrentValue),
+                        Column.of(Optional.of("a"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(5)));
         // (_ as a, 5 as b).a
@@ -95,8 +93,7 @@ class ValueSimplificationTest {
         // (_ as a, 10 as b)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
-                                someCurrentValue),
+                        Column.of(Optional.of("a"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(10)));
         final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -104,8 +101,7 @@ class ValueSimplificationTest {
         // ((_ as a, 10 as b) as x, 5 as y)
         columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
-                                innerRecordConstructor),
+                        Column.of(Optional.of("x"), innerRecordConstructor),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("y")),
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -127,8 +123,7 @@ class ValueSimplificationTest {
         // (_ as a, 10 as b)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
-                                someCurrentValue),
+                        Column.of(Optional.of("a"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(10)));
         final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -136,8 +131,7 @@ class ValueSimplificationTest {
         // ((_ as a, 10 as b) as x, 5 as y)
         columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
-                                innerRecordConstructor),
+                        Column.of(Optional.of("x"), innerRecordConstructor),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("y")),
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -159,8 +153,7 @@ class ValueSimplificationTest {
         // (_ as a, 10 as b)
         ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
-                                someCurrentValue),
+                        Column.of(Optional.of("a"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(10)));
         final var innerRecordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -168,8 +161,7 @@ class ValueSimplificationTest {
         // ((_ as a, 10 as b) as x, 5 as y)
         columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(innerRecordConstructor.getResultType(), Optional.of("x")),
-                                innerRecordConstructor),
+                        Column.of(Optional.of("x"), innerRecordConstructor),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("y")),
                                 LiteralValue.ofScalar(5)));
         final var outerRecordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -193,8 +185,7 @@ class ValueSimplificationTest {
         // (_ as a, 5 as b)
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("a")),
-                                someCurrentValue),
+                        Column.of(Optional.of("a"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("b")),
                                 LiteralValue.ofScalar(5)));
         // (_ as a, 5 as b)#0
@@ -246,8 +237,7 @@ class ValueSimplificationTest {
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
                                 LiteralValue.ofScalar("fieldValue")),
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("b")),
-                                someCurrentValue),
+                        Column.of(Optional.of("b"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
@@ -277,8 +267,7 @@ class ValueSimplificationTest {
                 ImmutableList.of(
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("a")),
                                 LiteralValue.ofScalar("fieldValue")),
-                        Column.of(Type.Record.Field.of(someCurrentValue.getResultType(), Optional.of("b")),
-                                someCurrentValue),
+                        Column.of(Optional.of("b"), someCurrentValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("c")),
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
