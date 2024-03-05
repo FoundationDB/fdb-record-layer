@@ -41,11 +41,12 @@ import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
-import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.StandardDirectoryReader;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Bits;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,6 +62,7 @@ import java.util.stream.Collectors;
  * This allows for efficient deleting of a document given that key, such as when doing index maintenance from an update.
  */
 public class LucenePrimaryKeySegmentIndex {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LucenePrimaryKeySegmentIndex.class);
     @Nonnull
     private final FDBDirectory directory;
     @Nonnull
@@ -172,7 +174,7 @@ public class LucenePrimaryKeySegmentIndex {
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
-                                            @Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
+                              @Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
         final SegmentInfos segmentInfos = ((StandardDirectoryReader)FilterDirectoryReader.unwrap(directoryReader)).getSegmentInfos();
         final Subspace keySubspace = subspace.subspace(primaryKey);
         try (KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
@@ -218,7 +220,7 @@ public class LucenePrimaryKeySegmentIndex {
     @Nonnull
     public StoredFieldsWriter wrapFieldsWriter(@Nonnull StoredFieldsWriter storedFieldsWriter, @Nonnull SegmentInfo si) throws IOException {
         final long segmentId = directory.primaryKeySegmentId(si.name, true);
-        return new WrappedFieldsWriter(storedFieldsWriter, segmentId);
+        return new WrappedFieldsWriter(storedFieldsWriter, segmentId, si.name);
     }
 
     class WrappedFieldsWriter extends StoredFieldsWriter {
@@ -226,12 +228,14 @@ public class LucenePrimaryKeySegmentIndex {
         private final StoredFieldsWriter inner;
         @Nonnull
         private final long segmentId;
+        private final String segmentName;
 
         private int documentId;
 
-        WrappedFieldsWriter(@Nonnull StoredFieldsWriter inner, long segmentId) {
+        WrappedFieldsWriter(@Nonnull StoredFieldsWriter inner, long segmentId, final String segmentName) {
             this.inner = inner;
             this.segmentId = segmentId;
+            this.segmentName = segmentName;
         }
 
         @Override
@@ -250,7 +254,7 @@ public class LucenePrimaryKeySegmentIndex {
             inner.writeField(info, field);
             if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
                 final byte[] primaryKey = field.binaryValue().bytes;
-                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true);
+                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true, segmentName);
             }
         }
 
@@ -275,12 +279,12 @@ public class LucenePrimaryKeySegmentIndex {
                         if (liveDocs == null || liveDocs.get(j)) {
                             int docId = docMap.get(j);
                             if (docId >= 0) {
-                                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true);
+                                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true, segmentName);
                             }
                         }
                         // Deleting the index entry at worst triggers a fallback to search.
                         // Ordinarily, though, transaction isolation means that the entry is there along with the pre-merge segment.
-                        addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false);
+                        addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false, segmentName);
                         visitor.reset();
                     }
                 }
@@ -313,32 +317,10 @@ public class LucenePrimaryKeySegmentIndex {
         }
     }
 
-    /**
-     * Reconcile primary key index entries for a segment.
-     * Delete those for a segment that is about to be deleted or add for a segment that has been filled without going through the wrapper.
-     * The primary keys are gotten from the stored fields, so this must complete and not yet have been removed.
-     * @param reader a reader for the target segment
-     * @param add {@code true} to add entries; {@code false} to delete them
-     * @throws IOException if the stored fields gets an error
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    public void addOrDeleteDocumentPrimaryKeys(@Nonnull SegmentReader reader, boolean add) throws IOException {
-        final int maxDoc = reader.maxDoc();
-        final PrimaryKeyVisitor visitor = new PrimaryKeyVisitor();
-        final long segmentId = directory.primaryKeySegmentId(reader.getSegmentName(), add);
-        try (StoredFieldsReader storedFields = reader.getFieldsReader()) {
-            for (int documentId = 0; documentId < maxDoc; documentId++) {
-                storedFields.visitDocument(documentId, visitor);
-                final byte[] primaryKey = visitor.getPrimaryKey();
-                if (primaryKey != null) {
-                    addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, add);
-                    visitor.reset();
-                }
-            }
+    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey));
         }
-    }
-
-    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {
         final byte[] entryKey = ByteArrayUtil.join(subspace.getKey(), primaryKey, Tuple.from(segmentId, docId).pack());
         if (add) {
             directory.getAgilityContext().set(entryKey, new byte[0]);
