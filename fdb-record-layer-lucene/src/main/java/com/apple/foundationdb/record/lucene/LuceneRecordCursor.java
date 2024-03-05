@@ -43,7 +43,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
@@ -53,7 +52,6 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
@@ -214,12 +212,14 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             this.partitionKey = LucenePartitioner.getPartitionKey(partitionInfo);
         }
         if (sort != null && partitioner.isPartitioningEnabled()) {
-            Pair<Boolean, Boolean> sortCriteria = partitioner.isSortedByPartitionField(sort);
-            sortedByPartitioningKey = sortCriteria.getLeft();
-            isReverseSort = sortCriteria.getRight();
+            LucenePartitioner.PartitionedSortContext sortCriteria = partitioner.isSortedByPartitionField(sort);
+            sortedByPartitioningKey = sortCriteria.isByPartitionField;
+            isReverseSort = sortCriteria.isReverse;
             if (sortedByPartitioningKey) {
                 storedFieldsToReturn.add(partitioner.getPartitionFieldNameInLucene());
-                ensurePrimaryKeyIsInSort();
+                if (sortCriteria.updatedSortFields != null) {
+                    sort.setSort(sortCriteria.updatedSortFields);
+                }
             }
         }
         if (continuation != null) {
@@ -269,18 +269,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.analyzerSelector = analyzerSelector;
         this.autoCompleteAnalyzerSelector = autoCompleteAnalyzerSelector;
         closed = false;
-    }
-
-    private void ensurePrimaryKeyIsInSort() {
-        // precondition: sort is by partition key (see LucenePartitioner.isSortedByPartitionField())
-        // so, either partition field + primary key (explicitly) or just partition field.
-        SortField[] fields = sort.getSort();
-        if (fields.length < 2) {
-            SortField[] updatedFields = new SortField[2];
-            updatedFields[0] = fields[0];
-            updatedFields[1] = new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, fields[0].getReverse());
-            sort.setSort(updatedFields);
-        }
     }
 
     @Nonnull

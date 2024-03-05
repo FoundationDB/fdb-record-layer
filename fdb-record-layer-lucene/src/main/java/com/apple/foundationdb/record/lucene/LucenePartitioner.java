@@ -182,8 +182,8 @@ public class LucenePartitioner {
         }
 
         if (sort != null) {
-            Pair<Boolean, Boolean> sortCriteria = isSortedByPartitionField(sort);
-            if (sortCriteria.getLeft() && !sortCriteria.getRight()) { // by partitioning field, and ascending
+            PartitionedSortContext sortCriteria = isSortedByPartitionField(sort);
+            if (sortCriteria.isByPartitionField && !sortCriteria.isReverse) { // by partitioning field, and ascending
                 return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getOldestPartition(groupKey));
             }
         }
@@ -195,13 +195,13 @@ public class LucenePartitioner {
      * reverse order.
      *
      * @param sort sort
-     * @return pair of booleans: left is true if the sort is by the partitioning field, the right is true if
-     * the order is reverse
+     * @return PartitionedSortContext object
      */
     @Nonnull
-    public Pair<Boolean, Boolean> isSortedByPartitionField(@Nonnull Sort sort) {
+    public PartitionedSortContext isSortedByPartitionField(@Nonnull Sort sort) {
         boolean sortedByPartitioningKey = false;
         boolean isReverseSort = false;
+        SortField[] updatedSortFields = null;
 
         // check whether the sort is by the partitioning field (could be a multi-field sort order, but
         // we only care if the first sort field is the partitioning one)
@@ -213,10 +213,27 @@ public class LucenePartitioner {
             if (partitioningFieldName.equals(sortFieldName)) {
                 sortedByPartitioningKey = sortFieldCount == 1 ||
                         (sortFieldCount == 2 && LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME.equals(sort.getSort()[1].getField()));
+                updatedSortFields = ensurePrimaryKeyIsInSort(sort);
+
             }
             isReverseSort = sortField.getReverse();
         }
-        return Pair.of(sortedByPartitioningKey, isReverseSort);
+        return new PartitionedSortContext(sortedByPartitioningKey, isReverseSort, updatedSortFields);
+    }
+
+
+    @Nullable
+    private SortField[] ensurePrimaryKeyIsInSort(Sort sort) {
+        // precondition: sort is by partition key (see LucenePartitioner.isSortedByPartitionField())
+        // so, either partition field + primary key (explicitly) or just partition field.
+        SortField[] fields = sort.getSort();
+        if (fields.length < 2) {
+            SortField[] updatedFields = new SortField[2];
+            updatedFields[0] = fields[0];
+            updatedFields[1] = new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, fields[0].getReverse());
+            return updatedFields;
+        }
+        return null;
     }
 
     /**
@@ -918,5 +935,31 @@ public class LucenePartitioner {
     @Nonnull
     public static Tuple getPartitionKey(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
         return Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
+    }
+
+    /**
+     * describes the sort characteristics of a given Lucene search over a partitioned index.
+     */
+    static class PartitionedSortContext {
+        /**
+         * <code>true</code> if the sort is by the partition field only.
+         */
+        boolean isByPartitionField;
+        /**
+         * <code>true</code> if the order is reverse.
+         */
+        boolean isReverse;
+        /**
+         * if the sort fields contain only the partition field, this will contain both the
+         * partition field and, as the second item, the primary key {@link LuceneIndexMaintainer#PRIMARY_KEY_SEARCH_NAME}.
+         */
+        @Nullable
+        SortField[] updatedSortFields;
+
+        PartitionedSortContext(boolean isByPartitionField, boolean isReverse, @Nullable final SortField[] updatedSortFields) {
+            this.isByPartitionField = isByPartitionField;
+            this.isReverse = isReverse;
+            this.updatedSortFields = updatedSortFields;
+        }
     }
 }
