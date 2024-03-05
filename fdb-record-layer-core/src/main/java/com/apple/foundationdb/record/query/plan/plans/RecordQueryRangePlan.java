@@ -159,7 +159,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedExclusiveLimitValue = exclusiveLimitValue.translateCorrelations(translationMap, false);
+        final var translatedExclusiveLimitValue = exclusiveLimitValue.translateCorrelations(translationMap);
         if (translatedExclusiveLimitValue == exclusiveLimitValue) {
             return this;
         }

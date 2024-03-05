@@ -117,7 +117,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ExplodeExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap, false);
+        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap);
         if (translatedCollectionValue != collectionValue) {
             return new ExplodeExpression(translatedCollectionValue);
         }

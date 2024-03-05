@@ -187,8 +187,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Override
     public RecordQueryStreamingAggregationPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedGroupingKeyValue = groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap, false);
-        final var translatedAggregateValue = aggregateValue.translateCorrelations(translationMap, false);
+        final var translatedGroupingKeyValue = groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap);
+        final var translatedAggregateValue = (AggregateValue)aggregateValue.translateCorrelations(translationMap);
 
         return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedGroupingKeyValue,

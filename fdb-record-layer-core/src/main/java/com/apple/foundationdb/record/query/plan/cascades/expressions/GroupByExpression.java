@@ -161,8 +161,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final AggregateValue translatedAggregateValue = getAggregateValue().translateCorrelations(translationMap, false);
-        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap, false);
+        final AggregateValue translatedAggregateValue = (AggregateValue)getAggregateValue().translateCorrelations(translationMap);
+        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap);
         Verify.verify(translatedGroupingValue instanceof FieldValue);
         if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
             return new GroupByExpression(translatedAggregateValue, (FieldValue)translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));
