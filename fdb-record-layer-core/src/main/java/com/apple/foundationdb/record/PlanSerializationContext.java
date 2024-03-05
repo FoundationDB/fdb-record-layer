@@ -37,7 +37,8 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * Context class defining the state of serialization/deserialization currently in-flight.
+ * Context class defining the state of serialization/deserialization currently in-flight. An object of this class is
+ * stateful and mutable and not to be considered thread-safe.
  */
 @API(API.Status.INTERNAL)
 public class PlanSerializationContext {
