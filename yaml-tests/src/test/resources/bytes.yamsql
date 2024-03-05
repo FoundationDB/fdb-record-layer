@@ -52,10 +52,21 @@ test_block:
     -
       - query: select b64'***' from lb where a = 1
       - error: 22F03
-#      -
-#        # TODO (Cannot compare bytes field in SQL)
-#        - query: select a from lb where b = x'cafe'
-#        - result: [ { 2 } ]
+    -
+      - query: select a from lb where b = x'cafe'
+      - result: [ { 2 } ]
+    -
+      - query: select a from lb where b IN (x'cafe', x'deadbeef')
+      - unorderedResult: [ { 1 }, { 2 } ]
+    -
+      - query: select a from lb where b <> x'cafe'
+      - unorderedResult: [ { 1 } ]
+    -
+      - query: select a from lb where b IS NULL
+      - unorderedResult: [ { 3 } ]
+    -
+      - query: select a from lb where b IS NOT NULL
+      - unorderedResult: [ { 1 }, { 2 } ]
 ---
 test_block:
   connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
