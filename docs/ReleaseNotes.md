@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.463.0
+
+
 ### 3.4.461.0
 
 * **Bug fix** Permuted min and max indexes on repeated fields now index all entries if defined on a `FanOut` expression [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
