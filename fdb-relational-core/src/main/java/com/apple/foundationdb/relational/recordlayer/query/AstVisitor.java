@@ -1645,7 +1645,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 expansionBuilder.build().buildSelectWithResultValue(quantifier.getFlowedObjectValue());
 
         final var filterQun = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
-        final var rebaseMap = AliasMap.of(quantifier.getAlias(), filterQun.getAlias());
+        final var rebaseMap = AliasMap.ofAliases(quantifier.getAlias(), filterQun.getAlias());
 
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
         Assert.thatUnchecked(maybeTargetType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table '%s'", targetTypeName);

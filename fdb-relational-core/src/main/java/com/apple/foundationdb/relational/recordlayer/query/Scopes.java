@@ -233,7 +233,7 @@ public class Scopes {
             final var orderByValues = orderByCardinals.stream()
                     .map(i -> FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), i))
                     .collect(Collectors.toList());
-            final var aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+            final var aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
             final var rebasedOrderByValues = orderByValues.stream().map(val -> val.rebase(aliasMap)).collect(Collectors.toList());
             return new LogicalSortExpression(rebasedOrderByValues, isReverse, qun);
         }

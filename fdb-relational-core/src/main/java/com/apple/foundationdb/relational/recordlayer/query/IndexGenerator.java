@@ -275,7 +275,7 @@ public final class IndexGenerator {
     private List<Value> getOrderByValues(@Nonnull final RelationalExpression relationalExpression) {
         if (relationalExpression instanceof LogicalSortExpression) {
             final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
-            final var reverseAliasMap = AliasMap.of(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
+            final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
             return logicalSortExpression.getSortValues()
                     .stream()
                     .flatMap(v -> v.getResultType().getTypeCode() == Type.TypeCode.RECORD ? Values.deconstructRecord(v).stream() : Stream.of(v))
