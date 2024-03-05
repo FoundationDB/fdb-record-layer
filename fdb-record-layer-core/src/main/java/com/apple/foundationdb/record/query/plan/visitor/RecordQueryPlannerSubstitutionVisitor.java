@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithChildren;
@@ -123,7 +124,13 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
         } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
             RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan) plan;
-            if (fetchPlan.getChild().getAvailableFields().containsAll(requiredFields)) {
+            // normalize requiredFields, and remove RecordTypeKey
+            Set<KeyExpression> normalizedRequiredFields = new HashSet<>();
+            for (KeyExpression k : requiredFields) {
+                normalizedRequiredFields.addAll(k.normalizeKeyForPositions());
+            }
+            normalizedRequiredFields.remove(Key.Expressions.recordType());
+            if (fetchPlan.getChild().getAvailableFields().containsAll(normalizedRequiredFields)) {
                 return ((RecordQueryFetchFromPartialRecordPlan)plan).getChild();
             }
         }
