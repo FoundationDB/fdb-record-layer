@@ -106,6 +106,15 @@ public interface Correlated<S extends Correlated<S>> {
     Set<CorrelationIdentifier> getCorrelatedTo();
 
     /**
+     * Test if the current correlated object is correlated to a {@link CorrelationIdentifier} passed in.
+     * @param alias a {@link CorrelationIdentifier}
+     * @return {@code true} if this object is correlated to {@code alias}, {@code false} otherwise
+     */
+    default boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
+        return getCorrelatedTo().contains(alias);
+    }
+
+    /**
      * Rebases this and all other objects this objects is composed of using a given translation map.
      * @param translationMap a map defining a translation from {@link CorrelationIdentifier}s {@code ids} to
      *        {@link CorrelationIdentifier}s {@code ids'}. After the rebase, every correlation to an {@code id}
@@ -231,6 +240,11 @@ public interface Correlated<S extends Correlated<S>> {
         @Override
         public int hashCode() {
             return Objects.hash(aliasMap);
+        }
+
+        @Override
+        public String toString() {
+            return "≌[" + aliasMap + "]";
         }
     }
 }

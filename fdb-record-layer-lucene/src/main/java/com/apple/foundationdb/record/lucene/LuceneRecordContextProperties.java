@@ -102,5 +102,5 @@ public final class LuceneRecordContextProperties {
     /**
      * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", (int)(TimeUnit.HOURS.toMillis(2)));
+    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", (int)(TimeUnit.MINUTES.toMillis(10)));
 }

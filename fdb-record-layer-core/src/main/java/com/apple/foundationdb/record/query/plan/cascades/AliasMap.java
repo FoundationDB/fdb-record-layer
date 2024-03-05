@@ -256,7 +256,7 @@ public class AliasMap {
      * @return a new builder derived from the contents of this map.
      */
     @Nonnull
-    public Builder derived() {
+    public Builder toBuilder() {
         return builder().putAll(this);
     }
 
@@ -267,7 +267,7 @@ public class AliasMap {
      * @return a new builder derived from the contents of this map.
      */
     @Nonnull
-    public Builder derived(final int expectedAdditionalElements) {
+    public Builder toBuilder(final int expectedAdditionalElements) {
         return builder(expectedAdditionalElements).putAll(this);
     }
 
@@ -598,7 +598,7 @@ public class AliasMap {
      * @return a new {@link AliasMap} containing exactly the binding {@code source -> target}
      */
     @Nonnull
-    public static AliasMap of(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
+    public static AliasMap ofAliases(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
         return new AliasMap(ImmutableBiMap.of(source, target), source.equals(target));
     }
 
@@ -737,6 +737,9 @@ public class AliasMap {
          */
         @Nonnull
         public AliasMap build() {
+            if (map.isEmpty()) {
+                return AliasMap.emptyMap();
+            }
             return AliasMap.copyOf(map);
         }
     }

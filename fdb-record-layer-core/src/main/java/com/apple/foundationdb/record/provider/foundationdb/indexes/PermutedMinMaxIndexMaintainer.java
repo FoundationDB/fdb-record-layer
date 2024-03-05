@@ -50,12 +50,18 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -70,7 +76,23 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.EXPERIMENTAL)
 public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     protected enum Type {
-        MIN, MAX
+        MIN(Comparator.naturalOrder(), ScanProperties.FORWARD_SCAN),
+        MAX(Comparator.reverseOrder(), ScanProperties.REVERSE_SCAN),
+        ;
+
+        @Nonnull
+        private final Comparator<Tuple> valueComparator;
+        @Nonnull
+        private final ScanProperties baseScanProperties;
+
+        Type(@Nonnull Comparator<Tuple> valueComparator, @Nonnull ScanProperties baseScanProperties) {
+            this.valueComparator = valueComparator;
+            this.baseScanProperties = baseScanProperties;
+        }
+
+        public boolean shouldUpdateExtremum(@Nonnull Tuple oldValue, @Nonnull Tuple newValue) {
+            return valueComparator.compare(oldValue, newValue) > 0;
+        }
     }
 
     private final Type type;
@@ -134,21 +156,27 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
         final int groupPrefixSize = getGroupingCount();
         final int totalSize = state.index.getColumnSize();
         final Subspace permutedSubspace = getSecondarySubspace();
-        for (IndexEntry indexEntry : indexEntries) {
-            final Tuple groupKey = TupleHelpers.subTuple(indexEntry.getKey(), 0, groupPrefixSize);
-            final Tuple value = TupleHelpers.subTuple(indexEntry.getKey(), groupPrefixSize, totalSize);
-            final int permutePosition = groupPrefixSize - permutedSize;
-            final Tuple groupPrefix = TupleHelpers.subTuple(groupKey, 0, permutePosition);
-            final Tuple groupSuffix = TupleHelpers.subTuple(groupKey, permutePosition, groupPrefixSize);
-            if (remove) {
-                // First remove from ordinary tree.
-                return updateOneKeyAsync(savedRecord, remove, indexEntry).thenCompose(vignore -> {
-                    final byte[] permutedKeyToRemove = permutedSubspace.pack(groupPrefix.addAll(value).addAll(groupSuffix));
+        final int permutePosition = groupPrefixSize - permutedSize;
+        final Map<Tuple, IndexEntry> entryPerGroupMap = extremumEntriesByGroup(indexEntries);
+        if (remove) {
+            // First remove from ordinary tree
+            return super.updateIndexKeys(savedRecord, remove, indexEntries).thenCompose(vignore -> {
+                // Now update the permuted space
+                final List<CompletableFuture<Void>> work = new ArrayList<>(entryPerGroupMap.size());
+                for (Map.Entry<Tuple, IndexEntry> entry : entryPerGroupMap.entrySet()) {
                     // See if value is the current minimum/maximum.
-                    return state.store.ensureContextActive().get(permutedKeyToRemove).thenCompose(permutedValueExists -> {
+                    final Tuple groupKey = entry.getKey();
+                    final IndexEntry indexEntry = entry.getValue();
+                    final Tuple value = TupleHelpers.subTuple(indexEntry.getKey(), groupPrefixSize, totalSize);
+                    final Tuple groupPrefix = TupleHelpers.subTuple(groupKey, 0, permutePosition);
+                    final Tuple groupSuffix = TupleHelpers.subTuple(groupKey, permutePosition, groupPrefixSize);
+
+                    final byte[] permutedKeyToRemove = permutedSubspace.pack(groupPrefix.addAll(value).addAll(groupSuffix));
+                    work.add(state.store.ensureContextActive().get(permutedKeyToRemove).thenCompose(permutedValueExists -> {
                         if (permutedValueExists == null) {
                             return AsyncUtil.DONE;  // No, nothing more to do.
                         }
+                        // Get existing minimum/maximum.
                         return getExtremum(groupKey).thenApply(extremum -> {
                             if (extremum == null) {
                                 // No replacement, just remove.
@@ -165,18 +193,26 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
                             }
                             return null;
                         });
-                    });
-                });
-            } else {
-                // Get existing minimum/maximum.
-                return getExtremum(groupKey).thenApply(extremum -> {
+                    }));
+                }
+                return AsyncUtil.whenAll(work);
+            });
+        } else {
+            // First, get and update the existing maxima/minima for each group
+            final List<CompletableFuture<Void>> work = new ArrayList<>(entryPerGroupMap.size());
+            for (Map.Entry<Tuple, IndexEntry> entry : entryPerGroupMap.entrySet()) {
+                final Tuple groupKey = entry.getKey();
+                final IndexEntry indexEntry = entry.getValue();
+                final Tuple value = TupleHelpers.subTuple(indexEntry.getKey(), groupPrefixSize, totalSize);
+                final Tuple groupPrefix = TupleHelpers.subTuple(groupKey, 0, permutePosition);
+                final Tuple groupSuffix = TupleHelpers.subTuple(groupKey, permutePosition, groupPrefixSize);
+                work.add(getExtremum(groupKey).thenApply(extremum -> {
                     final boolean addPermuted;
                     if (extremum == null) {
                         addPermuted = true; // New group.
                     } else {
                         final Tuple currentValue = TupleHelpers.subTuple(extremum, groupPrefixSize, totalSize);
-                        int compare = value.compareTo(currentValue);
-                        addPermuted = type == Type.MIN ? compare < 0 : compare > 0;
+                        addPermuted = type.shouldUpdateExtremum(currentValue, value);
                         // Replace if new value is better.
                         if (addPermuted) {
                             final byte[] permutedKeyToRemove = permutedSubspace.pack(groupPrefix.addAll(currentValue).addAll(groupSuffix));
@@ -188,18 +224,48 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
                         state.store.ensureContextActive().set(permutedKeyToAdd, TupleHelpers.EMPTY.pack());
                     }
                     return null;
-                }).thenCompose(vignore -> updateOneKeyAsync(savedRecord, remove, indexEntry));  // Ordinary is second.
+                }));
             }
+            return AsyncUtil.whenAll(work)
+                    // Update the ordinary tree after the extrema have all been given new values
+                    .thenCompose(ignore -> super.updateIndexKeys(savedRecord, remove, indexEntries));
         }
-        return AsyncUtil.DONE;
+    }
+
+    @Nonnull
+    private Map<Tuple, IndexEntry> extremumEntriesByGroup(@Nonnull List<IndexEntry> entries) {
+        if (entries.isEmpty()) {
+            return Collections.emptyMap();
+        } else if (entries.size() == 1) {
+            IndexEntry entry = Iterables.getOnlyElement(entries);
+            Tuple groupKey = TupleHelpers.subTuple(entry.getKey(), 0, getGroupingCount());
+            return Map.of(groupKey, entry);
+        } else {
+            // Calculate the maximum/minimum entry for each group from the set of entries. By finding
+            // the unique value for each group, we can then update each group in parallel.
+            final int groupPrefixSize = getGroupingCount();
+            final int totalSize = state.index.getColumnSize();
+            Map<Tuple, IndexEntry> entryMap = new LinkedHashMap<>();
+            for (IndexEntry entry : entries) {
+                Tuple groupKey = TupleHelpers.subTuple(entry.getKey(), 0, groupPrefixSize);
+                IndexEntry previousForGroup = entryMap.putIfAbsent(groupKey, entry);
+                if (previousForGroup != null) {
+                    final Tuple entryValue = TupleHelpers.subTuple(entry.getKey(), groupPrefixSize, totalSize);
+                    final Tuple previousValue = TupleHelpers.subTuple(previousForGroup.getKey(), groupPrefixSize, totalSize);
+                    if (type.shouldUpdateExtremum(previousValue, entryValue)) {
+                        entryMap.put(groupKey, entry);
+                    }
+                }
+            }
+            return entryMap;
+        }
     }
 
     // Return the min/max key matching the given group key or {@code null} if there are not entries for the group.
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Tuple> getExtremum(@Nonnull Tuple groupKey) {
         final RecordCursor<IndexEntry> scan = scan(TupleRange.allOf(groupKey), null,
-                (type == Type.MIN ? ScanProperties.FORWARD_SCAN : ScanProperties.REVERSE_SCAN)
-                        .with(props -> props.clearState().setReturnedRowLimit(1)));
+                type.baseScanProperties.with(props -> props.clearState().setReturnedRowLimit(1)));
         return scan.first().thenApply(first -> first.map(IndexEntry::getKey).orElse(null));
     }
 
@@ -245,8 +311,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
                 if (accum == null) {
                     return value;
                 } else {
-                    int comparison = value.compareTo(accum);
-                    if (comparison < 0 && type == Type.MIN || comparison > 0 && type == Type.MAX) {
+                    if (type.shouldUpdateExtremum(accum, value)) {
                         return value;
                     } else {
                         return accum;

@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
@@ -55,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.O
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -262,6 +262,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
+    default Value translateCorrelationsAndSimplify(@Nonnull final TranslationMap translationMap) {
+        final var newValue = translateCorrelations(translationMap);
+        return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
         return replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
@@ -273,11 +280,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
                 Verify.verify(correlatedTo.size() == 1);
                 final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
-                if (translationMap.containsSourceAlias(sourceAlias)) {
-                    return translationMap.applyTranslationFunction(sourceAlias, leafValue);
-                }  else {
-                    return leafValue;
-                }
+                return translationMap.containsSourceAlias(sourceAlias)
+                       ? translationMap.applyTranslationFunction(sourceAlias, leafValue)
+                       : leafValue;
             }
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
@@ -477,11 +482,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .map(Correlated::getCorrelatedTo)
                 .collect(ImmutableList.toImmutableList());
 
-        final var correlatedToIntersection = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
-        correlatedTos.forEach(correlatedToIntersection::retainAll);
+        final var correlatedToDifference = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
+        correlatedTos.forEach(correlatedToDifference::retainAll);
 
-        final var equivalenceMap = aliasMap.derived()
-                .identitiesFor(correlatedToIntersection)
+        final var equivalenceMap = aliasMap.toBuilder()
+                .identitiesFor(correlatedToDifference)
                 .build();
 
         final var resultPair =

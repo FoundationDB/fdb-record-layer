@@ -249,7 +249,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                 enumerateUnboundCorrelatedTo(equivalenceMap, otherExpression);
 
         for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
-            final AliasMap.Builder boundCorrelatedToBuilder = boundCorrelatedReferencesMap.derived();
+            final AliasMap.Builder boundCorrelatedToBuilder = boundCorrelatedReferencesMap.toBuilder();
 
             AliasMap boundCorrelatedToMap;
 

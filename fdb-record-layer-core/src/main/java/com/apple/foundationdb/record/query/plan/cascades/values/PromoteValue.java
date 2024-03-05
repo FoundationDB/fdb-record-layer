@@ -580,7 +580,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
                 elementsTrie = null;
             }
             return new ArrayCoercionBiFunction((Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
-                    (Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
+                    (Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getToArrayType())),
                     elementsTrie);
         }
 

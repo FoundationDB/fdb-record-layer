@@ -87,7 +87,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
         final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var resultValue = groupByExpression.getResultValue(); // full result value
         final var groupingValue = groupByExpression.getGroupingValue();
-        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.of(innerQuantifier.getAlias(), Quantifier.current()));
+        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
         final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {

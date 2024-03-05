@@ -136,7 +136,7 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
             if (!nonTautologyPredicates.isEmpty()) {
                 final var lowerAlias = quantifier.getAlias();
                 beforeMapQuantifier = Quantifier.physical(referenceBuilder.reference());
-                resultValue = resultValue.rebase(AliasMap.of(lowerAlias, beforeMapQuantifier.getAlias()));
+                resultValue = resultValue.rebase(AliasMap.ofAliases(lowerAlias, beforeMapQuantifier.getAlias()));
             } else {
                 beforeMapQuantifier = Quantifier.physicalBuilder()
                         .withAlias(quantifier.getAlias())

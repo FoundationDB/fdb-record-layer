@@ -512,7 +512,7 @@ public class MessageHelpers {
     /**
      * Trie data structure of {@link Type.Record.Field}s to {@link Value}s.
      */
-    public static class TransformationTrieNode extends TrieNode<Integer, Value, TransformationTrieNode> implements PlanHashable, PlanSerializable {
+    public static class TransformationTrieNode extends TrieNode.AbstractTrieNode<Integer, Value, TransformationTrieNode> implements PlanHashable, PlanSerializable {
 
         public TransformationTrieNode(@Nullable final Value value, @Nullable final Map<Integer, TransformationTrieNode> childrenMap) {
             super(value, childrenMap);
@@ -631,7 +631,7 @@ public class MessageHelpers {
      * Trie data structure of {@link Type.Record.Field}s to conversion functions used to coerce an object of a certain type into
      * an object of another type.
      */
-    public static class CoercionTrieNode extends TrieNode<Integer, CoercionBiFunction, CoercionTrieNode> implements PlanHashable, PlanSerializable {
+    public static class CoercionTrieNode extends TrieNode.AbstractTrieNode<Integer, CoercionBiFunction, CoercionTrieNode> implements PlanHashable, PlanSerializable {
         public CoercionTrieNode(@Nullable final CoercionBiFunction value, @Nullable final Map<Integer, CoercionTrieNode> childrenMap) {
             super(value, childrenMap);
         }

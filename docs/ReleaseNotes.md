@@ -20,9 +20,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** The `PlanOrderingKey` can now handle multiple instances of the same expression appearing within the same key [(Issue #2452)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
-* **Bug fix** The value portion of a `KeyWithValueExpression` no longer contributes to the `PlanOrderingKey` [(Issue #2469)](https://github.com/FoundationDB/fdb-record-layer/issues/2469)
-* **Bug fix** Synthetic indexes built during `checkVersion` use the correct index maintainers. Adopters using synthetic records may need to rebuild or scrub older indexes [(Issue #2530)](https://github.com/FoundationDB/fdb-record-layer/issues/2530)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -30,11 +28,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Allow Non-Unique Lucene Partitioning Field Values [(Issue #2541)](https://github.com/FoundationDB/fdb-record-layer/issues/2541)
-* **Feature** Support deleteRecordsWhere for some join indexes [(Issue #2532)](https://github.com/FoundationDB/fdb-record-layer/issues/2532)
-* **Feature** Add an option for other non-time size events [(Issue #2525)](https://github.com/FoundationDB/fdb-record-layer/issues/2525)
-* **Feature** Harden Lucene continuations with respect to background work [(Issue #2523)](https://github.com/FoundationDB/fdb-record-layer/issues/2523)
-* **Feature** FDBDirectoryLockFactory: better handling of lock's TTL [(Issue #2535)](https://github.com/FoundationDB/fdb-record-layer/issues/2535)
-* **Feature** The planner will now select in-union plans in cases when the index contains additional columns that are not specified in the requested ordering [(Issue #2493)](https://github.com/FoundationDB/fdb-record-layer/issues/2493)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -43,6 +40,31 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.464.0
+
+
+### 3.4.463.0
+
+
+### 3.4.461.0
+
+* **Bug fix** Permuted min and max indexes on repeated fields now index all entries if defined on a `FanOut` expression [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+* **Performance** Implement a proper copy-on-write `replace` for `TreeLike` [(Issue #2500)](https://github.com/FoundationDB/fdb-record-layer/issues/2500)
+* **Feature** API for robust matching of `Value`s [(Issue #2499)](https://github.com/FoundationDB/fdb-record-layer/issues/2499)
+* **Breaking change** Permuted min or max indexes on repeated fields need to be rebuilt to ensure completeness [(Issue #2543)](https://github.com/FoundationDB/fdb-record-layer/issues/2543)
+
+### 3.4.459.0
+
+* **Bug fix** The `PlanOrderingKey` can now handle multiple instances of the same expression appearing within the same key [(Issue #2452)](https://github.com/FoundationDB/fdb-record-layer/issues/2462)
+* **Bug fix** The value portion of a `KeyWithValueExpression` no longer contributes to the `PlanOrderingKey` [(Issue #2469)](https://github.com/FoundationDB/fdb-record-layer/issues/2469)
+* **Bug fix** Synthetic indexes built during `checkVersion` use the correct index maintainers. Adopters using synthetic records may need to rebuild or scrub older indexes [(Issue #2530)](https://github.com/FoundationDB/fdb-record-layer/issues/2530)
+* **Feature** Support deleteRecordsWhere for some join indexes [(Issue #2532)](https://github.com/FoundationDB/fdb-record-layer/issues/2532)
+* **Feature** Add an option for other non-time size events [(Issue #2525)](https://github.com/FoundationDB/fdb-record-layer/issues/2525)
+* **Feature** FDBDirectoryLockFactory: Implement heartbeat during ensureValid [(Issue #2539)](https://github.com/FoundationDB/fdb-record-layer/issues/2539)
+* **Feature** Harden Lucene continuations with respect to background work [(Issue #2523)](https://github.com/FoundationDB/fdb-record-layer/issues/2523)
+* **Feature** FDBDirectoryLockFactory: better handling of lock's TTL [(Issue #2535)](https://github.com/FoundationDB/fdb-record-layer/issues/2535)
+* **Feature** The planner will now select in-union plans in cases when the index contains additional columns that are not specified in the requested ordering [(Issue #2493)](https://github.com/FoundationDB/fdb-record-layer/issues/2493)
 
 ### 3.4.458.0
 
