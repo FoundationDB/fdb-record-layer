@@ -126,7 +126,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Override
     public RecordQueryMapPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, false);
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         return new RecordQueryMapPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translatedResultValue);
     }
 

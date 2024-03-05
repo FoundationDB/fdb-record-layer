@@ -88,7 +88,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     public LogicalProjectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final List<? extends Value> rebasedValue =
                 getProjectedValues().stream()
-                        .map(projectedValue -> projectedValue.translateCorrelations(translationMap, false))
+                        .map(projectedValue -> projectedValue.translateCorrelations(translationMap))
                         .collect(ImmutableList.toImmutableList());
 
         return new LogicalProjectionExpression(rebasedValue,
