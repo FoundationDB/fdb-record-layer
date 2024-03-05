@@ -171,6 +171,7 @@ public class IndexingMerger {
     private boolean shouldGiveRepartitionSecondChance() {
         if (repartitionDocumentCount == -1 && repartitionSecondChances == 0) {
             repartitionSecondChances++;
+            repartitionDocumentCount = 0;
             return true;
         }
         repartitionSecondChances = 0;

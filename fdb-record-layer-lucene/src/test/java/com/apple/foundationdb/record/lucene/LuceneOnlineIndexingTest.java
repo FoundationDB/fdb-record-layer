@@ -942,11 +942,11 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(timeCommitCount > 0);
     }
 
-    private static class TerribleRebalalceIndexMaintainer extends LuceneIndexMaintainer {
+    private static class TerribleRebalanceIndexMaintainer extends LuceneIndexMaintainer {
         private final IndexMaintainerState state;
         private static int pseodoFound = 0;
 
-        protected TerribleRebalalceIndexMaintainer(final IndexMaintainerState state) {
+        protected TerribleRebalanceIndexMaintainer(final IndexMaintainerState state) {
             super(state, state.context.getExecutor());
             this.state = state;
         }
@@ -968,7 +968,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @AutoService(IndexMaintainerFactory.class)
-    public static class TerribleRebalalceIndexMaintainerFactory implements IndexMaintainerFactory {
+    public static class TerribleRebalanceIndexMaintainerFactory implements IndexMaintainerFactory {
         @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
@@ -984,7 +984,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Nonnull
         @Override
         public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-            return new TerribleRebalalceIndexMaintainer(state);
+            return new TerribleRebalanceIndexMaintainer(state);
         }
     }
 
@@ -1007,12 +1007,12 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static class TerribleRebalalce2ndChanceIndexMaintainer extends LuceneIndexMaintainer {
+    private static class Terriblerebalnce2ndChanceIndexMaintainer extends LuceneIndexMaintainer {
         private final IndexMaintainerState state;
         static boolean isSecondPass = false;
         static boolean gotSecondChance = false;
 
-        protected TerribleRebalalce2ndChanceIndexMaintainer(final IndexMaintainerState state) {
+        protected Terriblerebalnce2ndChanceIndexMaintainer(final IndexMaintainerState state) {
             super(state, state.context.getExecutor());
             this.state = state;
         }
@@ -1020,12 +1020,13 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Void> mergeIndex() {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            final int documentCount = mergeControl.getRepartitionDocumentCount();
             if (isSecondPass) {
                 mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+                assertEquals(0, documentCount);
                 gotSecondChance = true;
                 return AsyncUtil.DONE;
             }
-            final int documentCount = mergeControl.getRepartitionDocumentCount();
             if (documentCount == -1) {
                 isSecondPass = true;
                 mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
@@ -1041,7 +1042,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @AutoService(IndexMaintainerFactory.class)
-    public static class TerribleRebalalce2ndChanceIndexMaintainerFactory implements IndexMaintainerFactory {
+    public static class Terriblerebalnce2ndChanceIndexMaintainerFactory implements IndexMaintainerFactory {
         @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
@@ -1057,14 +1058,14 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Nonnull
         @Override
         public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-            return new TerribleRebalalce2ndChanceIndexMaintainer(state);
+            return new Terriblerebalnce2ndChanceIndexMaintainer(state);
         }
     }
 
     @Test
     void luceneOnlineIndexingTestTerribleRebalance2ndChance() {
-        TerribleRebalalce2ndChanceIndexMaintainer.isSecondPass = false;
-        TerribleRebalalce2ndChanceIndexMaintainer.gotSecondChance = false;
+        Terriblerebalnce2ndChanceIndexMaintainer.isSecondPass = false;
+        Terriblerebalnce2ndChanceIndexMaintainer.gotSecondChance = false;
         Index index = new Index("Simple$text_suffixes",
                 function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
                 "terribleRebalance2ndChance",
@@ -1078,8 +1079,8 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                 .setMaxAttempts(1)
                 .build()) {
             indexBuilder.mergeIndex(); // retries under the hood + second chance
-            assertTrue(TerribleRebalalce2ndChanceIndexMaintainer.gotSecondChance);
-            assertTrue(TerribleRebalalce2ndChanceIndexMaintainer.isSecondPass);
+            assertTrue(Terriblerebalnce2ndChanceIndexMaintainer.gotSecondChance);
+            assertTrue(Terriblerebalnce2ndChanceIndexMaintainer.isSecondPass);
         }
     }
 }
