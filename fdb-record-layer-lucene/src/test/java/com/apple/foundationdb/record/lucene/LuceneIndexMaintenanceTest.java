@@ -20,15 +20,20 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.LoggableTimeoutException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
@@ -37,6 +42,8 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -52,7 +59,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
@@ -119,10 +130,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)random.nextInt(10))
                 .build();
 
         // Generate random documents
-        final Map<Tuple, Map<Tuple, Tuple>> ids = generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup);
+        final Map<Tuple, Map<Tuple, Tuple>> ids = generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, random.nextInt(15) + 1);
 
         explicitMergeIndex(index, contextProps, schemaSetup);
 
@@ -136,13 +148,123 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
         }
     }
 
+
+    static Stream<Arguments> flakyMergeArguments() {
+        return Stream.concat(
+                Stream.of(
+                        Arguments.of(true, false, false, 25, 1, 9237590782644L, true),
+                        Arguments.of(true, true, true, 31, 1, -644766138635622644L, true),
+                        Arguments.of(false, true, true, 23, 1, -1089113174774589435L, true),
+                        Arguments.of(false, false, false, 13, 1, 6223372946177329440L, true)),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(), // isGrouped
+                                random.nextBoolean(), // isSynthetic
+                                random.nextBoolean(), // primaryKeySegmentIndexEnabled
+                                random.nextInt(40) + 2, // minDocumentCount
+                                random.nextDouble(), // mergeFailureChance
+                                random.nextLong(), // seed for other randomness
+                                false))); // require failure
+    }
+
+    @ParameterizedTest(name = "flakyMerge({argumentsWithNames})")
+    @MethodSource("flakyMergeArguments")
+    void flakyMerge(boolean isGrouped,
+                    boolean isSynthetic,
+                    boolean primaryKeySegmentIndexEnabled,
+                    int minDocumentCount,
+                    double mergeFailureChance,
+                    long seed,
+                    boolean requireFailure) throws IOException {
+        Random random = new Random(seed);
+        final boolean optimizedStoredFields = random.nextBoolean();
+        final Map<String, String> options = Map.of(
+                LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
+                LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(Integer.MAX_VALUE),
+                LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, String.valueOf(optimizedStoredFields),
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+        LOGGER.info(KeyValueLogMessage.of("Running flakyMerge test",
+                "isGrouped", isGrouped,
+                "isSynthetic", isSynthetic,
+                "options", options,
+                "seed", seed));
+
+        final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
+        Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaData metadata = metaDataBuilder.build();
+        Consumer<FDBRecordContext> schemaSetup = context -> createOrOpenRecordStore(context, metadata);
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
+                .build();
+
+        // Generate random documents
+        final int transactionCount = random.nextInt(15) + 10;
+        final Map<Tuple, Map<Tuple, Tuple>> ids = generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, transactionCount);
+
+        final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
+        AtomicInteger waitCounts = new AtomicInteger();
+        try {
+            final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout = (wait) -> {
+                System.out.printf("%3d %s%n", waitCounts.get(), wait);
+                if (wait.getClass().equals(LuceneEvents.Waits.class) &&
+                        // don't have the timeout on FILE_LOCK_CLEAR because that will leave the file lock around,
+                        // and the next iteration will fail on that.
+                        wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR &&
+                        waitCounts.getAndDecrement() == 0) {
+                    return Pair.of(1L, TimeUnit.NANOSECONDS);
+                } else {
+                    return oldAsyncToSyncTimeout == null ? Pair.of(1L, TimeUnit.DAYS) : oldAsyncToSyncTimeout.apply(wait);
+                }
+            };
+            for (int i = 0; i < 100; i++) {
+                fdb.setAsyncToSyncTimeout(asyncToSyncTimeout);
+                waitCounts.set(i);
+                try {
+                    try (FDBRecordContext context = openContext(contextProps)) {
+                        schemaSetup.accept(context);
+                        AsyncUtil.collect(context.ensureActive().getRange(recordStore.getIndexMaintainer(index).getIndexSubspace().range()))
+                                .thenAccept(System.out::println).join();
+
+                    }
+                    explicitMergeIndex(index, contextProps, schemaSetup);
+//                    Assertions.assertFalse(requireFailure && i < 15, i + " merge should have failed");
+                } catch (RecordCoreException e) {
+                    Throwable cause = e;
+                    final int iteration = i;
+                    final Supplier<String> message = () -> iteration + " " + e.getMessage();
+                    while (true) {
+                        if (cause instanceof LoggableTimeoutException) {
+                            final Map<String, Object> logInfo = ((LoggableTimeoutException)cause).getLogInfo();
+                            Assertions.assertEquals(1L, logInfo.get(LogMessageKeys.TIME_LIMIT.toString()), message);
+                            Assertions.assertEquals(TimeUnit.NANOSECONDS, logInfo.get(LogMessageKeys.TIME_UNIT.toString()), message);
+                            break;
+                        }
+                        cause = cause.getCause();
+                        Assertions.assertNotNull(cause);
+                    }
+                }
+                fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
+                new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+                    schemaSetup.accept(context);
+                    return recordStore;
+                }).validate(index, ids, Integer.MAX_VALUE, isSynthetic ? "child_str_value:forth" : "text_value:about");
+            }
+        } finally {
+            fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
+            ids.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> {
+                        System.out.println(entry.getKey() + ": " + entry.getValue().keySet());
+                    });
+        }
+    }
+
     @Nonnull
     private Map<Tuple, Map<Tuple, Tuple>> generateDocuments(final boolean isGrouped, final boolean isSynthetic,
                                                            final int minDocumentCount, final Random random,
                                                            final RecordLayerPropertyStorage contextProps,
-                                                           final Consumer<FDBRecordContext> schemaSetup) {
+                                                           final Consumer<FDBRecordContext> schemaSetup, final int transactionCount) {
         Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
-        final int transactionCount = random.nextInt(15) + 1;
         final long start = Instant.now().toEpochMilli();
         int i = 0;
         while (i < transactionCount ||
