@@ -91,9 +91,10 @@ message PType {
       optional int32 field_index = 3;
     }
 
-    optional string name = 1;  // referential name -- not used in the planner
-    optional bool is_nullable = 2;
-    repeated PField fields = 3;
+    optional int32 reference_id = 1;
+    optional string name = 2;  // referential name -- not used in the planner
+    optional bool is_nullable = 3;
+    repeated PField fields = 4;
   }
 
   message PRelationType {
@@ -892,6 +893,7 @@ message PComparableObject {
     PEnumLightValue enum_object = 2;
     PUUID uuid = 3;
     PFDBRecordVersion fdb_record_version = 4;
+    bytes bytes_as_byte_string = 5;
   }
 }
 
