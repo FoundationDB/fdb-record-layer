@@ -20,10 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -37,7 +34,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
-import java.util.stream.Collectors;
 
 @ParametersAreNonnullByDefault
 class FDBTieredMergePolicy extends TieredMergePolicy {
@@ -74,7 +70,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
             final MergeSpecification merges = super.findMerges(mergeTrigger, infos, mergeContext);
-            logFoundMerges(mergeTrigger, merges);
+            MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, merges);
             return merges;
         }
         if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
@@ -98,32 +94,8 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
         mergeControl.setMergesTried(specSize(spec));
 
         context.recordEvent(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
-        logFoundMerges(mergeTrigger, spec);
+        MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, spec);
         return spec;
-    }
-
-    private void logFoundMerges(@Nonnull final MergeTrigger mergeTrigger,
-                                @Nullable final MergeSpecification merges) {
-        if (merges != null && LOGGER.isDebugEnabled()) {
-            final String message = KeyValueLogMessage.of("Found Merges",
-                    LogMessageKeys.INDEX_SUBSPACE, indexSubspace,
-                    LogMessageKeys.KEY, key,
-                    LuceneLogMessageKeys.MERGE_TRIGGER, mergeTrigger,
-                    LogMessageKeys.AGILITY_CONTEXT, context.getClass().getSimpleName(),
-                    LuceneLogMessageKeys.MERGE_SOURCE, simpleSpec(merges));
-            if (context instanceof AgilityContext.Agile) {
-                LOGGER.debug(message);
-            } else {
-                LOGGER.debug(message, new Exception());
-            }
-        }
-    }
-
-    private String simpleSpec(final MergeSpecification merges) {
-        return merges.merges.stream().map(merge ->
-                        merge.segments.stream().map(segment -> segment.info.name)
-                                .collect(Collectors.joining(",", "", "")))
-                .collect(Collectors.joining(";"));
     }
 }
 
