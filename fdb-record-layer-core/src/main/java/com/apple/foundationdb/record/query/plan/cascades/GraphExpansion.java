@@ -321,11 +321,7 @@ public class GraphExpansion {
         final var quantifiersBuilder = ImmutableList.<Quantifier>builder();
         final var placeholdersBuilder = ImmutableList.<Placeholder>builder();
         for (final GraphExpansion expandedPredicate : graphExpansions) {
-            for (Column<?> resultColumn : expandedPredicate.getResultColumns()) {
-                // Preserve field names in the result columns, but do not preserve ordinal numbers, which will
-                // be recalculated based on the position of the field within the final expression
-                resultColumnsBuilder.add(Column.of(resultColumn.getField().getFieldNameOptional(), resultColumn.getValue()));
-            }
+            resultColumnsBuilder.addAll(expandedPredicate.getResultColumns());
             predicatesBuilder.addAll(expandedPredicate.getPredicates());
             quantifiersBuilder.addAll(expandedPredicate.getQuantifiers());
             placeholdersBuilder.addAll(expandedPredicate.getPlaceholders());

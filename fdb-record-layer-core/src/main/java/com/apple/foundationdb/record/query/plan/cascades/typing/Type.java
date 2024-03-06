@@ -2130,6 +2130,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 }
                 if (field.fieldIndexOptional.isPresent() && !fieldIndexesSeen.add(field.getFieldIndex())) {
                     override = true;
+                    break;
                 }
             }
 
@@ -2154,7 +2155,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     fieldToBeAdded =
                             new Field(field.getFieldType(),
                                     Optional.of(explicitFieldName),
-                                    Optional.of(field.getFieldIndexOptional().orElse(i + 1)));
+                                    Optional.of(i + 1));
                 }
 
                 if (!(fieldNamesSeen.add(fieldToBeAdded.getFieldName()))) {
