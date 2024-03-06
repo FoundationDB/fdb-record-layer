@@ -579,9 +579,14 @@ public class FDBDirectory extends Directory  {
         long totalSize = 0L;
         long actualTotalSize = 0L;
         for (Map.Entry<String, FDBLuceneFileReference> entry: fileMap.entrySet()) {
-            displayList.add(entry.getKey());
+            if (displayList.size() < 200 || entry.getKey().startsWith("segments")) {
+                displayList.add(entry.getKey());
+            }
             totalSize += entry.getValue().getSize();
             actualTotalSize += entry.getValue().getActualSize();
+        }
+        if (displayList.size() >= 200) {
+            displayList.add("...");
         }
         final KeyValueLogMessage message = getKeyValueLogMessage(listAllFiles,
                 LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
