@@ -562,19 +562,7 @@ public class FDBDirectory extends Directory  {
             return null;
         }).thenAccept(ignore -> {
             if (LOGGER.isDebugEnabled()) {
-                List<String> displayList = new ArrayList<>(outMap.size());
-                long totalSize = 0L;
-                long actualTotalSize = 0L;
-                for (Map.Entry<String, FDBLuceneFileReference> entry: outMap.entrySet()) {
-                    displayList.add(entry.getKey());
-                    totalSize += entry.getValue().getSize();
-                    actualTotalSize += entry.getValue().getActualSize();
-                }
-                LOGGER.debug(getLogMessage("listAllFiles",
-                        LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
-                        LuceneLogMessageKeys.FILE_LIST, displayList,
-                        LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
-                        LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize));
+                LOGGER.debug(fileListLog("listAllFiles", outMap).toString());
             }
 
             // Memoize the result in an FDBDirectory member variable. Future attempts to access files
@@ -583,6 +571,24 @@ public class FDBDirectory extends Directory  {
             fieldInfosStorage.initializeReferenceCount(fieldInfosCount);
         });
         return agilityContext.instrument(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, future, start);
+    }
+
+    private KeyValueLogMessage fileListLog(final String listAllFiles,
+                                           final Map<String, FDBLuceneFileReference> fileMap) {
+        List<String> displayList = new ArrayList<>(fileMap.size());
+        long totalSize = 0L;
+        long actualTotalSize = 0L;
+        for (Map.Entry<String, FDBLuceneFileReference> entry: fileMap.entrySet()) {
+            displayList.add(entry.getKey());
+            totalSize += entry.getValue().getSize();
+            actualTotalSize += entry.getValue().getActualSize();
+        }
+        final KeyValueLogMessage message = getKeyValueLogMessage(listAllFiles,
+                LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
+                LuceneLogMessageKeys.FILE_LIST, displayList,
+                LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
+                LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize);
+        return message;
     }
 
     @Nonnull
@@ -873,8 +879,9 @@ public class FDBDirectory extends Directory  {
     public void close() {
         agilityContext.flush();
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(getLogMessage("close called",
-                    LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats()));
+            LOGGER.debug(fileListLog("Closed FDBDirectory", Objects.requireNonNullElse(fileReferenceCache.get(), Map.of()))
+                    .addKeyAndValue(LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats())
+                    .toString());
         }
     }
 
@@ -918,11 +925,14 @@ public class FDBDirectory extends Directory  {
 
     @Nonnull
     private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+        return getKeyValueLogMessage(staticMsg, keysAndValues).toString();
+    }
+
+    private KeyValueLogMessage getKeyValueLogMessage(final @Nonnull String staticMsg, final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
                 .addKeyAndValue(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
-                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled)
-                .toString();
+                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
     }
 
     /**
