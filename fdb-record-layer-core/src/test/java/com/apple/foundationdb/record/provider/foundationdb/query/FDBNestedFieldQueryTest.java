@@ -85,6 +85,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexScanType;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnExpressionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
@@ -406,8 +407,11 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             // Does not understand duplicate condition, and so plans an extraneous (but harmless, semantically speaking)
             // intersection with the "duplicates" index
             assertMatchesExactly(plan,
-                    filterPlan(unorderedPrimaryKeyDistinctPlan(indexPlanMatcher))
-                            .where(queryComponents(only(equalsObject(Query.field("name").equalsValue("something"))))));
+                    intersectionOnExpressionPlan(
+                            unorderedPrimaryKeyDistinctPlan(indexPlanMatcher),
+                            indexPlan()
+                                    .where(indexName("duplicates"))
+                                    .and(scanComparisons(range("[[something, something, 1],[something, something, 1]]")))));
         } else {
             assertMatchesExactly(plan,
                     fetchFromPartialRecordPlan(
