@@ -98,7 +98,7 @@ public final class LuceneRecordContextProperties {
     /**
      * Number of documents to move from a partition when its size exceeds {@link com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK}.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 10);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 16);
     /**
      * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
      */

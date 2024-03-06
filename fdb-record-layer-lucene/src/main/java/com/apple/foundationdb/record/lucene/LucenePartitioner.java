@@ -561,15 +561,16 @@ public class LucenePartitioner {
      *
      * @param start The continuation at which to resume rebalancing, as returned from a previous call to
      * {@code rebalancePartitions}.
+     * @param documentCount max number of documents to move in each transaction
      * @return a continuation at which to resume rebalancing in another call to {@code rebalancePartitions}
      */
     @Nonnull
-    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start) {
+    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start, int documentCount) {
         // This function will iterate the grouping keys
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            return processPartitionRebalancing(Tuple.from()).thenApply(result -> {
+            return processPartitionRebalancing(Tuple.from(), documentCount).thenApply(result -> {
                 if (result.getLeft() > 0) {
                     // we did something, repeat
                     return RecordCursorStartContinuation.START;
@@ -599,7 +600,7 @@ public class LucenePartitioner {
             return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
                 if (cursorResult.hasNext()) {
                     final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
-                    return processPartitionRebalancing(groupingKey)
+                    return processPartitionRebalancing(groupingKey, documentCount)
                             .thenCompose(repartitionResult -> {
                                 if (repartitionResult.getLeft() > 0) {
                                     // we did something, stop so we can create a new transaction
@@ -626,10 +627,14 @@ public class LucenePartitioner {
      * they will be processed during subsequent calls.
      *
      * @param groupingKey grouping key
+     * @param repartitionDocumentCount max number of documents to move in each transaction
      * @return {@code true} future if there is more repartitioning to be done in this group
      */
     @Nonnull
-    public CompletableFuture<Pair<Integer, Integer>> processPartitionRebalancing(@Nonnull final Tuple groupingKey) {
+    public CompletableFuture<Pair<Integer, Integer>> processPartitionRebalancing(@Nonnull final Tuple groupingKey, int repartitionDocumentCount) {
+        if (repartitionDocumentCount <= 0) {
+            throw new IllegalArgumentException("number of documents to move can't be zero");
+        }
         return getAllPartitionMetaInfo(groupingKey).thenCompose(partitionInfos -> {
             // need to track the next partition id to use when creating a new one
             int maxPartitionId = partitionInfos.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getId).max(Integer::compare).orElse(0);
@@ -645,14 +650,9 @@ public class LucenePartitioner {
                     // process one partition
 
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
-                    // the (N+1)th doc's partitioning field value to update the partition's "from" field.
-                    final int repartitionDocumentCount = Math.min(
-                            Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT)),
-                            indexPartitionHighWatermark);
-                    LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(
-                            partitionInfo,
-                            groupingKey,
-                            repartitionDocumentCount + 1);
+                    // the (N+1)th doc's timestamp to update the partition's "from" field.
+                    final int count = 1 + Math.min(repartitionDocumentCount, indexPartitionHighWatermark);
+                    LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(partitionInfo, groupingKey, count);
 
                     return moveDocsFromPartition(partitionInfo, groupingKey, maxPartitionId, luceneRecordCursor)
                             .thenApply(movedCount -> Pair.of(
