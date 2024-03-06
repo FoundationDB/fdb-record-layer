@@ -63,6 +63,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
     private final int mergeDirectoryCount;
+    private final AgilityContext agilityContext;
+    private final Tuple key;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
@@ -76,7 +78,9 @@ class FDBDirectoryWrapper implements AutoCloseable {
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
         this.state = state;
+        this.key = key;
         this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext);
+        this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -164,7 +168,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, state.context)
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key)
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);

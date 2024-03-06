@@ -139,6 +139,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
             final int docCount = random.nextInt(10) + 1;
             try (FDBRecordContext context = openContext(contextProps)) {
                 schemaSetup.accept(context);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int j = 0; j < docCount; j++) {
                     final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
                     final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();

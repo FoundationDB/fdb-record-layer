@@ -20,25 +20,44 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.TieredMergePolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
+import java.util.stream.Collectors;
 
 @ParametersAreNonnullByDefault
 class FDBTieredMergePolicy extends TieredMergePolicy {
-    @Nullable private final IndexDeferredMaintenanceControl mergeControl;
-    private final FDBRecordContext context;
 
-    public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl, FDBRecordContext context) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FDBTieredMergePolicy.class);
+    @Nullable private final IndexDeferredMaintenanceControl mergeControl;
+    private final AgilityContext context;
+    @Nonnull
+    private final Subspace indexSubspace;
+    @Nonnull
+    private final Tuple key;
+
+    public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl,
+                                @Nonnull AgilityContext context,
+                                @Nonnull Subspace indexSubspace,
+                                @Nonnull final Tuple key) {
         this.mergeControl = mergeControl;
         this.context = context;
+        this.indexSubspace = indexSubspace;
+        this.key = key;
     }
 
     boolean isAutoMergeDuringCommit(MergeTrigger mergeTrigger) {
@@ -54,7 +73,9 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
-            return super.findMerges(mergeTrigger, infos, mergeContext);
+            final MergeSpecification merges = super.findMerges(mergeTrigger, infos, mergeContext);
+            logFoundMerges(mergeTrigger, merges);
+            return merges;
         }
         if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
             // Here: skip it. The merge should be performed later by the user.
@@ -76,8 +97,28 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
         }
         mergeControl.setMergesTried(specSize(spec));
 
-        context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
+        context.recordEvent(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
+        logFoundMerges(mergeTrigger, spec);
         return spec;
+    }
+
+    private void logFoundMerges(@Nonnull final MergeTrigger mergeTrigger,
+                                @Nullable final MergeSpecification merges) {
+        if (merges != null && LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.of("Found Merges",
+                    LogMessageKeys.INDEX_SUBSPACE, indexSubspace,
+                    LogMessageKeys.KEY, key,
+                    LuceneLogMessageKeys.MERGE_TRIGGER, mergeTrigger,
+                    LogMessageKeys.AGILITY_CONTEXT, context.getClass().getSimpleName(),
+                    LuceneLogMessageKeys.MERGE_SOURCE, simpleSpec(merges)));
+        }
+    }
+
+    private String simpleSpec(final MergeSpecification merges) {
+        return merges.merges.stream().map(merge ->
+                        merge.segments.stream().map(segment -> segment.info.name)
+                                .collect(Collectors.joining(",", "", "")))
+                .collect(Collectors.joining(";"));
     }
 }
 
