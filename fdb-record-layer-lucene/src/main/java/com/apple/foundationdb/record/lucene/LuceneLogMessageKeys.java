@@ -80,9 +80,11 @@ public enum LuceneLogMessageKeys {
     NAME,
     GROUP,
     PARTITION,
+    PARTITION_HIGH_WATERMARK,
     RECORD_TIMESTAMP,
     COUNT,
-    TOTAL_COUNT;
+    TOTAL_COUNT,
+    ;
 
     private final String logKey;
 

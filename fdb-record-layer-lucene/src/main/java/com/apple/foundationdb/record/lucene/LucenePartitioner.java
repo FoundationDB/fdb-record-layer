@@ -666,7 +666,9 @@ public class LucenePartitioner {
             for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : partitionInfos) {
                 if (partitionInfo.getCount() > indexPartitionHighWatermark) {
                     // process one partition
-
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitionDocumentCount, partitionInfo));
+                    }
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
                     final int count = 1 + Math.min(repartitionDocumentCount, indexPartitionHighWatermark);
@@ -681,6 +683,19 @@ public class LucenePartitioner {
             // here: no partitions need re-balancing
             return CompletableFuture.completedFuture(Pair.of(0, 0));
         });
+    }
+
+    private String repartitionLogMessage(final String staticMessage,
+                                         final @Nonnull Tuple groupingKey,
+                                         final int repartitionDocumentCount,
+                                         final @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+        return KeyValueLogMessage.of(staticMessage,
+                LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace,
+                LuceneLogMessageKeys.GROUP, groupingKey,
+                LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
+                LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
+                LuceneLogMessageKeys.COUNT, repartitionDocumentCount,
+                LuceneLogMessageKeys.PARTITION_HIGH_WATERMARK, indexPartitionHighWatermark);
     }
 
     /**
@@ -789,11 +804,7 @@ public class LucenePartitioner {
                         .setFrom(ByteString.copyFrom(Tuple.from(newBoundaryTimestamp).pack()));
                 savePartitionMetadata(groupingKey, builder);
                 if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("Repartitioning Records",
-                            LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
-                            LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
-                            LuceneLogMessageKeys.COUNT, records.size()));
+                    LOGGER.info(repartitionLogMessage("Repartitoned records", groupingKey, records.size(), partitionInfo));
                 }
 
                 // value of the "destination" partition's `from` timestamp
