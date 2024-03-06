@@ -233,7 +233,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 }
                 if (parsed.hasPartitionId()) {
                     this.partitionId = parsed.getPartitionId();
-                    this.partitionTimestamp = parsed.getPartitionTimestamp();
+                    this.partitionTimestamp = parsed.getPartitionTimestamp(); // just to get this to compile for the DRAFT PR review
                 }
                 // if we're sorted by partition field, then the ScoreDoc in the continuation
                 // must be a FieldDoc that has the partition field value... otherwise something

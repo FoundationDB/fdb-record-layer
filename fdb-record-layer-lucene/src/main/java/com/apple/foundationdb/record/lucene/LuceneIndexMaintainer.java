@@ -93,6 +93,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -354,39 +355,32 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
         final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
         mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
-        int documentCount = mergeControl.getRepartitionDocumentCount();
-        if (documentCount < 0) {
-            // Skip re-balance
-            return CompletableFuture.completedFuture(null);
-        }
-        if (documentCount == 0) {
-            // Set default and broadcast it back to the caller
-            documentCount = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT));
-            mergeControl.setRepartitionDocumentCount(documentCount);
-        }
 
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
         final Index index = state.index;
-        return rebalancePartitions(runner, storeBuilder, index, documentCount)
+        return rebalancePartitions(runner, storeBuilder, index)
                 .whenComplete((result, error) -> {
                     runner.close();
                 });
     }
 
-    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index, int documentCount) {
+    private CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index) {
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
+        AtomicInteger countMoved = new AtomicInteger();
+        int maxDocsToMove = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_MAX_DOCUMENT_COUNT));
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
                         context -> storeBuilder.setContext(context).openAsync().thenCompose(store -> {
                             store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                            return getPartitioner(index, store).rebalancePartitions(continuation.get(), documentCount)
+                            return getPartitioner(index, store).rebalancePartitions(continuation.get(), maxDocsToMove - countMoved.get())
                                     .thenApply(newContinuation -> {
-                                        if (newContinuation.isEnd()) {
+                                        if (newContinuation.getLeft().isEnd()) {
                                             return false;
                                         } else {
-                                            continuation.set(newContinuation);
-                                            return true;
+                                            countMoved.addAndGet(newContinuation.getRight());
+                                            continuation.set(newContinuation.getLeft());
+                                            return countMoved.get() < maxDocsToMove;
                                         }
                                     });
                         })));

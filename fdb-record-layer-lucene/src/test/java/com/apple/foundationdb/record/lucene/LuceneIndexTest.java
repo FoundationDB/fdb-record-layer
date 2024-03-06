@@ -1210,6 +1210,63 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void capDocCountMovedDuringRepartitioningTest() throws IOException {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_MAX_DOCUMENT_COUNT, 10)
+                .build();
+
+        final int group = 1;
+        final Tuple groupTuple = Tuple.from(group);
+        final long start = Instant.now().toEpochMilli();
+        final String luceneSearch = "text:about";
+
+        final int docCount = 25;
+        List<Tuple> primaryKeys = new ArrayList<>();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            for (int i = 0; i < docCount; i++) {
+                ComplexDocument cd = ComplexDocument.newBuilder()
+                        .setGroup(group)
+                        .setDocId(1000L + i)
+                        .setIsSeen(true)
+                        .setText("A word about what I want to say")
+                        .setTimestamp(start + i * 100)
+                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
+                        .build();
+                final Tuple primaryKey;
+                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                primaryKeys.add(primaryKey);
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                groupTuple, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(docCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+        // now there should be 2 partitions only (since we capped the max document moved count to 10)
+        //  partition 0: with docs 10 - 25
+        //  partition 1: with docs  0 - 10
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            validateDocsInPartition(index, 0, groupTuple, Set.copyOf(primaryKeys.subList(10, 25)), luceneSearch);
+            validateDocsInPartition(index, 1, groupTuple, Set.copyOf(primaryKeys.subList(0, 10)), luceneSearch);
+        }
+    }
+
+    @Test
     void simpleCrossPartitionQuery() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
