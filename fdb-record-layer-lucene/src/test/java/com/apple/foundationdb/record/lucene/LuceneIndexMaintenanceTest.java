@@ -201,10 +201,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
     private Tuple saveRecords(final boolean isSynthetic, final int group, final int countInGroup, final long timestamp, final Random random) {
         var parent = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
-                .setRecNo(1000L + countInGroup)
+                .setRecNo(1001L + countInGroup)
                 .setTimestamp(timestamp)
                 .setTextValue("A word about what I want to say")
                 .setIntValue(random.nextInt())
+                .setChildRecNo(1000L - countInGroup)
                 .build();
         Tuple primaryKey;
         if (isSynthetic) {
