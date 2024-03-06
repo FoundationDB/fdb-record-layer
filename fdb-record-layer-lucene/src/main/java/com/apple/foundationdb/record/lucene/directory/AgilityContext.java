@@ -161,6 +161,16 @@ public interface AgilityContext {
             this.timeQuotaMillis = timeQuotaMillis;
             this.sizeQuotaBytes = sizeQuotaBytes;
             callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
+            logSelf("Starting agility context");
+        }
+
+        private void logSelf(final String staticMessage) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of(staticMessage,
+                        LogMessageKeys.TIME_LIMIT_MILLIS, this.timeQuotaMillis,
+                        LogMessageKeys.LIMIT, this.sizeQuotaBytes,
+                        LogMessageKeys.AGILITY_CONTEXT, this));
+            }
         }
 
         @Override
@@ -291,6 +301,12 @@ public interface AgilityContext {
         @Override
         public void flush() {
             commitNow();
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of("Flushed agility context",
+                        LogMessageKeys.TIME_LIMIT_MILLIS, timeQuotaMillis,
+                        LogMessageKeys.LIMIT, sizeQuotaBytes,
+                        LogMessageKeys.AGILITY_CONTEXT, this));
+            }
         }
     }
 
