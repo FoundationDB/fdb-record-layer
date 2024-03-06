@@ -672,12 +672,17 @@ public class LucenePartitioner {
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
                     final int count = 1 + Math.min(repartitionDocumentCount, indexPartitionHighWatermark);
+                    long startTimeNanos = System.nanoTime();
                     LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(partitionInfo, groupingKey, count);
 
                     return moveDocsFromPartition(partitionInfo, groupingKey, maxPartitionId, luceneRecordCursor)
-                            .thenApply(movedCount -> Pair.of(
-                                    movedCount,
-                                    Math.max(partitionInfo.getCount() - movedCount - indexPartitionHighWatermark, 0)));
+                            .thenApply(movedCount -> {
+                                state.context.record(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION, System.nanoTime() - startTimeNanos);
+                                state.context.recordSize(LuceneEvents.SizeEvents.LUCENE_REBALANCE_PARTITION_DOCS, movedCount);
+                                return Pair.of(
+                                        movedCount,
+                                        Math.max(partitionInfo.getCount() - movedCount - indexPartitionHighWatermark, 0));
+                            });
                 }
             }
             // here: no partitions need re-balancing
@@ -803,8 +808,8 @@ public class LucenePartitioner {
                         .setCount(partitionInfo.getCount() - records.size())
                         .setFrom(ByteString.copyFrom(Tuple.from(newBoundaryTimestamp).pack()));
                 savePartitionMetadata(groupingKey, builder);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(repartitionLogMessage("Repartitoned records", groupingKey, records.size(), partitionInfo));
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(repartitionLogMessage("Repartitoned records", groupingKey, records.size(), partitionInfo));
                 }
 
                 // value of the "destination" partition's `from` timestamp
