@@ -105,12 +105,17 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     private void logFoundMerges(@Nonnull final MergeTrigger mergeTrigger,
                                 @Nullable final MergeSpecification merges) {
         if (merges != null && LOGGER.isDebugEnabled()) {
-            LOGGER.debug(KeyValueLogMessage.of("Found Merges",
+            final String message = KeyValueLogMessage.of("Found Merges",
                     LogMessageKeys.INDEX_SUBSPACE, indexSubspace,
                     LogMessageKeys.KEY, key,
                     LuceneLogMessageKeys.MERGE_TRIGGER, mergeTrigger,
                     LogMessageKeys.AGILITY_CONTEXT, context.getClass().getSimpleName(),
-                    LuceneLogMessageKeys.MERGE_SOURCE, simpleSpec(merges)));
+                    LuceneLogMessageKeys.MERGE_SOURCE, simpleSpec(merges));
+            if (context instanceof AgilityContext.Agile) {
+                LOGGER.debug(message);
+            } else {
+                LOGGER.debug(message, new Exception());
+            }
         }
     }
 
