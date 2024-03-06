@@ -31,7 +31,7 @@ import java.util.Set;
  */
 public class IndexDeferredMaintenanceControl {
     private Set<Index> mergeRequiredIndexes = null;
-    private boolean autoMergeDuringCommit = true;
+    private boolean autoMergeDuringCommit = false;
     private long mergesLimit = 0;
     private long mergesFound;
     private long mergesTried;
@@ -80,8 +80,9 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Indicate to the index maintenance to automatically merge indexes during commit (if applicable).
-     * If the user sets it to false, they are responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
+     * The default is false, so the user is responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
      * function with the set of indexes returned by {@link #getMergeRequiredIndexes()} as target indexes.
+     * If set to true, the index maintenance operation will be done inline during the commit.
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {

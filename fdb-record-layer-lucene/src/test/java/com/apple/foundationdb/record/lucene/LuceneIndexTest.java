@@ -3921,6 +3921,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
+        this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
     }
 
     private void assertIndexEntryPrimaryKeys(Collection<Long> primaryKeys, RecordCursor<IndexEntry> cursor) {

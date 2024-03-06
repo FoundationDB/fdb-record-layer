@@ -1032,9 +1032,7 @@ public abstract class IndexingBase {
     }
 
     private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
-        if (policy.shouldDeferMergeDuringIndexing()) {
-            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-        }
+        store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(!policy.shouldDeferMergeDuringIndexing());
     }
 
     protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {
