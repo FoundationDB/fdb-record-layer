@@ -455,7 +455,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = 60; iLast > 40; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(multiEntryMapDoc(77L * i, ENGINEER_JOKE + iLast, group));
                 }
@@ -525,7 +524,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private String[] listFiles(Index index, Tuple tuple, int groupingCount) {
         try (FDBRecordContext context = openContext()) {
-            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
             final Subspace subspace = recordStore.indexSubspace(index);
             final FDBDirectory directory = new FDBDirectory(subspace.subspace(Tuple.fromItems(tuple.getItems().subList(0, groupingCount))), context, index.getOptions());
             return directory.listAll();
@@ -544,7 +542,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             int iLast = iLimits[iIndex ++];
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = iFIrst; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iIndex, 2));
                 }
@@ -582,7 +579,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = high; iLast > low; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iLast, 2));
                 }

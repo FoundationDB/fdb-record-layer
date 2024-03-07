@@ -398,6 +398,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
+        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
     }
 
     private Index getSimpleTextIndex(boolean useOptimizedStoredFieldFormat) {
