@@ -143,7 +143,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                     }
                     super.merge(mergeSource, trigger);
                 } else {
-                    skipMerge(mergeSource, trigger, "probability optimization");
+                    skipMerge(mergeSource);
                 }
             } else {
                 if (mergeSource.hasPendingMerges()) {
@@ -154,7 +154,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
             state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
         }
 
-        private void skipMerge(final MergeSource mergeSource, final MergeTrigger trigger, String reason) {
+        private void skipMerge(final MergeSource mergeSource) {
             synchronized (this) {
                 MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
                 while (nextMerge != null) {

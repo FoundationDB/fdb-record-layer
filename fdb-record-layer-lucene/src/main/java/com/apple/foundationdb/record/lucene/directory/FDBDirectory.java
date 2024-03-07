@@ -588,12 +588,11 @@ public class FDBDirectory extends Directory  {
         if (displayList.size() >= 200) {
             displayList.add("...");
         }
-        final KeyValueLogMessage message = getKeyValueLogMessage(listAllFiles,
+        return getKeyValueLogMessage(listAllFiles,
                 LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
                 LuceneLogMessageKeys.FILE_LIST, displayList,
                 LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
                 LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize);
-        return message;
     }
 
     @Nonnull

@@ -65,6 +65,7 @@ class MergeUtils {
         }
     }
 
+    @SuppressWarnings("PMD.GuardLogStatement") // method is only called in a guard for isDebugEnabled
     private static void logWithExceptionIfNotAgile(final @Nonnull Logger logger, final @Nonnull AgilityContext context, final KeyValueLogMessage message) {
         if (context instanceof AgilityContext.Agile) {
             logger.debug(message.toString());
@@ -75,12 +76,11 @@ class MergeUtils {
 
     @Nonnull
     private static KeyValueLogMessage baseLogMessage(final @Nonnull String staticMessage, final @Nonnull AgilityContext context, final @Nonnull Subspace indexSubspace, final @Nullable Tuple key, final @Nonnull MergeTrigger mergeTrigger) {
-        final KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage,
+        return KeyValueLogMessage.build(staticMessage,
                 LogMessageKeys.INDEX_SUBSPACE, indexSubspace,
                 LogMessageKeys.KEY, key,
                 LuceneLogMessageKeys.MERGE_TRIGGER, mergeTrigger,
                 LogMessageKeys.AGILITY_CONTEXT, context.getClass().getSimpleName());
-        return message;
     }
 
     private static String simpleSpec(@Nonnull final MergePolicy.MergeSpecification merges) {
