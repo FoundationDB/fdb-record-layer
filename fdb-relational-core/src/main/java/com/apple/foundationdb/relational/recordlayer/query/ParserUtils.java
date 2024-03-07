@@ -520,18 +520,19 @@ public final class ParserUtils {
                                                     @Nonnull final PlanGenerationContext context,
                                                     @Nonnull final Scopes scopes,
                                                     @Nonnull final AccessHints accessHintSet) {
-        Assert.thatUnchecked(identifierValue.getParts().length <= 2);
         Assert.thatUnchecked(identifierValue.getParts().length > 0);
 
         if (!identifierValue.isQualified()) {
+            // If not qualified, then the value should contain just the table name
             final String recordTypeName = identifierValue.getParts()[0];
             Assert.notNullUnchecked(recordTypeName);
             final ImmutableSet<String> recordTypeNameSet = ImmutableSet.<String>builder().add(recordTypeName).build();
             final Set<String> allAvailableRecordTypeNames = context.asDql().getScannableRecordTypeNames();
             final Optional<Type> recordType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
             Assert.thatUnchecked(recordType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table %s", recordTypeName);
-            Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), String.format("attempt to scan non existing record type %s from record store containing (%s)",
-                    recordTypeName, String.join(",", allAvailableRecordTypeNames)));
+            Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), ErrorCode.INTERNAL_ERROR,
+                    "attempt to scan non existing record type %s from record store containing (%s)",
+                    recordTypeName, String.join(",", allAvailableRecordTypeNames));
             // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
             return new LogicalTypeFilterExpression(recordTypeNameSet,
                     Quantifier.forEach(GroupExpressionRef.of(
@@ -539,22 +540,41 @@ public final class ParserUtils {
                                     new Type.AnyRecord(false), accessHintSet))),
                     recordType.get());
         } else {
+            // If qualified, then the value should point to a path to a nested repeated structure
             final String qualifier = identifierValue.getParts()[0];
             Assert.notNullUnchecked(qualifier);
-            final String recordTypeName = identifierValue.getParts()[1];
-            Assert.notNullUnchecked(recordTypeName);
             // todo: check if the qualifier is actually a schema name
             final var maybeQun = scopes.resolveQuantifier(qualifier, true /* PartiQL semantics */);
-            Assert.thatUnchecked(maybeQun.isPresent(), String.format("attempt to query field %s from non-existing qualifier %s", recordTypeName, qualifier)); // TODO (yhatem) proper error code.
+            Assert.thatUnchecked(maybeQun.isPresent(), ErrorCode.INTERNAL_ERROR, "attempt to query nested field from non-existing qualifier %s", qualifier); // TODO (yhatem) proper error code.
             final var qun = maybeQun.get();
+
+            // Resolve the top-level type
             final QuantifiedValue value = qun.getFlowedObjectValue();
             Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.RECORD, String.format("alias is not valid %s", qualifier));
             final Type.Record record = (Type.Record) value.getResultType();
             Assert.notNullUnchecked(record.getFieldNameFieldMap());
-            Assert.thatUnchecked(Objects.requireNonNull(record.getFieldNameFieldMap()).containsKey(recordTypeName), String.format("field %s was not found in %s", recordTypeName, qualifier));
-            final Type fieldType = Objects.requireNonNull(record.getFieldNameFieldMap()).get(recordTypeName).getFieldType();
-            Assert.thatUnchecked(fieldType.getTypeCode() == Type.TypeCode.ARRAY, String.format("expecting an array-type field, however %s is not", recordTypeName));
-            return new ExplodeExpression(FieldValue.ofFieldName(value, recordTypeName));
+
+            // Trace to the child type
+            Type.Record currentRecord = record;
+            var accessorBuilder = ImmutableList.<FieldValue.Accessor>builder();
+            for (int i = 1; i < identifierValue.getParts().length; i++) {
+                final String fieldName = identifierValue.getParts()[i];
+                Assert.notNullUnchecked(fieldName);
+                Assert.thatUnchecked(Objects.requireNonNull(currentRecord.getFieldNameFieldMap()).containsKey(fieldName), ErrorCode.INTERNAL_ERROR, "field %s was not found in %s", fieldName, qualifier);
+                final Type fieldType = Objects.requireNonNull(currentRecord.getFieldNameFieldMap()).get(fieldName).getFieldType();
+                if (i == identifierValue.getParts().length - 1) {
+                    // The last element must point to an ARRAY
+                    Assert.thatUnchecked(fieldType.getTypeCode() == Type.TypeCode.ARRAY, ErrorCode.INTERNAL_ERROR, "expecting an array-type field, however %s is not", fieldName);
+                } else {
+                    // All non-final elements must point to a RECORD
+                    Optional<Type.Record> maybeNestedRecord = fieldType.narrowRecordMaybe();
+                    Assert.thatUnchecked(maybeNestedRecord.isPresent(), ErrorCode.INTERNAL_ERROR, "expecting a record-type field, however %s is not", fieldName);
+                    currentRecord = maybeNestedRecord.get();
+                }
+                accessorBuilder.add(new FieldValue.Accessor(fieldName, -1));
+            }
+            final FieldValue.FieldPath fieldPath = FieldValue.resolveFieldPath(record, accessorBuilder.build());
+            return new ExplodeExpression(FieldValue.ofFields(value, fieldPath));
         }
     }
 

@@ -73,7 +73,7 @@ public class NullableArrayUtilsTest {
                                         .setFanType(RecordMetaDataProto.Field.FanType.FAN_OUT)
                                         .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))))
                 .build();
-        Assertions.assertEquals(expected1, NullableArrayUtils.wrapArray(original1, parentDescriptor, false));
+        Assertions.assertEquals(expected1, NullableArrayUtils.wrapArray(original1, parentDescriptor, true));
 
         // userListField.name, expected to become userListField.values.name
         RecordMetaDataProto.KeyExpression original2 = RecordMetaDataProto.KeyExpression.newBuilder()
@@ -106,7 +106,7 @@ public class NullableArrayUtilsTest {
                                                         .setFanType(RecordMetaDataProto.Field.FanType.SCALAR)
                                                         .setNullInterpretation(RecordMetaDataProto.Field.NullInterpretation.NOT_UNIQUE))))))
                 .build();
-        Assertions.assertEquals(expected2, NullableArrayUtils.wrapArray(original2, parentDescriptor, false));
+        Assertions.assertEquals(expected2, NullableArrayUtils.wrapArray(original2, parentDescriptor, true));
     }
 
     private Descriptors.FileDescriptor generateFileDescriptor() throws Descriptors.DescriptorValidationException {

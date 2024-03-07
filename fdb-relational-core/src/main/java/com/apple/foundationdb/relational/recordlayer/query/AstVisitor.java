@@ -116,11 +116,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     private final DdlQueryFactory ddlQueryFactory;
 
     /*
-    whether the schema contains Non-nullable array.
-    If it is false, we'll wrap array field in all indexes. If it is true, we won't wrap any array field in any indexes.
+    Whether the schema contains any nullable arrays.
+    If it is true, we'll wrap array field in all indexes. If it is false, we won't wrap any array field in any indexes.
     It is a temporary work-around. We should wrap nullable array field in indexes. It'll be removed after this work is done.
     */
-    private boolean containsNonNullableArray;
+    private boolean containsNullableArray;
 
     @Nonnull
     private final Scopes scopes;
@@ -145,7 +145,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         this.context = context;
         this.ddlQueryFactory = ddlQueryFactory;
         this.dbUri = dbUri;
-        this.containsNonNullableArray = false;
+        this.containsNullableArray = false;
         this.scopes = new Scopes();
         this.query = query;
         this.caseSensitive = caseSensitive;
@@ -813,7 +813,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.inList().preparedStatementParameter() != null) {
             typedList = (Typed) visit(ctx.inList().preparedStatementParameter());
         } else {
-            if (ParserUtils.isConstant(ctx.inList().expressions())) {
+            if (context.shouldProcessLiteral() && ParserUtils.isConstant(ctx.inList().expressions())) {
                 final int index = context.startArrayLiteral();
                 final List<Value> values = new ArrayList<>();
                 ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
@@ -897,9 +897,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Value visitTableName(RelationalParser.TableNameContext ctx) {
         final Typed fullId = (Typed) ctx.fullId().accept(this);
         Assert.thatUnchecked(fullId instanceof QualifiedIdentifierValue);
-        final QualifiedIdentifierValue qualifiedIdentifierValue = (QualifiedIdentifierValue) fullId;
-        Assert.thatUnchecked(qualifiedIdentifierValue.getParts().length <= 2);
-        return qualifiedIdentifierValue;
+        return (QualifiedIdentifierValue) fullId;
     }
 
     @Override
@@ -1409,15 +1407,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public RecordLayerColumn visitColumnDefinition(RelationalParser.ColumnDefinitionContext ctx) {
         final String columnName = ParserUtils.safeCastLiteral(visit(ctx.colName), String.class);
 
+        boolean isRepeated = ctx.ARRAY() != null;
         boolean isNullable = true;
         if (ctx.columnConstraint() != null) {
             isNullable = (Boolean) ctx.columnConstraint().accept(this);
-            if (!isNullable) {
-                containsNonNullableArray = true;
-            }
         }
-
-        boolean isRepeated = ctx.ARRAY() != null;
+        if (isRepeated && isNullable) {
+            containsNullableArray = true;
+        }
 
         var dataType = visitColumnType(ctx.columnType());
         if (isRepeated) {
@@ -1485,7 +1482,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var generator = IndexGenerator.from(viewPlan);
         final var table = context.asDdl().getMetadataBuilder().extractTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, "Cannot create index and order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
-        final var index = generator.generate(indexName, isUnique, table.getType(), containsNonNullableArray);
+        final var index = generator.generate(indexName, isUnique, table.getType(), containsNullableArray);
         final var tableWithIndex = RecordLayerTable.Builder
                 .from(table)
                 .addIndex(index)

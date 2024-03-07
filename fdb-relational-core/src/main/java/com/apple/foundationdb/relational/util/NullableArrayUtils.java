@@ -62,21 +62,21 @@ public final class NullableArrayUtils {
      * For example, reviews.rating will change to reviews.values.rating
      * @param keyExpression The key expression to modify.
      * @param record The record of the table.
-     * @param containsNonNullableArray true if nullable arrays are to be found, otherwise false.
+     * @param containsNullableArray true if nullable arrays are to be found, otherwise false.
      * @return modified key expression where any nullable array is wrapped.
      *
      * TODO Add the wrapped array structure for nullable arrays.
      */
     public static RecordMetaDataProto.KeyExpression wrapArray(RecordMetaDataProto.KeyExpression keyExpression,
                                                               final Type.Record record,
-                                                              boolean containsNonNullableArray) {
-        if (containsNonNullableArray) {
+                                                              boolean containsNullableArray) {
+        if (!containsNullableArray) {
             return keyExpression;
         }
         final var typeRepositoryBuilder = TypeRepository.newBuilder();
         record.defineProtoType(typeRepositoryBuilder);
         final var parentDescriptor = typeRepositoryBuilder.build().getMessageDescriptor(record);
-        return wrapArray(keyExpression, parentDescriptor, containsNonNullableArray);
+        return wrapArray(keyExpression, parentDescriptor, containsNullableArray);
     }
 
     /*
@@ -86,8 +86,8 @@ public final class NullableArrayUtils {
      */
     public static RecordMetaDataProto.KeyExpression wrapArray(RecordMetaDataProto.KeyExpression keyExpression,
                                                               Descriptors.Descriptor parentDescriptor,
-                                                              boolean containsNonNullableArray) {
-        if (containsNonNullableArray) {
+                                                              boolean containsNullableArray) {
+        if (!containsNullableArray) {
             return keyExpression;
         }
 

@@ -147,6 +147,8 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
     public DynamicMessageBuilder addRepeatedFields(String fieldName, Iterable<? extends Object> values, boolean isNullableArray) throws SQLException {
         try {
             if (isNullableArray) {
+                // Nullable arrays get inserted into nested message with a single field. Create a builder for that nested
+                // message type and add elements to that field as if it were a non-nullable array
                 DynamicMessageBuilder builder = getNestedMessageBuilder(fieldName);
                 builder.addRepeatedFields(NullableArrayUtils.getRepeatedFieldName(), values, false);
                 setField(fieldName, builder.build());

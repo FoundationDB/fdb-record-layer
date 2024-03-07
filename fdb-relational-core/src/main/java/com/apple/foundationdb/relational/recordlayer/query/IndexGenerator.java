@@ -126,7 +126,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex generate(@Nonnull final String indexName, boolean isUnique, @Nonnull final Type.Record tableType, boolean containsNonNullableArray) {
+    public RecordLayerIndex generate(@Nonnull final String indexName, boolean isUnique, @Nonnull final Type.Record tableType, boolean containsNullableArray) {
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
                 .setTableName(getRecordTypeName())
@@ -169,9 +169,9 @@ public final class IndexGenerator {
             final var expression = generate(reordered);
             final var splitPoint = orderByValues.isEmpty() ? -1 : orderByValues.size();
             if (splitPoint != -1 && splitPoint < fieldValues.size()) {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNonNullableArray)));
+                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
             } else {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNonNullableArray)));
+                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNullableArray)));
             }
         } else {
             Assert.thatUnchecked(aggregateValues.size() == 1, "Unsupported index definition, multiple group by aggregations found", ErrorCode.UNSUPPORTED_OPERATION);
@@ -206,7 +206,7 @@ public final class IndexGenerator {
             final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
             final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
             indexBuilder.setIndexType(indexType);
-            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNonNullableArray)));
+            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNullableArray)));
             if (indexType.equals(IndexTypes.PERMUTED_MIN) || indexType.equals(IndexTypes.PERMUTED_MAX)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);

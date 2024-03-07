@@ -341,10 +341,30 @@ public class Scopes {
                         ErrorCode.UNSUPPORTED_OPERATION);
             }
 
-            if (!getProjectList().contains(column)) {
-                selectedColumnList.add(column);
+            int orderByCardinalInProjectionList = -1;
+            if (projectionValue != null) {
+                final var fields = ((Type.Record) (projectionValue.getResultType())).getFields();
+                for (int i = 0; i < fields.size(); i++) {
+                    if (fields.get(i).equals(column.getField())) {
+                        orderByCardinalInProjectionList = i;
+                        break;
+                    }
+                }
+                Assert.thatUnchecked(orderByCardinalInProjectionList >= 0, ErrorCode.INVALID_COLUMN_REFERENCE,
+                        "Column %s is not present in query projection", column.getField());
+            } else {
+                for (int i = 0; i < getProjectList().size(); i++) {
+                    Column<?> projectionColumn = getProjectList().get(i);
+                    if (projectionColumn.getValue().equals(column.getValue())) {
+                        orderByCardinalInProjectionList = i;
+                        break;
+                    }
+                }
+                if (orderByCardinalInProjectionList < 0) {
+                    orderByCardinalInProjectionList = getProjectList().size();
+                    selectedColumnList.add(column);
+                }
             }
-            var orderByCardinalInProjectionList = selectedColumnList.indexOf(column);
             Assert.thatUnchecked(
                     !orderByCardinals.contains(orderByCardinalInProjectionList),
                     ErrorCode.COLUMN_ALREADY_EXISTS,
@@ -352,16 +372,7 @@ public class Scopes {
                     (column.getValue() instanceof VersionValue ?
                             "version" :
                             column.getField().getFieldName()));
-            if (projectionValue != null) {
-                final var fields = ((Type.Record) (projectionValue.getResultType())).getFields();
-                for (int i = 0; i < fields.size(); i++) {
-                    if (fields.get(i).equals(column.getField())) {
-                        orderByCardinals.add(i);
-                    }
-                }
-            } else {
-                orderByCardinals.add(selectedColumnList.indexOf(column));
-            }
+            orderByCardinals.add(orderByCardinalInProjectionList);
         }
 
         @Nonnull
