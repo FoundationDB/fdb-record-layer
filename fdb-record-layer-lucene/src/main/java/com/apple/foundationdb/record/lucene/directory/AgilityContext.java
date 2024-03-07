@@ -169,7 +169,8 @@ public interface AgilityContext {
                 LOGGER.debug(KeyValueLogMessage.of(staticMessage,
                         LogMessageKeys.TIME_LIMIT_MILLIS, this.timeQuotaMillis,
                         LogMessageKeys.LIMIT, this.sizeQuotaBytes,
-                        LogMessageKeys.AGILITY_CONTEXT, this));
+                        // Log the identity hash code, because any two Agiles will be different.
+                        LogMessageKeys.AGILITY_CONTEXT, System.identityHashCode(this)));
             }
         }
 
@@ -301,12 +302,7 @@ public interface AgilityContext {
         @Override
         public void flush() {
             commitNow();
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("Flushed agility context",
-                        LogMessageKeys.TIME_LIMIT_MILLIS, timeQuotaMillis,
-                        LogMessageKeys.LIMIT, sizeQuotaBytes,
-                        LogMessageKeys.AGILITY_CONTEXT, this));
-            }
+            logSelf("Flushed agility context");
         }
     }
 

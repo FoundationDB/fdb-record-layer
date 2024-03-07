@@ -70,7 +70,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
             final MergeSpecification merges = super.findMerges(mergeTrigger, infos, mergeContext);
-            MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, merges);
+            MergeUtils.logFoundMerges(LOGGER, "Found Merges without mergeControl", context, indexSubspace, key, mergeTrigger, merges);
             return merges;
         }
         if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
