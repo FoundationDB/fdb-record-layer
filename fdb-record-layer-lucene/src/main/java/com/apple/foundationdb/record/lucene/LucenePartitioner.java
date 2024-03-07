@@ -221,7 +221,13 @@ public class LucenePartitioner {
         return new PartitionedSortContext(sortedByPartitioningKey, isReverseSort, updatedSortFields);
     }
 
-
+    /**
+     * add the primary key to the sort fields when these contain only the partition field.
+     *
+     * @param sort sort
+     * @return <code>null</code> if primary field is already included in the sort fields,
+     * otherwise the updated list of sort fields.
+     */
     @Nullable
     private SortField[] ensurePrimaryKeyIsInSort(Sort sort) {
         // precondition: sort is by partition key (see LucenePartitioner.isSortedByPartitionField())
