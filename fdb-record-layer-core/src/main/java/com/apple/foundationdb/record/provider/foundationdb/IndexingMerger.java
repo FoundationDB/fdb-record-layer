@@ -78,7 +78,6 @@ public class IndexingMerger {
                                     recordTime.set(() -> context.record(FDBStoreTimer.Events.MERGE_INDEX, System.nanoTime() - startTime));
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
                                     mergeControlRef.set(mergeControl);
-                                    mergeControl.setAutoMergeDuringCommit(true);
                                     mergeControl.setMergesLimit(mergesLimit);
                                     mergeControl.setTimeQuotaMillis(timeQuotaMillis);
                                     mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);

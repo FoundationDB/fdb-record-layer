@@ -379,18 +379,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
                         context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
-                                storeBuilder.setContext(context).openAsync().thenCompose(store -> {
-                                    store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                                    return getPartitioner(index, store).rebalancePartitions(continuation.get(), documentCount)
-                                            .thenApply(newContinuation -> {
-                                                if (newContinuation.isEnd()) {
-                                                    return false;
-                                                } else {
-                                                    continuation.set(newContinuation);
-                                                    return true;
-                                                }
-                                            });
-                                }))));
+                                storeBuilder.setContext(context).openAsync().thenCompose(store ->
+                                        getPartitioner(index, store).rebalancePartitions(continuation.get(), documentCount)
+                                                .thenApply(newContinuation -> {
+                                                    if (newContinuation.isEnd()) {
+                                                        return false;
+                                                    } else {
+                                                        continuation.set(newContinuation);
+                                                        return true;
+                                                    }
+                                                })))));
     }
 
     @Nonnull
