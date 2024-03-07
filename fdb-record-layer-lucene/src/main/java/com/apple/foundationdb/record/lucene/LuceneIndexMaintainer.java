@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
@@ -297,7 +298,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 if (valid > 0) {
                     state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
                     return;
+                } else if (LOG.isDebugEnabled()) {
+                    LOG.debug(KeyValueLogMessage.of("try delete document failed",
+                            LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.PARTITION, partitionId,
+                            LuceneLogMessageKeys.SEGMENT, documentIndexEntry.segmentName,
+                            LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
+                            LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
                 }
+            } else if (LOG.isDebugEnabled()) {
+                LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
+                        LuceneLogMessageKeys.GROUP, groupingKey,
+                        LuceneLogMessageKeys.PARTITION, partitionId,
+                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
+                        LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
             }
         }
         Query query;

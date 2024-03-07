@@ -86,6 +86,8 @@ public enum LuceneLogMessageKeys {
     RECORD_TIMESTAMP,
     COUNT,
     TOTAL_COUNT,
+    PRIMARY_KEY,
+    SEGMENTS,
     ;
 
     private final String logKey;
