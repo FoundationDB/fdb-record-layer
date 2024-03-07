@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.468.0
+
+
 ### 3.4.467.0
 
 * **Feature** IndexDeferredMaintenanceControl: Change the default to defer index operations [(Issue #2559)](https://github.com/FoundationDB/fdb-record-layer/issues/2559)
