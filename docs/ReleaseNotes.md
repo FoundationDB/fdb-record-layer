@@ -18,7 +18,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Revert [#2557](https://github.com/FoundationDB/fdb-record-layer/pull/2557) to avoid picking union ordering keys with duplicates [(Issue #2563)](https://github.com/FoundationDB/fdb-record-layer/issues/2563)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Use metrics instead of info log when rebalancing lucene partitions [(Issue #2509)](https://github.com/FoundationDB/fdb-record-layer/issues/2509)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
