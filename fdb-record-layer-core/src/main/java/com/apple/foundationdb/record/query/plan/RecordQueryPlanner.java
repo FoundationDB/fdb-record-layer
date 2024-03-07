@@ -88,14 +88,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
@@ -634,23 +632,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (comparisonKey == null) {
                 return null;
             }
-            RecordQueryPlan inner = scoredPlan.getPlan();
-            boolean distinct = false;
-            if (inner instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ||
-                    inner instanceof RecordQueryUnorderedDistinctPlan) {
-                inner = ((RecordQueryPlanWithChild)inner).getChild();
-                distinct = true;
-            }
             final List<InSource> valuesSources = inExtractor.unionSources();
-            final RecordQueryPlan union = RecordQueryInUnionPlan.from(inner, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
-            if (distinct) {
-                RecordQueryPlan distinctPlan = scoredPlan.getPlan() instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan ?
-                                               new RecordQueryUnorderedPrimaryKeyDistinctPlan(union) :
-                                               new RecordQueryUnorderedDistinctPlan(union, ((RecordQueryUnorderedDistinctPlan)scoredPlan.getPlan()).getComparisonKey());
-                return new ScoredPlan(scoredPlan.score, distinctPlan);
-            } else {
-                return new ScoredPlan(scoredPlan.score, union);
-            }
+            final RecordQueryPlan union = RecordQueryInUnionPlan.from(scoredPlan.getPlan(), valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize(), Bindings.Internal.IN);
+            return new ScoredPlan(scoredPlan.score, union);
         }
         return null;
     }
