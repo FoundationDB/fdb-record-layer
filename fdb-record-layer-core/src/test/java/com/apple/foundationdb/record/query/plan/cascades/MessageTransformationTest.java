@@ -176,7 +176,7 @@ class MessageTransformationTest {
         final var aValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
-                                Column.of(Type.Record.Field.of(aaValue.getResultType(), Optional.of("aa")), aaValue),
+                                Column.of(Optional.of("aa"), aaValue),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")), new LiteralValue<>(3)),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac")), new LiteralValue<>("ac"))
                         ));
@@ -190,8 +190,8 @@ class MessageTransformationTest {
 
         final var expectedValue = RecordConstructorValue.ofColumns(
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(aValue.getResultType(), Optional.of("a")), aValue),
-                        Column.of(Type.Record.Field.of(xValue.getResultType(), Optional.of("x")), xValue),
+                        Column.of(Optional.of("a"), aValue),
+                        Column.of(Optional.of("x"), xValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z")), new LiteralValue<>("z"))
                 ));
         final var expected = expectedValue.eval(null, evaluationContext);
@@ -235,7 +235,7 @@ class MessageTransformationTest {
         final var aValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
-                                Column.of(Type.Record.Field.of(aaValue.getResultType(), Optional.of("aa")), aaValue),
+                                Column.of(Optional.of("aa"), aaValue),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("ab")), new LiteralValue<>(3)),
                                 Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("ac")), new LiteralValue<>("ac"))
                         ));
@@ -249,8 +249,8 @@ class MessageTransformationTest {
 
         final var expectedValue = RecordConstructorValue.ofColumns(
                 ImmutableList.of(
-                        Column.of(Type.Record.Field.of(aValue.getResultType(), Optional.of("a")), aValue),
-                        Column.of(Type.Record.Field.of(xValue.getResultType(), Optional.of("x")), xValue),
+                        Column.of(Optional.of("a"), aValue),
+                        Column.of(Optional.of("x"), xValue),
                         Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z")), new LiteralValue<>("z"))
                 ));
         final var expected = expectedValue.eval(null, evaluationContext);

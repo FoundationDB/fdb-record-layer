@@ -216,7 +216,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         Stream.concat(Stream.of(baseQuantifier), baseExpansion.getQuantifiers().stream())
                 .forEach(qun -> {
                     final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-                    builder.addResultColumn(Column.of(Type.Record.Field.of(quantifiedValue.getResultType(), Optional.of(qun.getAlias().getId())), quantifiedValue));
+                    builder.addResultColumn(Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue));
                 });
         builder.addAllPlaceholders(baseExpansion.getPlaceholders());
         builder.addAllPredicates(baseExpansion.getPredicates());
