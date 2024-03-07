@@ -133,7 +133,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_TIMESTAMP;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
@@ -217,7 +217,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-            INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+            INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -231,7 +231,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     protected static final Index COMPLEX_PARTITIONED_NOGROUP = complexPartitionedIndexNoGroup(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-            INDEX_PARTITION_BY_TIMESTAMP, "timestamp",
+            INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -370,7 +370,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of());
 
     private static final Index JOINED_INDEX = getJoinedIndex(Map.of(
-            INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
+            INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -385,7 +385,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private static final Index JOINED_INDEX_NOGROUP = getJoinedIndexNoGroup(Map.of(
-            INDEX_PARTITION_BY_TIMESTAMP, "complex.timestamp",
+            INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -758,7 +758,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         Stream.of(
                                 Arguments.of(COMPLEX_PARTITIONED, Tuple.from(1), repartitionCount, mergeSegmentsPerTier),
                                 Arguments.of(COMPLEX_PARTITIONED_NOGROUP, Tuple.from(), repartitionCount, mergeSegmentsPerTier)
-
                         )));
     }
 
@@ -1066,18 +1065,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> continuationDuringRepartitioningTest() {
         return Stream.of(true, false)
                 .flatMap(grouped -> Stream.of(true, false)
-                        .flatMap(synthetic -> Arrays.stream(SortType.values())
-                                .map(sortType -> Arguments.of(grouped, synthetic, sortType))));
+                        .flatMap(uniqueTimestamps -> Stream.of(true, false)
+                                .flatMap(synthetic -> Arrays.stream(SortType.values())
+                                        .map(sortType -> Arguments.of(grouped, synthetic, uniqueTimestamps, sortType)))));
     }
 
-    @ParameterizedTest(name = "isGrouped: {0}, isSynthetic: {1}, sort type: {2}")
+    @ParameterizedTest(name = "isGrouped: {0}, isSynthetic: {1}, with unique timestamps: {2}, sort type: {3}")
     @MethodSource
     void continuationDuringRepartitioningTest(boolean isGrouped,
                                               boolean isSynthetic,
+                                              boolean uniqueTimestamps,
                                               SortType sortType) throws IOException, ExecutionException, InterruptedException {
 
         final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1102,7 +1103,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .setDocId(1000L + i)
                         .setIsSeen(true)
                         .setText("A word about what I want to say")
-                        .setTimestamp(start + i * 100)
+                        .setTimestamp(uniqueTimestamps ? start + i * 100 : start)
                         .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
                         .build();
                 final Tuple primaryKey;
@@ -1133,8 +1134,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertEquals(docCount, partitionInfos.get(0).getCount());
 
         byte[] continuation;
-        Sort sort = sortType == SortType.UNSORTED ? null :
-                    new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
+        final Sort sort;
+        if (sortType == SortType.UNSORTED) {
+            sort = null;
+        } else {
+            sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
+        }
+
         LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
                 isGrouped ? Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))) : ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
@@ -1408,14 +1414,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp) {
+        Tuple from = Tuple.from(fromTimestamp).add(Tuple.from(1, 0));
+        Tuple to = Tuple.from(toTimestamp).add(Tuple.from(1, Long.MAX_VALUE));
         LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
                 .setCount(0)
-                .setFrom(ByteString.copyFrom(Tuple.from(fromTimestamp).pack()))
-                .setTo(ByteString.copyFrom(Tuple.from(toTimestamp).pack()))
+                .setFrom(ByteString.copyFrom(from.pack()))
+                .setTo(ByteString.copyFrom(to.pack()))
                 .setId(partitionId)
                 .build();
 
-        byte[] primaryKey = recordStore.indexSubspace(index).pack(groupKey.add(PARTITION_META_SUBSPACE).add(fromTimestamp));
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(groupKey.add(PARTITION_META_SUBSPACE).addAll(from));
         recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
     }
 

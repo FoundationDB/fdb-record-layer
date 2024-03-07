@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -102,7 +101,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
         Random random = new Random(seed);
         final boolean optimizedStoredFields = random.nextBoolean();
         final Map<String, String> options = Map.of(
-                LuceneIndexOptions.INDEX_PARTITION_BY_TIMESTAMP, isSynthetic ? "parent.timestamp" : "timestamp",
+                LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
                 LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, String.valueOf(optimizedStoredFields),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
@@ -124,7 +123,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                 .build();
 
         // Generate random documents
-        Map<Tuple, Map<Tuple, Long>> ids = new HashMap<>();
+        Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
         final int transactionCount = random.nextInt(15) + 1;
         final long start = Instant.now().toEpochMilli();
         Map<Integer, Set<Long>> allExistingTimestamps = new HashMap<>();
@@ -144,14 +143,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                     final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
                     final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
                     final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
-                    // we currently don't support multiple records with the same timestamp, specifically at the boundaries
                     long timestamp = start + countInGroup + random.nextInt(20) - 5;
-                    final Set<Long> existingTimestamps = allExistingTimestamps.computeIfAbsent(group, key -> new HashSet<>());
-                    while (!existingTimestamps.add(timestamp)) {
-                        timestamp++;
-                    }
                     final Tuple primaryKey = saveRecords(isSynthetic, group, countInGroup, timestamp, random);
-                    ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, timestamp);
+                    ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
                 }
                 commit(context);
             }
@@ -181,7 +175,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
         return metaDataBuilder;
     }
 
-    private void validateDeleteWhere(final boolean isSynthetic, final int repartitionCount, final Map<Tuple, Map<Tuple, Long>> ids, final RecordLayerPropertyStorage contextProps, final Consumer<FDBRecordContext> schemaSetup, final Index index) throws IOException {
+    private void validateDeleteWhere(final boolean isSynthetic, final int repartitionCount, final Map<Tuple, Map<Tuple, Tuple>> ids, final RecordLayerPropertyStorage contextProps, final Consumer<FDBRecordContext> schemaSetup, final Index index) throws IOException {
         final List<Tuple> groups = List.copyOf(ids.keySet());
         for (final Tuple group : groups) {
             try (FDBRecordContext context = openContext(contextProps)) {

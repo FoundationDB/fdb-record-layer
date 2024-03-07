@@ -315,7 +315,7 @@ public enum LogMessageKeys {
 
     // Lucene
     PARTITION_ID,
-    PARTITIONING_TIMESTAMP,
+    PARTITIONING_KEY,
 
     // Record context properties
     PROPERTY_NAME,
