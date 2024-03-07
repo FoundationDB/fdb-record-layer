@@ -43,7 +43,6 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Expansion visitor that implements the shared logic between primary scan data access and value index access.
@@ -128,7 +127,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 // explode this field and prefixes of this field
                 final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
                 value = state.registerValue(childBase.getFlowedObjectValue());
-                column = Column.of(Optional.of(fieldName), value);
+                column = Column.unnamedOf(value);
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
@@ -146,7 +145,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
-                column = Column.of(Optional.of(fieldName), value);
+                column = Column.unnamedOf(value);
                 if (state.isKey()) {
                     return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
                 }
