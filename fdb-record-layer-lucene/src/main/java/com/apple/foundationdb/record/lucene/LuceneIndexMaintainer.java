@@ -310,7 +310,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
                         LuceneLogMessageKeys.GROUP, groupingKey,
                         LuceneLogMessageKeys.PARTITION, partitionId,
-                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
+                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
+                        LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
             }
         }
         Query query;
