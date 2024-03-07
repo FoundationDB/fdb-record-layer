@@ -666,21 +666,41 @@ public class LucenePartitioner {
             for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : partitionInfos) {
                 if (partitionInfo.getCount() > indexPartitionHighWatermark) {
                     // process one partition
-
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitionDocumentCount, partitionInfo));
+                    }
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
                     final int count = 1 + Math.min(repartitionDocumentCount, indexPartitionHighWatermark);
+                    long startTimeNanos = System.nanoTime();
                     LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(partitionInfo, groupingKey, count);
 
                     return moveDocsFromPartition(partitionInfo, groupingKey, maxPartitionId, luceneRecordCursor)
-                            .thenApply(movedCount -> Pair.of(
-                                    movedCount,
-                                    Math.max(partitionInfo.getCount() - movedCount - indexPartitionHighWatermark, 0)));
+                            .thenApply(movedCount -> {
+                                state.context.record(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION, System.nanoTime() - startTimeNanos);
+                                state.context.recordSize(LuceneEvents.SizeEvents.LUCENE_REBALANCE_PARTITION_DOCS, movedCount);
+                                return Pair.of(
+                                        movedCount,
+                                        Math.max(partitionInfo.getCount() - movedCount - indexPartitionHighWatermark, 0));
+                            });
                 }
             }
             // here: no partitions need re-balancing
             return CompletableFuture.completedFuture(Pair.of(0, 0));
         });
+    }
+
+    private String repartitionLogMessage(final String staticMessage,
+                                         final @Nonnull Tuple groupingKey,
+                                         final int repartitionDocumentCount,
+                                         final @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+        return KeyValueLogMessage.of(staticMessage,
+                LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace,
+                LuceneLogMessageKeys.GROUP, groupingKey,
+                LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
+                LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
+                LuceneLogMessageKeys.COUNT, repartitionDocumentCount,
+                LuceneLogMessageKeys.PARTITION_HIGH_WATERMARK, indexPartitionHighWatermark);
     }
 
     /**
@@ -788,12 +808,8 @@ public class LucenePartitioner {
                         .setCount(partitionInfo.getCount() - records.size())
                         .setFrom(ByteString.copyFrom(Tuple.from(newBoundaryTimestamp).pack()));
                 savePartitionMetadata(groupingKey, builder);
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.of("Repartitioning Records",
-                            LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
-                            LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
-                            LuceneLogMessageKeys.COUNT, records.size()));
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(repartitionLogMessage("Repartitoned records", groupingKey, records.size(), partitionInfo));
                 }
 
                 // value of the "destination" partition's `from` timestamp

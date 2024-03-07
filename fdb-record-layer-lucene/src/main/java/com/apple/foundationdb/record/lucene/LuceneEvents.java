@@ -68,6 +68,14 @@ public class LuceneEvents {
         LUCENE_MERGE("Lucene merge"),
         /** Number of find merge calls (calculation of lucene's required merges). */
         LUCENE_FIND_MERGES("Lucene find merges"),
+        /**
+         * Amount of time spent in a transaction doing partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION_TRANSACTION("Lucene rebalance partition transaction"),
+        /**
+         * Amount of time spent moving documents during partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION("Lucene rebalance partition")
         ;
 
         private final String title;
@@ -272,6 +280,10 @@ public class LuceneEvents {
         LUCENE_WRITE("lucene index writes", true),
         /** Write Stored Fields operations on the FDBDirectory. */
         LUCENE_WRITE_STORED_FIELDS("lucene write stored fields"),
+        /**
+         * The number of docs moved during each transaction as part of partition rebalance.
+         */
+        LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
         ;
 
         private final String title;

@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
@@ -57,6 +59,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
     private static class FDBDirectoryLock extends Lock {
 
+        private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
         final AgilityContext agilityContext;
         final String lockName;
         final UUID selfStampUuid = UUID.randomUUID();
@@ -65,13 +68,13 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         final byte[] fileLockKey;
         boolean closed;
         private final Object fileLockSetLock = new Object();
-        private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
 
         public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
             this.timeWindowMilliseconds = timeWindowMilliseconds;
+            logSelf("Creating Lucene File Lock");
             fileLockSet(false);
         }
 
@@ -175,16 +178,26 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                         synchronized (fileLockSetLock) {
                                             fileLockCheckHeartBeat(val); // ensure valid
                                             aContext.ensureActive().clear(fileLockKey);
+                                            logSelf("Cleared Lucene File Lock");
                                         }
                                     })
                     ));
         }
 
-
-
         @Override
         public String toString() {
             return "{FDBDirectoryLock: name=" + lockName + " uuid=" + selfStampUuid + " timeMillis=" + timeStampMillis + "}";
+        }
+
+        private void logSelf(String staticMessage) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of(staticMessage,
+                        LogMessageKeys.TIME_LIMIT_MILLIS, timeWindowMilliseconds,
+                        LuceneLogMessageKeys.LOCK_TIMESTAMP, timeStampMillis,
+                        LuceneLogMessageKeys.LOCK_UUID, selfStampUuid,
+                        LogMessageKeys.KEY, ByteArrayUtil2.loggable(fileLockKey)));
+            }
+
         }
     }
 }

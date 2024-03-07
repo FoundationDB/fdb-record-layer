@@ -63,6 +63,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
     private final int mergeDirectoryCount;
+    private final AgilityContext agilityContext;
+    private final Tuple key;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
@@ -76,7 +78,9 @@ class FDBDirectoryWrapper implements AutoCloseable {
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
         this.state = state;
+        this.key = key;
         this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext);
+        this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -111,10 +115,18 @@ class FDBDirectoryWrapper implements AutoCloseable {
         @Nonnull
         private final IndexMaintainerState state;
         private final int mergeDirectoryCount;
+        @Nonnull
+        private final AgilityContext agilityContext;
+        @Nonnull
+        private final Tuple key;
 
-        private FDBDirectoryMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount) {
+        private FDBDirectoryMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount,
+                                           @Nonnull final AgilityContext agilityContext,
+                                           @Nonnull final Tuple key) {
             this.state = state;
             this.mergeDirectoryCount = mergeDirectoryCount;
+            this.agilityContext = agilityContext;
+            this.key = key;
         }
 
         @SuppressWarnings({
@@ -126,26 +138,23 @@ class FDBDirectoryWrapper implements AutoCloseable {
             long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
-                    if (LOGGER.isTraceEnabled()) {
-                        LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge based on probability"));
+                    if (mergeSource.hasPendingMerges()) {
+                        MergeUtils.logExecutingMerge(LOGGER, "Executing Merge based on probability", agilityContext, state.indexSubspace, key, trigger);
                     }
                     super.merge(mergeSource, trigger);
                 } else {
-                    skipMerge(mergeSource, trigger, "probability optimization");
+                    skipMerge(mergeSource);
                 }
             } else {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge"));
+                if (mergeSource.hasPendingMerges()) {
+                    MergeUtils.logExecutingMerge(LOGGER, "Executing Merge", agilityContext, state.indexSubspace, key, trigger);
                 }
                 super.merge(mergeSource, trigger);
             }
             state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
         }
 
-        private void skipMerge(final MergeSource mergeSource, final MergeTrigger trigger, String reason) {
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Lucene index skipped. Reason: " + reason));
-            }
+        private void skipMerge(final MergeSource mergeSource) {
             synchronized (this) {
                 MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
                 while (nextMerge != null) {
@@ -164,14 +173,14 @@ class FDBDirectoryWrapper implements AutoCloseable {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, state.context)
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key)
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
                     IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
                             .setUseCompoundFile(USE_COMPOUND_FILE)
                             .setMergePolicy(tieredMergePolicy)
-                            .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
+                            .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key))
                             .setCodec(CODEC)
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 

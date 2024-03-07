@@ -117,6 +117,7 @@ public enum LogMessageKeys {
     INDEX_MERGE_LOCK,
     INDEX_REPARTITION_DOCUMENT_COUNT,
     INDEX_DEFERRED_ACTION_STEP,
+    AGILITY_CONTEXT,
     AGILITY_CONTEXT_AGE_MILLISECONDS,
     AGILITY_CONTEXT_PREV_CHECK_MILLISECONDS,
     AGILITY_CONTEXT_WRITE_SIZE_BYTES,
@@ -318,8 +319,7 @@ public enum LogMessageKeys {
 
     // Record context properties
     PROPERTY_NAME,
-    PROPERTY_TYPE,
-    ;
+    PROPERTY_TYPE;
 
     private final String logKey;
 
