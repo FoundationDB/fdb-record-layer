@@ -141,7 +141,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static <V extends Value> Column<V> resultColumn(@Nonnull V value, @Nullable String name) {
-        return Column.of(Field.of(value.getResultType(), Optional.ofNullable(name)), value);
+        return Column.of(Optional.ofNullable(name), value);
     }
 
     static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
