@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -138,6 +140,10 @@ public final class YamlRunner {
     }
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
+        if (Debugger.getDebugger() == null && Boolean.getBoolean("useCascadesDebugger")) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+        }
+        Debugger.setup();
         this.resourcePath = resourcePath;
         this.executionContext = new YamlExecutionContext(resourcePath, factory, correctExplain);
     }
