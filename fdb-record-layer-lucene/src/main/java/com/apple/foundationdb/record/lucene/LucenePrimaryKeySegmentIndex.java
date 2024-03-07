@@ -115,12 +115,16 @@ public class LucenePrimaryKeySegmentIndex {
         public final byte[] entryKey;
         @Nonnull
         public final IndexReader indexReader;
+        @Nonnull
+        public final String segmentName;
         public final int docId;
 
-        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader, final int docId) {
+        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader,
+                                  @Nonnull String segmentName, final int docId) {
             this.primaryKey = primaryKey;
             this.entryKey = entryKey;
             this.indexReader = indexReader;
+            this.segmentName = segmentName;
             this.docId = docId;
         }
     }
@@ -159,7 +163,7 @@ public class LucenePrimaryKeySegmentIndex {
                         if (segmentInfo.name.equals(segmentName)) {
                             final int docid = (int)segdoc.getLong(1);
                             return new DocumentIndexEntry(primaryKey, kv.getKey(),
-                                    directoryReader.leaves().get(i).reader(), docid);
+                                    directoryReader.leaves().get(i).reader(), segmentName, docid);
                         }
                     }
                     return null;

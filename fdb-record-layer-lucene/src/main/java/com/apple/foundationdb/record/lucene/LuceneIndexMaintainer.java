@@ -302,6 +302,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     LOG.debug(KeyValueLogMessage.of("try delete document failed",
                             LuceneLogMessageKeys.GROUP, groupingKey,
                             LuceneLogMessageKeys.PARTITION, partitionId,
+                            LuceneLogMessageKeys.SEGMENT, documentIndexEntry.segmentName,
+                            LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
                             LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
                 }
             } else if (LOG.isDebugEnabled()) {
