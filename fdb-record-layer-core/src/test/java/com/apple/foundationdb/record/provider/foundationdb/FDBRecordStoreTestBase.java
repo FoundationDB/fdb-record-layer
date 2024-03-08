@@ -168,6 +168,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     @AfterEach
     public void checkForOpenContexts() {
+        // TODO AgilityContext leaks contexts
         int count = fdb.warnAndCloseOldTrackedOpenContexts(0);
         assertEquals(0, count, "should not have left any contexts open");
     }

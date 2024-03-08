@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,7 @@ import java.util.function.Function;
 /**
  * Create floating sub contexts from a caller context and commit when they reach time/write quota.
  */
-public interface AgilityContext {
+public interface AgilityContext extends AutoCloseable {
 
     static AgilityContext nonAgile(FDBRecordContext callerContext) {
         return new NonAgile(callerContext);
@@ -63,7 +64,7 @@ public interface AgilityContext {
     // `set` should be called for writes - keeping track of write size (if needed)
     void set(byte[] key, byte[] value);
 
-    void flush();
+    void close();
 
     default CompletableFuture<byte[]> get(byte[] key) {
         return apply(context -> context.ensureActive().get(key));
@@ -152,6 +153,7 @@ public interface AgilityContext {
         private final Object commitLockSync = new Object();
         private boolean committingNow = false;
         private long prevCommitCheckTime;
+        private boolean closed;
 
         Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
@@ -160,7 +162,7 @@ public interface AgilityContext {
             database = callerContext.getDatabase();
             this.timeQuotaMillis = timeQuotaMillis;
             this.sizeQuotaBytes = sizeQuotaBytes;
-            callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
+            callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::close));
             logSelf("Starting agility context");
         }
 
@@ -185,6 +187,9 @@ public interface AgilityContext {
         }
 
         private void createIfNeeded() {
+            if (this.closed) {
+                throw new AlreadyClosedException("AgilityContext has already been closed");
+            }
             // Called by accept/apply, protected with a read lock
             synchronized (createLockSync) {
                 if (currentContext == null) {
@@ -224,12 +229,12 @@ public interface AgilityContext {
 
         private void commitIfNeeded() {
             if (shouldCommit()) {
-                commitNow();
+                commitNow(false);
             }
             prevCommitCheckTime = now();
         }
 
-        public void commitNow() {
+        public void commitNow(final boolean close) {
             // This function is called:
             // 1. when a time/size quota is reached.
             // 2. during caller's close or callerContext commit - the earlier of the two is the effective one.
@@ -237,6 +242,9 @@ public interface AgilityContext {
                 if (currentContext != null) {
                     committingNow = true;
                     final long stamp = lock.writeLock();
+                    if (close) { // TODO close shouldn't necessarily commit
+                        closed = true;
+                    }
 
                     try {
                         currentContext.commit();
@@ -300,8 +308,8 @@ public interface AgilityContext {
         }
 
         @Override
-        public void flush() {
-            commitNow();
+        public void close() {
+            commitNow(true);
             logSelf("Flushed agility context");
         }
     }
@@ -332,7 +340,7 @@ public interface AgilityContext {
         }
 
         @Override
-        public void flush() {
+        public void close() {
             // This is a no-op as the caller context should be committed by the caller.
         }
 

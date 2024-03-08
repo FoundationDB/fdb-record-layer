@@ -810,8 +810,8 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace(getLogMessage("rename",
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(getLogMessage("rename",
                     LogMessageKeys.SOURCE_FILE, source,
                     LuceneLogMessageKeys.DEST_FILE, dest));
         }
@@ -881,7 +881,7 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     public void close() {
-        agilityContext.flush();
+        agilityContext.close();
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(fileListLog("Closed FDBDirectory", Objects.requireNonNullElse(fileReferenceCache.get(), Map.of()))
                     .addKeyAndValue(LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats())

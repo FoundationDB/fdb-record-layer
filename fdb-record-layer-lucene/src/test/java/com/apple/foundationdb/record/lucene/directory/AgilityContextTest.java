@@ -94,7 +94,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             Tuple retTuple = Tuple.fromBytes(bytes);
             assertEquals(retTuple.getLong(0), loop);
             assertEquals(retTuple.getLong(1), i);
-            agilityContext.flush();
+            agilityContext.close();
             bytes = agilityContext.get(key).join();
             retTuple = Tuple.fromBytes(bytes);
             assertEquals(retTuple.getLong(0), loop);
@@ -261,7 +261,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             });
                         }
                     }
-                    agilityContext.flush();
+                    agilityContext.close();
                 }
             });
         }
@@ -289,7 +289,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             }
                             napTime(3); // give a chance to other threads to run
                         });
-                        agilityContext.flush();
+                        agilityContext.close();
                     }
                 } else {
                     napTime(3);
@@ -306,7 +306,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                                 assertEquals(values[0], values[j]);
                             }
                         });
-                        agilityContext.flush();
+                        agilityContext.close();
                     }
                 }
             }

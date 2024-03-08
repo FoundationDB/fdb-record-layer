@@ -109,7 +109,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         final AgilityContext agilityContext = getAgilityContext(true);
         if (! (rootExpression instanceof GroupingKeyExpression)) {
             // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
-            return mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner, agilityContext);
+            return mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner, agilityContext)
+                    .whenComplete((result, error) -> agilityContext.close());
         }
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
         final int groupingCount = expression.getGroupingCount();
@@ -127,7 +128,8 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
                 .forEachAsync(groupingKey -> mergeIndex(analyzerWrapper, groupingKey, partitioner, agilityContext),
-                        2);
+                        2)
+                .whenComplete((result, error) -> agilityContext.close());
     }
 
     private CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey,
