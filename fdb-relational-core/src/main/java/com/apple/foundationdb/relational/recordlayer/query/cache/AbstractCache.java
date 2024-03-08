@@ -40,10 +40,11 @@ import java.util.stream.Stream;
  *
  * @param <K> The type of the primary cache key.
  * @param <S> The type of the secondary cache key.
+ * @param <T> The type of the tertiary cache key.
  * @param <V> The value stored in the secondary cache.
  */
 @ThreadSafe
-public abstract class AbstractCache<K, S, V> {
+public abstract class AbstractCache<K, S, T, V> {
 
     /**
      * Statistics about the cache. Mostly, a delegation to {@link com.google.common.cache.CacheStats}.
@@ -58,9 +59,16 @@ public abstract class AbstractCache<K, S, V> {
         @Nullable
         public abstract Long numSecondaryEntries(@Nonnull final K key);
 
+        @Nullable
+        public abstract Long numTertiaryEntries(@Nonnull final K key, @Nonnull final S secondaryKey);
+
         @VisibleForTesting
         @Nullable
         public abstract Long numSecondaryEntriesSlow(@Nonnull final K key);
+
+        @VisibleForTesting
+        @Nullable
+        public abstract Long numTertiaryEntriesSlow(@Nonnull final K key, @Nonnull final S secondaryKey);
 
         @Nonnull
         public abstract Set<K> getAllKeys();
@@ -69,39 +77,58 @@ public abstract class AbstractCache<K, S, V> {
         public abstract Set<S> getAllSecondaryKeys(@Nonnull final K key);
 
         @Nonnull
+        public abstract Set<T> getAllTertiaryKeys(@Nonnull final K key, @Nonnull final S secondaryKey);
+
+        @Nonnull
         public abstract Map<K, Set<S>> getAllMappings();
 
         @Nonnull
-        public abstract Map<S, V> getAllSecondaryMappings(@Nonnull final K key);
+        public abstract Map<S, Set<T>> getAllSecondaryMappings(@Nonnull final K key);
+
+        @Nonnull
+        public abstract Map<T, V> getAllTertiaryMappings(@Nonnull final K key, @Nonnull final S secondaryKey);
 
         public abstract long numHits();
 
         @Nonnull
         public abstract Long numSecondaryHits(@Nonnull final K key);
 
+        @Nonnull
+        public abstract Long numTertiaryHits(@Nonnull final K key, @Nonnull final S secondaryKey);
+
         public abstract long numMisses();
 
         @Nonnull
         public abstract Long numSecondaryMisses(@Nonnull final K key);
+
+        @Nonnull
+        public abstract Long numTertiaryMisses(@Nonnull final K key, @Nonnull final S secondaryKey);
 
         public abstract long numWrites();
 
         @Nonnull
         public abstract Long numSecondaryWrites(@Nonnull final K key);
 
+        @Nonnull
+        public abstract Long numTertiaryWrites(@Nonnull final K key, @Nonnull final S secondaryKey);
+
         public abstract long numReads();
 
         @Nonnull
         public abstract Long numSecondaryReads(@Nonnull final K key);
+
+        @Nonnull
+        public abstract Long numTertiaryReads(@Nonnull final K key, @Nonnull final S secondaryKey);
     }
 
     /**
-     * Gets an item from the cache determined by {@code key} and {@code secondaryKey}. If the item does not exist, it adds
+     * Gets an item from the cache determined by {@code key}, {@code secondaryKey} and {@code tertiaryKey}. If the item does not exist, it adds
      * it to the cache, and retrieves the newly constructed {@code V} value.
      *
      * @param key The key of the item.
      * @param secondaryKey The secondary key of the item.
-     * @param secondaryKeyValueSupplier supplier for a secondary key and value pair in case the item is not found.
+     * @param tertiaryKey The tertiary key of the item.
+     * @param tertiaryKeyValueSupplier supplier for a tertiary key and value pair in case the item is not found.
      * @param valueWithEnvironmentDecorator decorates the retrieved value with an environment preparing it for execution.
      * @param reductionFunction a function for choosing one matching value from a list of matches.
      * @param registerCacheEvent consumer to register events from interacting with the cache.
@@ -110,7 +137,8 @@ public abstract class AbstractCache<K, S, V> {
     @Nonnull
     public abstract V reduce(@Nonnull final K key,
                              @Nonnull final S secondaryKey,
-                             @Nonnull final Supplier<Pair<S, V>> secondaryKeyValueSupplier,
+                             @Nonnull final T tertiaryKey,
+                             @Nonnull final Supplier<Pair<T, V>> tertiaryKeyValueSupplier,
                              @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
                              @Nonnull final Function<Stream<V>, V> reductionFunction,
                              Consumer<RelationalMetric.RelationalCount> registerCacheEvent);

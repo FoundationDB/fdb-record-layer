@@ -46,7 +46,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
- * This tests concurrent behavior of the secondary cache.
+ * This tests concurrent behavior of the tertiary cache.
  */
 public class ConcurrentCacheTests {
 
@@ -98,19 +98,19 @@ public class ConcurrentCacheTests {
         return "full scan with " + boundary;
     }
 
-    private static void getOrLoadT1lt300(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) {
-        final var result = cache.reduce("T1", ppeFor(ecFor(300)), () -> Pair.of(ppeFor(lt500Constraint),
+    private static void getOrLoadT1lt300(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
+        final var result = cache.reduce("T1", "1", ppeFor(ecFor(300)), () -> Pair.of(ppeFor(lt500Constraint),
                 generateIScan(500)), s -> s + " overriden with 300", ConcurrentCacheTests::pickFirst, e -> { });
         Assertions.assertThat(result).doesNotContain("150"); // we must not scan index <150 as the returned results would be incorrect
     }
 
-    private static void getOrLoadT1lt90(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) {
-        cache.reduce("T1", ppeFor(ecFor(90)), () -> Pair.of(ppeFor(lt150Constraint),
+    private static void getOrLoadT1lt90(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
+        cache.reduce("T1", "1", ppeFor(ecFor(90)), () -> Pair.of(ppeFor(lt150Constraint),
                 generateIScan(150)), s -> s + " overriden with 90", ConcurrentCacheTests::pickFirst, e -> { });
     }
 
-    private static void getOrLoadT1lt1000(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) {
-        final var result = cache.reduce("T1", ppeFor(ecFor(1000)), () -> Pair.of(ppeFor(lt1000Constraint),
+    private static void getOrLoadT1lt1000(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
+        final var result = cache.reduce("T1", "1", ppeFor(ecFor(1000)), () -> Pair.of(ppeFor(lt1000Constraint),
                 generateFullScan()), s -> s + " overriden with 1000", ConcurrentCacheTests::pickFirst, e -> { });
         Assertions.assertThat(result).doesNotContain("150", "500"); // we must not scan index <150 or <500 as the returned results would be incorrect
     }
@@ -118,8 +118,8 @@ public class ConcurrentCacheTests {
     @Nonnull
     private static final Random random = new Random();
 
-    private static void randomWorkLoad(@Nonnull final MultiStageCache<String, PhysicalPlanEquivalence, String> cache) throws InterruptedException {
-        final Map<Integer, Consumer<MultiStageCache<String, PhysicalPlanEquivalence, String>>> actions = Map.of(0, ConcurrentCacheTests::getOrLoadT1lt1000,
+    private static void randomWorkLoad(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) throws InterruptedException {
+        final Map<Integer, Consumer<MultiStageCache<String, String, PhysicalPlanEquivalence, String>>> actions = Map.of(0, ConcurrentCacheTests::getOrLoadT1lt1000,
                 1, ConcurrentCacheTests::getOrLoadT1lt300,
                 2, ConcurrentCacheTests::getOrLoadT1lt90);
         Thread.sleep(1);
@@ -129,7 +129,7 @@ public class ConcurrentCacheTests {
 
     @Test
     void cacheWorks() throws InterruptedException {
-        final var builder = MultiStageCache.<String, PhysicalPlanEquivalence, String>newMultiStageCacheBuilder();
+        final var builder = MultiStageCache.<String, String, PhysicalPlanEquivalence, String>newMultiStageCacheBuilder();
         final var testCache = builder
                 .setSize(2)
                 .setSecondarySize(2)

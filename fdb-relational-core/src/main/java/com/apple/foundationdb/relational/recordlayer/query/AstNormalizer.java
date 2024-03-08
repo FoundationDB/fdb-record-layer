@@ -534,7 +534,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                       @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
         astNormalizer.visit(context);
-        return new Result(QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getName(), schemaTemplate.getVersion(), readableIndexes, userVersion),
+        return new Result(
+                schemaTemplate.getName(),
+                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getVersion(), readableIndexes, userVersion),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),
@@ -561,6 +563,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         @Nonnull
+        private final String schemaTemplateName;
+
+        @Nonnull
         private final QueryCacheKey queryCacheKey;
 
         @Nonnull
@@ -575,16 +580,22 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         @Nonnull
         private final Options queryOptions;
 
-        public Result(@Nonnull final QueryCacheKey queryCacheKey,
+        public Result(@Nonnull final String schemaTemplateName,
+                      @Nonnull final QueryCacheKey queryCacheKey,
                       @Nonnull final QueryExecutionParameters queryExecutionParameters,
                       @Nonnull final ParseTree parseTree,
                       @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
                       @Nonnull final Options queryOptions) {
+            this.schemaTemplateName = schemaTemplateName;
             this.queryCacheKey = queryCacheKey;
             this.queryExecutionParameters = queryExecutionParameters;
             this.parseTree = parseTree;
             this.queryCachingFlags = queryCachingFlags;
             this.queryOptions = queryOptions;
+        }
+
+        public String getSchemaTemplateName() {
+            return schemaTemplateName;
         }
 
         @Nonnull

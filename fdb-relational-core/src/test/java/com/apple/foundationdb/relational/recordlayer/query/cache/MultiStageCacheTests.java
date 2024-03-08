@@ -29,11 +29,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.AbstractMap;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -73,15 +70,22 @@ import java.util.stream.Stream;
  * </table>
  */
 public class MultiStageCacheTests {
-
-    @Nonnull
-    private static final Map<String, String> animal = Map.of("U.S.", "American Alligator", "E.U.", "European Deer", "Japan", "Japanese Giant Salamander", "China", "Sichuan Giant Panda");
-
-    @Nonnull
-    private static final Map<String, String> landforms = Map.of("U.S.", "Colorado River", "E.U.", "Southern Carpathians", "Japan", "Mount Fuji", "China", "Qinling Mountains Forest");
-
-    @Nonnull
-    private static final Map<String, String> trains = Map.of("U.S.", "the Acela", "E.U.", "TGV", "Japan", "Shinkansen", "China", "Shanghai");
+    private static final Map<String, Map<String, Map<String, String>>> entries = Map.of(
+            "U.S.", Map.of(
+                    "Animal", Map.of("river", "American Alligator", "mountain", "Mountain Goat", "sea", "California Sea Lion", "forest", "American Black Bear"),
+                    "Landform", Map.of("river", "Mississippi River", "mountain", "Rocky Mountains", "sea", "Pacific Ocean", "forest", "Smoky Mountains National Park"),
+                    "Capital", Map.of("California", "Sacramento", "Texas", "Austin", "Hawaii", "Honolulu", "Alaska", "Juneau")),
+            "E.U.", Map.of(
+                    "Animal", Map.of("river", "European Beaver", "mountain", "European BeaverI", "sea", "Mediterranean Monk Seal", "forest", "European Wild Boar"),
+                    "Landform", Map.of("mountain", "Alps", "sea", "Mediterranean Sea", "forest", "Black Forest"),
+                    "Capital", Map.of("France", "Paris", "Germany", "Berlin", "Spain", "Madrid", "Slovakia", "Bratislava")),
+            "Japan", Map.of(
+                    "Animal", Map.of("river", "Lambda 4S", "mountain", "Japanese Macaque", "sea", "Japanese Sea Turtle", "forest", "Japanese Giant Salamander"),
+                    "Landform", Map.of("river", "Kiso", "mountain", "Kiso", "sea", "Sea of Japan", "forest", "Shiretoko Forest")),
+            "China", Map.of(
+                    "Animal", Map.of("mountain", "Sichuan Giant Panda", "sea", "Chinese White Dolphin", "forest", "Chinese White DolphinB"),
+                    "Landform", Map.of("river", "Yangtze River", "mountain", "Mount Hua"),
+                    "Capital", Map.of("Beijing", "Beijing", "Anhui", "Hefei", "Fujian", "Fuzhou", "Gansu", "Lanzhou")));
 
     @Nullable
     private static <V> V pickFirst(@Nonnull final Stream<V> stream) {
@@ -94,153 +98,165 @@ public class MultiStageCacheTests {
     }
 
     @Nonnull
-    private static Pair<String, String> produceAnimal(@Nonnull final String in) {
-        return Pair.of("Animal", animal.get(in));
+    private static Pair<String, String> produceAnimal(@Nonnull final String k2, @Nonnull final String k3) {
+        return Pair.of(k2, entries.get("Animal").get(k2).get(k3));
     }
 
     @Nonnull
-    private static Pair<String, String> produceLandform(@Nonnull final String in) {
-        return Pair.of("Landform", landforms.get(in));
+    private static Pair<String, String> produceLandform(@Nonnull final String k2, @Nonnull final String k3) {
+        return Pair.of(k2, entries.get("Landform").get(k2).get(k3));
     }
 
     @Nonnull
-    private static Pair<String, String> produceTrain(@Nonnull final String in) {
-        return Pair.of("Train", trains.get(in));
+    private static Pair<String, String> produceCapital(@Nonnull final String k2, @Nonnull final String k3) {
+        return Pair.of(k2, entries.get("Capital").get(k2).get(k3));
     }
 
-    private static void shouldBe(@Nonnull final MultiStageCache<String, String, String> cache, Map<String, Map<String, String>> expectedLayout) {
-        final Set<String> keys = cache.getStats().getAllKeys();
-        final Map<String, Map<String, String>> result = keys
-                .stream()
-                .map(key -> new AbstractMap.SimpleEntry<>(key, cache.getStats().getAllSecondaryMappings(key)))
-                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
+    private static void shouldBe(@Nonnull final MultiStageCache<String, String, String, String> cache, Map<String, Map<String, Map<String, String>>> expectedLayout) {
+        Map<String, Map<String, Map<String, String>>> result = new HashMap<>();
+        for (String key : cache.getStats().getAllKeys()) {
+            result.computeIfAbsent(key, k -> new HashMap<>());
+            for (String secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
+                result.get(key).put(secondaryKey, cache.getStats().getAllTertiaryMappings(key, secondaryKey));
+            }
+        }
         Assertions.assertThat(result).isEqualTo(expectedLayout);
     }
 
     @Test
     void cacheStoresDataCorrectly() {
-        final var builder = MultiStageCache.<String, String, String>newMultiStageCacheBuilder();
-        final MultiStageCache<String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
-        final var result1 = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
+        final MultiStageCache<String, String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
+        final var result1 = readCache(testCache, "U.S.", "Animal", "river");
         Assertions.assertThat(result1).isEqualTo("American Alligator");
-        final var result2 = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
+        final var result2 = readCache(testCache, "U.S.", "Animal", "river");
         Assertions.assertThat(result2).isEqualTo("restored American Alligator from cache");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
     }
 
     @Test
     void primaryCacheEvictsDataCorrectly() {
-        final var builder = MultiStageCache.<String, String, String>newMultiStageCacheBuilder();
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
         final var ticker = new FakeTicker();
-        final MultiStageCache<String, String, String> testCache = builder
+        final MultiStageCache<String, String, String, String> testCache = builder
                 .setSize(2)
                 .setSecondarySize(2)
+                .setTertiarySize(2)
                 .setTtl(10)
                 .setSecondaryTtl(5000) // we don't care about observing state of secondary cache for now, see test <code>secondaryCacheEvictsDataCorrectly</code>.
+                .setTertiaryTtl(5000) // we don't care about observing state of tertiary cache for now, see test <code>tertiaryCacheEvictsDataCorrectly</code>.
                 .setExecutor(Runnable::run)
                 .setSecondaryExecutor(Runnable::run)
+                .setTertiaryExecutor(Runnable::run)
                 .setTicker(ticker)
                 .build();
 
         // warm up cache
-        var result = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
+        var result = readCache(testCache, "U.S.", "Animal", "river");
         Assertions.assertThat(result).isEqualTo("American Alligator");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
 
-        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
-        Assertions.assertThat(result).isEqualTo("Colorado River");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River")));
+        result = readCache(testCache, "U.S.", "Landform", "river");
+        Assertions.assertThat(result).isEqualTo("Mississippi River");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"), "Landform", Map.of("river", "Mississippi River"))));
 
         ticker.advance(Duration.of(1, ChronoUnit.MILLIS));
 
-        result = readCache(testCache, "E.U.", "Landform", () -> produceLandform("E.U."));
-        Assertions.assertThat(result).isEqualTo("Southern Carpathians");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "E.U.", Map.of("Landform", "Southern Carpathians")));
+        result = readCache(testCache, "E.U.", "Landform", "sea");
+        Assertions.assertThat(result).isEqualTo("Mediterranean Sea");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"), "Landform", Map.of("river", "Mississippi River")), "E.U.", Map.of("Landform", Map.of("sea", "Mediterranean Sea"))));
 
         ticker.advance(Duration.of(8, ChronoUnit.MILLIS));
 
         // let's refresh U.S. entry by accessing it.
 
-        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
-        Assertions.assertThat(result).isEqualTo("restored Colorado River from cache");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "E.U.", Map.of("Landform", "Southern Carpathians")));
+        result = readCache(testCache, "U.S.", "Landform", "river");
+        Assertions.assertThat(result).isEqualTo("restored Mississippi River from cache");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"), "Landform", Map.of("river", "Mississippi River")), "E.U.", Map.of("Landform", Map.of("sea", "Mediterranean Sea"))));
 
         ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // E.U. entry should've expired ...
 
-        // ... leaving space for the new entry of "Japan".
-        result = readCache(testCache, "Japan", "Train", () -> produceTrain("Japan"));
-        Assertions.assertThat(result).isEqualTo("Shinkansen");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River"), "Japan", Map.of("Train", "Shinkansen")));
+        // ... leaving space for the new entry of "China".
+        result = readCache(testCache, "China", "Capital", "Anhui");
+        Assertions.assertThat(result).isEqualTo("Hefei");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"), "Landform", Map.of("river", "Mississippi River")), "China", Map.of("Capital", Map.of("Anhui", "Hefei"))));
     }
 
     @Test
     void secondaryCacheEvictsDataCorrectly() {
-        final var builder = MultiStageCache.<String, String, String>newMultiStageCacheBuilder();
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
         final var ticker = new FakeTicker();
-        final MultiStageCache<String, String, String> testCache = builder
+        final MultiStageCache<String, String, String, String> testCache = builder
                 .setSize(2)
                 .setSecondarySize(2) // two slots only for secondary cache items (à la plan-family in production).
+                .setTertiarySize(2)
                 .setTtl(10)
                 .setSecondaryTtl(5)
+                .setTertiaryTtl(5000) // we don't care about observing state of tertiary cache for now, see test <code>tertiaryCacheEvictsDataCorrectly</code>.
                 .setExecutor(Runnable::run)
                 .setSecondaryExecutor(Runnable::run)
+                .setTertiaryExecutor(Runnable::run)
                 .setTicker(ticker)
                 .build();
 
         // warm up the cache
-        // add U.S. -> Animal -> American Alligator
-        var result = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
+        // add U.S. -> Animal -> river -> American Alligator
+        var result = readCache(testCache, "U.S.", "Animal", "river");
         Assertions.assertThat(result).isEqualTo("American Alligator");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
 
         // advance time
         ticker.advance(Duration.of(2, ChronoUnit.MILLIS));
 
-        // let's add another item: U.S. -> Landform -> Colorado River
-        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
-        Assertions.assertThat(result).isEqualTo("Colorado River");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River")));
+        // let's add another item: U.S. -> Landform -> river -> Mississippi River
+        result = readCache(testCache, "U.S.", "Landform", "river");
+        Assertions.assertThat(result).isEqualTo("Mississippi River");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"), "Landform", Map.of("river", "Mississippi River"))));
 
         // advance time
-        ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // U.S. -> Animal -> American Alligator should have expired
+        ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // U.S. -> Animal -> river -> American Alligator should have expired
+        shouldBe(testCache, Map.of("U.S.", Map.of("Landform", Map.of("river", "Mississippi River"))));
 
-        // let's add one more item: U.S. -> Train -> the Acela
-        result = readCache(testCache, "U.S.", "Train", () -> produceTrain("U.S."));
-        Assertions.assertThat(result).isEqualTo("the Acela");
+        // let's add one more item: U.S. -> Capital -> California -> Sacramento
+        result = readCache(testCache, "U.S.", "Capital", "California");
+        Assertions.assertThat(result).isEqualTo("Sacramento");
 
-        // we're over the max size limit of secondary -> evication should take place.
-        // i.e. adding train evicts the _expired_ element, which is U.S. -> Animal -> American Alligator.
+        // we're over the max size limit of secondary -> eviction should take place.
+        // i.e. adding capital evicts the _expired_ element, which is U.S. -> Animal -> river -> American Alligator.
         // let's verify that
-        shouldBe(testCache, Map.of("U.S.", Map.of("Landform", "Colorado River", "Train", "the Acela")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Capital", Map.of("California", "Sacramento"), "Landform", Map.of("river", "Mississippi River"))));
     }
 
     @Test
     void removeCacheKeyIfSecondaryIsEmptyWorks() {
-        final var builder = MultiStageCache.<String, String, String>newMultiStageCacheBuilder();
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
         final var ticker = new FakeTicker();
-        final MultiStageCache<String, String, String> testCache = builder
+        final MultiStageCache<String, String, String, String> testCache = builder
                 .setSize(2)
                 .setSecondarySize(2) // two slots only for secondary cache items (à la plan-family in production).
+                .setTertiarySize(2)
                 .setTtl(1000) // set to high value because we want to prove that eviction of cache key happens when the secondary cache becomes empty.
                 .setSecondaryTtl(5)
+                .setTertiaryTtl(1000) // set to high value because we want to prove that eviction of cache key happens when the secondary cache becomes empty
                 .setExecutor(Runnable::run)
                 .setSecondaryExecutor(Runnable::run)
+                .setTertiaryExecutor(Runnable::run)
                 .setTicker(ticker)
                 .build();
 
         // warm up the cache
         // add U.S. -> Animal -> American Alligator
-        var result = readCache(testCache, "U.S.", "Animal", () -> produceAnimal("U.S."));
+        var result = readCache(testCache, "U.S.", "Animal", "river");
         Assertions.assertThat(result).isEqualTo("American Alligator");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator")));
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
 
         // advance time
         ticker.advance(Duration.of(2, ChronoUnit.MILLIS));
 
         // let's add another item: U.S. -> Landform -> Colorado River
-        result = readCache(testCache, "U.S.", "Landform", () -> produceLandform("U.S."));
-        Assertions.assertThat(result).isEqualTo("Colorado River");
-        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", "American Alligator", "Landform", "Colorado River")));
+        result = readCache(testCache, "U.S.", "Landform", "river");
+        Assertions.assertThat(result).isEqualTo("Mississippi River");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"), "Landform", Map.of("river", "Mississippi River"))));
 
         // advance time
         // U.S. -> Animal -> American Alligator, and U.S. -> Landform -> Colorado River should have expired
@@ -254,9 +270,100 @@ public class MultiStageCacheTests {
         shouldBe(testCache, Map.of());
     }
 
-    private static String readCache(@Nonnull MultiStageCache<String, String, String> cache, @Nonnull String key,
-                                    @Nonnull String secondaryKey, @Nonnull Supplier<Pair<String, String>> supplier) {
-        return cache.reduce(key, secondaryKey, supplier, MultiStageCacheTests::fetchFromCache,
+    @Test
+    void tertiaryCacheEvictsDataCorrectly() {
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
+        final var ticker = new FakeTicker();
+        final MultiStageCache<String, String, String, String> testCache = builder
+                .setSize(2)
+                .setSecondarySize(2)
+                .setTertiarySize(2) // two slots only for tertiary cache items (à la plan-family in production).
+                .setTtl(100)
+                .setSecondaryTtl(10)
+                .setTertiaryTtl(5)
+                .setExecutor(Runnable::run)
+                .setSecondaryExecutor(Runnable::run)
+                .setTertiaryExecutor(Runnable::run)
+                .setTicker(ticker)
+                .build();
+
+        // warm up the cache
+        // add U.S. -> Animal -> river -> American Alligator
+        var result = readCache(testCache, "U.S.", "Animal", "river");
+        Assertions.assertThat(result).isEqualTo("American Alligator");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
+
+        // advance time
+        ticker.advance(Duration.of(2, ChronoUnit.MILLIS));
+
+        // let's add another item: U.S. -> Animal-> mountain -> Mountain Goat
+        result = readCache(testCache, "U.S.", "Animal", "mountain");
+        Assertions.assertThat(result).isEqualTo("Mountain Goat");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator", "mountain", "Mountain Goat"))));
+
+        // advance time
+        ticker.advance(Duration.of(4, ChronoUnit.MILLIS)); // U.S. -> Animal -> river -> American Alligator should have expired
+        // This is necessary because the cache size may return 2 despite the element having been cleaned, making the assertion fail
+        testCache.cleanUp();
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("mountain", "Mountain Goat"))));
+
+        // let's add one more item: U.S. -> Animal -> sea-> California Sea Lion
+        result = readCache(testCache, "U.S.", "Animal", "sea");
+        Assertions.assertThat(result).isEqualTo("California Sea Lion");
+
+        // This is necessary because the cache size may return 2 despite the element having been cleaned, making the assertion fail
+        testCache.cleanUp();
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("mountain", "Mountain Goat", "sea", "California Sea Lion"))));
+    }
+
+    @Test
+    void removeCacheKeyIfTertiaryIsEmptyWorks() {
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
+        final var ticker = new FakeTicker();
+        final MultiStageCache<String, String, String, String> testCache = builder
+                .setSize(2)
+                .setSecondarySize(2) // two slots only for secondary cache items (à la plan-family in production).
+                .setTertiarySize(2)
+                .setTtl(1000) // set to high value because we want to prove that eviction of cache key happens when the tertiary cache becomes empty.
+                .setSecondaryTtl(1000) // set to high value because we want to prove that eviction of cache key happens when the tertiary cache becomes empty
+                .setTertiaryTtl(5)
+                .setExecutor(Runnable::run)
+                .setSecondaryExecutor(Runnable::run)
+                .setTertiaryExecutor(Runnable::run)
+                .setTicker(ticker)
+                .build();
+
+        // warm up the cache
+        // add U.S. -> Animal -> river -> American Alligator
+        var result = readCache(testCache, "U.S.", "Animal", "river");
+        Assertions.assertThat(result).isEqualTo("American Alligator");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
+
+        // advance time
+        ticker.advance(Duration.of(2, ChronoUnit.MILLIS));
+
+        // let's add another item: U.S. -> Animal -> mountain -> Mountain Goat
+        result = readCache(testCache, "U.S.", "Animal", "mountain");
+        Assertions.assertThat(result).isEqualTo("Mountain Goat");
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator", "mountain", "Mountain Goat"))));
+
+        // advance time
+        // U.S. -> Animal -> river -> American Alligator, and U.S. -> Animal -> mountain -> Mountain Goat should have expired
+        ticker.advance(Duration.of(10, ChronoUnit.MILLIS));
+
+        // this is needed because expiration is done passively for better performance.
+        // cleanup causes expiration handling to kick in immediately resulting in deterministic behavior which is necessary for testing.
+        testCache.cleanUp();
+
+        // let's verify that
+        shouldBe(testCache, Map.of());
+    }
+
+    private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache, @Nonnull String key,
+                                    @Nonnull String secondaryKey, @Nonnull String tertiaryKey) {
+        return cache.reduce(key, secondaryKey, tertiaryKey,
+                () -> Pair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
+                MultiStageCacheTests::fetchFromCache,
                 MultiStageCacheTests::pickFirst, e -> { });
     }
 }

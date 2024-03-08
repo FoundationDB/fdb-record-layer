@@ -145,7 +145,9 @@ public final class PlanGenerator {
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
             return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
-                    cache.get().reduce(astHashResult.getQueryCacheKey(),
+                    cache.get().reduce(
+                            astHashResult.getSchemaTemplateName(),
+                            astHashResult.getQueryCacheKey(),
                             planEquivalence,
                             () -> {
                                 final var physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive,

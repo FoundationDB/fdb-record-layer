@@ -101,9 +101,6 @@ public final class QueryCacheKey {
 
     private final int hash;
 
-    @Nonnull
-    private final String schemaTemplateName;
-
     private final int schemaTemplateVersion;
 
     @Nonnull
@@ -115,21 +112,19 @@ public final class QueryCacheKey {
 
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
                           int hash,
-                          @Nonnull final String schemaTemplateName,
                           int schemaTemplateVersion,
                           @Nonnull final BitSet readableIndexes,
                           int userVersion) {
         this.canonicalQueryString = canonicalQueryString;
         this.hash = hash;
-        this.schemaTemplateName = schemaTemplateName;
         this.schemaTemplateVersion = schemaTemplateVersion;
         this.readableIndexes = readableIndexes;
         this.userVersion = userVersion;
 
         // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
-        // hashCode() be quick. Note that this includes both information about the query (like the query hash),
-        // the schema template (like the name and version), and the schema (like the set of readable indexes)
-        this.memoizedHashCode = Objects.hash(hash, schemaTemplateName, schemaTemplateVersion, readableIndexes, userVersion);
+        // hashCode() be quick. Note that this includes information about the query (like the query hash),
+        // the schema template version, and the schema (like the set of readable indexes)
+        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, readableIndexes, userVersion);
     }
 
     @Override
@@ -145,7 +140,6 @@ public final class QueryCacheKey {
                 schemaTemplateVersion == that.schemaTemplateVersion &&
                 userVersion == that.userVersion &&
                 Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
-                Objects.equals(schemaTemplateName, that.schemaTemplateName) &&
                 Objects.equals(readableIndexes, that.readableIndexes);
     }
 
@@ -163,11 +157,6 @@ public final class QueryCacheKey {
         return canonicalQueryString;
     }
 
-    @Nonnull
-    public String getSchemaTemplateName() {
-        return schemaTemplateName;
-    }
-
     public int getSchemaTemplateVersion() {
         return schemaTemplateVersion;
     }
@@ -183,16 +172,15 @@ public final class QueryCacheKey {
 
     @Override
     public String toString() {
-        return schemaTemplateName + "(" + schemaTemplateVersion + ")" + "||" + canonicalQueryString + "||" + hash;
+        return "(" + schemaTemplateVersion + ")" + "||" + canonicalQueryString + "||" + hash;
     }
 
     @Nonnull
     public static QueryCacheKey of(@Nonnull final String query,
                                    int hash,
-                                   @Nonnull final String schemaTemplateName,
                                    int schemaTemplateVersion,
                                    @Nonnull final BitSet readableIndexes,
                                    int userVersion) {
-        return new QueryCacheKey(query, hash, schemaTemplateName, schemaTemplateVersion, readableIndexes, userVersion);
+        return new QueryCacheKey(query, hash, schemaTemplateVersion, readableIndexes, userVersion);
     }
 }

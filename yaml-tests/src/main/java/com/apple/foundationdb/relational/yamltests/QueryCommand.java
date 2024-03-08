@@ -212,11 +212,11 @@ public class QueryCommand extends Command {
         Assumptions.assumeTrue(connection instanceof EmbeddedRelationalConnection, "Not possible to check for cache hit!");
         final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
         final var preValue = embeddedRelationalConnection.getMetricCollector() != null &&
-                embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) ?
-                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) : 0;
+                embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
         final var toReturn = executeQuery(s, queryString);
-        final var postValue = embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) ?
-                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT) : 0;
+        final var postValue = embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
+                embeddedRelationalConnection.getMetricCollector().getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) : 0;
         if (preValue + 1 != postValue) {
             reportTestFailure("‼️ Expected to retrieve the plan from the cache at line " + lineNumber);
         } else {

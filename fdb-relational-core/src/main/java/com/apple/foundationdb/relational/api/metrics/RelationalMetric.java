@@ -96,7 +96,8 @@ public class RelationalMetric {
 
         PLAN_CACHE_PRIMARY_MISS("primary cache miss", false),
         PLAN_CACHE_SECONDARY_MISS("secondary cache miss", false),
-        PLAN_CACHE_SECONDARY_HIT("cache hit", false),
+        PLAN_CACHE_TERTIARY_MISS("tertiary cache miss", false),
+        PLAN_CACHE_TERTIARY_HIT("cache hit", false),
         ;
 
         private final String title;

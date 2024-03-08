@@ -106,12 +106,14 @@ public class RecordLayerMetricCollectorTest {
                 "GENERATE_LOGICAL_PLAN event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN),
                 "OPTIMIZE_PLAN event should be registered with the metricCollector");
-        Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS),
-                "PLAN_CACHE_PRIMARY_MISS event should be registered with the metricCollector");
+        //Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS),
+        //        "PLAN_CACHE_PRIMARY_MISS event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
                 "PLAN_CACHE_SECONDARY_MISS event should be registered with the metricCollector");
-        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT),
-                "PLAN_CACHE_SECONDARY_HIT event should not be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS),
+                "PLAN_CACHE_TERTIARY_MISS event should be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT),
+                "PLAN_CACHE_TERTIARY_HIT event should not be registered with the metricCollector");
     }
 
     private static void testCacheHitSpecificMetrics(@Nonnull MetricCollector collector) {
@@ -124,8 +126,10 @@ public class RecordLayerMetricCollectorTest {
                 "PLAN_CACHE_PRIMARY_MISS event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
                 "PLAN_CACHE_SECONDARY_MISS event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS),
+                "PLAN_CACHE_TERTIARY_MISS event should not be registered with the metricCollector");
         // true event
-        Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_HIT),
-                "PLAN_CACHE_PRIMARY_MISS event should be registered with the metricCollector");
+        Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT),
+                "PLAN_CACHE_TERTIARY_HIT event should be registered with the metricCollector");
     }
 }

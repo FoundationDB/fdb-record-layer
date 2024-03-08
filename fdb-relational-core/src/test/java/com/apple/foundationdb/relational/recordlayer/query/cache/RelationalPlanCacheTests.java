@@ -64,6 +64,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -254,23 +255,24 @@ public class RelationalPlanCacheTests {
     }
 
     private static void shouldBe(@Nonnull final RelationalPlanCache cache, @Nonnull final Map<Tuple, Map<PhysicalPlanEquivalence, String>> expectedLayout) {
-        final Set<QueryCacheKey> keys = cache.getStats().getAllKeys();
-        final Map<Tuple, Map<PhysicalPlanEquivalence, String>> result = keys
-                .stream()
-                .map(key -> new AbstractMap.SimpleEntry<>(key, cache.getStats().getAllSecondaryMappings(key)))
-                .collect(Collectors.toMap(entry ->
-                                new Tuple(
-                                        entry.getKey().getCanonicalQueryString(),
-                                        entry.getKey().getSchemaTemplateName(),
-                                        entry.getKey().getSchemaTemplateVersion(),
-                                        entry.getKey().getUserVersion(),
-                                        entry.getKey().getReadableIndexes()),
-                        entry -> entry
-                                .getValue()
+        Map<Tuple, Map<PhysicalPlanEquivalence, String>> result = new HashMap<>();
+        for (String key : cache.getStats().getAllKeys()) {
+            for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
+                result.put(
+                        new Tuple(
+                                secondaryKey.getCanonicalQueryString(),
+                                key,
+                                secondaryKey.getSchemaTemplateVersion(),
+                                secondaryKey.getUserVersion(),
+                                secondaryKey.getReadableIndexes()),
+                        cache.getStats().getAllTertiaryMappings(key, secondaryKey)
                                 .entrySet()
                                 .stream()
                                 .map(k -> new AbstractMap.SimpleEntry<>(k.getKey(), inferScanType(k.getValue())))
-                                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue))));
+                                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
+            }
+        }
+
         org.assertj.core.api.Assertions.assertThat(result).isEqualTo(expectedLayout);
     }
 
@@ -279,11 +281,14 @@ public class RelationalPlanCacheTests {
         final var relationalCache = RelationalPlanCache.newRelationalCacheBuilder()
                 .setExecutor(Runnable::run)
                 .setSize(2)
-                .setSecondarySize(2) // two slots only for secondary cache items (à la plan-family in production).
-                .setTtl(10)
-                .setSecondaryTtl(5)
+                .setSecondarySize(2)
+                .setTertiarySize(2) // two slots only for tertiary cache items (à la plan-family in production).
+                .setTtl(20)
+                .setSecondaryTtl(10)
+                .setTertiaryTtl(5)
                 .setExecutor(Runnable::run)
                 .setSecondaryExecutor(Runnable::run)
+                .setTertiaryExecutor(Runnable::run)
                 .setTicker(ticker)
                 .build();
         return relationalCache;
@@ -506,7 +511,7 @@ public class RelationalPlanCacheTests {
     }
 
     @Test
-    void testEvictionFromSecondaryCache() throws Exception {
+    void testEvictionFromTertiaryCache() throws Exception {
         final var ticker = new FakeTicker();
         final var cache = getCache(ticker);
 
@@ -556,6 +561,31 @@ public class RelationalPlanCacheTests {
                 Map.of(
                         ppe(cons(c1970Cp0, c1970Cp1), cons(ofTypeIntCp0, ofTypeIntCp1)), i1970,
                         ppe(cons(c1990Cp0, c1990Cp1), cons(ofTypeIntCp0, ofTypeIntCp1)), i1990)));
+    }
+
+    @Test
+    void testEvictionFromTertiaryCacheRemovesSecondaryKeyWhenEmpty() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        // customer 1 issues a query ...
+        var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                Map.of(ppe(cons(c1970Cp0, c1970Cp1), cons(ofTypeIntCp0, ofTypeIntCp1)), i1970)));
+
+        // 10 MS TTL for secondary cache, 5 MS TTL for tertiary cache, if we pass 7 -> item must be evicted from tertiary cache
+        // and the removal listener will make sure to clean up the secondary cache key as it becomes empty.
+        // As to not remove the primary cache entry, we issue another query on that schema template
+        ticker.advance(Duration.of(7, ChronoUnit.MILLIS));
+        readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), Scan);
+
+        // this is needed because expiration is done passively for better performance.
+        // cleanup causes expiration handling to kick in immediately resulting in deterministic behavior which is necessary for testing.
+        cache.cleanUp();
+
+        // Only one secondary key, the first one was removed
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                Map.of(ppe(tautology, cons(ofTypeIntCp0)), Scan)));
     }
 
     @Test

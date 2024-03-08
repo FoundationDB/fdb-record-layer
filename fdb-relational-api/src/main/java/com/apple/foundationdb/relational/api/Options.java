@@ -86,6 +86,12 @@ public final class Options {
         PLAN_CACHE_SECONDARY_MAX_ENTRIES,
 
         /**
+         * Limit of Relational's tertiary plan cache.
+         * Scope: Engine
+         */
+        PLAN_CACHE_TERTIARY_MAX_ENTRIES,
+
+        /**
          * Read time-to-live duration (in milliseconds) of items in the primary cache.
          * Scope: Engine
          */
@@ -96,6 +102,12 @@ public final class Options {
          * Scope: Engine
          */
         PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS,
+
+        /**
+         * Write time-to-live duration (in milliseconds) of items living in the tertiary cache.
+         * Scope: Engine
+         */
+        PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS,
 
         /**
          * An indicator for the index fetch method to use for a query or an index scan.
@@ -185,8 +197,10 @@ public final class Options {
         builder.put(Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
         builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 1024);
         builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10_000L);
-        builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 8);
+        builder.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, 256);
         builder.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 30_000L);
+        builder.put(Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, 8);
+        builder.put(Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 30_000L);
         builder.put(Name.REPLACE_ON_DUPLICATE_PK, false);
         builder.put(Name.LOG_QUERY, false);
         builder.put(Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 2_000_000L);
@@ -311,6 +325,8 @@ public final class Options {
         data.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
         data.put(Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(1, Integer.MAX_VALUE)));
         data.put(Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
+        data.put(Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(1, Integer.MAX_VALUE)));
+        data.put(Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));
         data.put(Name.REPLACE_ON_DUPLICATE_PK, List.of(TypeContract.booleanType()));
         data.put(Name.REQUIRED_METADATA_TABLE_VERSION, List.of(TypeContract.intType(), RangeContract.of(-1, Integer.MAX_VALUE)));
         data.put(Name.TRANSACTION_TIMEOUT, List.of(TypeContract.longType(), RangeContract.of(-1L, Long.MAX_VALUE)));

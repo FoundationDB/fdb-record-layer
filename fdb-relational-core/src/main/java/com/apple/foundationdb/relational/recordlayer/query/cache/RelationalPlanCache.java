@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  * This is just a specialization of {@link MultiStageCache} with concrete types specific to plan caching.
  */
 @ExcludeFromJacocoGeneratedReport
-public final class RelationalPlanCache extends MultiStageCache<QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
+public final class RelationalPlanCache extends MultiStageCache<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
 
     @Nonnull
     private static final TimeUnit DEFAULT_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
@@ -43,37 +43,48 @@ public final class RelationalPlanCache extends MultiStageCache<QueryCacheKey, Ph
     @Nonnull
     private static final TimeUnit DEFAULT_SECONDARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
+    @Nonnull
+    private static final TimeUnit DEFAULT_TERTIARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
+
     private RelationalPlanCache(int size,
                               int secondarySize,
+                              int tertiarySize,
                               long ttl,
                               @Nonnull final TimeUnit ttlTimeUnit,
                               long secondaryTtl,
                               @Nonnull final TimeUnit secondaryTtlTimeUnit,
+                              long tertiaryTtl,
+                              @Nonnull final TimeUnit tertiaryTtlTimeUnit,
                               @Nullable final Executor executor,
                               @Nullable final Executor secondaryExecutor,
+                              @Nullable final Executor tertiaryExecutor,
                               @Nullable final Ticker ticker) {
-        super(size, secondarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, executor, secondaryExecutor, ticker);
+        super(size, secondarySize, tertiarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, tertiaryTtl, tertiaryTtlTimeUnit, executor, secondaryExecutor, tertiaryExecutor, ticker);
     }
 
     @ExcludeFromJacocoGeneratedReport // this is just a mechanical builder.
-    public static final class RelationalCacheBuilder extends MultiStageCache.Builder<QueryCacheKey, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
+    public static final class RelationalCacheBuilder extends MultiStageCache.Builder<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
 
         public RelationalCacheBuilder() {
             size = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES));
             secondarySize = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES));
+            tertiarySize = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES));
             ttl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS));
             ttlTimeUnit = DEFAULT_TTL_TIME_UNIT;
             secondaryTtl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS));
             secondaryTtlTimeUnit = DEFAULT_SECONDARY_TTL_TIME_UNIT;
+            tertiaryTtl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS));
+            tertiaryTtlTimeUnit = DEFAULT_TERTIARY_TTL_TIME_UNIT;
             executor = null;
             secondaryExecutor = null;
+            tertiaryExecutor = null;
             ticker = null;
         }
 
         @Nonnull
         @Override
         public RelationalPlanCache build() {
-            return new RelationalPlanCache(size, secondarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, executor, secondaryExecutor, ticker);
+            return new RelationalPlanCache(size, secondarySize, tertiarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, tertiaryTtl, tertiaryTtlTimeUnit, executor, secondaryExecutor, tertiaryExecutor, ticker);
         }
 
         @Nonnull
