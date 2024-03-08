@@ -38,6 +38,7 @@ public class IndexDeferredMaintenanceControl {
     private long timeQuotaMillis;
     private long sizeQuotaBytes;
     private int repartitionDocumentCount = 0;
+    private boolean repartitionCapped = false;
     private LastStep lastStep = LastStep.NONE;
 
 
@@ -203,5 +204,22 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setRepartitionDocumentCount(final int repartitionDocumentCount) {
         this.repartitionDocumentCount = repartitionDocumentCount;
+    }
+
+    /**
+     * Repartitioning capped due to hitting maximum limit.
+     *
+     * @return <code>true</code> if repartitioning was capped
+     */
+    public boolean repartitionCapped() {
+        return repartitionCapped;
+    }
+
+    /**
+     * Set repartitioning capped due to hitting maximum limit.
+     * @param repartitionCapped <code>true</code> if repartitioning capped
+     */
+    public void setRepartitionCapped(final boolean repartitionCapped) {
+        this.repartitionCapped = repartitionCapped;
     }
 }

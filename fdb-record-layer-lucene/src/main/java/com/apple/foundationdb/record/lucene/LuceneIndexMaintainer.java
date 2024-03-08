@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -94,6 +95,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -381,22 +383,32 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
-        final Index index = state.index;
-        return rebalancePartitions(runner, storeBuilder, index, documentCount)
+        return rebalancePartitions(runner, storeBuilder, state, mergeControl)
                 .whenComplete((result, error) -> {
                     runner.close();
                 });
     }
 
-    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index, int documentCount) {
+    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner,
+                                                               final FDBRecordStore.Builder storeBuilder,
+                                                               final IndexMaintainerState state,
+                                                               final IndexDeferredMaintenanceControl mergeControl) {
+        FDBStoreTimer timer = state.context.getTimer();
+        if (timer != null) {
+            timer.increment(LuceneEvents.Counts.LUCENE_REBALANCE_CALLS);
+        }
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
+        final int repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
+        final int maxDocumentsToMove = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_MAX_DOCUMENT_COUNT));
+        AtomicInteger maxIterations = new AtomicInteger(Math.max(1, maxDocumentsToMove / repartitionDocumentCount));
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
                         context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
                                 storeBuilder.setContext(context).openAsync().thenCompose(store ->
-                                        getPartitioner(index, store).rebalancePartitions(continuation.get(), documentCount)
+                                        getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount)
                                                 .thenApply(newContinuation -> {
-                                                    if (newContinuation.isEnd()) {
+                                                    if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
+                                                        mergeControl.setRepartitionCapped(maxIterations.get() == 0);
                                                         return false;
                                                     } else {
                                                         continuation.set(newContinuation);

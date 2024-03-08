@@ -1183,6 +1183,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         //  partition 1: with docs  0 - 5
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
+            // default cap (1000), so rebalancing done in one pass
+            assertEquals(1, getCounter(context, LuceneEvents.Counts.LUCENE_REBALANCE_CALLS).getCount());
             validateDocsInPartition(index, 0, groupTuple, Set.copyOf(primaryKeys.subList(18, 25)), luceneSearch);
             validateDocsInPartition(index, 3, groupTuple, Set.copyOf(primaryKeys.subList(12, 18)), luceneSearch);
             validateDocsInPartition(index, 2, groupTuple, Set.copyOf(primaryKeys.subList(6, 12)), luceneSearch);
@@ -1212,6 +1214,72 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(expectedCount, entries.size());
             assertEquals(expectedKeys, entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, lastResult.getNoNextReason());
+        }
+    }
+
+    @Test
+    void capDocCountMovedDuringRepartitioningTest() throws IOException {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_MAX_DOCUMENT_COUNT, 10)
+                .build();
+
+        final int group = 1;
+        final Tuple groupTuple = Tuple.from(group);
+        final long start = Instant.now().toEpochMilli();
+        final String luceneSearch = "text:about";
+
+        final int docCount = 25;
+        List<Tuple> primaryKeys = new ArrayList<>();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            for (int i = 0; i < docCount; i++) {
+                ComplexDocument cd = ComplexDocument.newBuilder()
+                        .setGroup(group)
+                        .setDocId(1000L + i)
+                        .setIsSeen(true)
+                        .setText("A word about what I want to say")
+                        .setTimestamp(start + i * 100)
+                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
+                        .build();
+                final Tuple primaryKey;
+                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                primaryKeys.add(primaryKey);
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                groupTuple, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(docCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        // even though we capped the documents moved on every partition to 10, we still
+        // repartitioned as expected
+        //  partition 0: with docs 18 - 24
+        //  partition 3: with docs 12 - 17
+        //  partition 2: with docs  6 - 11
+        //  partition 1: with docs  0 - 5
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // due to cap, the rebalance should have been called 4 times
+            assertEquals(4, getCounter(context, LuceneEvents.Counts.LUCENE_REBALANCE_CALLS).getCount());
+
+            validateDocsInPartition(index, 0, groupTuple, Set.copyOf(primaryKeys.subList(18, 25)), luceneSearch);
+            validateDocsInPartition(index, 3, groupTuple, Set.copyOf(primaryKeys.subList(12, 18)), luceneSearch);
+            validateDocsInPartition(index, 2, groupTuple, Set.copyOf(primaryKeys.subList(6, 12)), luceneSearch);
+            validateDocsInPartition(index, 1, groupTuple, Set.copyOf(primaryKeys.subList(0, 6)), luceneSearch);
         }
     }
 

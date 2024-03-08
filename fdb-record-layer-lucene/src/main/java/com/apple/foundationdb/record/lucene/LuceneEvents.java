@@ -229,6 +229,8 @@ public class LuceneEvents {
         LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
+        /** Count of times a rebalance was called. */
+        LUCENE_REBALANCE_CALLS("Count of Lucene rebalance calls", false)
         ;
 
         private final String title;
