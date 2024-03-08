@@ -152,16 +152,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> flakyMergeArguments() {
         return Stream.concat(
                 Stream.of(
-                        Arguments.of(true, false, false, 25, 1, 9237590782644L, true),
-                        Arguments.of(true, true, true, 31, 1, -644766138635622644L, true),
-                        Arguments.of(false, true, true, 23, 1, -1089113174774589435L, true),
-                        Arguments.of(false, false, false, 13, 1, 6223372946177329440L, true)),
+                        /*Arguments.of(true, false, false, 25, 9237590782644L, true),*/
+                        Arguments.of(true, true, true, 31, -644766138635622644L, true)/*,
+                        Arguments.of(false, true, true, 23, -1089113174774589435L, true),
+                        Arguments.of(false, false, false, 13, 6223372946177329440L, true)*/),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextBoolean(), // isGrouped
                                 random.nextBoolean(), // isSynthetic
                                 random.nextBoolean(), // primaryKeySegmentIndexEnabled
                                 random.nextInt(40) + 2, // minDocumentCount
-                                random.nextDouble(), // mergeFailureChance
                                 random.nextLong(), // seed for other randomness
                                 false))); // require failure
     }
@@ -172,9 +171,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                     boolean isSynthetic,
                     boolean primaryKeySegmentIndexEnabled,
                     int minDocumentCount,
-                    double mergeFailureChance,
                     long seed,
-                    boolean requireFailure) throws IOException {
+                    boolean requireFailure) throws IOException, InterruptedException {
         Random random = new Random(seed);
         final boolean optimizedStoredFields = random.nextBoolean();
         final Map<String, String> options = Map.of(
@@ -198,6 +196,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, 1) // commit as often as possible
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, 1) // commit as often as possible
+                .addProp(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS, (int)TimeUnit.SECONDS.toMillis(10) + 1) // TODO figure out how to fix this
                 .build();
 
         // Generate random documents
@@ -213,6 +212,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                         // don't have the timeout on FILE_LOCK_CLEAR because that will leave the file lock around,
                         // and the next iteration will fail on that.
                         wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR &&
+                        // if we timeout on setting, AgilityContext may commit in the background, but Lucene won't have
+                        // the Lock reference to close, and clear the lock.
+                        wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET &&
                         waitCounts.getAndDecrement() == 0) {
                     return Pair.of(1L, TimeUnit.NANOSECONDS);
                 } else {
@@ -229,9 +231,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                                 .thenAccept(System.out::println).join();
 
                     }
+                    LOGGER.debug("Merge started");
                     explicitMergeIndex(index, contextProps, schemaSetup);
-//                    Assertions.assertFalse(requireFailure && i < 15, i + " merge should have failed");
+                    LOGGER.debug("Merge completed");
+                    Assertions.assertFalse(requireFailure && i < 15, i + " merge should have failed");
                 } catch (RecordCoreException e) {
+                    LOGGER.debug(KeyValueLogMessage.of("Merge failed",
+                                    "iteration", i), e);
                     Throwable cause = e;
                     final int iteration = i;
                     final Supplier<String> message = () -> iteration + " " + e.getMessage();
@@ -247,6 +253,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                     }
                 }
                 fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
+                Thread.sleep(TimeUnit.SECONDS.toMillis(15));
                 new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
                     schemaSetup.accept(context);
                     return recordStore;

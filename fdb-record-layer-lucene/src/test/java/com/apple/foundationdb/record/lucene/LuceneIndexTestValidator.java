@@ -277,7 +277,7 @@ public class LuceneIndexTestValidator {
             final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
             for (final Tuple primaryKey : expectedPrimaryKeys) {
                 assertNotNull(primaryKeySegmentIndex.findDocument(directoryReader, primaryKey),
-                        message + " " + primaryKey);
+                        message + " " + primaryKey + " " + primaryKeySegmentIndex.findSegments(primaryKey));
             }
         } else {
             assertNull(primaryKeySegmentIndex, message);
