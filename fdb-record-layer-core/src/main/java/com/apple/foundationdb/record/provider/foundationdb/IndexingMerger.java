@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,6 +72,7 @@ public class IndexingMerger {
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
         AtomicReference<Runnable> recordTime = new AtomicReference<>();
+        UUID uuid = UUID.randomUUID();
         return AsyncUtil.whileTrue(() ->
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
@@ -82,6 +84,7 @@ public class IndexingMerger {
                                     mergeControl.setTimeQuotaMillis(timeQuotaMillis);
                                     mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
+                                    LOGGER.debug("Starting MERGE" + uuid + " " + System.identityHashCode(mergeControl));
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
@@ -89,6 +92,7 @@ public class IndexingMerger {
                 ).handle((ignore, e) -> {
                     recordTime.get().run();
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
+                    LOGGER.debug("Finished MERGE" + uuid + " " + System.identityHashCode(mergeControl), e);
                     // Note: this mergeControl will not be re-used and should not be modified.
                     if (e == null) {
                         // Here: no errors

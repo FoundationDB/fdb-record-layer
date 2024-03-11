@@ -39,6 +39,9 @@ public class LuceneLoggerInfoStream extends InfoStream {
 
     @Override
     public void message(String component, String message) {
+        if ("MS".equals(component)) {
+            loggerForStreamOutput.debug(KeyValueLogMessage.of(message, LuceneLogMessageKeys.COMPONENT, component));
+        }
         if (loggerForStreamOutput.isTraceEnabled()) {
             loggerForStreamOutput.trace(KeyValueLogMessage.of(message, LuceneLogMessageKeys.COMPONENT, component));
         }
@@ -46,7 +49,7 @@ public class LuceneLoggerInfoStream extends InfoStream {
 
     @Override
     public boolean isEnabled(String component) {
-        return loggerForStreamOutput.isTraceEnabled();
+        return loggerForStreamOutput.isTraceEnabled() || "MS".equals(component);
     }
 
     @Override

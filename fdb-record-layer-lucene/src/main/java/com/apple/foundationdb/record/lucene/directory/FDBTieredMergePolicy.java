@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.subspace.Subspace;
@@ -92,6 +93,8 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
             spec = dilutedSpec;
         }
         mergeControl.setMergesTried(specSize(spec));
+        LOGGER.debug(KeyValueLogMessage.of("FM", "tried", specSize(spec), "instance", System.identityHashCode(mergeControl), "thrd", Thread.currentThread()));
+        MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, spec);
 
         context.recordEvent(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
         MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, spec);

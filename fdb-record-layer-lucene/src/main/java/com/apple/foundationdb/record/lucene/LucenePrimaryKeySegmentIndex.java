@@ -318,7 +318,7 @@ public class LucenePrimaryKeySegmentIndex {
     }
 
     void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
-        LOGGER.debug("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey));
+        LOGGER.debug("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey) + " -- " + Tuple.fromBytes(subspace.pack()));
         final byte[] entryKey = ByteArrayUtil.join(subspace.getKey(), primaryKey, Tuple.from(segmentId, docId).pack());
         if (add) {
             directory.getAgilityContext().set(entryKey, new byte[0]);
