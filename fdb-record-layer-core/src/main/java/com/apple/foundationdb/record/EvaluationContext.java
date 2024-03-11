@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
+import java.util.Map;
 
 /**
  * A context for query evaluation.
@@ -136,17 +136,18 @@ public class EvaluationContext {
     /**
      * Dereferences the constant.
      *
-     * @param alias the correlation identifier.
-     * @param ordinal the ordinal of the constant within the constants list.
-     * @return de-referenced constant.
+     * @param alias the correlation identifier
+     * @param constantId the constant id
+     * @return de-referenced constant
      */
+    @SuppressWarnings("unchecked")
     @Nullable
-    public Object dereferenceConstant(@Nonnull CorrelationIdentifier alias, int ordinal) {
-        final var constantsList = (List<?>)bindings.get(Bindings.Internal.CONSTANT.bindingName(alias.getId()));
-        if (constantsList == null) {
-            throw new RecordCoreException(String.format("could not find '%s'-'%d' in the evaluation context", alias, ordinal));
+    public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
+        final var constantsMap = (Map<String, ?>)bindings.get(Bindings.Internal.CONSTANT.bindingName(alias.getId()));
+        if (constantsMap == null) {
+            throw new RecordCoreException(String.format("could not find '%s'-'%s' in the evaluation context", alias, constantId));
         }
-        return constantsList.get(ordinal);
+        return constantsMap.get(constantId);
     }
 
     @Nonnull

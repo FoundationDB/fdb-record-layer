@@ -367,7 +367,7 @@ message PConditionSelectorValue {
 
 message PConstantObjectValue {
   optional string alias = 1;
-  optional int32 ordinal = 2;
+  optional string constant_id= 2;
   optional PType result_type = 3;
 }
 

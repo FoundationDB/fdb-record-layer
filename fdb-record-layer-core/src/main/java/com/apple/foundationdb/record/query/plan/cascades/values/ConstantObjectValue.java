@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -56,14 +57,15 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Nonnull
     private final CorrelationIdentifier alias;
 
-    private final int ordinal;
+    private final String constantId;
 
     @Nonnull
     private final Type resultType;
 
-    private ConstantObjectValue(@Nonnull final CorrelationIdentifier alias, int ordinal, @Nonnull final Type resultType) {
+    private ConstantObjectValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId,
+                                @Nonnull final Type resultType) {
         this.alias = alias;
-        this.ordinal = ordinal;
+        this.constantId = constantId;
         this.resultType = resultType;
     }
 
@@ -110,7 +112,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         }
 
         final var otherConstantObjectValue = (ConstantObjectValue)other;
-        return ordinal == otherConstantObjectValue.ordinal;
+        return constantId.equals(otherConstantObjectValue.constantId);
     }
 
     @Override
@@ -122,17 +124,18 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Override
     public Value with(@Nonnull final Type type) {
         Verify.verify(canResultInType(type));
-        return ConstantObjectValue.of(alias, ordinal, type);
+        return ConstantObjectValue.of(alias, constantId, type);
     }
 
-    public int getOrdinal() {
-        return ordinal;
+    @Nonnull
+    public String getConstantId() {
+        return constantId;
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var obj = context.dereferenceConstant(alias, ordinal);
+        final var obj = context.dereferenceConstant(alias, constantId);
         if (obj == null) {
             Verify.verify(getResultType().isNullable());
             return obj;
@@ -159,13 +162,13 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode) {
-            case VC1:
-                // VC1 does not hash the ordinal.
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH);
             case VC0:
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH);
+            case VC1:
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, constantId);
             default:
                 // LEGACY
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, ordinal);
+                throw new RecordCoreException("unsupported plan hash mode");
         }
     }
 
@@ -177,7 +180,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Override
     public String toString() {
-        return "@" + ordinal;
+        return "@" + constantId;
     }
 
     @Nonnull
@@ -185,7 +188,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     public PConstantObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PConstantObjectValue.newBuilder()
                 .setAlias(alias.getId())
-                .setOrdinal(ordinal)
+                .setConstantId(constantId)
                 .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
@@ -199,22 +202,22 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Nonnull
     public static ConstantObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PConstantObjectValue constantObjectValueProto) {
-        Verify.verify(constantObjectValueProto.hasOrdinal());
         return new ConstantObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(constantObjectValueProto.getAlias())),
-                constantObjectValueProto.getOrdinal(),
+                Objects.requireNonNull(constantObjectValueProto.getConstantId()),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(constantObjectValueProto.getResultType())));
     }
 
     /**
      * Creates a new instance of {@link ConstantObjectValue}.
-     * @param alias The alias, must be a {@code CONSTANT} quantifier.
-     * @param ordinal The ordinal, i.e. the offset within the {@code Object} array of constant values.
-     * @param resultType The result of the object referenced by this constant reference.
-     * @return A new instance of {@link ConstantObjectValue}.
+     * @param alias the alias, must be a {@code CONSTANT} quantifier
+     * @param constantId the id through which we can reference the constant
+     * @param resultType the result of the object referenced by this constant reference
+     * @return a new instance of {@link ConstantObjectValue}
      */
     @Nonnull
-    public static ConstantObjectValue of(@Nonnull final CorrelationIdentifier alias, int ordinal, @Nonnull final Type resultType) {
-        return new ConstantObjectValue(alias, ordinal, resultType);
+    public static ConstantObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId,
+                                         @Nonnull final Type resultType) {
+        return new ConstantObjectValue(alias, constantId, resultType);
     }
 
     /**
