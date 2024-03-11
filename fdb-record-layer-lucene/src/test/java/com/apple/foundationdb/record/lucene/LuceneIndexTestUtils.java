@@ -51,7 +51,10 @@ import org.apache.lucene.search.Sort;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -64,31 +67,46 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
  * different test classes(and therefore, to make testing lucene components slightly easier).
  */
 public class LuceneIndexTestUtils {
-    public static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes",
-            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-            LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                    // Common index in Lucene tests, set the option to TRUE to be used in tests
-                    LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
+    public static final Index SIMPLE_TEXT_SUFFIXES = simpleTextSuffixesIndex(options -> { });
 
+    @Nonnull
+    public static Index simpleTextSuffixesIndex(final Consumer<Map<String, String>> optionsBuilder) {
+        Map<String, String> options = new HashMap<>();
+        options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
+        options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
+        optionsBuilder.accept(options);
+        return new Index("Simple$text_suffixes",
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                LuceneIndexTypes.LUCENE,
+                options);
+    }
+
+    //TODO why doesn't this get the default options
     public static final Index TEXT_AND_STORED = new Index(
             "Simple$test_stored",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_STORED, field("group"))),
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
 
-    public static final Index TEXT_AND_STORED_COMPLEX = new Index(
-            "Simple$test_stored_complex",
-            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
-                    function(LuceneFunctionNames.LUCENE_STORED, field("text2")),
-                    function(LuceneFunctionNames.LUCENE_STORED, field("group")),
-                    function(LuceneFunctionNames.LUCENE_STORED, field("score")),
-                    function(LuceneFunctionNames.LUCENE_STORED, field("time")),
-                    function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
-            LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(
-                    // Common index in Lucene tests, set the option to TRUE to be used in tests
-                    LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
+    public static final Index TEXT_AND_STORED_COMPLEX = textAndStoredComplexIndex(options -> { });
+
+    @Nonnull
+    public static Index textAndStoredComplexIndex(final Consumer<Map<String, String>> optionsBuilder) {
+        Map<String, String> options = new HashMap<>();
+        options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
+        options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
+        optionsBuilder.accept(options);
+        return new Index(
+                "Simple$test_stored_complex",
+                concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                        function(LuceneFunctionNames.LUCENE_STORED, field("text2")),
+                        function(LuceneFunctionNames.LUCENE_STORED, field("group")),
+                        function(LuceneFunctionNames.LUCENE_STORED, field("score")),
+                        function(LuceneFunctionNames.LUCENE_STORED, field("time")),
+                        function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+                LuceneIndexTypes.LUCENE,
+                options);
+    }
 
     public static final Index QUERY_ONLY_SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(

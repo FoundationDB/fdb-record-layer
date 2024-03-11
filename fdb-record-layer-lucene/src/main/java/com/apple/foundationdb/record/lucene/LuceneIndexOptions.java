@@ -97,6 +97,12 @@ public class LuceneIndexOptions {
      * merge with another adjacent partition.
      */
     public static final String INDEX_PARTITION_LOW_WATERMARK = "partitionLowWatermark";
+    /**
+     * Whether a separate B-tree index gives a direct mapping of live documents to segment by record primary key, that
+     * utilizes an optimized stored fields to manage merges.
+     * Boolean string ({@code true} or {@code false}).
+     */
+    public static final String PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED = "primaryKeySegmentIndexV2Enabled";
 
     private LuceneIndexOptions() {
     }
