@@ -30,13 +30,12 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
+import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
 import org.slf4j.Logger;
@@ -45,7 +44,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Wrapper containing an {@link FDBDirectory} and cached accessor objects (like {@link IndexWriter}s). This object
@@ -111,10 +109,9 @@ class FDBDirectoryWrapper implements AutoCloseable {
         return writerReader;
     }
 
-    private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
+    private static class FDBDirectoryMergeScheduler extends SerialMergeScheduler {
         @Nonnull
         private final IndexMaintainerState state;
-        private final int mergeDirectoryCount;
         @Nonnull
         private final AgilityContext agilityContext;
         @Nonnull
@@ -124,7 +121,6 @@ class FDBDirectoryWrapper implements AutoCloseable {
                                            @Nonnull final AgilityContext agilityContext,
                                            @Nonnull final Tuple key) {
             this.state = state;
-            this.mergeDirectoryCount = mergeDirectoryCount;
             this.agilityContext = agilityContext;
             this.key = key;
         }
@@ -136,34 +132,13 @@ class FDBDirectoryWrapper implements AutoCloseable {
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
             long startTime = System.nanoTime();
-            if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
-                if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
-                    if (mergeSource.hasPendingMerges()) {
-                        MergeUtils.logExecutingMerge(LOGGER, "Executing Merge based on probability", agilityContext, state.indexSubspace, key, trigger);
-                    }
-                    super.merge(mergeSource, trigger);
-                } else {
-                    skipMerge(mergeSource);
-                }
-            } else {
-                if (mergeSource.hasPendingMerges()) {
-                    MergeUtils.logExecutingMerge(LOGGER, "Executing Merge", agilityContext, state.indexSubspace, key, trigger);
-                }
-                super.merge(mergeSource, trigger);
+            if (mergeSource.hasPendingMerges()) {
+                MergeUtils.logExecutingMerge(LOGGER, "Executing Merge", agilityContext, state.indexSubspace, key, trigger);
             }
+            super.merge(mergeSource, trigger);
             state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
         }
 
-        private void skipMerge(final MergeSource mergeSource) {
-            synchronized (this) {
-                MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
-                while (nextMerge != null) {
-                    nextMerge.setAborted();
-                    mergeSource.onMergeFinished(nextMerge);
-                    nextMerge = mergeSource.getNextMerge();
-                }
-            }
-        }
     }
 
     @Nonnull
