@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.470.0
+
+
 ### 3.4.469.0
 
 * **Performance** Allow IN-union plans to be used to plan distinct queries with ordering constraints [(Issue #2556)](https://github.com/FoundationDB/fdb-record-layer/issues/2556)
