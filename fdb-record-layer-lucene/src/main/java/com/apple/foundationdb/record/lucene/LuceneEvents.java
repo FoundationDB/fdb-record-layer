@@ -284,6 +284,8 @@ public class LuceneEvents {
          * The number of docs moved during each transaction as part of partition rebalance.
          */
         LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
+        /** Size of the list of files loaded in loadFileReferenceCacheForMemoization operation in FDBDirectory. */
+        LUCENE_FILES_COUNT("lucene files"),
         ;
 
         private final String title;

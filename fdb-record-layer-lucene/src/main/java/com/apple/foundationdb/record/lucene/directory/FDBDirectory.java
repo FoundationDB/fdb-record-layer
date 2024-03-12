@@ -550,6 +550,7 @@ public class FDBDirectory extends Directory  {
         final CompletableFuture<List<KeyValue>> rangeList = agilityContext.apply(aContext -> aContext.ensureActive()
                 .getRange(metaSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL).asList());
         CompletableFuture<Void> future = rangeList.thenApply(list -> {
+            agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_FILES_COUNT, list.size());
             list.forEach(kv -> {
                 String name = metaSubspace.unpack(kv.getKey()).getString(0);
                 final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
