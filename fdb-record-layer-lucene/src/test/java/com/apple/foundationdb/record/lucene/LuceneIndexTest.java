@@ -120,9 +120,11 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -694,6 +696,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         // run re-partitioning
         explicitMergeIndex(index, contextProps, schemaSetup);
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            assertEquals(1, getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount());
+        }
         partitionInfos = getPartitionMeta(index,
                 groupingKey, contextProps, schemaSetup);
         // It should first move 6 from the most-recent to a new, older partition, then move 6 again into a partition
@@ -720,6 +726,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         //                1012-1019 -> partition 0 (newest)
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
+            // one from the first + one from the second calls to explicitMergeIndex()
+            assertEquals(2, getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount());
 
             validateDocsInPartition(index, 0, groupingKey, makeKeyTuples(docGroupFieldValue, 1012, 1019), "text:propose");
             validateDocsInPartition(index, 2, groupingKey, makeKeyTuples(docGroupFieldValue, 1006, 1011), "text:propose");
@@ -1184,7 +1192,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             // default cap (1000), so rebalancing done in one pass
-            assertEquals(1, getCounter(context, LuceneEvents.Counts.LUCENE_REBALANCE_CALLS).getCount());
+            assertEquals(1, getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount());
             validateDocsInPartition(index, 0, groupTuple, Set.copyOf(primaryKeys.subList(18, 25)), luceneSearch);
             validateDocsInPartition(index, 3, groupTuple, Set.copyOf(primaryKeys.subList(12, 18)), luceneSearch);
             validateDocsInPartition(index, 2, groupTuple, Set.copyOf(primaryKeys.subList(6, 12)), luceneSearch);
@@ -1217,69 +1225,216 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void capDocCountMovedDuringRepartitioningTest() throws IOException {
+    Pair<int[], Integer> calculateAndValidateRepartitioningExpectations(
+            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
+            int docCount,
+            int highWaterMark,
+            int docCountPerTxn,
+            int maxCountPerRebalanceCall,
+            int actualRepartitionCallCount) {
+
+        // if highWaterMark < docCountPerTxn, it will be the actual count of docs moved per txn
+        int countActuallyMovedPerTxn = Math.min(docCountPerTxn, highWaterMark);
+
+        // created partitions' max capacity is the highest multiple of countActuallyMovedPerTxn that is <= highWaterMark
+        int maxCreatedPartitionCapacity = (int)Math.floor((double)highWaterMark / countActuallyMovedPerTxn) * countActuallyMovedPerTxn;
+
+        // calculate the expected number of partitions after repartitioning
+        int partitionCount = docCount / maxCreatedPartitionCapacity;
+        if (maxCreatedPartitionCapacity + docCount % maxCreatedPartitionCapacity > highWaterMark) {
+            partitionCount++;
+        }
+
+        final int[] docDistribution;
+        if (partitionCount == 1) {
+            docDistribution = new int[] {docCount};
+        } else {
+            // calculate document distribution
+            // the original and last partitions may have irregular count docs in them,
+            // and any other new partitions will have maxCreatedPartitionCapacity docs
+            docDistribution = new int[partitionCount];
+            // fill the "middle" partitions with maxCreatedPartitionCapacity value
+            if (partitionCount > 2) {
+                Arrays.fill(docDistribution, 1, docDistribution.length - 1, maxCreatedPartitionCapacity);
+            }
+            // calculate count of docs in the original (first) partition and the last created partition
+            int remainder = docCount - (docDistribution.length - 2) * maxCreatedPartitionCapacity;
+            int lastCount = ((int)Math.ceil((remainder - highWaterMark) / (double)countActuallyMovedPerTxn)) * countActuallyMovedPerTxn;
+            docDistribution[0] = remainder - lastCount;
+            docDistribution[docDistribution.length - 1] = lastCount;
+        }
+        // maxIterations--per LuceneIndexMaintainer.rebalancePartitions()
+        int maxIterations = Math.max(1, maxCountPerRebalanceCall / docCountPerTxn);
+
+        // max docs moved per call to LuceneIndexMaintainer.rebalancePartitions()
+        int docsMovedPerCall = maxIterations * countActuallyMovedPerTxn;
+
+        // total moved docs during the entire repartition run
+        int totalMovedDocs = docCount - docDistribution[0];
+
+        // calculate the expected repartition call count
+        int expectedRepartitionCallCount = (int)Math.ceil(totalMovedDocs / (double)docsMovedPerCall);
+        // did we do a (no-op) call to rebalancePartitions() at the end?
+        if (totalMovedDocs % docsMovedPerCall == 0) {
+            expectedRepartitionCallCount++;
+        }
+
+        // if actualRepartitionCallCount == -1, we skip validation (e.g. when called from multi-group tests)
+        assertTrue(actualRepartitionCallCount == -1 || expectedRepartitionCallCount == actualRepartitionCallCount);
+        assertEquals(partitionInfos.size(), partitionCount);
+        assertEquals(
+                partitionInfos.stream()
+                        .sorted(Comparator.comparing(LucenePartitionInfoProto.LucenePartitionInfo::getId))
+                        .map(LucenePartitionInfoProto.LucenePartitionInfo::getCount)
+                        .collect(Collectors.toList()),
+                Arrays.stream(docDistribution).boxed().collect(Collectors.toList()));
+
+        return Pair.of(docDistribution, expectedRepartitionCallCount);
+    }
+
+    static Stream<Arguments> capDocCountMovedDuringRepartitioningMultigroupTest() {
+        Random r = ThreadLocalRandom.current();
+        return Stream.of(
+                // basic 2-group setup
+                Arguments.of(10, 4, 6, new int[] {51, 32}),
+                // random 3-group setup
+                Arguments.of(
+                        r.nextInt(30) + 5, // highwater mark 5 - 30
+                        r.nextInt(8) + 2, // doc count per txn 2 - 10
+                        r.nextInt(16) + 1, // max count per rebalance call 1 - 16
+                        new int[] {r.nextInt(30) + 20, r.nextInt(30) + 20, r.nextInt(30) + 20}
+                ),
+                // random 1-group setup (with strict repartition call count validation)
+                Arguments.of(
+                        r.nextInt(30) + 5, // highwater mark 5 - 30
+                        r.nextInt(8) + 2, // doc count per txn 2 - 10
+                        r.nextInt(16) + 1, // max count per rebalance call 1 - 16
+                        new int[] { r.nextInt(80) + 20 } // doc count 20 - 100
+                ),
+                // 1-group, no document move needed in repartitioning
+                Arguments.of(20, 5, 5, new int[] { 20 }),
+                // 1-group, document move needed in repartitioning
+                Arguments.of( 9, 5, 4, new int[] { 20 })
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void capDocCountMovedDuringRepartitioningMultigroupTest(int highWaterMark,
+                                                            int docCountPerTxn,
+                                                            int maxCountPerRepartitionCall,
+                                                            int... docCounts) throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWaterMark));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
         final Index index = indexConsumerPair.getLeft();
         Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_MAX_DOCUMENT_COUNT, 10)
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, docCountPerTxn)
+                .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, maxCountPerRepartitionCall)
                 .build();
 
-        final int group = 1;
-        final Tuple groupTuple = Tuple.from(group);
+        class GroupSpec {
+            final int value;
+            final int docCount;
+            final Tuple groupTuple;
+            
+            GroupSpec(int value, int docCount) {
+                this.value = value;
+                this.docCount = docCount;
+                groupTuple = Tuple.from(value);
+            }
+        }
+
+        final GroupSpec[] groupSpecs = new GroupSpec[docCounts.length];
+
+        for (int i = 0; i < docCounts.length; i++) {
+            groupSpecs[i] = new GroupSpec(i + 1, docCounts[i]);
+        }
+
         final long start = Instant.now().toEpochMilli();
         final String luceneSearch = "text:about";
 
-        final int docCount = 25;
-        List<Tuple> primaryKeys = new ArrayList<>();
+        Map<Integer, List<Tuple>> primaryKeys = new HashMap<>();
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            for (int i = 0; i < docCount; i++) {
-                ComplexDocument cd = ComplexDocument.newBuilder()
-                        .setGroup(group)
-                        .setDocId(1000L + i)
-                        .setIsSeen(true)
-                        .setText("A word about what I want to say")
-                        .setTimestamp(start + i * 100)
-                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
-                        .build();
-                final Tuple primaryKey;
-                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                primaryKeys.add(primaryKey);
+            for (int k = 0; k < groupSpecs.length; k++) {
+                for (int i = 0; i < groupSpecs[k].docCount; i++) {
+                    ComplexDocument cd = ComplexDocument.newBuilder()
+                            .setGroup(groupSpecs[k].value)
+                            .setDocId(1000L * (k + 1) + i)
+                            .setIsSeen(true)
+                            .setText("A word about what I want to say")
+                            .setTimestamp(start + i * 100L + k * 100000L)
+                            .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L * (k + 1) - i ))
+                            .build();
+                    final Tuple primaryKey;
+                    primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                    primaryKeys.computeIfAbsent(groupSpecs[k].value, v -> new ArrayList<>()).add(primaryKey);
+                }
             }
+
             commit(context);
         }
 
         // initially, all documents are saved into one partition
-        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
-                groupTuple, contextProps, schemaSetup);
-        assertEquals(1, partitionInfos.size());
-        assertEquals(docCount, partitionInfos.get(0).getCount());
+        for (final GroupSpec groupSpec : groupSpecs) {
+            List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                    groupSpec.groupTuple, contextProps, schemaSetup);
+            assertEquals(1, partitionInfos.size());
+            assertEquals(groupSpec.docCount, partitionInfos.get(0).getCount());
+        }
 
         // run re-partitioning
         explicitMergeIndex(index, contextProps, schemaSetup);
 
-        // even though we capped the documents moved on every partition to 10, we still
-        // repartitioned as expected
-        //  partition 0: with docs 18 - 24
-        //  partition 3: with docs 12 - 17
-        //  partition 2: with docs  6 - 11
-        //  partition 1: with docs  0 - 5
+        // get partitions for all groups, post re-partitioning
+        Map<Integer, List<LucenePartitionInfoProto.LucenePartitionInfo>> partitionInfos = new HashMap<>();
+        for (GroupSpec groupSpec : groupSpecs) {
+            partitionInfos.put(groupSpec.value, getPartitionMeta(index, groupSpec.groupTuple, contextProps, schemaSetup));
+        }
+
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
-            // due to cap, the rebalance should have been called 4 times
-            assertEquals(4, getCounter(context, LuceneEvents.Counts.LUCENE_REBALANCE_CALLS).getCount());
 
-            validateDocsInPartition(index, 0, groupTuple, Set.copyOf(primaryKeys.subList(18, 25)), luceneSearch);
-            validateDocsInPartition(index, 3, groupTuple, Set.copyOf(primaryKeys.subList(12, 18)), luceneSearch);
-            validateDocsInPartition(index, 2, groupTuple, Set.copyOf(primaryKeys.subList(6, 12)), luceneSearch);
-            validateDocsInPartition(index, 1, groupTuple, Set.copyOf(primaryKeys.subList(0, 6)), luceneSearch);
+            int actualRepartitionCallCount = getCounter(context, LuceneEvents.Counts.LUCENE_REPARTITION_CALLS).getCount();
+            int totalExpectedRepartitionCallCount = 0;
+
+            for (final GroupSpec groupSpec : groupSpecs) {
+                List<LucenePartitionInfoProto.LucenePartitionInfo> groupPartitionInfos = partitionInfos.get(groupSpec.value);
+
+                Pair<int[], Integer> spreadAndCallCount = calculateAndValidateRepartitioningExpectations(
+                        groupPartitionInfos,
+                        groupSpec.docCount,
+                        highWaterMark,
+                        docCountPerTxn,
+                        maxCountPerRepartitionCall,
+                        -1);
+                totalExpectedRepartitionCallCount += spreadAndCallCount.getRight();
+                int[] docDistribution = spreadAndCallCount.getLeft();
+                int edge = groupSpec.docCount - docDistribution[0];
+
+                // validate content of partition 0 (original)
+                validateDocsInPartition(index, 0, groupSpec.groupTuple, Set.copyOf(primaryKeys.get(groupSpec.value).subList(edge, groupSpec.docCount)), luceneSearch);
+
+                // validate content of rest of partitions
+                for (int i = docDistribution.length - 1; i > 0; i--) {
+                    validateDocsInPartition(index, i, groupSpec.groupTuple, Set.copyOf(primaryKeys.get(groupSpec.value).subList(edge - docDistribution[i], edge)), luceneSearch);
+                    edge = edge - docDistribution[i];
+                }
+            }
+
+            if (groupSpecs.length > 1) {
+                // with multiple groups, it's more complex to determine the exact count of repartition calls, however
+                // the combined total should be within "number of groups" of the total of each group's repartition calls had they
+                // been repartitioned independently.
+                assertTrue(Math.abs(totalExpectedRepartitionCallCount - actualRepartitionCallCount) <= groupSpecs.length);
+            } else {
+                // 1 group, perform strict validation
+                assertEquals(totalExpectedRepartitionCallCount, actualRepartitionCallCount);
+            }
         }
     }
 

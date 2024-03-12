@@ -395,11 +395,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                                final IndexDeferredMaintenanceControl mergeControl) {
         FDBStoreTimer timer = state.context.getTimer();
         if (timer != null) {
-            timer.increment(LuceneEvents.Counts.LUCENE_REBALANCE_CALLS);
+            timer.increment(LuceneEvents.Counts.LUCENE_REPARTITION_CALLS);
         }
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
         final int repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
-        final int maxDocumentsToMove = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_MAX_DOCUMENT_COUNT));
+        final int maxDocumentsToMove = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING));
         AtomicInteger maxIterations = new AtomicInteger(Math.max(1, maxDocumentsToMove / repartitionDocumentCount));
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
@@ -408,7 +408,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                         getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount)
                                                 .thenApply(newContinuation -> {
                                                     if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
-                                                        mergeControl.setRepartitionCapped(maxIterations.get() == 0);
+                                                        mergeControl.setRepartitionCapped(!newContinuation.isEnd());
                                                         return false;
                                                     } else {
                                                         continuation.set(newContinuation);

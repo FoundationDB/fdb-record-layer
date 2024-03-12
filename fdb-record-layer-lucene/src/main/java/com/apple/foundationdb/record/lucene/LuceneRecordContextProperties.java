@@ -102,7 +102,7 @@ public final class LuceneRecordContextProperties {
     /**
      * Maximum number of documents to move during a re-balancing run.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_MAX_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.max.document.count", 1000);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.max.document.count", 1000);
     /**
      * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
      */

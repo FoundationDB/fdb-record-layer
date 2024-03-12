@@ -54,7 +54,6 @@ public class IndexingMerger {
     private SubspaceProvider subspaceProvider = null;
     private int repartitionDocumentCount = 0;
     private int repartitionSecondChances = 0;
-    private boolean repartitionCapped = false;
 
     public IndexingMerger(final Index index,  IndexingCommon common, long initialMergesCountLimit) {
         this.index = index;
@@ -119,10 +118,9 @@ public class IndexingMerger {
         if (repartitionDocumentCount > 0) {
             repartitionDocumentCount = 0;
         }
-        repartitionCapped = mergeControl.repartitionCapped();
         // Here: no errors, stop the iteration unless has more
         final boolean hasMore =
-                shouldGiveRepartitionSecondChance() ||
+                shouldGiveRepartitionSecondChance(mergeControl) ||
                         mergeControl.getMergesFound() > mergeControl.getMergesTried();
         return  hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
     }
@@ -171,14 +169,14 @@ public class IndexingMerger {
         }
     }
 
-    private boolean shouldGiveRepartitionSecondChance() {
+    private boolean shouldGiveRepartitionSecondChance(IndexDeferredMaintenanceControl mergeControl) {
         if (repartitionDocumentCount == -1 && repartitionSecondChances == 0) {
             repartitionSecondChances++;
             repartitionDocumentCount = 0;
             return true;
         }
-        if (repartitionCapped) {
-            repartitionCapped = false;
+        if (mergeControl.repartitionCapped()) {
+            mergeControl.setRepartitionCapped(false);
             repartitionDocumentCount = 0;
             // we didn't fail, so we don't need to increment the repartitionSecondChances
             return true;
