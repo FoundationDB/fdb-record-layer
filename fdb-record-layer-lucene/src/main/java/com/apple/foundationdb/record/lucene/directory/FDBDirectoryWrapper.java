@@ -215,7 +215,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
                     if (mergeSource.hasPendingMerges()) {
-                        MergeUtils.logExecutingMerge(LOGGER, "Executing Merge based on probability", agilityContext, state.indexSubspace, key, trigger);
+                        MergeUtils.logExecutingMerge(LOGGER, "Executing Merge Concurrently based on probability", agilityContext, state.indexSubspace, key, trigger);
                     }
                     super.merge(mergeSource, trigger);
                 } else {
@@ -223,7 +223,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
                 }
             } else {
                 if (mergeSource.hasPendingMerges()) {
-                    MergeUtils.logExecutingMerge(LOGGER, "Executing Merge", agilityContext, state.indexSubspace, key, trigger);
+                    MergeUtils.logExecutingMerge(LOGGER, "Executing Merge Concurrently", agilityContext, state.indexSubspace, key, trigger);
                 }
                 super.merge(mergeSource, trigger);
             }
