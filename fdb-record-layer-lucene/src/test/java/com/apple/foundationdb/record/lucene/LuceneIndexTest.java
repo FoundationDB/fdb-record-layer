@@ -74,7 +74,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -1884,7 +1883,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
+                final Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
                 createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
                 createComplexRecordJoinedToSimple(3, 1548L, 1548L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), null);
                 timer.reset();
