@@ -29,21 +29,14 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.lucene.codecs.StoredFieldsReader;
-import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterDirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.StandardDirectoryReader;
-import org.apache.lucene.index.StoredFieldVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,7 +46,7 @@ import java.util.stream.Collectors;
  * Maintain a B-tree index of primary key to segment and doc id.
  * This allows for efficient deleting of a document given that key, such as when doing index maintenance from an update.
  */
-public class LucenePrimaryKeySegmentIndexV2 {
+public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIndex {
     @Nonnull
     private final FDBDirectory directory;
     @Nonnull
@@ -64,11 +57,7 @@ public class LucenePrimaryKeySegmentIndexV2 {
         this.subspace = subspace;
     }
 
-    /**
-     * Get all stored primary key index entries.
-     * Really only useful for small-scale debugging.
-     * @return a list of Tuple-decoded key entries
-     */
+    @Override
     @VisibleForTesting
     public List<List<Object>> readAllEntries() {
         AtomicReference<List<List<Object>>> list = new AtomicReference<>();
@@ -97,37 +86,7 @@ public class LucenePrimaryKeySegmentIndexV2 {
         }).collect(Collectors.toList()));
     }
 
-    /**
-     * Result of {@link #findDocument}.
-     */
-    // TODO: Can be a record.
-    public static class DocumentIndexEntry {
-        @Nonnull
-        public final Tuple primaryKey;
-        @Nonnull
-        public final byte[] entryKey;
-        @Nonnull
-        public final IndexReader indexReader;
-        @Nonnull
-        public final String segmentName;
-        public final int docId;
-
-        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader,
-                                  @Nonnull String segmentName, final int docId) {
-            this.primaryKey = primaryKey;
-            this.entryKey = entryKey;
-            this.indexReader = indexReader;
-            this.segmentName = segmentName;
-            this.docId = docId;
-        }
-    }
-
-    /**
-     * Return all the segments in which the given primary key appears.
-     * Mostly for debug logging.
-     * @param primaryKey the document's record's primary key
-     * @return a list of segment names or segment ids when apparently not associated with a name
-     */
+    @Override
     @SuppressWarnings("PMD.CloseResource")
     public List<String> findSegments(@Nonnull Tuple primaryKey) {
         return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
@@ -150,13 +109,7 @@ public class LucenePrimaryKeySegmentIndexV2 {
                 }));
     }
 
-    /**
-     * Find document in index for direct delete.
-     * @param directoryReader a NRT reader
-     * @param primaryKey the document's record's primary key
-     * @return an entry with the leaf reader and document id in that segment or {@code null} if not found
-     * @see IndexWriter#tryDeleteDocument
-     */
+    @Override
     @Nullable
     public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
         final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
@@ -194,68 +147,13 @@ public class LucenePrimaryKeySegmentIndexV2 {
         }
     }
 
-    /**
-     * Hook for getting back segment info during merge.
-     */
-    public interface StoredFieldsReaderSegmentInfo {
-        SegmentInfo getSegmentInfo();
-    }
-
-    /**
-     * Hook the fields writer to also record primary keys in index.
-     * @param storedFieldsWriter normal field writer
-     * @param si segment info for current writer
-     * @return a wrapped writer
-     * @throws IOException thrown by called methods
-     */
-    @Nonnull
-    public StoredFieldsWriter wrapFieldsWriter(@Nonnull StoredFieldsWriter storedFieldsWriter, @Nonnull SegmentInfo si) throws IOException {
-        final long segmentId = directory.primaryKeySegmentId(si.name, true);
-        return new PrimaryKeyAndStoredFieldsWriter(this, storedFieldsWriter, segmentId, directory);
-    }
-
-    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {
+    @Override
+    public void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {
         final byte[] entryKey = ByteArrayUtil.join(subspace.getKey(), primaryKey, Tuple.from(segmentId, docId).pack());
         if (add) {
             directory.getAgilityContext().set(entryKey, new byte[0]);
         } else {
             directory.getAgilityContext().clear(entryKey);
-        }
-    }
-
-    /**
-     * Get the primary key byte array from a document's stored fields.
-     * After calling {@link StoredFieldsReader#visitDocument}, any primary key will be in {@link #getPrimaryKey}.
-     */
-    static class PrimaryKeyVisitor extends StoredFieldVisitor {
-        @Nullable
-        private byte[] primaryKey = null;
-
-        @Nullable
-        public byte[] getPrimaryKey() {
-            return primaryKey;
-        }
-
-        public void reset() {
-            primaryKey = null;
-        }
-
-        @Override
-        public Status needsField(final FieldInfo fieldInfo) {
-            if (fieldInfo.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
-                return Status.YES;
-            } else if (primaryKey != null) {
-                return Status.STOP;
-            } else {
-                return Status.NO;
-            }
-        }
-
-        @Override
-        public void binaryField(final FieldInfo fieldInfo, final byte[] value) {
-            if (fieldInfo.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
-                primaryKey = value;
-            }
         }
     }
 }
