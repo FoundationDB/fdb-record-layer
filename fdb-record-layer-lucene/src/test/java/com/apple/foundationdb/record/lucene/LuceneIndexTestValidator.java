@@ -257,7 +257,8 @@ public class LuceneIndexTestValidator {
         final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId)
                 .getPrimaryKeySegmentIndex();
         final String message = "Group: " + groupingKey + ", partition: " + partitionId;
-        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED))) {
+        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
+                Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED)) ) {
             assertNotNull(primaryKeySegmentIndex, message);
             final List<List<Object>> allEntries = primaryKeySegmentIndex.readAllEntries();
             // sorting the two lists for easier reading on failures
@@ -271,7 +272,7 @@ public class LuceneIndexTestValidator {
             final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
             for (final Tuple primaryKey : expectedPrimaryKeys) {
                 assertNotNull(primaryKeySegmentIndex.findDocument(directoryReader, primaryKey),
-                        message + " " + primaryKey);
+                        message + " " + primaryKey + " " + primaryKeySegmentIndex.findSegments(primaryKey));
             }
         } else {
             assertNull(primaryKeySegmentIndex, message);

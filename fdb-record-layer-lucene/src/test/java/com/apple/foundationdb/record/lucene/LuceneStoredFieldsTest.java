@@ -166,11 +166,13 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 .build();
 
         Set<String> segments = new HashSet<>();
+        final Set<Tuple> primaryKeys = new HashSet<>();
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
+            // the other two will be deleted
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2)).getPrimaryKey());
             recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
             context.commit();
         }
@@ -208,6 +210,11 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
         }
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null,
+                    primaryKeys);
+        }
     }
 
     @ParameterizedTest
@@ -241,11 +248,13 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
         final Set<String> segments = new HashSet<>();
 
+        final Set<Tuple> primaryKeys = new HashSet<>();
+
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
             context.commit();
         }
         getSegments(type, contextProps, index, segments);
@@ -284,6 +293,12 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
+        }
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null,
+                    primaryKeys);
         }
     }
 

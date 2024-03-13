@@ -18,54 +18,41 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsWriter;
+import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
-import org.apache.lucene.util.Accountable;
+import org.apache.lucene.index.SegmentInfo;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.Collection;
 
-class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
+class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter {
     private final LucenePrimaryKeySegmentIndex lucenePrimaryKeySegmentIndex;
-    @Nonnull
-    private final LuceneOptimizedStoredFieldsWriter inner;
     private final long segmentId;
-    @Nonnull
-    private final FDBDirectory directory;
 
     private int documentId;
 
-    PrimaryKeyAndStoredFieldsWriter(@Nonnull LuceneOptimizedStoredFieldsWriter inner,
-                                    long segmentId,
-                                    @Nonnull final FDBDirectory directory) {
-        this.inner = inner;
-        this.segmentId = segmentId;
-        this.directory = directory;
-        lucenePrimaryKeySegmentIndex = directory.getPrimaryKeySegmentIndex();
-    }
-
-    @Override
-    public void startDocument() throws IOException {
-        inner.startDocument();
+    PrimaryKeyAndStoredFieldsWriter(SegmentInfo segmentInfo,
+                                    @Nonnull final FDBDirectory directory) throws IOException {
+        super(directory, segmentInfo);
+        this.segmentId = directory.primaryKeySegmentId(segmentInfo.name, true);
+        this.lucenePrimaryKeySegmentIndex = directory.getPrimaryKeySegmentIndex();
     }
 
     @Override
     public void finishDocument() throws IOException {
-        inner.finishDocument();
+        super.finishDocument();
         documentId++;
     }
 
     @Override
     public void writeField(FieldInfo info, IndexableField field) throws IOException {
-        inner.writeField(info, field);
+        super.writeField(info, field);
         if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
             final byte[] primaryKey = field.binaryValue().bytes;
             lucenePrimaryKeySegmentIndex.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true);
@@ -75,26 +62,6 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public int merge(MergeState mergeState) throws IOException {
-        return inner.merge(mergeState);
-    }
-
-    @Override
-    public void finish(FieldInfos fis, int numDocs) throws IOException {
-        inner.finish(fis, numDocs);
-    }
-
-    @Override
-    public void close() throws IOException {
-        inner.close();
-    }
-
-    @Override
-    public long ramBytesUsed() {
-        return inner.ramBytesUsed();
-    }
-
-    @Override
-    public Collection<Accountable> getChildResources() {
-        return inner.getChildResources();
+        return super.merge(mergeState);
     }
 }

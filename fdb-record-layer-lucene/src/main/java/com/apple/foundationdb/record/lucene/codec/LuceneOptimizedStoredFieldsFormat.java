@@ -73,7 +73,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
             // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
             directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
                     .close();
-            return new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
+            return new PrimaryKeyAndStoredFieldsWriter(si, fdbDirectory);
         } else {
             if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
                 // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
