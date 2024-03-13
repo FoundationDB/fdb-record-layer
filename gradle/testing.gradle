@@ -52,6 +52,30 @@ task performanceTest(type: Test) {
     }
 }
 
+def getFullDisplayName(descriptor) {
+    def fullName = ""
+    fullName = descriptor.displayName
+    descriptor = descriptor.parent
+    while (descriptor != null) {
+        // don't display this or any of the parents. Let's assume that nobody ever
+        // sets the display name in code to start with "Gradle Test Executor".
+        // it appears to be suffixed with a number, but I didn't investigate why
+        if (descriptor.displayName.startsWith("Gradle Test Executor")) {
+            break
+        }
+        def openParen = descriptor.displayName.indexOf("(")
+        // in the case where someone sets the display name to include the method name, it's best
+        // to skip the method name itself, e.g.:
+        // LuceneIndexMaintenanceTest > randomizedRepartitionTest(boolean, boolean, boolean, int, int, int, long) > randomizedRepartitionTest(true, false, false, 13, 3, 20, 9237590782644) STARTED
+        // LuceneIndexMaintenanceTest > randomizedRepartitionTest(boolean, boolean, boolean, int, int, int, long) > randomizedRepartitionTest(true, false, false, 13, 3, 20, 9237590782644) SUCCESS (1985ms)
+        if (openParen < 0 || !fullName.startsWith(descriptor.displayName.substring(0, openParen))) {
+            fullName = "${descriptor.displayName}" + " > " + fullName
+        }
+        descriptor = descriptor.parent
+    }
+    return fullName
+}
+
 def configureTestTask = { propertyPrefix, task ->
     def handled = [propertyPrefix + '.ignoreFailures',
                    propertyPrefix + '.debug',
@@ -118,8 +142,16 @@ tasks.withType(Test) { theTask ->
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
     testLogging {
-        events 'started', 'passed', 'failed', 'skipped'
+        events 'failed'
         exceptionFormat = 'full'
+    }
+    beforeTest { descriptor -> 
+        println "${getFullDisplayName(descriptor)} STARTED"
+    } 
+    afterTest { descriptor, result ->
+        def duration = result.endTime - result.startTime
+        println "${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
+        println()
     }
     reports {
         junitXml.outputPerTestCase = true

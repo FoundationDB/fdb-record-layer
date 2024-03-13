@@ -66,7 +66,7 @@ tasks.withType(Test) { theTask ->
         theTask.systemProperties['tests.seed'] = "C185081D42F0F43C" // a fixed seed, should pass reliably in prb/release
     }
     if (project.hasProperty('tests.luceneIterations')) {
-        theTask.systemProperties['tests.iters'] = project.getProperty('tests.iterations')
+        theTask.systemProperties['tests.iters'] = project.getProperty('tests.luceneIterations') // TODO this is broken on main...
     }
     if (project.hasProperty('tests.luceneNightly')) {
         theTask.systemProperties['tests.nightly'] = 'true'
