@@ -211,7 +211,7 @@ public class LucenePrimaryKeySegmentIndexV2 {
     @Nonnull
     public StoredFieldsWriter wrapFieldsWriter(@Nonnull StoredFieldsWriter storedFieldsWriter, @Nonnull SegmentInfo si) throws IOException {
         final long segmentId = directory.primaryKeySegmentId(si.name, true);
-        return new PrimaryKeyAndStoredFieldsWriter(this, storedFieldsWriter, segmentId);
+        return new PrimaryKeyAndStoredFieldsWriter(this, storedFieldsWriter, segmentId, directory);
     }
 
     void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {

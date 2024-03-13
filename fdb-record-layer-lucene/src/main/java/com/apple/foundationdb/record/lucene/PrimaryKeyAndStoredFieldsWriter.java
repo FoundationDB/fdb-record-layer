@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfo;
@@ -38,15 +39,19 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
     private final LucenePrimaryKeySegmentIndexV2 lucenePrimaryKeySegmentIndexV2;
     @Nonnull
     private final StoredFieldsWriter inner;
-    @Nonnull
     private final long segmentId;
+    @Nonnull
+    private final FDBDirectory directory;
 
     private int documentId;
 
-    PrimaryKeyAndStoredFieldsWriter(final LucenePrimaryKeySegmentIndexV2 lucenePrimaryKeySegmentIndexV2, @Nonnull StoredFieldsWriter inner, long segmentId) {
+    PrimaryKeyAndStoredFieldsWriter(final LucenePrimaryKeySegmentIndexV2 lucenePrimaryKeySegmentIndexV2,
+                                    @Nonnull StoredFieldsWriter inner, long segmentId,
+                                    @Nonnull final FDBDirectory directory) {
         this.lucenePrimaryKeySegmentIndexV2 = lucenePrimaryKeySegmentIndexV2;
         this.inner = inner;
         this.segmentId = segmentId;
+        this.directory = directory;
     }
 
     @Override
@@ -79,7 +84,7 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
         for (int i = 0; i < segmentCount; i++) {
             final StoredFieldsReader storedFieldsReader = mergeState.storedFieldsReaders[i];
             final SegmentInfo mergedSegmentInfo = ((LucenePrimaryKeySegmentIndexV2.StoredFieldsReaderSegmentInfo)storedFieldsReader).getSegmentInfo();
-            final long mergedSegmentId = lucenePrimaryKeySegmentIndexV2.directory.primaryKeySegmentId(mergedSegmentInfo.name, false);
+            final long mergedSegmentId = directory.primaryKeySegmentId(mergedSegmentInfo.name, false);
             final Bits liveDocs = mergeState.liveDocs[i];
             final MergeState.DocMap docMap = mergeState.docMaps[i];
             final int maxDoc = mergeState.maxDocs[i];
@@ -101,8 +106,8 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
             }
         }
 
-        lucenePrimaryKeySegmentIndexV2.directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
-        lucenePrimaryKeySegmentIndexV2.directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
+        directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
+        directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
 
         return docCount;
     }
