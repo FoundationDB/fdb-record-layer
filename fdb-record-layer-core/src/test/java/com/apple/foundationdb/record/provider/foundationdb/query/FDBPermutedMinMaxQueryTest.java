@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -112,8 +111,8 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         final var num2Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_2");
         final var num3Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_3_indexed");
         final List<Column<? extends Value>> groupingColumns = List.of(
-                Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value),
-                Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value)
+                Column.of(Optional.of("num_value_2"), num2Value),
+                Column.of(Optional.of("num_value_3_indexed"), num3Value)
         );
         selectWhereBuilder
                 .addResultValue(RecordConstructorValue.ofColumns(groupingColumns))
@@ -182,7 +181,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_2", "num_value_3_indexed", "m"));
-                final AliasMap aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
@@ -292,7 +291,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("m", "num_value_3_indexed"));
-                final AliasMap aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
@@ -402,7 +401,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, new ValuePredicate(aggregateValueReference, new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
-                final AliasMap aliasMap = AliasMap.of(qun.getAlias(), Quantifier.current());
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 

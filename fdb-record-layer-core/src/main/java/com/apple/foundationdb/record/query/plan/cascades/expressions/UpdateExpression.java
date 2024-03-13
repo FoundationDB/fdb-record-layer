@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
@@ -229,9 +229,9 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     public static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
         final var oldColumn =
-                Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), inner.getFlowedObjectValue());
+                Column.of(Optional.of(OLD_FIELD_NAME), inner.getFlowedObjectValue());
         final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
+                Column.of(Optional.of(NEW_FIELD_NAME), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
     }
 

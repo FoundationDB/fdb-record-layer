@@ -43,15 +43,13 @@ public final class StoreTimerSnapshot {
     private final ImmutableMap<StoreTimer.Event, CounterSnapshot> timeoutCounters;
     @Nonnull
     private final UUID fromUUID;
-    private long createTime;
+    private final long createTime;
 
     private StoreTimerSnapshot(@Nonnull StoreTimer timer) {
         ImmutableMap.Builder<StoreTimer.Event, CounterSnapshot> counters = new ImmutableMap.Builder<>();
         ImmutableMap.Builder<StoreTimer.Event, CounterSnapshot> timeoutCounters = new ImmutableMap.Builder<>();
-        timer.counters.entrySet()
-                .stream().forEach(entry -> counters.put(entry.getKey(), CounterSnapshot.from(entry.getValue())));
-        timer.timeoutCounters.entrySet()
-                .stream().forEach(entry -> timeoutCounters.put(entry.getKey(), CounterSnapshot.from(entry.getValue())));
+        timer.counters.forEach((key, value) -> counters.put(key, CounterSnapshot.from(value)));
+        timer.timeoutCounters.forEach((key, value) -> timeoutCounters.put(key, CounterSnapshot.from(value)));
         this.counters = counters.build();
         this.timeoutCounters = timeoutCounters.build();
         fromUUID = timer.geUUID();
@@ -179,11 +177,11 @@ public final class StoreTimerSnapshot {
      * Contains the number of occurrences and cummulative time spent on an associated event.
      */
     public static class CounterSnapshot {
-        private final long timeNanos;
+        private final long cumulativeValue;
         private final int count;
 
         private CounterSnapshot(@Nonnull StoreTimer.Counter c) {
-            timeNanos = c.getTimeNanos();
+            cumulativeValue = c.getCumulativeValue();
             count = c.getCount();
         }
 
@@ -214,7 +212,16 @@ public final class StoreTimerSnapshot {
          * @return the cumulative time spent on the associated event
          */
         public long getTimeNanos() {
-            return timeNanos;
+            return getCumulativeValue();
+        }
+
+        /**
+         * Get the cumulative size of the associated event.
+         *
+         * @return the cumulative size of the associated event
+         */
+        public long getCumulativeValue() {
+            return cumulativeValue;
         }
     }
 }

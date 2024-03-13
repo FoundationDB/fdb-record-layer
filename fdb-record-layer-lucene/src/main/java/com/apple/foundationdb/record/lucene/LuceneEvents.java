@@ -68,6 +68,14 @@ public class LuceneEvents {
         LUCENE_MERGE("Lucene merge"),
         /** Number of find merge calls (calculation of lucene's required merges). */
         LUCENE_FIND_MERGES("Lucene find merges"),
+        /**
+         * Amount of time spent in a transaction doing partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION_TRANSACTION("Lucene rebalance partition transaction"),
+        /**
+         * Amount of time spent moving documents during partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION("Lucene rebalance partition")
         ;
 
         private final String title;
@@ -156,8 +164,12 @@ public class LuceneEvents {
         WAIT_LUCENE_FIND_PRIMARY_KEY("lucene find primary key"),
         /** Read the field infos data. */
         WAIT_LUCENE_READ_FIELD_INFOS("lucene read field infos"),
-        /** Read a file lock. */
-        WAIT_LUCENE_FILE_LOCK("lucene read file lock"),
+        /** Set a file lock. */
+        WAIT_LUCENE_FILE_LOCK_SET("lucene set file lock"),
+        /** Get a file lock. */
+        WAIT_LUCENE_FILE_LOCK_GET("lucene get file lock"),
+        /** Clear a file lock. */
+        WAIT_LUCENE_FILE_LOCK_CLEAR("lucene clear file lock"),
         ;
         private final String title;
         private final String logKey;
@@ -189,18 +201,8 @@ public class LuceneEvents {
     public enum Counts implements StoreTimer.Count {
         /** Number of times the getIncrement() function is called in the FDBDirectory. */
         LUCENE_GET_INCREMENT_CALLS("lucene increments", false),
-        /** Number of writeFileReference calls in the FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE_CALL("lucene write file references", false),
-        /** Total number of bytes that were attempted to be written (not necessarily committed) for file references in the FDBDirectory. */
-        LUCENE_WRITE_FILE_REFERENCE_SIZE("lucene write file reference size", true),
-        /** Count of writeData calls in FDBDirectory. */
-        LUCENE_WRITE_CALL("lucene index writes", false, null, true),
-        /** Total number of bytes that were written to the FDBDirectory.*/
-        LUCENE_WRITE_SIZE("lucene index size", true, null, true),
         /** The number of block reads that occur against the FDBDirectory.*/
         LUCENE_BLOCK_READS("lucene block reads", false),
-        /** Number of file references written in Lucene's FDBDirectory.*/
-        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" , false, null, true),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
         /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/
@@ -221,14 +223,14 @@ public class LuceneEvents {
         LUCENE_MERGE_DOCUMENTS("lucene merge document", false),
         /** Number of segments merged. */
         LUCENE_MERGE_SEGMENTS("lucene merge segment", false),
-        /** Number of Write Stored Fields operations on the FDBDirectory. */
-        LUCENE_WRITE_STORED_FIELDS("lucene write stored fields", false),
         /** Number of Delete Stored Fields operations on the FDBDirectory. */
         LUCENE_DELETE_STORED_FIELDS("lucene delete stored fields", false),
         /** Number of agile context commits after exceeding size quota. */
         LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
+        /** Count of times a rebalance was called. */
+        LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false)
         ;
 
         private final String title;
@@ -266,6 +268,48 @@ public class LuceneEvents {
         @Override
         public boolean isSize() {
             return isSize;
+        }
+    }
+
+    /**
+     * Size Events.
+     */
+    public enum SizeEvents implements StoreTimer.SizeEvent {
+
+        /** writeFileReference operation in the FDBDirectory.*/
+        LUCENE_WRITE_FILE_REFERENCE("lucene write file references"),
+        /** writeData operation in FDBDirectory. */
+        LUCENE_WRITE("lucene index writes", true),
+        /** Write Stored Fields operations on the FDBDirectory. */
+        LUCENE_WRITE_STORED_FIELDS("lucene write stored fields"),
+        /**
+         * The number of docs moved during each transaction as part of partition rebalance.
+         */
+        LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
+        /** Size of the list of files loaded in loadFileReferenceCacheForMemoization operation in FDBDirectory. */
+        LUCENE_FILES_COUNT("lucene files"),
+        ;
+
+        private final String title;
+        private final boolean delayedUntilCommit;
+
+        SizeEvents(@Nonnull String title) {
+            this(title, false);
+        }
+
+        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+            this.title = title;
+            this.delayedUntilCommit = delayedUntilCommit;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+
+        @Override
+        public boolean isDelayedUntilCommit() {
+            return delayedUntilCommit;
         }
     }
 }

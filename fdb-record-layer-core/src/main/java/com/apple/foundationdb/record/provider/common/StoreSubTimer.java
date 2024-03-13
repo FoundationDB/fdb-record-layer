@@ -51,6 +51,14 @@ public class StoreSubTimer extends StoreTimer {
     }
 
     @Override
+    public void recordSize(SizeEvent event, long size) {
+        if (underlying != null) {
+            underlying.recordSize(event, size);
+        }
+        super.recordSize(event, size);
+    }
+
+    @Override
     public void increment(@Nonnull final StoreTimer.Count event, int amount) {
         if (underlying != null) {
             underlying.increment(event, amount);

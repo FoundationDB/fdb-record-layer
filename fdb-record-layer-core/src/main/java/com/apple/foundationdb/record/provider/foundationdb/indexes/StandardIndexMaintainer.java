@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -50,12 +49,9 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.SyntheticRecordType;
-import com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
@@ -89,7 +85,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -797,41 +792,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         KeyExpression rootExpression = state.index.getRootExpression();
         if (!(rootExpression instanceof GroupingKeyExpression)) {
             return false;
-        }
-        /*
-         * Synthetic Record Types have an extra header in the grouping key, which is the name of the leftConstituent.
-         * We want to strip that out for comparison here, so first we determine if this is an index on a synthetic
-         * type. If it is, then we strip the field out of the top. If not, then we don't worry about it. But
-         * this only happens for NestingKeyExpressions, so we go ahead and do that check first before iterating
-         * over synthetic types.
-         *
-         * There's a risk here that, if you created a synthetic record type and attempted to group by it,
-         * you could end up going through the same code path here, but in that case we are relying on the higher-level
-         * logic in QueryToKeyMatcher to require that _all_ indexes are able to group by the same key entry.
-         */
-        GroupingKeyExpression gke = (GroupingKeyExpression)rootExpression;
-        try {
-            final KeyExpression groupingKey = gke.getGroupingSubKey();
-            if (groupingKey instanceof NestingKeyExpression) {
-                RecordMetaData rmd = state.store.getRecordMetaData();
-                Map<String, SyntheticRecordType<?>> syntheticTypes = rmd.getSyntheticRecordTypes();
-                boolean isSynthetic = false;
-                for (SyntheticRecordType<?> synthType : syntheticTypes.values()) {
-                    if (synthType.getIndexes().contains(this.state.index)) {
-                        isSynthetic = true;
-                        break;
-                    }
-                }
-                if (isSynthetic) {
-                    //match against the child of the nesting expression, not the parent
-                    final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(((NestingKeyExpression)groupingKey).getChild());
-                    return canDeleteWhere(state, match, evaluated);
-                }
-            }
-        } catch (BaseKeyExpression.UnsplittableKeyExpressionException ignored) {
-            //this occurs when we can't split the grouping key, which means we (probably) aren't
-            //over a synthetic type, and even if we were we couldn't match the query anyway, because we can't
-            // remove the top element. Therefore, let's just do it the normal way
         }
         final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(rootExpression);
         return canDeleteWhere(state, match, evaluated);

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
@@ -50,8 +49,6 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.MergeScheduler;
-import org.apache.lucene.index.MergeTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,7 +142,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             }
         } else {
             AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
-            return AsyncUtil.whileTrue(() -> getNextPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
+            return AsyncUtil.whileTrue(() -> getNextOlderPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
                     .thenApply(partitionId -> mergePartition(analyzerWrapper, groupingKey, agileContext, partitionId)));
         }
     }
@@ -172,10 +169,10 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private CompletableFuture<Integer> getNextPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
-                                                            final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
-        return agileContext.apply(context -> LucenePartitioner.getNextPartitionInfo(
-                        context, groupingKey, lastPartitionInfo.get(), state.indexSubspace)
+    private CompletableFuture<Integer> getNextOlderPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
+                                                                 final AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo) {
+        return agileContext.apply(context -> LucenePartitioner.getNextOlderPartitionInfo(
+                        context, groupingKey, lastPartitionInfo.get() == null ? null : LucenePartitioner.getPartitionKey(lastPartitionInfo.get()), state.indexSubspace)
                 .thenApply(partitionInfo -> {
                     lastPartitionInfo.set(partitionInfo);
                     return partitionInfo == null ? null : partitionInfo.getId();
@@ -318,14 +315,5 @@ public class FDBDirectoryManager implements AutoCloseable {
                 .stream()
                 .filter(i -> LuceneIndexTypes.LUCENE.equals(i.getType()))
                 .count());
-    }
-
-    public static String getMergeLogMessage(@Nonnull MergeScheduler.MergeSource mergeSource, @Nonnull MergeTrigger trigger,
-                                            @Nonnull IndexMaintainerState state, @Nonnull String logMessage) {
-        return KeyValueLogMessage.of(logMessage,
-                LuceneLogMessageKeys.MERGE_SOURCE, mergeSource,
-                LuceneLogMessageKeys.MERGE_TRIGGER, trigger,
-                LogMessageKeys.INDEX_NAME, state.index.getName(),
-                LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace);
     }
 }

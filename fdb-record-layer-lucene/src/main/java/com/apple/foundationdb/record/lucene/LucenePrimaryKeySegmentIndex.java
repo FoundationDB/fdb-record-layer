@@ -115,14 +115,46 @@ public class LucenePrimaryKeySegmentIndex {
         public final byte[] entryKey;
         @Nonnull
         public final IndexReader indexReader;
+        @Nonnull
+        public final String segmentName;
         public final int docId;
 
-        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader, final int docId) {
+        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader,
+                                  @Nonnull String segmentName, final int docId) {
             this.primaryKey = primaryKey;
             this.entryKey = entryKey;
             this.indexReader = indexReader;
+            this.segmentName = segmentName;
             this.docId = docId;
         }
+    }
+
+    /**
+     * Return all the segments in which the given primary key appears.
+     * Mostly for debug logging.
+     * @param primaryKey the document's record's primary key
+     * @return a list of segment names or segment ids when apparently not associated with a name
+     */
+    @SuppressWarnings("PMD.CloseResource")
+    public List<String> findSegments(@Nonnull Tuple primaryKey) {
+        return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                directory.getAgilityContext().apply(context -> {
+                    final Subspace keySubspace = subspace.subspace(primaryKey);
+                    final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
+                            .setContext(context)
+                            .setScanProperties(ScanProperties.FORWARD_SCAN)
+                            .build();
+                    return kvs.map(kv -> {
+                        final Tuple segdoc = keySubspace.unpack(kv.getKey());
+                        final long segid = segdoc.getLong(0);
+                        final String segmentName = directory.primaryKeySegmentName(segid);
+                        if (segmentName != null) {
+                            return segmentName;
+                        } else {
+                            return "#" + segid;
+                        }
+                    }).asList().whenComplete((result, err) -> kvs.close());
+                }));
     }
 
     /**
@@ -159,7 +191,7 @@ public class LucenePrimaryKeySegmentIndex {
                         if (segmentInfo.name.equals(segmentName)) {
                             final int docid = (int)segdoc.getLong(1);
                             return new DocumentIndexEntry(primaryKey, kv.getKey(),
-                                    directoryReader.leaves().get(i).reader(), docid);
+                                    directoryReader.leaves().get(i).reader(), segmentName, docid);
                         }
                     }
                     return null;

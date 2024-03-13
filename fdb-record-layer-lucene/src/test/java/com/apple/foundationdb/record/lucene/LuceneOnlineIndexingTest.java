@@ -90,9 +90,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
+class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LucenOnlineIndexingTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneOnlineIndexingTest.class);
 
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
@@ -454,7 +454,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = 60; iLast > 40; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(multiEntryMapDoc(77L * i, ENGINEER_JOKE + iLast, group));
                 }
@@ -524,7 +523,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private String[] listFiles(Index index, Tuple tuple, int groupingCount) {
         try (FDBRecordContext context = openContext()) {
-            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
             final Subspace subspace = recordStore.indexSubspace(index);
             final FDBDirectory directory = new FDBDirectory(subspace.subspace(Tuple.fromItems(tuple.getItems().subList(0, groupingCount))), context, index.getOptions());
             return directory.listAll();
@@ -543,7 +541,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
             int iLast = iLimits[iIndex ++];
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = iFIrst; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iIndex, 2));
                 }
@@ -581,7 +578,6 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         for (int iLast = high; iLast > low; iLast --) {
             try (FDBRecordContext context = openContext()) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int i = 0; i < iLast; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE + iLast, 2));
                 }
@@ -716,6 +712,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Void> mergeIndex() {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
             final long limit = mergeControl.getMergesLimit();
             if (limit == 0) {
                 mergeControl.setMergesFound(10);
@@ -776,6 +773,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
+                .setMaxAttempts(1)
                 .build()) {
             indexBuilder.mergeIndex();
         }
@@ -793,6 +791,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Void> mergeIndex() {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
             mergeControl.setMergesFound(1);
             mergeControl.setMergesTried(1);
             final long timeQuota = mergeControl.getTimeQuotaMillis();
@@ -840,6 +839,7 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setRecordStore(recordStore)
                 .setIndex(index)
+                .setMaxAttempts(1)
                 .build()) {
             indexBuilder.mergeIndex(); // retries under the hood until time quota is under 10 milli
             assertTrue(recordStore.getIndexDeferredMaintenanceControl().getTimeQuotaMillis() <= 10);
@@ -935,6 +935,148 @@ class LucenOnlineIndexingTest extends FDBRecordStoreTestBase {
 
         assertTrue(newLength < oldLength);
         assertTrue(timeCommitCount > 0);
+    }
+
+    private static class TerribleRebalanceIndexMaintainer extends LuceneIndexMaintainer {
+        private final IndexMaintainerState state;
+        private static int pseodoFound = 0;
+
+        protected TerribleRebalanceIndexMaintainer(final IndexMaintainerState state) {
+            super(state, state.context.getExecutor());
+            this.state = state;
+        }
+
+        @Override
+        public CompletableFuture<Void> mergeIndex() {
+            final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+            final int documentCount = mergeControl.getRepartitionDocumentCount();
+            if (documentCount <= 0) {
+                mergeControl.setRepartitionDocumentCount(16);
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            if (documentCount > 2) {
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            return AsyncUtil.DONE;
+        }
+    }
+
+    @AutoService(IndexMaintainerFactory.class)
+    public static class TerribleRebalanceIndexMaintainerFactory implements IndexMaintainerFactory {
+        @Nonnull
+        @Override
+        public Iterable<String> getIndexTypes() {
+            return Collections.singletonList("terribleRebalance");
+        }
+
+        @Nonnull
+        @Override
+        public IndexValidator getIndexValidator(Index index) {
+            return new IndexValidator(index);
+        }
+
+        @Nonnull
+        @Override
+        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+            return new TerribleRebalanceIndexMaintainer(state);
+        }
+    }
+
+    @Test
+    void luceneOnlineIndexingTestTerribleRebalance() {
+        Index index = new Index("Simple$text_suffixes",
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                "terribleRebalance",
+                ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+        boolean needMerge = populateDataSplitSegments(index, 4, 1);
+        assertTrue(needMerge);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .setMaxAttempts(1)
+                .build()) {
+            indexBuilder.mergeIndex(); // retries under the hood until document count reaches minimum
+            assertTrue(recordStore.getIndexDeferredMaintenanceControl().getRepartitionDocumentCount() <= 2);
+        }
+    }
+
+    private static class Terriblerebalnce2ndChanceIndexMaintainer extends LuceneIndexMaintainer {
+        private final IndexMaintainerState state;
+        static boolean isSecondPass = false;
+        static boolean gotSecondChance = false;
+
+        protected Terriblerebalnce2ndChanceIndexMaintainer(final IndexMaintainerState state) {
+            super(state, state.context.getExecutor());
+            this.state = state;
+        }
+
+        @Override
+        public CompletableFuture<Void> mergeIndex() {
+            final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            final int documentCount = mergeControl.getRepartitionDocumentCount();
+            if (isSecondPass) {
+                mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+                assertEquals(0, documentCount);
+                gotSecondChance = true;
+                return AsyncUtil.DONE;
+            }
+            if (documentCount == -1) {
+                isSecondPass = true;
+                mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+                return AsyncUtil.DONE;
+            }
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+            if (documentCount <= 0) {
+                mergeControl.setRepartitionDocumentCount(16);
+                throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+            }
+            throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());
+        }
+    }
+
+    @AutoService(IndexMaintainerFactory.class)
+    public static class Terriblerebalnce2ndChanceIndexMaintainerFactory implements IndexMaintainerFactory {
+        @Nonnull
+        @Override
+        public Iterable<String> getIndexTypes() {
+            return Collections.singletonList("terribleRebalance2ndChance");
+        }
+
+        @Nonnull
+        @Override
+        public IndexValidator getIndexValidator(Index index) {
+            return new IndexValidator(index);
+        }
+
+        @Nonnull
+        @Override
+        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+            return new Terriblerebalnce2ndChanceIndexMaintainer(state);
+        }
+    }
+
+    @Test
+    void luceneOnlineIndexingTestTerribleRebalance2ndChance() {
+        Terriblerebalnce2ndChanceIndexMaintainer.isSecondPass = false;
+        Terriblerebalnce2ndChanceIndexMaintainer.gotSecondChance = false;
+        Index index = new Index("Simple$text_suffixes",
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                "terribleRebalance2ndChance",
+                ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+        boolean needMerge = populateDataSplitSegments(index, 4, 1);
+        assertTrue(needMerge);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setRecordStore(recordStore)
+                .setIndex(index)
+                .setMaxAttempts(1)
+                .build()) {
+            indexBuilder.mergeIndex(); // retries under the hood + second chance
+            assertTrue(Terriblerebalnce2ndChanceIndexMaintainer.gotSecondChance);
+            assertTrue(Terriblerebalnce2ndChanceIndexMaintainer.isSecondPass);
+        }
     }
 }
 

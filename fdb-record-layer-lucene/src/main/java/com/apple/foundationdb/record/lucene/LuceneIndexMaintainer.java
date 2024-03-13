@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
@@ -49,6 +50,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
@@ -92,6 +95,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -296,7 +300,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 if (valid > 0) {
                     state.context.record(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY, System.nanoTime() - startTime);
                     return;
+                } else if (LOG.isDebugEnabled()) {
+                    LOG.debug(KeyValueLogMessage.of("try delete document failed",
+                            LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.PARTITION, partitionId,
+                            LuceneLogMessageKeys.SEGMENT, documentIndexEntry.segmentName,
+                            LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
+                            LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
                 }
+            } else if (LOG.isDebugEnabled()) {
+                LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
+                        LuceneLogMessageKeys.GROUP, groupingKey,
+                        LuceneLogMessageKeys.PARTITION, partitionId,
+                        LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
+                        LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
             }
         }
         Query query;
@@ -322,7 +339,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public CompletableFuture<Void> mergeIndex() {
         return rebalancePartitions()
-                .thenCompose(ignored -> directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer("")));
+                .thenCompose(ignored -> {
+                    state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+                    return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
+                });
     }
 
     @Nonnull
@@ -348,31 +368,53 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (!partitioner.isPartitioningEnabled()) {
             return CompletableFuture.completedFuture(null);
         }
+        final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+        int documentCount = mergeControl.getRepartitionDocumentCount();
+        if (documentCount < 0) {
+            // Skip re-balance
+            return CompletableFuture.completedFuture(null);
+        }
+        if (documentCount == 0) {
+            // Set default and broadcast it back to the caller
+            documentCount = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT));
+            mergeControl.setRepartitionDocumentCount(documentCount);
+        }
+
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
-        final Index index = state.index;
-        return rebalancePartitions(runner, storeBuilder, index)
+        return rebalancePartitions(runner, storeBuilder, state, mergeControl)
                 .whenComplete((result, error) -> {
                     runner.close();
                 });
     }
 
-    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner, final FDBRecordStore.Builder storeBuilder, final Index index) {
+    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner,
+                                                               final FDBRecordStore.Builder storeBuilder,
+                                                               final IndexMaintainerState state,
+                                                               final IndexDeferredMaintenanceControl mergeControl) {
+        FDBStoreTimer timer = state.context.getTimer();
+        if (timer != null) {
+            timer.increment(LuceneEvents.Counts.LUCENE_REPARTITION_CALLS);
+        }
         AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(RecordCursorStartContinuation.START);
+        final int repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
+        final int maxDocumentsToMove = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING));
+        AtomicInteger maxIterations = new AtomicInteger(Math.max(1, maxDocumentsToMove / repartitionDocumentCount));
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
-                        context -> storeBuilder.setContext(context).openAsync().thenCompose(store -> {
-                            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                            return getPartitioner(index, store).rebalancePartitions(continuation.get())
-                                    .thenApply(newContinuation -> {
-                                        if (newContinuation.isEnd()) {
-                                            return false;
-                                        } else {
-                                            continuation.set(newContinuation);
-                                            return true;
-                                        }
-                                    });
-                        })));
+                        context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
+                                storeBuilder.setContext(context).openAsync().thenCompose(store ->
+                                        getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount)
+                                                .thenApply(newContinuation -> {
+                                                    if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
+                                                        mergeControl.setRepartitionCapped(!newContinuation.isEnd());
+                                                        return false;
+                                                    } else {
+                                                        continuation.set(newContinuation);
+                                                        return true;
+                                                    }
+                                                })))));
     }
 
     @Nonnull

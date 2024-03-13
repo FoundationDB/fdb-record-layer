@@ -111,6 +111,10 @@ public interface AgilityContext {
         getCallerContext().record(event, timeDelta);
     }
 
+    default void recordSize(@Nonnull StoreTimer.SizeEvent sizeEvent, long size) {
+        getCallerContext().recordSize(sizeEvent, size);
+    }
+
     @Nullable
     default <T> T asyncToSync(StoreTimer.Wait event,
                               @Nonnull CompletableFuture<T> async) {
@@ -157,6 +161,17 @@ public interface AgilityContext {
             this.timeQuotaMillis = timeQuotaMillis;
             this.sizeQuotaBytes = sizeQuotaBytes;
             callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
+            logSelf("Starting agility context");
+        }
+
+        private void logSelf(final String staticMessage) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of(staticMessage,
+                        LogMessageKeys.TIME_LIMIT_MILLIS, this.timeQuotaMillis,
+                        LogMessageKeys.LIMIT, this.sizeQuotaBytes,
+                        // Log the identity hash code, because any two Agiles will be different.
+                        LogMessageKeys.AGILITY_CONTEXT, System.identityHashCode(this)));
+            }
         }
 
         @Override
@@ -287,6 +302,7 @@ public interface AgilityContext {
         @Override
         public void flush() {
             commitNow();
+            logSelf("Flushed agility context");
         }
     }
 

@@ -39,7 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.cascades.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
@@ -83,7 +83,7 @@ import java.util.stream.Collectors;
  * particular attribute.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue {
+public class PredicateWithValueAndRanges extends AbstractQueryPredicate implements PredicateWithValue, PredicateWithComparisons {
 
     /**
      * The value associated with the {@code ranges}.
@@ -150,6 +150,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    @Nonnull
+    @Override
+    public List<Comparisons.Comparison> getComparisons() {
+        return ranges.stream()
+                .flatMap(range -> range.getComparisons().stream())
+                .collect(ImmutableList.toImmutableList());
+    }
+
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
@@ -208,7 +216,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     @Override
     public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap), ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
+        return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap),
+                ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
     }
 
     public boolean equalsValueOnly(@Nonnull final QueryPredicate other) {

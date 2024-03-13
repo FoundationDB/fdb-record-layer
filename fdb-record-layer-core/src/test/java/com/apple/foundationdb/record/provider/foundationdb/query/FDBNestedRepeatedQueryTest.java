@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -82,6 +83,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
@@ -114,6 +116,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKey;
@@ -137,7 +140,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
@@ -181,6 +186,8 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     private static final String SUM_VALUE_BY_KEY_UNNESTED = "sumValueByKeyUnnested";
     private static final String SUM_WHOLE_RECORD_VALUE_BY_KEY = "sumWholeRecordValueByKey";
     private static final String SUM_WHOLE_RECORD_VALUE_BY_KEY_UNNESTED = "sumValueByKey";
+    private static final String SUM_VALUE_BY_KEY_AND_OTHER = "sumValueByKeyAndOther";
+    private static final String SUM_VALUE_BY_KEY_AND_OTHER_UNNESTED = "sumValueByOtherAndKeyUnnested";
     private static final String BITMAP_VALUE_BY_KEY = "bitmapValueByKey";
     private static final String BITMAP_VALUE_BY_KEY_UNNESTED = "bitmapValueByKeyUnnested";
     private static final String BITMAP_VALUE_OTHER_KEY = "bitmapValueByOuterKey";
@@ -300,6 +307,14 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static Index sumWholeRecordByKeyUnnested() {
         return new Index(SUM_WHOLE_RECORD_VALUE_BY_KEY_UNNESTED, field("e2").nest("int_value").groupBy(field("e1").nest("key")), IndexTypes.SUM);
+    }
+
+    private static Index sumValueByKeyAndOther() {
+        return new Index(SUM_VALUE_BY_KEY_AND_OTHER, new GroupingKeyExpression(concat(field("other_id"), onEntry(() -> concatenateFields("key", "int_value"))), 1), IndexTypes.SUM);
+    }
+
+    private static Index sumValueByKeyAndOtherUnnested() {
+        return new Index(SUM_VALUE_BY_KEY_AND_OTHER_UNNESTED, field("entry").nest("int_value").groupBy(field(PARENT_CONSTITUENT).nest("other_id"), field("entry").nest("key")), IndexTypes.SUM);
     }
 
     private static Index bitmapValueByKey() {
@@ -699,6 +714,78 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     }
                 }
             }
+        }
+    }
+
+    @ParameterizedTest(name = "orQueryWithIdInOrdering[reverse={0}]")
+    @BooleanSource
+    void orQueryWithIdInOrdering(boolean reverse) {
+        final Index keyIdValueIndex = new Index("synthetic$keyIdValue",
+                concat(field("entry").nest("key"), field(PARENT_CONSTITUENT).nest("rec_id"), field("entry").nest("value")));
+        final RecordMetaDataHook hook = addUnnestedType()
+                .andThen(metaData -> metaData.addIndex(OUTER_WITH_ENTRIES, keyIdValueIndex));
+        final List<TestRecordsNestedMapProto.OuterRecord> data = setUpData(hook);
+
+        final Set<String> keys = mapKeys(data);
+        assertThat(keys, not(empty()));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            final String key1Param = "key1Param";
+            final String key2Param = "key2Param";
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(OUTER_WITH_ENTRIES)
+                    .setFilter(Query.field("entry").matches(
+                            Query.or(Query.field("key").equalsParameter(key1Param), Query.field("key").equalsParameter(key2Param))
+                    ))
+                    .setSort(field(PARENT_CONSTITUENT).nest("rec_id"), reverse)
+                    .build();
+            setNormalizeNestedFields(true);
+            setOmitPrimaryKeyInUnionOrderingKey(true);
+
+            final RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan, unionOnExpressionPlan(
+                    indexPlan().where(indexName(keyIdValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + key1Param + "]"))),
+                    indexPlan().where(indexName(keyIdValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + key2Param + "]")))
+            ).where(comparisonKey(concat(field(PARENT_CONSTITUENT).nest("rec_id"), field("entry").nest("value"), recordType(), field(UnnestedRecordType.POSITIONS_FIELD).nest("entry")))));
+            assertEquals(reverse ? 1518478779L : 1518478746L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(reverse ? 1391408828L : 1397128886L, plan.planHash(CURRENT_FOR_CONTINUATION));
+
+            for (String key1 : keys) {
+                for (String key2 : keys) {
+                    final Bindings bindings = Bindings.newBuilder()
+                            .set(key1Param, key1)
+                            .set(key2Param, key2)
+                            .build();
+                    final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
+
+                    final List<Pair<Long, String>> expected = data.stream()
+                            .flatMap(outerRecord -> outerRecord.getMap().getEntryList().stream()
+                                    .filter(entry -> entry.getKey().equals(key1) || entry.getKey().equals(key2))
+                                    .map(entry -> Pair.of(outerRecord.getRecId(), entry.getValue()))
+                            )
+                            .sorted(reverse ? Comparator.reverseOrder() : Comparator.naturalOrder())
+                            .collect(Collectors.toList());
+                    final List<Pair<Long, String>> actual = plan.execute(recordStore, evaluationContext)
+                            .map(FDBQueriedRecord::getSyntheticRecord)
+                            .map(synthetic -> {
+                                TestRecordsNestedMapProto.OuterRecord outerRecord = TestRecordsNestedMapProto.OuterRecord.newBuilder()
+                                        .mergeFrom(synthetic.getConstituent(PARENT_CONSTITUENT).getRecord())
+                                        .build();
+                                TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
+                                        .mergeFrom(synthetic.getConstituent("entry").getRecord())
+                                        .build();
+                                assertThat(entry.getKey(), either(equalTo(key1)).or(equalTo(key2)));
+                                assertTrue(outerRecord.getMap().getEntryList().contains(entry), () -> "outer record should contain entry.\n  Outer record:\n" + outerRecord + "\n  Entry:\n" + entry);
+                                return Pair.of(outerRecord.getRecId(), entry.getValue());
+                            })
+                            .asList()
+                            .join();
+                    assertEquals(expected, actual);
+                }
+            }
+            commit(context);
         }
     }
 
@@ -1435,6 +1522,93 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         }, this::querySumIntValueForRecordByKey);
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void sumByKeyAndOther() {
+        final RecordMetaDataHook hook = addUnnestedType().andThen(metaDataBuilder -> {
+            metaDataBuilder.addIndex(OUTER, sumValueByKeyAndOther());
+            metaDataBuilder.addIndex(OUTER_WITH_ENTRIES, sumValueByKeyAndOtherUnnested());
+        });
+
+        List<TestRecordsNestedMapProto.OuterRecord> data = setUpDataWithInts(hook);
+        final Map<Tuple, Long> sumsByGroup = new HashMap<>();
+        for (TestRecordsNestedMapProto.OuterRecord outerRecord : data) {
+            for (TestRecordsNestedMapProto.MapRecord.Entry entry : outerRecord.getMap().getEntryList()) {
+                Tuple group = Tuple.from(outerRecord.getOtherId(), entry.getKey());
+                sumsByGroup.compute(group, (key, oldValue) -> oldValue == null ? entry.getIntValue() : oldValue + entry.getIntValue());
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenMapStore(context, hook);
+
+            // Execute a Cascades query that will return each group
+            final RecordQueryPlan plan = planGraph(() -> {
+                final Quantifier outerQun = outerRecQun();
+                final Quantifier explodeEntryQun = explodeEntryQun(outerQun, "key", "int_value");
+
+                // Create select where, group by other_id and key
+                final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
+                        Column.of(Optional.of("other_id"), FieldValue.ofFieldName(outerQun.getFlowedObjectValue(), "other_id")),
+                        Column.of(Optional.of("key"), FieldValue.ofFieldName(explodeEntryQun.getFlowedObjectValue(), "key"))
+                ));
+                final Quantifier selectWhereGroupBy = Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.builder()
+                        .addQuantifier(outerQun)
+                        .addQuantifier(explodeEntryQun)
+                        .addResultColumn(Column.unnamedOf(groupingValue))
+                        .addResultColumn(Column.of(Optional.of(outerQun.getAlias().getId()), outerQun.getFlowedObjectValue()))
+                        .addResultColumn(Column.of(Optional.of(explodeEntryQun.getAlias().getId()), explodeEntryQun.getFlowedObjectValue()))
+                        .build()
+                        .buildSelect()));
+
+                // Aggregate int_value (by group)
+                final FieldValue aggregatedValue = FieldValue.ofFieldNames(selectWhereGroupBy.getFlowedObjectValue(), List.of(explodeEntryQun.getAlias().getId(), "int_value"));
+                final Quantifier groupBy = groupAggregateByKey(selectWhereGroupBy, new NumericAggregationValue.Sum.SumFn(), aggregatedValue);
+
+                // Select both grouping keys plus the aggregate value
+                final Quantifier selectHaving = Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.builder()
+                        .addQuantifier(groupBy)
+                        .addResultColumn(Column.of(Optional.of("other_id"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0), 0)))
+                        .addResultColumn(Column.of(Optional.of("key"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0), 1)))
+                        .addResultColumn(Column.of(Optional.of("sum"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 1), 0)))
+                        .build()
+                        .buildSelect()));
+                return unsorted(selectHaving);
+            });
+            assertThat(plan.getUsedIndexes(), contains(SUM_VALUE_BY_KEY_AND_OTHER));
+
+            // Execute plan and assert that the sum by group matches expectations
+            final Map<Tuple, Long> queriedSumsByGroup = Maps.newHashMapWithExpectedSize(sumsByGroup.size());
+            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+                cursor.forEach(queryResult -> {
+                    final Message queriedMessage = queryResult.getMessage();
+                    final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
+                    Tuple group = Tuple.from(queriedMessage.getField(recDescriptor.findFieldByName("other_id")), queriedMessage.getField(recDescriptor.findFieldByName("key")));
+                    long value = (long) queriedMessage.getField(recDescriptor.findFieldByName("sum"));
+                    queriedSumsByGroup.put(group, value);
+                }).join();
+            }
+            assertEquals(sumsByGroup, queriedSumsByGroup);
+
+            // Evaluate index aggregate functions for each group and assert that the sum matches
+            final IndexAggregateFunction sumOuter = new IndexAggregateFunction(FunctionNames.SUM, concat(field("other_id"), onEntry(() -> field("key"))), SUM_VALUE_BY_KEY_AND_OTHER);
+            final IndexAggregateFunction sumUnnested = new IndexAggregateFunction(FunctionNames.SUM, concat(field(PARENT_CONSTITUENT).nest("other_id"), field("entry").nest("key")), SUM_VALUE_BY_KEY_AND_OTHER_UNNESTED);
+
+            for (Map.Entry<Tuple, Long> groupAndSum : sumsByGroup.entrySet()) {
+                final Tuple expectedSum = Tuple.from(groupAndSum.getValue());
+                final Tuple group = groupAndSum.getKey();
+                final Key.Evaluated groupEvaluated = Key.Evaluated.fromTuple(group);
+                Tuple byOuterIndex = recordStore.evaluateAggregateFunction(List.of(OUTER), sumOuter, groupEvaluated, IsolationLevel.SERIALIZABLE)
+                        .join();
+                assertEquals(expectedSum, byOuterIndex, () -> "mismatched aggregate value for group " + group + " when using index on outer record");
+                Tuple byUnnestedIndex = recordStore.evaluateAggregateFunction(List.of(OUTER_WITH_ENTRIES), sumUnnested, groupEvaluated, IsolationLevel.SERIALIZABLE)
+                        .join();
+                assertEquals(expectedSum, byUnnestedIndex, () -> "mismatched aggregate value for group " + group + " when using index on unnested record");
+            }
+
+            commit(context);
+        }
+    }
+
     private void testAggregateIndex(RecordMetaDataHook hook, List<TestRecordsNestedMapProto.OuterRecord> data,
                                     IndexAggregateFunction normalAggregate, IndexAggregateFunction unnestedAggregate,
                                     Function<List<TestRecordsNestedMapProto.OuterRecord>, Map<String, Tuple>> aggregator,
@@ -1845,9 +2019,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         ));
         selectWhereBuilder
                 .addResultColumn(Column.unnamedOf(groupingValue))
-                .addResultColumn(Column.of(Type.Record.Field.of(outerQun.getFlowedObjectType(), Optional.of(outerQun.getAlias().getId())), outerQun.getFlowedObjectValue()));
+                .addResultColumn(Column.of(Optional.of(outerQun.getAlias().getId()), outerQun.getFlowedObjectValue()));
         for (Quantifier entryQun : entryQuns) {
-            selectWhereBuilder.addResultColumn(Column.of(Type.Record.Field.of(entryQun.getFlowedObjectType(), Optional.of(entryQun.getAlias().getId())), entryQun.getFlowedObjectValue()));
+            selectWhereBuilder.addResultColumn(Column.of(Optional.of(entryQun.getAlias().getId()), entryQun.getFlowedObjectValue()));
         }
         return Quantifier.forEach(GroupExpressionRef.of(selectWhereBuilder.build().buildSelect()));
     }
@@ -1866,8 +2040,8 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final FieldValue groupVal = FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0);
         final FieldValue aggregate = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 1), 0);
         final SelectExpression selectHaving = selectHavingBuilder
-                .addResultColumn(Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("key")), FieldValue.ofOrdinalNumberAndFuseIfPossible(groupVal, 0)))
-                .addResultColumn(Column.of(Type.Record.Field.of(aggregate.getResultType(), Optional.of("aggregate")), aggregate))
+                .addResultColumn(Column.of(Optional.of("key"), FieldValue.ofOrdinalNumberAndFuseIfPossible(groupVal, 0)))
+                .addResultColumn(Column.of(Optional.of("aggregate"), aggregate))
                 .build()
                 .buildSelect();
         return Quantifier.forEach(GroupExpressionRef.of(selectHaving));

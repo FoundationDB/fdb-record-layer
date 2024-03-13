@@ -66,7 +66,16 @@ public interface PlanHashable {
      */
     enum PlanHashMode {
         VL0(PlanHashKind.LEGACY, 0),
-        VC0(PlanHashKind.FOR_CONTINUATION, 0);
+        VC0(PlanHashKind.FOR_CONTINUATION, 0),
+
+        /**
+         * Changes contained are:
+         * <ul>
+         *   <li> {@link com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue} hashes
+         *        without index </li>
+         * </ul>.
+         */
+        VC1(PlanHashKind.FOR_CONTINUATION, 1);
 
         private final PlanHashKind kind;
         private final int numericVersion;

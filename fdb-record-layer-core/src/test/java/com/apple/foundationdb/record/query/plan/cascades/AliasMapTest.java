@@ -63,7 +63,7 @@ public class AliasMapTest {
                         .put(of("b"), of("d"))
                         .build();
 
-        final AliasMap newAliasMap = aliasMap.derived()
+        final AliasMap newAliasMap = aliasMap.toBuilder()
                 .put(of("x"), of("y"))
                 .build();
 

@@ -84,7 +84,7 @@ public class LuceneIndexOptions {
      * Option to designate a record field as the timestamp by which the corresponding document would be partitioned in
      * Lucene.
      */
-    public static final String INDEX_PARTITION_BY_TIMESTAMP = "partitionTimestamp";
+    public static final String INDEX_PARTITION_BY_FIELD_NAME = "partitionFieldName";
 
     /**
      * Option to set high watermark size for a lucene partition, beyond which the partition would be split, or a new

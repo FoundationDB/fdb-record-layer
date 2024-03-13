@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
@@ -608,9 +609,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             throw new RuntimeException(e);
         }
 
-        serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
+        final PlanSerializationContext deserializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlan deserializedPlan =
-                RecordQueryPlan.fromRecordQueryPlanProto(serializationContext, parsedPlanProto);
+                RecordQueryPlan.fromRecordQueryPlanProto(deserializationContext, parsedPlanProto);
         Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         Assertions.assertTrue(plan.structuralEquals(deserializedPlan));
         return deserializedPlan;
@@ -618,9 +619,14 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     @Nonnull
     protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan) {
+        return executeQuery(plan, Bindings.EMPTY_BINDINGS);
+    }
+
+    @Nonnull
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan, @Nonnull Bindings bindings) {
         final var usedTypes = UsedTypesProperty.evaluate(plan);
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
-        return plan.execute(recordStore, EvaluationContext.forTypeRepository(typeRepository)).asIterator();
+        return plan.execute(recordStore, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository)).asIterator();
     }
 
     protected static class Holder<T> {

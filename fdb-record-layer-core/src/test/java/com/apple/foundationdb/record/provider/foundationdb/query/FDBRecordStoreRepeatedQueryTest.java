@@ -118,7 +118,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final var num3Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_3_indexed");
         final List<Column<? extends Value>> groupingColumns = ImmutableList.of(
                 Column.unnamedOf(FieldValue.ofOrdinalNumber(repeatQun.getFlowedObjectValue(), 0)),
-                Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value)
+                Column.of(Optional.of("num_value_3_indexed"), num3Value)
         );
         selectWhereBuilder
                 .addResultValue(RecordConstructorValue.ofColumns(groupingColumns))

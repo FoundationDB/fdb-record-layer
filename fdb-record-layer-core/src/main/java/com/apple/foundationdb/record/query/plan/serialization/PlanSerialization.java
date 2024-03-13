@@ -81,6 +81,8 @@ public class PlanSerialization {
         } else if (object instanceof FDBRecordVersion) {
             builder.setFdbRecordVersion(RecordQueryPlanProto.PFDBRecordVersion.newBuilder()
                     .setRawBytes(ByteString.copyFrom(((FDBRecordVersion)object).toBytes(false))).build());
+        } else if (object instanceof ByteString) {
+            builder.setBytesAsByteString((ByteString)object);
         } else {
             builder.setPrimitiveObject(LiteralKeyExpression.toProtoValue(object));
         }
@@ -110,6 +112,8 @@ public class PlanSerialization {
             final RecordQueryPlanProto.PFDBRecordVersion fdbRecordVersion = Objects.requireNonNull(proto.getFdbRecordVersion());
             return FDBRecordVersion.fromBytes(fdbRecordVersion
                     .getRawBytes().toByteArray(), false);
+        } else if (proto.hasBytesAsByteString()) {
+            return proto.getBytesAsByteString();
         }
         return LiteralKeyExpression.fromProtoValue(Objects.requireNonNull(proto.getPrimitiveObject()));
     }
