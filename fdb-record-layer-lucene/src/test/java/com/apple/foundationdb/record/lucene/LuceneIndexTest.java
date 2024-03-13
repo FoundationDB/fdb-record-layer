@@ -220,48 +220,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexTest.class);
     private static final String LUCENE_INDEX_MAP_PARAMS = "com.apple.foundationdb.record.lucene.LuceneIndexTestUtils#luceneIndexMapParams";
 
-    private Tuple createSyntheticRecord1(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score) {
-        return createSyntheticRecord1(group, docIdSimple, docIdComplex, text, text2, isSeen, timestamp, score, null);
+    private Tuple createComplexRecordJoinedToSimple(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score) {
+        return createComplexRecordJoinedToSimple(group, docIdSimple, docIdComplex, text, text2, isSeen, timestamp, score, null);
     }
 
-    private Tuple createSyntheticRecord1(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score, FDBRecordStoreBase.RecordExistenceCheck existenceCheck) {
-        TestRecordsTextProto.SimpleDocument sd = text != null ? createSimpleDocument(docIdSimple, text, group) : createSimpleDocument(docIdSimple, group);
-        ComplexDocument cd = createComplexDocument(docIdComplex, "", text2, group, score, isSeen, timestamp);
+    private Tuple createComplexRecordJoinedToSimple(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score, FDBRecordStoreBase.RecordExistenceCheck existenceCheck) {
+        TestRecordsTextProto.SimpleDocument simpleDocument = text != null ? createSimpleDocument(docIdSimple, text, group) : createSimpleDocument(docIdSimple, group);
+        ComplexDocument complexDocument = createComplexDocument(docIdComplex, "", text2, group, score, isSeen, timestamp);
         Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                .getSyntheticRecordType("luceneSynthetic1")
+                .getSyntheticRecordType("luceneSyntheticComplexJoinedToSimple")
                 .getRecordTypeKeyTuple();
         if (existenceCheck != null) {
-            Tuple tp = recordStore.saveRecord(sd, existenceCheck).getPrimaryKey();
+            Tuple tp = recordStore.saveRecord(simpleDocument, existenceCheck).getPrimaryKey();
             return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    recordStore.saveRecord(cd).getPrimaryKey().getItems(),
+                    recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
                     tp.getItems());
         } else {
             return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                    recordStore.saveRecord(sd).getPrimaryKey().getItems());
+                    recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                    recordStore.saveRecord(simpleDocument).getPrimaryKey().getItems());
         }
     }
 
-    private Tuple createSyntheticRecord1(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score, FDBRecordStoreBase.RecordExistenceCheck existenceCheck, String prefix) {
-        TestRecordsTextProto.SimpleDocument sd = text != null ? createSimpleDocument(docIdSimple, text, group) : createSimpleDocument(docIdSimple, group);
-        ComplexDocument cd = createComplexDocument(docIdComplex, "", text2, group, score, isSeen, timestamp);
-        Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                .getSyntheticRecordType("luceneSynthetic1")
-                .getRecordTypeKeyTuple();
-        if (existenceCheck != null) {
-            Tuple tp = recordStore.saveRecord(sd, existenceCheck).getPrimaryKey();
-            return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                    tp.getItems());
-        } else {
-            return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                    recordStore.saveRecord(sd).getPrimaryKey().getItems());
-        }
-    }
-
-    private Tuple createSyntheticRecord2(int group, long docIdMany, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, int score) {
-        TestRecordsTextProto.ManyFieldsDocument md = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
+    private Tuple createComplexRecordJoinedToManyFields(int group, long docIdMany, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, int score) {
+        TestRecordsTextProto.ManyFieldsDocument manyFieldsDocument = TestRecordsTextProto.ManyFieldsDocument.newBuilder()
                 .setDocId(docIdMany)
                 .setText0(text)
                 .setText3(text)
@@ -270,29 +252,29 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setBool0(isSeen)
                 .setLong0(group)
                 .build();
-        ComplexDocument cd = createComplexDocument(docIdComplex, "", "", group, score, isSeen, timestamp);
+        ComplexDocument complexDocument = createComplexDocument(docIdComplex, "", "", group, score, isSeen, timestamp);
         Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                .getSyntheticRecordType("luceneSynthetic2")
+                .getSyntheticRecordType("luceneSyntheticComplexJoinedToManyFields")
                 .getRecordTypeKeyTuple();
         return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                recordStore.saveRecord(md).getPrimaryKey().getItems());
+                recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                recordStore.saveRecord(manyFieldsDocument).getPrimaryKey().getItems());
     }
 
-    private Tuple createSyntheticRecord3(int group, long docIdMap, long docIdComplex, String text, String text2, String text3, String text4,
-                                         boolean isSeen, long timestamp, int score) {
-        TestRecordsTextProto.MapDocument md = createComplexMapDocument(docIdMap, text, text2, group);
-        ComplexDocument cd = createComplexDocument(docIdComplex, "", "", group, score, isSeen, timestamp);
+    private Tuple createComplexRecordJoinedToMap(int group, long docIdMap, long docIdComplex, String text, String text2, String text3, String text4,
+                                                 boolean isSeen, long timestamp, int score) {
+        TestRecordsTextProto.MapDocument mapDocument = createComplexMapDocument(docIdMap, text, text2, group);
+        ComplexDocument complexDocument = createComplexDocument(docIdComplex, "", "", group, score, isSeen, timestamp);
         Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                .getSyntheticRecordType("luceneSynthetic3")
+                .getSyntheticRecordType("luceneSyntheticComplexJoinedToMap")
                 .getRecordTypeKeyTuple();
         return Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                recordStore.saveRecord(md).getPrimaryKey().getItems());
+                recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                recordStore.saveRecord(mapDocument).getPrimaryKey().getItems());
     }
 
     private void metaDataHookSyntheticRecord1(RecordMetaDataBuilder metaDataBuilder, Index... indexes) {
-        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneSynthetic1");
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneSyntheticComplexJoinedToSimple");
         joined.addConstituent("complex", "ComplexDocument");
         joined.addConstituent("simple", "SimpleDocument");
         joined.addJoin("simple", field("group"), "complex", field("group"));
@@ -302,7 +284,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void metaDataHookSyntheticRecord2(RecordMetaDataBuilder metaDataBuilder, Index index) {
-        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneSynthetic2");
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneSyntheticComplexJoinedToManyFields");
         joined.addConstituent("complex", "ComplexDocument");
         joined.addConstituent("many", "ManyFieldsDocument");
         joined.addJoin("many", field("long0"), "complex", field("group"));
@@ -310,7 +292,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void metaDataHookSyntheticRecord3(RecordMetaDataBuilder metaDataBuilder, Index index) {
-        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneSynthetic3");
+        final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneSyntheticComplexJoinedToMap");
         joined.addConstituent("complex", "ComplexDocument");
         joined.addConstituent("map", "MapDocument");
         joined.addJoin("map", field("group"), "complex", field("group"));
@@ -840,7 +822,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     while (!existingTimestamps.add(timestamp)) {
                         timestamp++;
                     }
-                    ComplexDocument cd = ComplexDocument.newBuilder()
+                    ComplexDocument complexDocument = ComplexDocument.newBuilder()
                             .setGroup(group)
                             .setDocId(1000L + countInGroup)
                             .setIsSeen(true)
@@ -850,7 +832,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             .build();
                     Tuple primaryKey;
                     if (isSynthetic) {
-                        TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
+                        TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder()
                                 .setGroup(group)
                                 .setDocId(1000L - countInGroup)
                                 .setText("Four score and seven years ago our fathers brought forth")
@@ -859,10 +841,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                 .getSyntheticRecordType("luceneJoinedPartitionedIdx")
                                 .getRecordTypeKeyTuple();
                         primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                                recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                                recordStore.saveRecord(sd).getPrimaryKey().getItems());
+                                recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                                recordStore.saveRecord(simpleDocument).getPrimaryKey().getItems());
                     } else {
-                        primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                        primaryKey = recordStore.saveRecord(complexDocument).getPrimaryKey();
                     }
                     ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, timestamp);
                 }
@@ -894,14 +876,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             schemaSetup.accept(context);
             long start = Instant.now().toEpochMilli();
             for (int i = 0; i < totalDocCount; i++) {
-                TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
+                TestRecordsTextProto.ComplexDocument complexDocument = TestRecordsTextProto.ComplexDocument.newBuilder()
                         .setGroup(42)
                         .setDocId(1000L + i)
                         .setIsSeen(true)
                         .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
                         .setTimestamp(start + i * 100)
                         .build();
-                TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
+                TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder()
                         .setGroup(42)
                         .setDocId(1000L - i)
                         .setText("Four score and seven years ago our fathers brought forth propose")
@@ -910,8 +892,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .getSyntheticRecordType("luceneJoinedPartitionedIdx")
                         .getRecordTypeKeyTuple();
                 ids.add(Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                        recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                        recordStore.saveRecord(sd).getPrimaryKey().getItems()));
+                        recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                        recordStore.saveRecord(simpleDocument).getPrimaryKey().getItems()));
             }
             commit(context);
         }
@@ -1043,20 +1025,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, LuceneIndexTest::joinedPartitionedUngroupedLuceneIndexMetadataHook);
 
-            TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
+            TestRecordsTextProto.ComplexDocument complexDocument = TestRecordsTextProto.ComplexDocument.newBuilder()
                     .setGroup(42)
                     .setDocId(5)
                     .setIsSeen(true)
                     .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(143))
                     .setTimestamp(System.currentTimeMillis())
                     .build();
-            TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
+            TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder()
                     .setDocId(143)
                     .setGroup(42)
                     .setText("Four score and seven years ago our fathers brought forth")
                     .build();
-            recordStore.saveRecord(cd);
-            recordStore.saveRecord(sd);
+            recordStore.saveRecord(complexDocument);
+            recordStore.saveRecord(simpleDocument);
 
             String luceneSearch = "simple_text: \"fathers\"";
 
@@ -1136,7 +1118,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             for (int i = 0; i < docCount; i++) {
-                ComplexDocument cd = ComplexDocument.newBuilder()
+                ComplexDocument complexDocument = ComplexDocument.newBuilder()
                         .setGroup(group)
                         .setDocId(1000L + i)
                         .setIsSeen(true)
@@ -1146,7 +1128,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .build();
                 final Tuple primaryKey;
                 if (isSynthetic) {
-                    TestRecordsTextProto.SimpleDocument sd = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder()
                             .setGroup(group)
                             .setDocId(1000L - i)
                             .setText("Four score and seven years ago our fathers brought forth")
@@ -1155,10 +1137,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             .getSyntheticRecordType("luceneJoinedPartitionedIdx")
                             .getRecordTypeKeyTuple();
                     primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                            recordStore.saveRecord(cd).getPrimaryKey().getItems(),
-                            recordStore.saveRecord(sd).getPrimaryKey().getItems());
+                            recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                            recordStore.saveRecord(simpleDocument).getPrimaryKey().getItems());
                 } else {
-                    primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                    primaryKey = recordStore.saveRecord(complexDocument).getPrimaryKey();
                 }
                 primaryKeys.add(primaryKey);
             }
@@ -1473,20 +1455,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", true, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
                 recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\""), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1500,12 +1482,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord2(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord2(1, 1623L, 1623L, "propose a Vision", "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord2(2, 1547L, 1547L, "different smoochies", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToManyFields(1, 1623L, 1623L, "propose a Vision", "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToManyFields(2, 1547L, 1547L, "different smoochies", "", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "many_text0:Vision AND many_bool0: true"), null, ScanProperties.FORWARD_SCAN));
                 // is 7 reasonable / expected ?
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, MANY_FIELDS_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createManyFieldsDocument(1623L, "propose a Vision", 1L, true));
@@ -1513,9 +1495,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(1623L)),
                         recordStore.scanIndex(index, fullTextSearch(index, "text0:Vision AND bool0: true"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1532,8 +1514,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord2(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord2(1, 11L, 11L, "matching text for field 0 pineapple", "non matching text for field 1 orange", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey2 = createSyntheticRecord2(2, 387L, 387L, "non matching text for field 0 orange", "matching text for field 1 pineapple", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToManyFields(1, 11L, 11L, "matching text for field 0 pineapple", "non matching text for field 1 orange", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey2 = createComplexRecordJoinedToManyFields(2, 387L, 387L, "non matching text for field 0 orange", "matching text for field 1 pineapple", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "many_text0:pineapple"), null, ScanProperties.FORWARD_SCAN));
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey2),
@@ -1574,8 +1556,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord2(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord2(1, 11L, 11L, "matching text for field 0 pineapple", "non matching text for field 1 orange", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey2 = createSyntheticRecord2(2, 387L, 387L, "non matching text for field 3 orange", "matching text for field 4 pineapple", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToManyFields(1, 11L, 11L, "matching text for field 0 pineapple", "non matching text for field 1 orange", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey2 = createComplexRecordJoinedToManyFields(2, 387L, 387L, "non matching text for field 3 orange", "matching text for field 4 pineapple", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "many_text0:pineapple"), null, ScanProperties.FORWARD_SCAN));
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey2),
@@ -1618,11 +1600,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, String.format(baseText, specialCharacter, specialCharacter), "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, String.format(baseText, " ", " "), "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, String.format(baseText, specialCharacter, specialCharacter), "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, String.format(baseText, " ", " "), "", true, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, specialCharacter), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 //one document when the chars, one without
@@ -1630,9 +1612,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 recordStore.saveRecord(createSimpleDocument(1547L, String.format(baseText, " ", " "), 1));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, specialCharacter), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1647,11 +1629,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND complex_is_seen: true"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
@@ -1659,9 +1641,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1623L)),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND is_seen: true"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1676,11 +1658,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey = createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND NOT complex_is_seen: true"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
@@ -1688,9 +1670,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1547L)),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND NOT is_seen: true"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1705,11 +1687,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey2 = createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey2 = createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey, primaryKey2),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND complex_is_seen: [false TO true]"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(8, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -1718,9 +1700,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1623L), Tuple.from(2, 1547L)),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND is_seen: [false TO true]"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1735,11 +1717,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND complex_is_seen: true AND complex_is_seen: false"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(6, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, ENGINEER_JOKE, "propose a Vision", 2, true));
@@ -1749,6 +1731,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND is_seen: true AND is_seen: false"), null, ScanProperties.FORWARD_SCAN));
             }
 
+            assertNull(Verify.verifyNotNull(context.getTimer()).getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY));
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1763,11 +1746,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey2 = createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "propose a Vision", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey2 = createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "different smoochies", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey, primaryKey2),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND (complex_is_seen: true OR complex_is_seen: false)"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(8, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
 
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -1776,9 +1759,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(2, 1623L), Tuple.from(2, 1547L)),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND (is_seen: true OR is_seen: false)"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1793,12 +1776,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
-                createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(3, 1548L, 1548L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), null);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(3, 1548L, 1548L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), null);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND complex_score:2"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(13, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
@@ -1807,9 +1790,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND group:2"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1824,8 +1807,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(1, 1241L, 1623L, "{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}", "", true, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(2, 1342L, 1547L, "{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}", "", false, System.currentTimeMillis(), 2);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1241L, 1623L, "{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}", "", true, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(2, 1342L, 1547L, "{to: aburritoofjoy@tacos.com, from: tacosareevil@badfoodtakes.net}", "", false, System.currentTimeMillis(), 2);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "aburritoofjoy@tacos.com* AND complex_score: 1"), null, ScanProperties.FORWARD_SCAN));
             } else {
@@ -1849,11 +1832,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
-                createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND complex_score:[2 TO 4]"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
@@ -1861,9 +1844,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND group:[2 TO 4]"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -1878,8 +1861,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
-                createSyntheticRecord1(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 2);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
                 //positive infinity
                 assertIndexEntryPrimaryKeys(Set.of(),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND complex_score:{" + Long.MAX_VALUE + " TO " + Long.MAX_VALUE + "]"), null, ScanProperties.FORWARD_SCAN));
@@ -1940,8 +1923,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(0b11100, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0b11100);
-                createSyntheticRecord1(0b11010, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0b11010);
+                createComplexRecordJoinedToSimple(0b11100, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0b11100);
+                createComplexRecordJoinedToSimple(0b11010, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0b11010);
 
                 assertIndexEntryPrimaryKeyTuples(
                         syntheticExpectedResult,
@@ -2017,8 +2000,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(0b11100, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0b11100);
-                createSyntheticRecord1(0b11010, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0b11010);
+                createComplexRecordJoinedToSimple(0b11100, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0b11100);
+                createComplexRecordJoinedToSimple(0b11010, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0b11010);
 
                 assertIndexEntryPrimaryKeyTuples(
                         syntheticExpectedResult,
@@ -2084,11 +2067,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -2096,9 +2079,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -2115,11 +2098,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .build();
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(3, 1624L, 1624L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey3 = createSyntheticRecord1(4, 1625L, 1625L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey4 = createSyntheticRecord1(5, 1626L, 1626L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(3, 1624L, 1624L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey3 = createComplexRecordJoinedToSimple(4, 1625L, 1625L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey4 = createComplexRecordJoinedToSimple(5, 1626L, 1626L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey3, primaryKey4),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), continuation.toByteArray(), ScanProperties.FORWARD_SCAN));
 
@@ -2145,9 +2128,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, null, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(3, 1632L, 1632L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, null, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(3, 1632L, 1632L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "*:* AND NOT simple_text:[* TO *]"), null, ScanProperties.FORWARD_SCAN));
 
@@ -2155,6 +2138,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1623L, 2));
                 recordStore.saveRecord(createSimpleDocument(1632L, ENGINEER_JOKE, 2));
+                recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 2));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, "*:* AND NOT text:[* TO *]"), null, ScanProperties.FORWARD_SCAN));
             }
@@ -2171,20 +2155,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 200; i++) {
-                    createSyntheticRecord1(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 }
-                assertEquals(50, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
-                        .getCount().join());
-
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 for (int i = 0; i < 200; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
                 }
-                assertEquals(50, recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
-                        .getCount().join());
             }
 
+            final String searchString = isSynthetic ? "simple_text:Vision" : "Vision";
+            assertEquals(50, recordStore.scanIndex(index, fullTextSearch(index, searchString), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
+                    .getCount().join());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -2197,20 +2179,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 50; i++) {
-                    createSyntheticRecord1(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 }
-                assertEquals(40, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), null, ExecuteProperties.newBuilder().setSkip(10).build().asScanProperties(false))
-                        .getCount().join());
-
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 for (int i = 0; i < 50; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
                 }
-                assertEquals(40, recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ExecuteProperties.newBuilder().setSkip(10).build().asScanProperties(false))
-                        .getCount().join());
             }
 
+            final String searchString = isSynthetic ? "simple_text:Vision" : "Vision";
+            assertEquals(40, recordStore.scanIndex(index, fullTextSearch(index, searchString), null, ExecuteProperties.newBuilder().setSkip(10).build().asScanProperties(false))
+                    .getCount().join());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -2223,20 +2203,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 50; i++) {
-                    createSyntheticRecord1(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 }
-                assertEquals(40, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
-                        .getCount().join());
-
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
                 for (int i = 0; i < 50; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
                 }
-                assertEquals(40, recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
-                        .getCount().join());
             }
 
+            final String searchString = isSynthetic ? "simple_text:Vision" : "Vision";
+            assertEquals(40, recordStore.scanIndex(index, fullTextSearch(index, searchString), null, ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
+                    .getCount().join());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -2254,20 +2232,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 200; i++) {
-                    createSyntheticRecord1(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 }
-                assertEquals(48, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
-                        .getCount().join());
-
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 for (int i = 0; i < 200; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
                 }
-                assertEquals(48, recordStore.scanIndex(index, fullTextSearch(index, "Vision"), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
-                        .getCount().join());
             }
 
+            final String searchString = isSynthetic ? "simple_text:Vision" : "Vision";
+            assertEquals(48, recordStore.scanIndex(index, fullTextSearch(index, searchString), continuation.toByteArray(), ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
+                    .getCount().join());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
     }
@@ -2275,26 +2251,27 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
     void testLimitNeedsMultipleScans(Map<String, Index> indexMap, boolean isSynthetic) {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 201);
+
         final Index index = indexMap.get(SIMPLE_TEXT_SUFFIXES_KEY);
-        try (FDBRecordContext context = openContext()) {
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 800; i++) {
-                    createSyntheticRecord1(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 }
-                assertEquals(251, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
-                        .getCount().join());
-
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 for (int i = 0; i < 800; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
                 }
-                assertEquals(251, recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
-                        .getCount().join());
             }
 
-            assertEquals(2, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount());
+            final String searchString = isSynthetic ? "simple_text:Vision" : "Vision";
+            assertEquals(251, recordStore.scanIndex(index, fullTextSearch(index, searchString), null, ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(2, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount()); // cursor page size is 201, so we need 2 scans
             assertEquals(251, getCounter(context, LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
         }
@@ -2302,26 +2279,28 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
-    void testSkipOverMaxPageSize(Map<String, Index> indexMap, boolean isSynthetic) {
+    void testSkipOverMultipleScans(Map<String, Index> indexMap, boolean isSynthetic) {
+        final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 201);
+
         final Index index = indexMap.get(SIMPLE_TEXT_SUFFIXES_KEY);
-        try (FDBRecordContext context = openContext()) {
+        try (FDBRecordContext context = openContext(storageBuilder)) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 251; i++) {
-                    createSyntheticRecord1(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2 + i, 1623L + i, 1623L + i, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 }
-                assertEquals(50, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(251).setSkip(201).build().asScanProperties(false))
-                        .getCount().join());
-
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 for (int i = 0; i < 251; i++) {
                     recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
                 }
-                assertEquals(50, recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ExecuteProperties.newBuilder().setReturnedRowLimit(251).setSkip(201).build().asScanProperties(false))
-                        .getCount().join());
             }
-            assertEquals(2, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount());
+
+            final String searchString = isSynthetic ? "simple_text:Vision" : "Vision";
+            assertEquals(50, recordStore.scanIndex(index, fullTextSearch(index, searchString), null, ExecuteProperties.newBuilder().setReturnedRowLimit(251).setSkip(201).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(2, getCounter(context, LuceneEvents.Events.LUCENE_INDEX_SCAN).getCount()); // cursor page size is 201, so we need 2 scans
             assertEquals(251, getCounter(context, LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS).getCount());
 
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index), context, "_0.cfs");
@@ -2335,20 +2314,28 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord3(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord3(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextSong", "", "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord3(3, 1547L, 1547L, WAYLON, "sampleTextPhrase", "", "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToMap(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextSong", "", "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToMap(3, 1547L, 1547L, WAYLON, "sampleTextPhrase", "", "", true, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, groupedTextSearch(index, "map_entry_value:Vision", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(7, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+                assertIndexEntryPrimaryKeyTuples(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "map_entry_value:random", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
+                assertIndexEntryPrimaryKeyTuples(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "map_entry_value:Vision", "sampleTextBook"), null, ScanProperties.FORWARD_SCAN));
             } else {
                 rebuildIndexMetaData(context, MAP_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase", 1));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, groupedTextSearch(index, "entry_value:Vision", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+                assertIndexEntryPrimaryKeys(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "entry_value:random", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
+                assertIndexEntryPrimaryKeys(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "entry_value:Vision", "sampleTextBook"), null, ScanProperties.FORWARD_SCAN));
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index).subspace(Tuple.from("sampleTextSong")), context, "_0.cfs");
         }
     }
@@ -2360,18 +2347,26 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord3(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord3(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", "", "sampleTextSong", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToMap(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", "", "sampleTextSong", true, System.currentTimeMillis(), 0);
+                timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, groupedTextSearch(index, "map_entry_value:Vision", "sampleTextPhrase"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(3, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+                assertIndexEntryPrimaryKeyTuples(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "map_entry_value:random", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
+                assertIndexEntryPrimaryKeyTuples(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "map_entry_value:Vision", "sampleTextBook"), null, ScanProperties.FORWARD_SCAN));
             } else {
                 rebuildIndexMetaData(context, MAP_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, groupedTextSearch(index, "entry_value:Vision", "sampleTextPhrase"), null, ScanProperties.FORWARD_SCAN));
-                assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+                assertIndexEntryPrimaryKeys(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "entry_value:random", "sampleTextSong"), null, ScanProperties.FORWARD_SCAN));
+                assertIndexEntryPrimaryKeys(Set.of(),
+                        recordStore.scanIndex(index, groupedTextSearch(index, "entry_value:Vision", "sampleTextBook"), null, ScanProperties.FORWARD_SCAN));
             }
 
+            assertEquals(1, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             validateSegmentAndIndexIntegrity(index, recordStore.indexSubspace(index).subspace(Tuple.from("sampleTextPhrase")), context, "_0.cfs");
         }
     }
@@ -2383,8 +2378,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "john_leach@apple.com", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(3, 1547L, 1547L, WAYLON, "hering@gmail.com", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "john_leach@apple.com", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(3, 1547L, 1547L, WAYLON, "hering@gmail.com", true, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:\"john_leach@apple.com\""), null, ScanProperties.FORWARD_SCAN));
             } else {
@@ -2406,10 +2401,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "john_leach@apple.com", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(3, 1547L, 1547L, WAYLON, "hering@gmail.com", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "john_leach@apple.com", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(3, 1547L, 1547L, WAYLON, "hering@gmail.com", true, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
-                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:johnleach@apple.com~"), null, ScanProperties.FORWARD_SCAN));
+                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"Vision\" AND complex_text2:jonleach@apple.com~"), null, ScanProperties.FORWARD_SCAN));
 
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -2430,9 +2425,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey1 = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                Tuple primaryKey2 = createSyntheticRecord1(3, 1624L, 1624L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey1 = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey2 = createComplexRecordJoinedToSimple(3, 1624L, 1624L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey1, primaryKey2),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
                 assertTrue(recordStore.deleteRecord(Tuple.from(3, 1624L)));
@@ -2466,7 +2461,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save one record and try and search for it
                 for (int docId = 0; docId < 100; docId++) {
-                    createSyntheticRecord1(100 + docId, docId, docId, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(100 + docId, docId, docId, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                     assertEquals(docId + 1, recordStore.scanIndex(index, fullTextSearch(index, "formulate"), null, ScanProperties.FORWARD_SCAN)
                             .getCount().join());
                 }
@@ -2492,8 +2487,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                primaryKey1 = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                primaryKey1 = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey1),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
@@ -2531,8 +2526,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                primaryKey1 = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                primaryKey1 = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey1),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
@@ -2550,10 +2545,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
-                primaryKey1 = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
+                primaryKey1 = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", true, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey1),
                         recordStore.scanIndex(index, fullTextSearch(index, "Vision"), null, ScanProperties.FORWARD_SCAN));
 
@@ -2580,7 +2575,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 1000; i++) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 String[] randomWords = LuceneIndexTestUtils.generateRandomWords(500);
-                createSyntheticRecord1(2000 + i, i, i, randomWords[1], "", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(2000 + i, i, i, randomWords[1], "", false, System.currentTimeMillis(), 0);
                 if ((i + 1) % 10 == 0) {
                     commit(context);
                     context = openContext();
@@ -2608,14 +2603,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         context.close();
     }
 
-    private static Stream<Arguments> booleanParams() {
+    private static Stream<Arguments> primaryKeySegmentIndexEnabledParams() {
         return LuceneIndexTestUtils.luceneIndexMapParams().flatMap(
                 param -> Stream.of(true, false).map(
-                        param2 -> Arguments.of(param.get()[0], param.get()[1], param2)));
+                        primaryKeySegmentIndexEnabled -> Arguments.of(param.get()[0], param.get()[1], primaryKeySegmentIndexEnabled)));
     }
 
     @ParameterizedTest
-    @MethodSource("booleanParams")
+    @MethodSource("primaryKeySegmentIndexEnabledParams")
     void testSimpleUpdate(Map<String, Index> indexMap, boolean isSynthetic, boolean primaryKeySegmentIndexEnabled) throws IOException {
         final Index index = indexMap.get(primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY : SIMPLE_TEXT_SUFFIXES_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -2629,7 +2624,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     var existenceCheck = i < 5
                                          ? FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS
                                          : FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS;
-                    Tuple primaryKey = createSyntheticRecord1(3000 + i, 1000L + i % 5, 1000L + i % 5, numbersText(i + 1), "", false, System.currentTimeMillis(), 0, existenceCheck);
+                    Tuple primaryKey = createComplexRecordJoinedToSimple(3000 + i, 1000L + i % 5, 1000L + i % 5, numbersText(i + 1), "", false, System.currentTimeMillis(), 0, existenceCheck);
                     primaryKeys.put((Long) ((List) primaryKey.getItems().get(2)).get(0), primaryKey);
                     context.commit();
                 }
@@ -2737,8 +2732,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                primaryKey1 = createSyntheticRecord1(2, 1623L, 1623L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
-                primaryKey2 = createSyntheticRecord1(3, 1624L, 1624L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
+                primaryKey1 = createComplexRecordJoinedToSimple(2, 1623L, 1623L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
+                primaryKey2 = createComplexRecordJoinedToSimple(3, 1624L, 1624L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
@@ -2749,7 +2744,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                primaryKey3 = createSyntheticRecord1(4, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
+                primaryKey3 = createComplexRecordJoinedToSimple(4, 1547L, 1547L, WAYLON, "", false, System.currentTimeMillis(), 0);
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 2));
@@ -2786,7 +2781,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 assertTrue(recordStore.deleteRecord(Tuple.from(1547L)));
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey1, primaryKey2),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:way"), null, ScanProperties.FORWARD_SCAN));
-                primaryKey3 = createSyntheticRecord1(4, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
+                primaryKey3 = createComplexRecordJoinedToSimple(4, 1547L, 1547L, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey1, primaryKey2, primaryKey3),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:Vision"), null, ScanProperties.FORWARD_SCAN));
             } else {
@@ -2845,8 +2840,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext(contextProps)) {
                 if (isSynthetic) {
                     openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                    primaryKeys.add(createSyntheticRecord1(2000 + i, 1000 + i, 1000 + i, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0));
-                    primaryKeys.add(createSyntheticRecord1(2010 + i, 1010 + i, 1010 + i, WAYLON, "", false, System.currentTimeMillis(), 0));
+                    primaryKeys.add(createComplexRecordJoinedToSimple(2000 + i, 1000 + i, 1000 + i, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0));
+                    primaryKeys.add(createComplexRecordJoinedToSimple(2010 + i, 1010 + i, 1010 + i, WAYLON, "", false, System.currentTimeMillis(), 0));
                 } else {
                     rebuildIndexMetaData(context, SIMPLE_DOC, index);
                     primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2)).getPrimaryKey());
@@ -2943,7 +2938,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
-    void checkFieldInfoCountingAfterMerge(Map<String, Index> indexMap, boolean isSynthetic) {
+    void checkFileCountAfterMerge(Map<String, Index> indexMap, boolean isSynthetic) {
         final Index index = indexMap.get(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 3.0)
@@ -2954,8 +2949,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext(contextProps)) {
                 if (isSynthetic) {
                     openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                    createSyntheticRecord1(2000 + i, 1000 + i, 1000 + i, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
-                    createSyntheticRecord1(2010 + i, 1010 + i, 1010 + i, WAYLON, "", false, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2000 + i, 1000 + i, 1000 + i, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2010 + i, 1010 + i, 1010 + i, WAYLON, "", false, System.currentTimeMillis(), 0);
                 } else {
                     rebuildIndexMetaData(context, SIMPLE_DOC, index);
                     recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
@@ -2973,8 +2968,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertTrue(mergeHappened);
     }
 
+    private static Stream<Arguments> autoMergeParams() {
+        return LuceneIndexTestUtils.luceneIndexMapParams().flatMap(
+                param -> Stream.of(true, false).map(
+                        autoMerge -> Arguments.of(param.get()[0], param.get()[1], autoMerge)));
+    }
+
     @ParameterizedTest
-    @MethodSource("booleanParams")
+    @MethodSource("autoMergeParams")
     void testMultipleUpdateSegments(Map<String, Index> indexMap, boolean isSynthetic, boolean autoMerge) {
         final Index index = indexMap.get(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -2984,7 +2985,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 for (int i = 0; i < 20; i++) {
-                    createSyntheticRecord1(1000 + i, i, i, "", "", false, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(1000 + i, i, i, "", "", false, System.currentTimeMillis(), 0);
                 }
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -3009,7 +3010,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(autoMerge);
                 for (int i = 0; i < 10; i++) {
-                    createSyntheticRecord1(2000 + i, i, i, "", "", false, System.currentTimeMillis(), 0);
+                    createComplexRecordJoinedToSimple(2000 + i, i, i, "", "", false, System.currentTimeMillis(), 0);
                 }
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -3050,7 +3051,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                         for (int j = 0; j < 10; j++) {
                             int n = i * 10 + j + 1;
-                            createSyntheticRecord1(1000 * (g + 1) + n, 100 * g + n, 100 * g + n, "", numbersText(n), false, System.currentTimeMillis(), g);
+                            createComplexRecordJoinedToSimple(1000 * (g + 1) + n, 100 * g + n, 100 * g + n, "", numbersText(n), false, System.currentTimeMillis(), g);
                         }
                     } else {
                         rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -3079,8 +3080,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(4000, 49, 49, "", "not here", false, System.currentTimeMillis(), 0);
-                createSyntheticRecord1(4001, 35, 35, "", "nor here either", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(4000, 49, 49, "", "not here", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(4001, 35, 35, "", "nor here either", false, System.currentTimeMillis(), 0);
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(49, "not here", "", 0));
@@ -3132,22 +3133,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                Tuple primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
-                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:hullo simple_text:record simple_text:layer"), null, ScanProperties.FORWARD_SCAN));
-                primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello recor layer", "", false, System.currentTimeMillis(), 0);
+                        recordStore.scanIndex(index, fullTextSearch(index, "hullo record layer"), null, ScanProperties.FORWARD_SCAN));
+                primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello recor layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
-                        recordStore.scanIndex(index, fullTextSearch(index, "simple_text:hullo simple_text:record simple_text:layer"), null, ScanProperties.FORWARD_SCAN));
+                        recordStore.scanIndex(index, fullTextSearch(index, "hullo record layer"), null, ScanProperties.FORWARD_SCAN));
                 // "hullo" is synonym of "hello"
-                primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
+                primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, matchAll("simple_text", "hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN));
                 // it doesn't match due to the "recor"
-                primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
+                primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Collections.emptySet(),
                         recordStore.scanIndex(index, fullTextSearch(index, matchAll("simple_text", "hullo", "recor", "layer")), null, ScanProperties.FORWARD_SCAN));
                 // "hullo" is synonym of "hello", and "show" is synonym of "record"
-                primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
+                primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, matchAll("simple_text", "hullo", "show", "layer")), null, ScanProperties.FORWARD_SCAN));
             } else {
@@ -3181,14 +3182,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
-                assertEquals(1, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:hullo simple_text:record simple_text:layer"), null, ScanProperties.FORWARD_SCAN)
+                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
+                assertEquals(1, recordStore.scanIndex(index, fullTextSearch(index, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
                         .getCount().join());
-                createSyntheticRecord1(1, 1623L, 1623L, "Hello recor layer", "", false, System.currentTimeMillis(), 0);
-                assertEquals(1, recordStore.scanIndex(index, fullTextSearch(index, "simple_text:hullo simple_text:record simple_text:layer"), null, ScanProperties.FORWARD_SCAN)
+                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello recor layer", "", false, System.currentTimeMillis(), 0);
+                assertEquals(1, recordStore.scanIndex(index, fullTextSearch(index, "hullo record layer"), null, ScanProperties.FORWARD_SCAN)
                         .getCount().join());
                 // "hullo" is synonym of "hello"
-                createSyntheticRecord1(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello record layer", "", false, System.currentTimeMillis(), 0);
                 assertEquals(1, recordStore.scanIndex(index,
                                 fullTextSearch(index, matchAll("simple_text", "hullo", "record", "layer")), null, ScanProperties.FORWARD_SCAN)
                         .getCount().join());
@@ -3237,7 +3238,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save a document to verify synonym search based on the group {'motivation','motive','need'}
-                Tuple primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "I think you need to search with Lucene index", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "I think you need to search with Lucene index", "", false, System.currentTimeMillis(), 0);
                 // Search for original phrase
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"you need to\""), null, ScanProperties.FORWARD_SCAN));
@@ -3264,7 +3265,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 // Save a document to verify synonym search based on the group {'departure','going','going away','leaving'}
                 // This group contains multi-word term "going away", and also the single-word term "going"
-                primaryKey = createSyntheticRecord1(2, 1624L, 1624L, "He is leaving for New York next week", "", false, System.currentTimeMillis(), 0);
+                primaryKey = createComplexRecordJoinedToSimple(2, 1624L, 1624L, "He is leaving for New York next week", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"is departure for\""), null, ScanProperties.FORWARD_SCAN));
 
@@ -3336,7 +3337,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save a document to verify synonym search based on the group {'motivation','motive','need'}
-                Tuple primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "I think you need to search with Lucene index", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "I think you need to search with Lucene index", "", false, System.currentTimeMillis(), 0);
                 // Search for original phrase
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"you need to\""), null, ScanProperties.FORWARD_SCAN));
@@ -3363,7 +3364,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 // Save a document to verify synonym search based on the group {'departure','going','going away','leaving'}
                 // This group contains multi-word term "going away", and also the single-word term "going"
-                primaryKey = createSyntheticRecord1(2, 1624L, 1624L, "He is leaving for New York next week", "", false, System.currentTimeMillis(), 0);
+                primaryKey = createComplexRecordJoinedToSimple(2, 1624L, 1624L, "He is leaving for New York next week", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"is departure for\""), null, ScanProperties.FORWARD_SCAN));
 
@@ -3476,7 +3477,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index1, index2));
-                Tuple primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "synonym is fun", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "synonym is fun", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Collections.emptySet(),
                         recordStore.scanIndex(index1, fullTextSearch(index1, matchAll("simple_text", "nonsynonym", "is", "fun")), null, ScanProperties.FORWARD_SCAN));
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
@@ -3504,7 +3505,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Both "hello" and "record" have multi-word synonyms
-                Tuple primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello FoundationDB record layer", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello FoundationDB record layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, "simple_text:\"hello record\"~10"), null, ScanProperties.FORWARD_SCAN));
 
@@ -3527,7 +3528,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Both "hello" and "record" have multi-word synonyms
-                Tuple primaryKey = createSyntheticRecord1(1, 1623L, 1623L, "Hello FoundationDB record layer", "", false, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello FoundationDB record layer", "", false, System.currentTimeMillis(), 0);
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, specificFieldSearch(index, "simple_text:\"hello record\"~10", "text"), null, ScanProperties.FORWARD_SCAN));
             } else {
@@ -3618,14 +3619,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(1, 1623L, 1623L, "Good morning", "", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(2, 1624L, 1624L, "Good afternoon", "", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(3, 1625L, 1625L, "good evening", "", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(4, 1626L, 1626L, "Good night", "", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(5, 1627L, 1627L, "", "That's really good!", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(6, 1628L, 1628L, "Good day", "I'm good", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(7, 1629L, 1629L, "", "Hello Record Layer", false, System.currentTimeMillis(), 1);
-                createSyntheticRecord1(8, 1630L, 1630L, "", "Hello FoundationDB!", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Good morning", "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(2, 1624L, 1624L, "Good afternoon", "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(3, 1625L, 1625L, "good evening", "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(4, 1626L, 1626L, "Good night", "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(5, 1627L, 1627L, "", "That's really good!", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(6, 1628L, 1628L, "Good day", "I'm good", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(7, 1629L, 1629L, "", "Hello Record Layer", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(8, 1630L, 1630L, "", "Hello FoundationDB!", false, System.currentTimeMillis(), 1);
             } else {
                 openRecordStore(context, metaDataBuilder -> {
                     metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
@@ -3771,7 +3772,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord3(metaDataBuilder, index));
-                createSyntheticRecord3(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToMap(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", true, System.currentTimeMillis(), 0);
             } else {
                 openRecordStore(context, metaDataBuilder -> {
                     metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
@@ -3834,7 +3835,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord3(metaDataBuilder, index));
-                createSyntheticRecord3(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToMap(2, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", true, System.currentTimeMillis(), 0);
             } else {
                 openRecordStore(context, metaDataBuilder -> {
                     metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
@@ -4017,7 +4018,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(2, 1597L, 1597L,
+                createComplexRecordJoinedToSimple(2, 1597L, 1597L,
                         "Good night! Good night! Parting is such sweet sorrow",
                         "That I shall say good night till it be morrow",
                         true, System.currentTimeMillis(), 0);
@@ -4097,7 +4098,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 long docId = 1623L;
                 int i = 1;
                 for (String word : spellcheckWords) {
-                    createSyntheticRecord1(i++, docId, docId++, word, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i++, docId, docId++, word, "", false, System.currentTimeMillis(), 1);
                 }
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -4141,9 +4142,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             RecordType recordType;
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord3(metaDataBuilder, index));
-                createSyntheticRecord3(1, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", true, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToMap(1, 1623L, 1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", true, System.currentTimeMillis(), 1);
                 recordType = recordStore.getRecordMetaData()
-                        .getSyntheticRecordType("luceneSynthetic3");
+                        .getSyntheticRecordType("luceneSyntheticComplexJoinedToMap");
             } else {
                 openRecordStore(context, metaDataBuilder -> {
                     metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
@@ -4206,7 +4207,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 long docId = 1623L;
                 int i = 1;
                 for (String word : spellcheckWords) {
-                    createSyntheticRecord1(i++, docId, docId++, word, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i++, docId, docId++, word, "", false, System.currentTimeMillis(), 1);
                 }
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -4248,7 +4249,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 long docId = 1623L;
                 for (int i = 0; i < textList.size(); ++i) {
-                    createSyntheticRecord1(i, docId, docId++, textList.get(i), text2List.get(i), false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, docId, docId++, textList.get(i), text2List.get(i), false, System.currentTimeMillis(), 1);
                 }
             } else {
                 rebuildIndexMetaData(context, COMPLEX_DOC, index);
@@ -4290,7 +4291,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             // Same score but different frequency, priority to the more frequent item
             spellCheckHelper(index, "foml", List.of(
-                    Pair.of("fowl", isSynthetic ? text2 : text),
                     Pair.of("fool", text2),
                     Pair.of("foot", text)));
             // Same, but this time, getRight() should be text2 because tire was more frequent in text2 than text
@@ -4319,7 +4319,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     metaDataBuilder.getRecordType(SIMPLE_DOC)
                             .setPrimaryKey(concat(recordType(), field("text")));
                 });
-                primaryKey = createSyntheticRecord1(1, 1066L, 1066L, "foo bar", "bar foo", false, System.currentTimeMillis(), 1, null, "text");
+                primaryKey = createComplexRecordJoinedToSimple(1, 1066L, 1066L, "foo bar", "bar foo", false, System.currentTimeMillis(), 1, null);
             } else {
                 openRecordStore(context, metaDataBuilder -> {
                     TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
@@ -4378,18 +4378,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             };
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
-                TestRecordsTextProto.SimpleDocument sd = createSimpleDocument(1623, TextSamples.ROMEO_AND_JULIET_PROLOGUE, 0);
+                TestRecordsTextProto.SimpleDocument simpleDocument = createSimpleDocument(1623, TextSamples.ROMEO_AND_JULIET_PROLOGUE, 0);
                 recordStore.getRecordMetaData()
-                        .getSyntheticRecordType("luceneSynthetic1")
+                        .getSyntheticRecordType("luceneSyntheticComplexJoinedToSimple")
                         .getRecordTypeKeyTuple();
-                recordStore.saveRecord(sd);
+                recordStore.saveRecord(simpleDocument);
                 recordStore.saveRecord(zeroGroupDoc);
 
-                sd = createSimpleDocument(1624, TextSamples.ROMEO_AND_JULIET_PROLOGUE, 1);
+                simpleDocument = createSimpleDocument(1624, TextSamples.ROMEO_AND_JULIET_PROLOGUE, 1);
                 recordStore.getRecordMetaData()
-                        .getSyntheticRecordType("luceneSynthetic1")
+                        .getSyntheticRecordType("luceneSyntheticComplexJoinedToSimple")
                         .getRecordTypeKeyTuple();
-                recordStore.saveRecord(sd);
+                recordStore.saveRecord(simpleDocument);
                 recordStore.saveRecord(oneGroupDoc);
 
                 commit(context);
@@ -4416,7 +4416,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             RecordQuery recordQuery =
                     isSynthetic ?
                     RecordQuery.newBuilder()
-                    .setRecordType("luceneSynthetic1")
+                    .setRecordType("luceneSyntheticComplexJoinedToSimple")
                     .setFilter(Query.and(
                             Query.field("complex").matches(Query.field("score").equalsParameter("group_value")),
                             new LuceneQueryComponent("simple_text:\"continuance\" AND complex_text2:\"named\"", List.of("simple_text", "complex_text2"))
@@ -4467,8 +4467,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             .join());
 
             if (isSynthetic) {
-                // TODO: come back to this
-                // Issue a delete where to delete the zero group
+                // deleteWhere does not work for synthetic records currently
                 assertThrows(Query.InvalidExpressionException.class,
                         () -> recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("score").equalsValue(zeroGroupDoc.getScore())));
                 return;
@@ -4514,7 +4513,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 for (long docId = 0L; docId < 10L; docId++) {
                     if (isSynthetic) {
                         int newId = group + (int) docId;
-                        createSyntheticRecord1(newId, newId, newId,
+                        createComplexRecordJoinedToSimple(newId, newId, newId,
                                 TextSamples.TELUGU, String.format("hello there %d", group), false, System.currentTimeMillis(), group);
                     } else {
                         ComplexDocument doc = ComplexDocument.newBuilder()
@@ -4549,34 +4548,31 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                 .asList().get();
                 assertThat(results, hasSize(10));
                 int docId = 0;
-                if (isSynthetic) {
-                    for (FDBQueriedRecord<?> result : results) {
-                        Message record = result.getRecord();
-                        if (isSynthetic) {
-                            record = (DynamicMessage)record.getField(record.getDescriptorForType().findFieldByName("complex"));
-                        }
-                        final Descriptors.Descriptor descriptor = record.getDescriptorForType();
-                        final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName(isSynthetic ? "text2" : "text");
-                        assertTrue(record.hasField(textFieldDescriptor));
-                        final String textField = (String)record.getField(textFieldDescriptor);
-                        assertEquals(String.format("hello there %d", group), textField);
-
-                        final IndexEntry entry = result.getIndexEntry();
-                        Assertions.assertNotNull(entry);
-                        Tuple primaryKey = entry.getPrimaryKey();
-                        // The 1st element is the key for the record type
-                        assertEquals(group, isSynthetic ? ((ArrayList)primaryKey.get(1)).get(1) : primaryKey.get(1));
-                        assertEquals(isSynthetic ? group + docId : docId, isSynthetic ? ((ArrayList)primaryKey.get(1)).get(2) : primaryKey.get(2));
-                        docId++;
+                for (FDBQueriedRecord<?> result : results) {
+                    Message record = result.getRecord();
+                    if (isSynthetic) {
+                        record = (DynamicMessage)record.getField(record.getDescriptorForType().findFieldByName("complex"));
                     }
+                    final Descriptors.Descriptor descriptor = record.getDescriptorForType();
+                    final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName(isSynthetic ? "text2" : "text");
+                    assertTrue(record.hasField(textFieldDescriptor));
+                    final String textField = (String)record.getField(textFieldDescriptor);
+                    assertEquals(String.format("hello there %d", group), textField);
+
+                    final IndexEntry entry = result.getIndexEntry();
+                    Assertions.assertNotNull(entry);
+                    Tuple primaryKey = entry.getPrimaryKey();
+                    // The 1st element is the key for the record type
+                    assertEquals(group, isSynthetic ? ((ArrayList)primaryKey.get(1)).get(1) : primaryKey.get(1));
+                    assertEquals(isSynthetic ? group + docId : docId, isSynthetic ? ((ArrayList)primaryKey.get(1)).get(2) : primaryKey.get(2));
+                    docId++;
                 }
             }
 
             final int groupToDelete = maxGroup / 2;
 
             if (isSynthetic) {
-                // TODO: come back to this
-                // Issue a delete where to delete the zero group
+                // delete where currently does not work with synthetic record
                 assertThrows(Query.InvalidExpressionException.class,
                         () -> recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("score").equalsValue(groupToDelete)));
                 return;
@@ -4648,7 +4644,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                createSyntheticRecord1(1, 1623L, 1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "Hello, I am working on record layer", "Hello, I am working on FoundationDB", false, System.currentTimeMillis(), 1);
                 // text field has auto-complete enabled, so the auto-complete query for "record layer" should have match
                 assertIndexEntryPrimaryKeyTuples(Set.of(Tuple.from(-1, Tuple.from(1L, 1623L), Tuple.from(1623))),
                         recordStore.scanIndex(index, autoCompleteBounds(index, "record layer", ImmutableSet.of("simple_text")), null, ScanProperties.FORWARD_SCAN));
@@ -4670,9 +4666,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Synonym analyzer is chosen due to the keyword "synonym" from the text
-                createSyntheticRecord1(1, 1623L, 1623L, "synonym food", "", false, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1623L, 1623L, "synonym food", "", false, System.currentTimeMillis(), 0);
                 // Ngram analyzer is chosen due to no keyword "synonym" from the text
-                createSyntheticRecord1(2, 1624L, 1624L, "ngram motivation", "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(2, 1624L, 1624L, "ngram motivation", "", false, System.currentTimeMillis(), 1);
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Synonym analyzer is chosen due to the keyword "synonym" from the text
@@ -4700,8 +4696,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 20 records
                 for (int i = 0; i < 20; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 20 records
@@ -4713,7 +4710,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             List<IndexEntry> entries = indexEntries.asList().join();
             assertEquals(20, entries.size());
-            assertEquals(isSynthetic ? 440 : 20, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(20, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
         }
     }
 
@@ -4729,8 +4726,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 20 records
                 for (int i = 0; i < 20; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 20 records
@@ -4746,7 +4744,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             List<IndexEntry> entries = indexEntries.asList().join();
             assertEquals(20, entries.size());
-            assertEquals(isSynthetic ? 440 : 20, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(20, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
         }
     }
@@ -4763,8 +4761,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 21 records
                 for (int i = 0; i < 21; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 21 records
@@ -4780,7 +4779,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             List<IndexEntry> entries = indexEntries.asList().join();
             assertEquals(21, entries.size());
-            assertEquals(isSynthetic ? 483 : 21, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(21, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
         }
     }
@@ -4797,8 +4796,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 31 records
                 for (int i = 0; i < 31; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 31 records
@@ -4815,7 +4815,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
             List<IndexEntry> entries = indexEntries.asList().join();
             assertEquals(19, entries.size());
-            assertEquals(isSynthetic ? 1011 : 19, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(19, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
         }
     }
@@ -4832,8 +4832,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 21 records
                 for (int i = 0; i < 21; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 21 records
@@ -4852,7 +4853,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Get 8 results and continuation
             List<IndexEntry> entries = indexEntries.asList().join();
             assertEquals(8, entries.size());
-            assertEquals(isSynthetic ? 470 : 8, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(8, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             RecordCursorResult<IndexEntry> lastResult = indexEntries.onNext().get();
             assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
 
@@ -4861,7 +4862,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Get 8 results and continuation
             entries = indexEntries.asList().join();
             assertEquals(8, entries.size());
-            assertEquals(isSynthetic ? 478 : 16, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(16, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             lastResult = indexEntries.onNext().get();
             assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
 
@@ -4870,7 +4871,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Get 3 results
             entries = indexEntries.asList().join();
             assertEquals(5, entries.size());
-            assertEquals(isSynthetic ? 483 : 21, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(21, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
         }
     }
@@ -4887,8 +4888,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 21 records
                 for (int i = 0; i < 21; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 21 records
@@ -4908,7 +4910,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Get 8 results and continuation
             List<IndexEntry> entries = indexEntries.asList().join();
             assertEquals(8, entries.size());
-            assertEquals(isSynthetic ? 470 : 8, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(8, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             RecordCursorResult<IndexEntry> lastResult = indexEntries.onNext().get();
             assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
 
@@ -4922,7 +4924,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Get 8 results and continuation
             entries = indexEntries.asList().join();
             assertEquals(8, entries.size());
-            assertEquals(isSynthetic ? 478 : 16, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(16, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             lastResult = indexEntries.onNext().get();
             assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
 
@@ -4931,7 +4933,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // Get 3 results
             entries = indexEntries.asList().join();
             assertEquals(3, entries.size());
-            assertEquals(isSynthetic ? 481 : 19, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+            assertEquals(19, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, indexEntries.onNext().get().getNoNextReason());
         }
     }
@@ -4948,8 +4950,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
                 // Save 6 records
                 for (int i = 0; i < 6; i++) {
-                    createSyntheticRecord1(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1600L + i, 1600L + i, "testing text" + i, "", false, System.currentTimeMillis(), 1);
                 }
+                timer.reset();
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 // Save 6 records
@@ -4968,16 +4971,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             RecordCursorResult<IndexEntry> next = indexEntries.onNext().get();
             assertFalse(next.hasNext());
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, next.getNoNextReason());
-            if (isSynthetic) {
-                assertEquals(42, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
-            } else {
-                assertNull(Verify.verifyNotNull(context.getTimer()).getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY));
-            }
+            assertNull(Verify.verifyNotNull(context.getTimer()).getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY));
         }
     }
 
     @ParameterizedTest
-    @MethodSource("booleanParams")
+    @MethodSource("primaryKeySegmentIndexEnabledParams")
     void manySegmentsParallelOpen(Map<String, Index> indexMap, boolean isSynthetic, boolean primaryKeySegmentIndexEnabled) {
         final Index index = indexMap.get(primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY : SIMPLE_TEXT_SUFFIXES_KEY);
         for (int i = 0; i < 20; i++) {
@@ -4986,7 +4985,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext(insertProps)) {
                 if (isSynthetic) {
                     openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
-                    createSyntheticRecord1(i, 1000L + i, 1000L + i, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
+                    createComplexRecordJoinedToSimple(i, 1000L + i, 1000L + i, ENGINEER_JOKE, "", false, System.currentTimeMillis(), 1);
                 } else {
                     rebuildIndexMetaData(context, SIMPLE_DOC, index);
                     recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
@@ -5166,7 +5165,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         if (isSynthetic) {
             openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecord1(metaDataBuilder, index));
             for (int i = 0; i < autoCompletes.size(); i++) {
-                createSyntheticRecord1(1 + i, 1623L + i, 1623L + i, autoCompletes.get(i), "", false, System.currentTimeMillis(), 1);
+                createComplexRecordJoinedToSimple(1 + i, 1623L + i, 1623L + i, autoCompletes.get(i), "", false, System.currentTimeMillis(), 1);
             }
         } else {
             openRecordStore(context, metaDataBuilder -> {
