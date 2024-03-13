@@ -21,15 +21,12 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
-import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.util.Accountable;
-import org.apache.lucene.util.Bits;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -80,6 +77,7 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
         final int docCount = inner.merge(mergeState);
 
         final int segmentCount = mergeState.storedFieldsReaders.length;
+        /* TODO implement merge
         final LucenePrimaryKeySegmentIndexV2.PrimaryKeyVisitor visitor = new LucenePrimaryKeySegmentIndexV2.PrimaryKeyVisitor();
         for (int i = 0; i < segmentCount; i++) {
             final StoredFieldsReader storedFieldsReader = mergeState.storedFieldsReaders[i];
@@ -105,6 +103,7 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
                 }
             }
         }
+        */
 
         directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
         directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
