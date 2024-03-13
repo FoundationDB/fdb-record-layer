@@ -33,23 +33,17 @@ import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.StandardDirectoryReader;
 import org.apache.lucene.index.StoredFieldVisitor;
-import org.apache.lucene.util.Accountable;
-import org.apache.lucene.util.Bits;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -217,99 +211,7 @@ public class LucenePrimaryKeySegmentIndexV2 {
     @Nonnull
     public StoredFieldsWriter wrapFieldsWriter(@Nonnull StoredFieldsWriter storedFieldsWriter, @Nonnull SegmentInfo si) throws IOException {
         final long segmentId = directory.primaryKeySegmentId(si.name, true);
-        return new WrappedFieldsWriter(storedFieldsWriter, segmentId);
-    }
-
-    class WrappedFieldsWriter extends StoredFieldsWriter {
-        @Nonnull
-        private final StoredFieldsWriter inner;
-        @Nonnull
-        private final long segmentId;
-
-        private int documentId;
-
-        WrappedFieldsWriter(@Nonnull StoredFieldsWriter inner, long segmentId) {
-            this.inner = inner;
-            this.segmentId = segmentId;
-        }
-
-        @Override
-        public void startDocument() throws IOException {
-            inner.startDocument();
-        }
-
-        @Override
-        public void finishDocument() throws IOException {
-            inner.finishDocument();
-            documentId++;
-        }
-
-        @Override
-        public void writeField(FieldInfo info, IndexableField field) throws IOException {
-            inner.writeField(info, field);
-            if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
-                final byte[] primaryKey = field.binaryValue().bytes;
-                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true);
-            }
-        }
-
-        @Override
-        @SuppressWarnings("PMD.CloseResource")
-        public int merge(MergeState mergeState) throws IOException {
-            final int docCount = inner.merge(mergeState);
-
-            final int segmentCount = mergeState.storedFieldsReaders.length;
-            final PrimaryKeyVisitor visitor = new PrimaryKeyVisitor();
-            for (int i = 0; i < segmentCount; i++) {
-                final StoredFieldsReader storedFieldsReader = mergeState.storedFieldsReaders[i];
-                final SegmentInfo mergedSegmentInfo = ((StoredFieldsReaderSegmentInfo)storedFieldsReader).getSegmentInfo();
-                final long mergedSegmentId = directory.primaryKeySegmentId(mergedSegmentInfo.name, false);
-                final Bits liveDocs = mergeState.liveDocs[i];
-                final MergeState.DocMap docMap = mergeState.docMaps[i];
-                final int maxDoc = mergeState.maxDocs[i];
-                for (int j = 0; j < maxDoc; j++) {
-                    storedFieldsReader.visitDocument(j, visitor);
-                    final byte[] primaryKey = visitor.getPrimaryKey();
-                    if (primaryKey != null) {
-                        if (liveDocs == null || liveDocs.get(j)) {
-                            int docId = docMap.get(j);
-                            if (docId >= 0) {
-                                addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true);
-                            }
-                        }
-                        // Deleting the index entry at worst triggers a fallback to search.
-                        // Ordinarily, though, transaction isolation means that the entry is there along with the pre-merge segment.
-                        addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false);
-                        visitor.reset();
-                    }
-                }
-            }
-
-            directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
-            directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
-
-            return docCount;
-        }
-
-        @Override
-        public void finish(FieldInfos fis, int numDocs) throws IOException {
-            inner.finish(fis, numDocs);
-        }
-
-        @Override
-        public void close() throws IOException {
-            inner.close();
-        }
-
-        @Override
-        public long ramBytesUsed() {
-            return inner.ramBytesUsed();
-        }
-
-        @Override
-        public Collection<Accountable> getChildResources() {
-            return inner.getChildResources();
-        }
+        return new PrimaryKeyAndStoredFieldsWriter(this, storedFieldsWriter, segmentId);
     }
 
     void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {
