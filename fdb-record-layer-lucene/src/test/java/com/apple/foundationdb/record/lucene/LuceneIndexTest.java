@@ -3188,6 +3188,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             if (isSynthetic) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 createComplexRecordJoinedToSimple(4000, 49, 49, "", "not here", false, System.currentTimeMillis(), 0);
                 createComplexRecordJoinedToSimple(4001, 35, 35, "", "nor here either", false, System.currentTimeMillis(), 0);
             } else {
