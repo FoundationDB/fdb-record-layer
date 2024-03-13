@@ -151,6 +151,7 @@ tasks.withType(Test) { theTask ->
     afterTest { descriptor, result ->
         def duration = result.endTime - result.startTime
         println "${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
+        println()
     }
     reports {
         junitXml.outputPerTestCase = true
