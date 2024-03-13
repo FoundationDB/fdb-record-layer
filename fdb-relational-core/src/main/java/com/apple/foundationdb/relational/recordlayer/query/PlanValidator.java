@@ -20,15 +20,18 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
@@ -38,20 +41,31 @@ public final class PlanValidator {
     private PlanValidator() {
     }
 
-    public static void validate(@Nonnull RecordQueryPlan plan, @Nonnull QueryExecutionParameters context,
-                                @Nonnull List<PlanHashable.PlanHashMode> validPlanHashModes) throws RelationalException {
+    public static void validate(@Nonnull final MetricCollector metricCollector, @Nonnull final RecordQueryPlan plan,
+                                @Nonnull final QueryExecutionParameters context,
+                                @Nonnull final PlanHashMode currentPlanHashMode,
+                                @Nonnull final List<PlanHashMode> validPlanHashModes) throws RelationalException {
         try {
             // TODO: Parsing the continuation here is a bit of a waste as it also being parsed elsewhere
             ContinuationImpl continuation = ContinuationImpl.parseContinuation(context.getContinuation());
             if (!validateBindingHash(context, continuation)) {
+                metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                 throw new PlanValidationException("Continuation binding does not match query");
             }
-            if (!validatePlanHash(plan, continuation, validPlanHashModes)) {
+            final var resolvedPlanHashMode =
+                    resolveValidPlanHashMode(plan, continuation, currentPlanHashMode, validPlanHashModes);
+            if (resolvedPlanHashMode == null) {
+                metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                 throw new PlanValidationException("Continuation plan does not match query");
             }
+            if (resolvedPlanHashMode != currentPlanHashMode) {
+                metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL);
+            }
         } catch (InvalidProtocolBufferException e) {
+            metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
             throw new RelationalException("Continuation cannot be parsed", ErrorCode.INVALID_CONTINUATION, e);
         }
+        metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED);
     }
 
     private static boolean validateBindingHash(QueryExecutionParameters parameters, ContinuationImpl continuation) {
@@ -63,19 +77,33 @@ public final class PlanValidator {
         }
     }
 
-    private static boolean validatePlanHash(RecordQueryPlan plan, ContinuationImpl continuation,
-                                            @Nonnull List<PlanHashable.PlanHashMode> validPlanHashModes) {
+    /**
+     * Attempts to resolve the correct {@link PlanHashMode} that corresponds to the {@link RecordQueryPlan}
+     * passed in given the continuation presented by the client.
+     * @param plan the {@link RecordQueryPlan}
+     * @param continuation this continuation
+     * @param currentPlanHashMode the current plan hash mode
+     * @param validPlanHashModes all valid plan hash modes accepted by the system. This must include
+     *        {@code currentPLanHashMode}
+     * @return the plan hash mode whose plan hash of the plan matches the plan hash contained in the continuation
+     *         match; {@code null} if no such valid plan hash mode could be resolved.
+     */
+    @Nullable
+    private static PlanHashMode resolveValidPlanHashMode(@Nonnull final RecordQueryPlan plan,
+                                                         @Nonnull final ContinuationImpl continuation,
+                                                         @Nonnull final PlanHashMode currentPlanHashMode,
+                                                         @Nonnull final List<PlanHashMode> validPlanHashModes) {
         if (continuation.atBeginning()) {
             // No continuation provided - nothing to validate against
-            return true;
+            return currentPlanHashMode;
         } else {
             // loop through the valid modes assuming that the most likely mode comes first
             for (final var validPlanHashMode : validPlanHashModes) {
                 if (Objects.equals(plan.planHash(validPlanHashMode), continuation.getPlanHash())) {
-                    return true;
+                    return validPlanHashMode;
                 }
             }
-            return false;
+            return null;
         }
     }
 

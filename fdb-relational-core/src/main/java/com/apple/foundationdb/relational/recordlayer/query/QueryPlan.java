@@ -94,6 +94,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final RecordQueryPlan recordQueryPlan;
 
+        @Nonnull
+        private final PlanHashable.PlanHashMode currentPlanHashMode;
+
         private final Supplier<Integer> recordQueryPlanHashSupplier;
 
         @Nonnull
@@ -116,6 +119,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.queryExecutionParameters = queryExecutionParameters;
+            this.currentPlanHashMode = currentPlanHashMode;
             this.recordQueryPlanHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(currentPlanHashMode));
         }
 
@@ -194,7 +198,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 } else {
                     final var validPlanHashModes = getValidPlanHashModes(executionContext.getOptions());
 
-                    PlanValidator.validate(recordQueryPlan, queryExecutionParameters, validPlanHashModes);
+                    PlanValidator.validate(executionContext.metricCollector, recordQueryPlan,
+                            queryExecutionParameters, currentPlanHashMode, validPlanHashModes);
                     return executePhysicalPlan(recordLayerSchema,
                             typedEvaluationContext,
                             executionContext);

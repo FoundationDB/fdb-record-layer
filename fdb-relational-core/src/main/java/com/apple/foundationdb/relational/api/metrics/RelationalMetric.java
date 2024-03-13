@@ -98,6 +98,9 @@ public class RelationalMetric {
         PLAN_CACHE_SECONDARY_MISS("secondary cache miss", false),
         PLAN_CACHE_TERTIARY_MISS("tertiary cache miss", false),
         PLAN_CACHE_TERTIARY_HIT("cache hit", false),
+        CONTINUATION_ACCEPTED("continuation accepted", false),
+        CONTINUATION_REJECTED("continuation rejected", false),
+        CONTINUATION_DOWN_LEVEL("continuation accepted from down-level plan serialization mode", false)
         ;
 
         private final String title;

@@ -208,7 +208,7 @@ public final class PlanGenerator {
                                                 @Nonnull final CascadesPlanner planner,
                                                 final boolean caseSensitive,
                                                 @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
-        // todo (yhatem) rewrite this.
+        // todo (yhatem) rewrite this
         final var context = PlanGenerationContext.newBuilder()
                 .setMetadataFactory(planContext.getConstantActionFactory())
                 .setPreparedStatementParameters(planContext.getPreparedStatementParameters())

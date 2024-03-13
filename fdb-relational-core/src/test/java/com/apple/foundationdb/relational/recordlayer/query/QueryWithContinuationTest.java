@@ -28,8 +28,10 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
@@ -43,6 +45,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Base64;
+import java.util.Objects;
 
 public class QueryWithContinuationTest {
 
@@ -365,12 +368,19 @@ public class QueryWithContinuationTest {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, false);
+
+                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection)connection;
+                        final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
+                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isFalse();
                     }
                 }
             }
 
             try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
-                connection.setOption(Options.Name.VALID_PLAN_HASH_MODES, PlanHashable.PlanHashMode.VL0.name());
+                connection.setOption(Options.Name.VALID_PLAN_HASH_MODES,
+                        PlanHashable.PlanHashMode.VL0.name() + "," + PlanHashable.PlanHashMode.VC0.name());
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
                 try (RelationalStatement statement = connection.createStatement()) {
                     String continuationString = Base64.getEncoder().encodeToString(continuation.serialize());
@@ -381,6 +391,13 @@ public class QueryWithContinuationTest {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, false);
+
+                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection)connection;
+                        final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
+                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isTrue();
+                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isEqualTo(1L);
                     }
                 }
             }
@@ -396,6 +413,12 @@ public class QueryWithContinuationTest {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, true);
+
+                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection)connection;
+                        final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
+                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isFalse();
                     }
                 }
             }
