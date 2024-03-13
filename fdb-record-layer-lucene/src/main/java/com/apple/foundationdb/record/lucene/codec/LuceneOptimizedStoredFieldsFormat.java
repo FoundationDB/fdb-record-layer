@@ -54,7 +54,7 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     public StoredFieldsReader fieldsReader(final Directory directory, final SegmentInfo si, final FieldInfos fn, final IOContext context) throws IOException {
         FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(directory);
 
-        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+        if (fdbDirectory.usesOptimizedStoredFields()) {
             return new LuceneOptimizedStoredFieldsReader(fdbDirectory, si, fn);
         } else {
             return new LazyStoredFieldsReader(directory, si, fn, context,
@@ -70,7 +70,12 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
         StoredFieldsWriter storedFieldsWriter;
 
         // Use FALSE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option, for backwards compatibility
-        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+        if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false)) {
+            // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
+            directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
+                    .close();
+            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
+        } else if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
             // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
             directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
                     .close();

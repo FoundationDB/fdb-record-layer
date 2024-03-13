@@ -687,7 +687,7 @@ public class FDBDirectory extends Directory  {
         if (deferDeleteToCompoundFile) {
             if (isCompoundFile(name)) {
                 // delete all K/V content, only if the optimized stored fields format is in use
-                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+                if (usesOptimizedStoredFields()) {
                     deleteStoredFields(segmentName);
                 }
             }
@@ -698,6 +698,11 @@ public class FDBDirectory extends Directory  {
             }
         }
         return true;
+    }
+
+    public boolean usesOptimizedStoredFields() {
+        return getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)
+                || getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false);
     }
 
     /**
@@ -963,16 +968,25 @@ public class FDBDirectory extends Directory  {
      */
     @Nullable
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        if (!getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
+        if (getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
+            synchronized (this) {
+                if (primaryKeySegmentIndex == null) {
+                    final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+                }
+            }
+            return primaryKeySegmentIndex;
+        } else if (getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false)) {
+            synchronized (this) {
+                if (primaryKeySegmentIndex == null) {
+                    final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+                }
+            }
+            return primaryKeySegmentIndex;
+        } else {
             return null;
         }
-        synchronized (this) {
-            if (primaryKeySegmentIndex == null) {
-                final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
-                primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
-            }
-        }
-        return primaryKeySegmentIndex;
     }
 
     // Map segment name to integer id.
