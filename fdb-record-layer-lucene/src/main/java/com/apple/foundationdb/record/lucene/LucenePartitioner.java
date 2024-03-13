@@ -794,7 +794,6 @@ public class LucenePartitioner {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug(repartitionLogMessage("Repartitoned records", groupingKey, records.size(), partitionInfo));
                 }
-
                 // value of the "destination" partition's `from` value
                 final Tuple overflowPartitioningKey = toPartitionKey(records.get(0));
                 return findPartitionInfo(groupingKey, overflowPartitioningKey).thenCompose(previousPartition -> {
@@ -945,7 +944,7 @@ public class LucenePartitioner {
      * @return true if key is "newer" than partitionInfo
      */
     public static boolean isNewerThan(@Nonnull final Tuple key, @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
-        return key.compareTo(Tuple.fromBytes(partitionInfo.getFrom().toByteArray())) > 0;
+        return key.compareTo(Tuple.fromBytes(partitionInfo.getTo().toByteArray())) > 0;
     }
 
     /**
