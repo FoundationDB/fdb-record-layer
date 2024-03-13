@@ -434,13 +434,16 @@ public class FDBDirectory extends Directory  {
      * Delete stored fields data from the DB.
      * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
      */
-    public void deleteStoredFields(@Nonnull final String segmentName) {
-        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
+    public void deleteStoredFields(@Nonnull final String segmentName) throws IOException {
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
                     LuceneLogMessageKeys.RESOURCE, segmentName));
         }
+        if (primaryKeySegmentIndex != null) {
+            primaryKeySegmentIndex.clearForSegment(segmentName);
+        }
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
         agilityContext.clear(Range.startsWith(key));
     }
 
@@ -516,6 +519,20 @@ public class FDBDirectory extends Directory  {
                     .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
         }
         return rawBytes;
+    }
+
+    @Nonnull
+    public List<KeyValue> readAllStoredFields(String segmentName) {
+        final Range range = storedFieldsSubspace.range(Tuple.from(segmentName));
+        final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
+                agilityContext.getRange(range.begin, range.end));
+        if (list == null) {
+            throw new RecordCoreStorageException("Could not find stored fields")
+                    .addLogInfo(LuceneLogMessageKeys.SEGMENT, segmentName)
+                    .addLogInfo(LogMessageKeys.RANGE_START, ByteArrayUtil2.loggable(range.begin))
+                    .addLogInfo(LogMessageKeys.RANGE_END, ByteArrayUtil2.loggable(range.end));
+        }
+        return list;
     }
 
     /**
@@ -670,6 +687,7 @@ public class FDBDirectory extends Directory  {
     }
 
     private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
+        // TODO make this transactional or ensure that it is deleted in the right order
         FDBLuceneFileReference value = cache.remove(name);
         if (value == null) {
             return false;

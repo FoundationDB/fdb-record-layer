@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsReader;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -37,6 +39,7 @@ import org.apache.lucene.index.StandardDirectoryReader;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -154,6 +157,16 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
             directory.getAgilityContext().set(entryKey, new byte[0]);
         } else {
             directory.getAgilityContext().clear(entryKey);
+        }
+    }
+
+    @Override
+    public void clearForSegment(final String segmentName) throws IOException {
+        final List<byte[]> primaryKeys = LuceneOptimizedStoredFieldsReader.getPrimaryKeys(segmentName, directory);
+        final long segmentId = directory.primaryKeySegmentId(segmentName, true);
+        for (final byte[] primaryKey : primaryKeys) {
+            final byte[] entryKey = ByteArrayUtil.join(subspace.getKey(), primaryKey, Tuple.from(segmentId).pack());
+            directory.getAgilityContext().clear(Range.startsWith(entryKey));
         }
     }
 }

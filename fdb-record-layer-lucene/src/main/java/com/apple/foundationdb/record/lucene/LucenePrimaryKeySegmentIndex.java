@@ -28,6 +28,7 @@ import org.apache.lucene.index.IndexWriter;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -55,6 +56,8 @@ public interface LucenePrimaryKeySegmentIndex {
     DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey);
 
     void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add);
+
+    void clearForSegment(String segmentName) throws IOException;
 
     /**
      * Result of {@link #findDocument}.

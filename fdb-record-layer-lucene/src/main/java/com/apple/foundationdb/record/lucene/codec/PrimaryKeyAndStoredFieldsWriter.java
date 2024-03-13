@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.lucene.codec;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.google.protobuf.ByteString;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
 
 import javax.annotation.Nonnull;
@@ -56,12 +56,8 @@ class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter 
         if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
             final byte[] primaryKey = field.binaryValue().bytes;
             lucenePrimaryKeySegmentIndex.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true);
+            // TODO we store this twice, but we'll probably want to optimize and only store this once
+            storedFields.setPrimaryKey(ByteString.copyFrom(primaryKey));
         }
-    }
-
-    @Override
-    @SuppressWarnings("PMD.CloseResource")
-    public int merge(MergeState mergeState) throws IOException {
-        return super.merge(mergeState);
     }
 }

@@ -152,6 +152,8 @@ public class LuceneEvents {
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
         /** Wait to read schema. */
         WAIT_LUCENE_GET_SCHEMA("lucene get schema"),
+        /** Wait to read all stored fields for a segment. */
+        WAIT_LUCENE_GET_ALL_STORED_FIELDS("lucene get stored all fields"),
         /** Wait to read stored fields. */
         WAIT_LUCENE_GET_STORED_FIELDS("lucene get stored fields"),
         /** Wait to read a data block. */

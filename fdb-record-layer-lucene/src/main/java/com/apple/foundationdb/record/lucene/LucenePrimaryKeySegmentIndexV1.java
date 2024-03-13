@@ -292,6 +292,12 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
         }
     }
 
+    @Override
+    public void clearForSegment(final String segmentName) {
+        // no-op, this implementation deletes entries along the way
+        // which does not appear compatible with AgilityContext
+    }
+
     /**
      * Get the primary key byte array from a document's stored fields.
      * After calling {@link StoredFieldsReader#visitDocument}, any primary key will be in {@link #getPrimaryKey}.
