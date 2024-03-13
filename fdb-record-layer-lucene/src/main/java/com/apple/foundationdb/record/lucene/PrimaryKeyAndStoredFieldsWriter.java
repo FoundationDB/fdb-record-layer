@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsWriter;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfo;
@@ -33,22 +34,22 @@ import java.io.IOException;
 import java.util.Collection;
 
 class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
-    private final LucenePrimaryKeySegmentIndexV2 lucenePrimaryKeySegmentIndexV2;
+    private final LucenePrimaryKeySegmentIndex lucenePrimaryKeySegmentIndex;
     @Nonnull
-    private final StoredFieldsWriter inner;
+    private final LuceneOptimizedStoredFieldsWriter inner;
     private final long segmentId;
     @Nonnull
     private final FDBDirectory directory;
 
     private int documentId;
 
-    PrimaryKeyAndStoredFieldsWriter(final LucenePrimaryKeySegmentIndexV2 lucenePrimaryKeySegmentIndexV2,
-                                    @Nonnull StoredFieldsWriter inner, long segmentId,
+    PrimaryKeyAndStoredFieldsWriter(@Nonnull LuceneOptimizedStoredFieldsWriter inner,
+                                    long segmentId,
                                     @Nonnull final FDBDirectory directory) {
-        this.lucenePrimaryKeySegmentIndexV2 = lucenePrimaryKeySegmentIndexV2;
         this.inner = inner;
         this.segmentId = segmentId;
         this.directory = directory;
+        lucenePrimaryKeySegmentIndex = directory.getPrimaryKeySegmentIndex();
     }
 
     @Override
@@ -67,48 +68,14 @@ class PrimaryKeyAndStoredFieldsWriter extends StoredFieldsWriter {
         inner.writeField(info, field);
         if (info.name.equals(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME)) {
             final byte[] primaryKey = field.binaryValue().bytes;
-            lucenePrimaryKeySegmentIndexV2.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true);
+            lucenePrimaryKeySegmentIndex.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, true);
         }
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public int merge(MergeState mergeState) throws IOException {
-        final int docCount = inner.merge(mergeState);
-
-        final int segmentCount = mergeState.storedFieldsReaders.length;
-        /* TODO implement merge
-        final LucenePrimaryKeySegmentIndexV2.PrimaryKeyVisitor visitor = new LucenePrimaryKeySegmentIndexV2.PrimaryKeyVisitor();
-        for (int i = 0; i < segmentCount; i++) {
-            final StoredFieldsReader storedFieldsReader = mergeState.storedFieldsReaders[i];
-            final SegmentInfo mergedSegmentInfo = ((LucenePrimaryKeySegmentIndexV2.StoredFieldsReaderSegmentInfo)storedFieldsReader).getSegmentInfo();
-            final long mergedSegmentId = directory.primaryKeySegmentId(mergedSegmentInfo.name, false);
-            final Bits liveDocs = mergeState.liveDocs[i];
-            final MergeState.DocMap docMap = mergeState.docMaps[i];
-            final int maxDoc = mergeState.maxDocs[i];
-            for (int j = 0; j < maxDoc; j++) {
-                storedFieldsReader.visitDocument(j, visitor);
-                final byte[] primaryKey = visitor.getPrimaryKey();
-                if (primaryKey != null) {
-                    if (liveDocs == null || liveDocs.get(j)) {
-                        int docId = docMap.get(j);
-                        if (docId >= 0) {
-                            lucenePrimaryKeySegmentIndexV2.addOrDeletePrimaryKeyEntry(primaryKey, segmentId, docId, true);
-                        }
-                    }
-                    // Deleting the index entry at worst triggers a fallback to search.
-                    // Ordinarily, though, transaction isolation means that the entry is there along with the pre-merge segment.
-                    lucenePrimaryKeySegmentIndexV2.addOrDeletePrimaryKeyEntry(primaryKey, mergedSegmentId, j, false);
-                    visitor.reset();
-                }
-            }
-        }
-        */
-
-        directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_DOCUMENTS, docCount);
-        directory.getAgilityContext().increment(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS, segmentCount);
-
-        return docCount;
+        return inner.merge(mergeState);
     }
 
     @Override
