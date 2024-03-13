@@ -41,7 +41,6 @@ import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
-import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.StandardDirectoryReader;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.util.Accountable;
@@ -310,31 +309,6 @@ public class LucenePrimaryKeySegmentIndex {
         @Override
         public Collection<Accountable> getChildResources() {
             return inner.getChildResources();
-        }
-    }
-
-    /**
-     * Reconcile primary key index entries for a segment.
-     * Delete those for a segment that is about to be deleted or add for a segment that has been filled without going through the wrapper.
-     * The primary keys are gotten from the stored fields, so this must complete and not yet have been removed.
-     * @param reader a reader for the target segment
-     * @param add {@code true} to add entries; {@code false} to delete them
-     * @throws IOException if the stored fields gets an error
-     */
-    @SuppressWarnings("PMD.CloseResource")
-    public void addOrDeleteDocumentPrimaryKeys(@Nonnull SegmentReader reader, boolean add) throws IOException {
-        final int maxDoc = reader.maxDoc();
-        final PrimaryKeyVisitor visitor = new PrimaryKeyVisitor();
-        final long segmentId = directory.primaryKeySegmentId(reader.getSegmentName(), add);
-        try (StoredFieldsReader storedFields = reader.getFieldsReader()) {
-            for (int documentId = 0; documentId < maxDoc; documentId++) {
-                storedFields.visitDocument(documentId, visitor);
-                final byte[] primaryKey = visitor.getPrimaryKey();
-                if (primaryKey != null) {
-                    addOrDeletePrimaryKeyEntry(primaryKey, segmentId, documentId, add);
-                    visitor.reset();
-                }
-            }
         }
     }
 
