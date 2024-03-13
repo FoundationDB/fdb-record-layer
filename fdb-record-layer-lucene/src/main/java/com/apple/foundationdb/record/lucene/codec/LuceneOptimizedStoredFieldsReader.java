@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsReader;
@@ -44,7 +44,7 @@ import java.util.List;
  * The subspace for the range of documents is the segment name.
  * Within the subspace, each document key is then suffixed by the docId.
  */
-public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
+public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndexV1.StoredFieldsReaderSegmentInfo {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsReader.class);
     private final FDBDirectory directory;
     private final SegmentInfo si;

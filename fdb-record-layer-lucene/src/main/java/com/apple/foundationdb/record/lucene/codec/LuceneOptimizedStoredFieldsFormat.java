@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
-import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryUtils;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -66,7 +66,6 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
     @Override
     public StoredFieldsWriter fieldsWriter(final Directory directory, final SegmentInfo si, final IOContext context) throws IOException {
         FDBDirectory fdbDirectory = FDBDirectoryUtils.getFDBDirectory(directory);
-        @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = fdbDirectory.getPrimaryKeySegmentIndex();
         StoredFieldsWriter storedFieldsWriter;
 
         // Use FALSE as the default OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED option, for backwards compatibility
@@ -74,15 +73,19 @@ public class LuceneOptimizedStoredFieldsFormat extends StoredFieldsFormat {
             // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
             directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
                     .close();
-            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
-        } else if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
-            // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
-            directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
-                    .close();
-            storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
+            return new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
         } else {
-            storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+            if (fdbDirectory.getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+                // Create a "dummy" file to tap into the lifecycle management (e.g. be notified when to delete the data)
+                directory.createOutput(IndexFileNames.segmentFileName(si.name, "", LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION), context)
+                        .close();
+                storedFieldsWriter = new LuceneOptimizedStoredFieldsWriter(fdbDirectory, si);
+            } else {
+                storedFieldsWriter = storedFieldsFormat.fieldsWriter(directory, si, context);
+            }
+
+            @Nullable final LucenePrimaryKeySegmentIndexV1 segmentIndex = (LucenePrimaryKeySegmentIndexV1) fdbDirectory.getPrimaryKeySegmentIndex();
+            return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
         }
-        return segmentIndex == null ? storedFieldsWriter : segmentIndex.wrapFieldsWriter(storedFieldsWriter, si);
     }
 }

@@ -254,7 +254,8 @@ public class LuceneIndexTestValidator {
                                                       @Nullable Integer partitionId,
                                                       @Nonnull Set<Tuple> expectedPrimaryKeys) throws IOException {
         final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
-        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
+        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId)
+                .getPrimaryKeySegmentIndex();
         final String message = "Group: " + groupingKey + ", partition: " + partitionId;
         if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED))) {
             assertNotNull(primaryKeySegmentIndex, message);

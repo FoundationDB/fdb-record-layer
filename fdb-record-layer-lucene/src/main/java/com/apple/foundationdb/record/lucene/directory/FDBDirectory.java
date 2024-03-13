@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedFieldInfosFormat;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat;
@@ -175,7 +176,7 @@ public class FDBDirectory extends Directory  {
     private final AgilityContext agilityContext;
 
     @Nullable
-    private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
+    private LucenePrimaryKeySegmentIndexV1 primaryKeySegmentIndex;
 
     @VisibleForTesting
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
@@ -972,7 +973,7 @@ public class FDBDirectory extends Directory  {
             synchronized (this) {
                 if (primaryKeySegmentIndex == null) {
                     final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
-                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndexV1(this, primaryKeySubspace);
                 }
             }
             return primaryKeySegmentIndex;
@@ -980,7 +981,7 @@ public class FDBDirectory extends Directory  {
             synchronized (this) {
                 if (primaryKeySegmentIndex == null) {
                     final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
-                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndexV1(this, primaryKeySubspace);
                 }
             }
             return primaryKeySegmentIndex;
