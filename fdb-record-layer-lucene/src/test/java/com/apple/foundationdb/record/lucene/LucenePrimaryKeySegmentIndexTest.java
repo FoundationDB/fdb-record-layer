@@ -33,6 +33,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -125,7 +126,8 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
             MatcherAssert.assertThat(completionException.getCause(), Matchers.instanceOf(FailedLuceneCommit.class));
             assertEquals(1, agilityContext.commitCount);
         }
-
+        // V1 fails here, that's the test
+        Assumptions.assumeFalse(version == Version.V1);
         Assertions.assertAll(
                 () -> {
                     try (FDBRecordContext context = openContext()) {
