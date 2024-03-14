@@ -433,6 +433,7 @@ public class FDBDirectory extends Directory  {
     /**
      * Delete stored fields data from the DB.
      * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
+     * @throws IOException if there is an issue reading metadata to do the delete
      */
     public void deleteStoredFields(@Nonnull final String segmentName) throws IOException {
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);

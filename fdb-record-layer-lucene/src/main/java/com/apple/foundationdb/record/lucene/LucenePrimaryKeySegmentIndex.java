@@ -55,15 +55,27 @@ public interface LucenePrimaryKeySegmentIndex {
     @Nullable
     DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey);
 
+    /**
+     * Add or delete the primary key/segment/docId from the index.
+     * @param primaryKey the primary ey of the record
+     * @param segmentId the id of the segment (see {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory#primaryKeySegmentId})
+     * @param docId the document id within the segment
+     * @param add whether to add ({@code true}) or delete ({@code false}) the entry
+     */
     void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add);
 
+    /**
+     * Clears all the primary key entries for a given segment name.
+     * @param segmentName the name of the segment to clear out
+     * @throws IOException if the primary keys cannot be parsed from stored fields
+     */
     void clearForSegment(String segmentName) throws IOException;
 
     /**
      * Result of {@link #findDocument}.
      */
     // TODO: Can be a record.
-    public static class DocumentIndexEntry {
+    class DocumentIndexEntry {
         @Nonnull
         public final Tuple primaryKey;
         @Nonnull
