@@ -4576,7 +4576,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             .join());
 
             if (isSynthetic) {
-                // deleteWhere does not work for synthetic records currently
+                // delete where currently does not work with the synthetic records defined in this test
                 assertThrows(Query.InvalidExpressionException.class,
                         () -> recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("score").equalsValue(zeroGroupDoc.getScore())));
                 return;
@@ -4681,7 +4681,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             final int groupToDelete = maxGroup / 2;
 
             if (isSynthetic) {
-                // delete where currently does not work with synthetic record
+                // delete where currently does not work with the synthetic records defined in this test
                 assertThrows(Query.InvalidExpressionException.class,
                         () -> recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("score").equalsValue(groupToDelete)));
                 return;
