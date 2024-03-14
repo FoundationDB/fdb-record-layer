@@ -82,6 +82,7 @@ public class IndexingMerger {
                                     mergeControl.setTimeQuotaMillis(timeQuotaMillis);
                                     mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
+                                    mergeControl.setRepartitionCapped(false);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
                         Pair::of,
@@ -119,7 +120,7 @@ public class IndexingMerger {
         }
         // Here: no errors, stop the iteration unless has more
         final boolean hasMore =
-                shouldGiveRepartitionSecondChance() ||
+                shouldGiveRepartitionSecondChance(mergeControl) ||
                         mergeControl.getMergesFound() > mergeControl.getMergesTried();
         return  hasMore ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
     }
@@ -168,10 +169,16 @@ public class IndexingMerger {
         }
     }
 
-    private boolean shouldGiveRepartitionSecondChance() {
+    private boolean shouldGiveRepartitionSecondChance(IndexDeferredMaintenanceControl mergeControl) {
         if (repartitionDocumentCount == -1 && repartitionSecondChances == 0) {
             repartitionSecondChances++;
             repartitionDocumentCount = 0;
+            return true;
+        }
+        if (mergeControl.repartitionCapped()) {
+            mergeControl.setRepartitionCapped(false);
+            repartitionDocumentCount = 0;
+            // we didn't fail, so we don't need to increment the repartitionSecondChances
             return true;
         }
         repartitionSecondChances = 0;

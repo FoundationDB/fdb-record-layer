@@ -231,6 +231,8 @@ public class LuceneEvents {
         LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
+        /** Count of times a rebalance was called. */
+        LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false)
         ;
 
         private final String title;
@@ -286,6 +288,8 @@ public class LuceneEvents {
          * The number of docs moved during each transaction as part of partition rebalance.
          */
         LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
+        /** Size of the list of files loaded in loadFileReferenceCacheForMemoization operation in FDBDirectory. */
+        LUCENE_FILES_COUNT("lucene files"),
         ;
 
         private final String title;

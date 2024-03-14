@@ -20,7 +20,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** from is greater than to in a partition info [(Issue #2580)](https://github.com/FoundationDB/fdb-record-layer/issues/2580)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,15 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.472.0
+
+* **Performance** Lucene: avoid concurrent merges [(Issue #2570)](https://github.com/FoundationDB/fdb-record-layer/issues/2570)
+* **Performance** Add metric for the size of list of files loaded by loadFileReferenceCacheForMemoization [(Issue #2566)](https://github.com/FoundationDB/fdb-record-layer/issues/2566)
+* **Feature** Lucene: Merge periodically when rebalancing a lot of documents [(Issue #2567)](https://github.com/FoundationDB/fdb-record-layer/issues/2567)
+
+### 3.4.471.0
+
 
 ### 3.4.469.0
 

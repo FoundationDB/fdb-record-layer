@@ -78,7 +78,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                         Arguments.of(true, false, false, 13, 3, 20, 9237590782644L),
                         Arguments.of(true, true, true, 10, 2, 23, -644766138635622644L),
                         Arguments.of(false, true, true, 11, 4, 20, -1089113174774589435L),
-                        Arguments.of(false, false, false, 5, 1, 18, 6223372946177329440L)),
+                        Arguments.of(false, false, false, 5, 1, 18, 6223372946177329440L),
+                        Arguments.of(true, false, false, 14, 6, 0, 2451719304283565963L)),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextBoolean(),
                                 random.nextBoolean(),
@@ -120,6 +121,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, random.nextInt(1000) + repartitionCount)
                 .build();
 
         // Generate random documents
