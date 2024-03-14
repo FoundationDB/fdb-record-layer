@@ -76,7 +76,9 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
 
     static Stream<Arguments> sourceIndexes() {
         return sourceIndexNames()
-                .map(Arguments::of);
+                .flatMap(sourceIndexName ->
+                        OnlineIndexerBuildIndexTest.randomSeeds().map(seed ->
+                                Arguments.of(sourceIndexName, seed)));
     }
 
     private static String randomString(@Nonnull Random r) {
@@ -216,22 +218,22 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         rebuildGroupedCount(recordsBefore, otherRecordsBefore, sourceIndex, NO_UPDATES);
     }
 
-    @ParameterizedTest(name = "buildOneHundredGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildOneHundredGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildOneHundredGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(100)
                 .collect(Collectors.toList());
         rebuildGroupedCount(records, null, sourceIndex);
     }
 
-    @ParameterizedTest(name = "buildOneHundredWithOthersGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildOneHundredWithOthersGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildOneHundredWithOthersGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(100)
                 .collect(Collectors.toList());
@@ -241,11 +243,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         rebuildGroupedCount(records, otherRecords, sourceIndex);
     }
 
-    @ParameterizedTest(name = "buildWhileInsertingGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildWhileInsertingGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildWhileInsertingGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(200)
                 .collect(Collectors.toList());
@@ -269,11 +271,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         });
     }
 
-    @ParameterizedTest(name = "buildWhileUpdatingGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildWhileUpdatingGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildWhileUpdatingGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(200)
                 .collect(Collectors.toList());
@@ -296,11 +298,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         });
     }
 
-    @ParameterizedTest(name = "buildWhileDeletingGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildWhileDeletingGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildWhileDeletingGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(200)
                 .collect(Collectors.toList());
@@ -324,11 +326,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         });
     }
 
-    @ParameterizedTest(name = "buildWhileDeletingGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildWhileConvertingTypeGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildWhileConvertingTypeGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(200)
                 .collect(Collectors.toList());
@@ -385,11 +387,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         });
     }
 
-    @ParameterizedTest(name = "buildWhileDeletingGroupsGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildWhileDeletingGroupsGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildWhileDeletingGroupsGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(200)
                 .collect(Collectors.toList());
@@ -414,11 +416,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         });
     }
 
-    @ParameterizedTest(name = "buildWhileRandomlyMutatingGroupedCount[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    void buildWhileRandomlyMutatingGroupedCount(String sourceIndex) {
-        Random r = new Random();
+    void buildWhileRandomlyMutatingGroupedCount(String sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() -> randomSimpleRecord(r))
                 .limit(400)
                 .collect(Collectors.toList());

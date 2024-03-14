@@ -183,22 +183,24 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
 
     static Stream<Arguments> sourceIndexes() {
         return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
-                .map(Arguments::of);
+                .flatMap(indexName -> OnlineIndexerBuildIndexTest.randomSeeds()
+                        .map(seed -> Arguments.of(indexName, seed)));
     }
 
     static Stream<Arguments> sourceIndexesAndFiltered() {
         return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
                 .flatMap(sourceIndex -> Stream.of(false, true)
-                        .map(filtered -> Arguments.of(sourceIndex, filtered)));
+                        .flatMap(filtered -> OnlineIndexerBuildIndexTest.randomSeeds()
+                                .map(seed -> Arguments.of(sourceIndex, filtered, seed))));
     }
 
     @Test
-    public void emptyRangeSum() {
+    void emptyRangeSum() {
         sumRebuild(Collections.emptyList());
     }
 
     @Test
-    public void singleElementSum() {
+    void singleElementSum() {
         TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(1517)
                 .setNumValue2(95)
@@ -206,11 +208,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(Collections.singletonList(record));
     }
 
-    @ParameterizedTest(name = "oneHundredElementsSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void oneHundredElementsSum(@Nullable Index sourceIndex) {
-        Random r = new Random(0x5ca1ab1e);
+    void oneHundredElementsSum(@Nullable Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
@@ -220,10 +222,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, null, sourceIndex);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsParallelSum() {
-        Random r = new Random(0x5ca1ab1e);
+    void oneHundredElementsParallelSum(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong() / 2)
@@ -233,10 +236,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, null, null, null, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsParallelOverlapSum() {
-        Random r = new Random(0xf005ba11);
+    void oneHundredElementsParallelOverlapSum(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong() / 2)
@@ -246,11 +250,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, null, null, null, 5, true);
     }
 
-    @ParameterizedTest(name = "addWhileBuildingSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void addWhileBuildingSum(Index sourceIndex) {
-        Random r = new Random(0xdeadc0de);
+    void addWhileBuildingSum(Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
@@ -263,10 +267,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, sourceIndex);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingParallelSum() {
-        Random r = new Random(0xdeadc0de);
+    void addWhileBuildingParallelSum(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong() / 2)
@@ -279,11 +284,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, null, null, 5, false);
     }
 
-    @ParameterizedTest(name = "somePreloadedSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void somePreloadedSum(Index sourceIndex) {
-        Random r = new Random(0x5ca1ab1e);
+    public void somePreloadedSum(@Nullable Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
@@ -309,11 +314,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, null, sourceIndex);
     }
 
-    @ParameterizedTest(name = "addSequentialWhileBuildingSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingSum(Index sourceIndex) {
-        Random r = new Random(0xba5eba11);
+    void addSequentialWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(val)
@@ -326,10 +331,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, sourceIndex);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingParallelSum() {
-        Random r = new Random(0xba5eba11);
+    void addSequentialWhileBuildingParallelSum(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(val)
@@ -342,11 +348,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, null, null, 5, false);
     }
 
-    @ParameterizedTest(name = "updateRecordsWhileBuildingSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex) {
-        Random r = new Random();
+    public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
@@ -360,11 +366,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, sourceIndex);
     }
 
-    @ParameterizedTest(name = "deleteRecordsWhileBuildingSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex) {
-        Random r = new Random();
+    public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
@@ -378,11 +384,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, null, toDelete, sourceIndex, 1, false);
     }
 
-    @ParameterizedTest(name = "updateAndDeleteRecordsWhileBuildingSum[sourceIndex={0}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexes")
     @Tag(Tags.Slow)
-    public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex) {
-        Random r = new Random();
+    public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
@@ -400,11 +406,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, toDelete, sourceIndex, 1, false);
     }
 
-    @ParameterizedTest(name = "oneHundredFilteredSum[sourceIndex={0}, filterSource={1}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexesAndFiltered")
     @Tag(Tags.Slow)
-    public void oneHundredFilteredSum(@Nullable Index sourceIndex, boolean filterSource) {
-        Random r = new Random();
+    public void oneHundredFilteredSum(@Nullable Index sourceIndex, boolean filterSource, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(val)
@@ -415,11 +421,11 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuildFiltered(records, null, null, sourceIndex, filterSource);
     }
 
-    @ParameterizedTest(name = "updateWhileBuildingFilteredSum[sourceIndex={0}, filterSource={1}]")
+    @ParameterizedTest
     @MethodSource("sourceIndexesAndFiltered")
     @Tag(Tags.Slow)
-    public void updateWhileBuildingFilteredSum(@Nullable Index sourceIndex, boolean filterSource) {
-        Random r = new Random();
+    public void updateWhileBuildingFilteredSum(@Nullable Index sourceIndex, boolean filterSource, long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 500).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())

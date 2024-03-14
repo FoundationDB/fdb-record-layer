@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -50,6 +49,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -156,6 +157,12 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         static OnlineIndexerTestUnnestedRecordHandler instance() {
             return INSTANCE;
         }
+    }
+
+    private static Stream<Arguments> overlapArgs() {
+        return Stream.of(false, true)
+                .flatMap(overlap -> OnlineIndexerBuildIndexTest.randomSeeds()
+                        .map(seed -> Arguments.of(overlap, seed)));
     }
 
     private void assertUnnestedKeyQueryPlanFails() {
@@ -384,18 +391,20 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleSumIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);
     }
 
-    @Test
-    void simpleTenRecordRebuild() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleTenRecordRebuild(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(10)
                 .collect(Collectors.toList());
         singleValueIndexRebuild(records, null, null);
     }
 
-    @Test
-    void tenEmptyMapBuild() {
-        final Random r = new Random(0x0fdb0fdb);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void tenEmptyMapBuild(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r, r.nextLong(), -1.0))
                 .limit(10)
                 .collect(Collectors.toList());
@@ -406,9 +415,10 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, null, null);
     }
 
-    @Test
-    void tenOuterAndTenOtherRecordRebuild() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void tenOuterAndTenOtherRecordRebuild(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> Stream.of(randomOuterRecord(r), randomOtherRecord(r)))
                 .flatMap(Function.identity())
                 .limit(20)
@@ -416,9 +426,10 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, null, null);
     }
 
-    @Test
-    void simpleTenFromSourceIndex() {
-        final Random r = new Random(0xfdb05ca1eL);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleTenFromSourceIndex(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(10)
                 .collect(Collectors.toList());
@@ -426,18 +437,20 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, null, null, 1, false, sourceIndex);
     }
 
-    @Test
-    void tenSumIndexRebuild() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void tenSumIndexRebuild(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(10)
                 .collect(Collectors.toList());
         singleSumIndexRebuild(records, null, null);
     }
 
-    @Test
-    void tenEmptyMapSumBuild() {
-        final Random r = new Random(0x0fdb0fdb);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void tenEmptyMapSumBuild(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r, r.nextLong(), -1.0))
                 .limit(10)
                 .collect(Collectors.toList());
@@ -448,20 +461,22 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleSumIndexRebuild(records, null, null);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    void simpleHundredRecordRebuild() {
-        final Random r = new Random(0x5ca1e);
+    void simpleHundredRecordRebuild(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(100)
                 .collect(Collectors.toList());
         singleValueIndexRebuild(records, null, null);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    void simpleFiveHundredWithUpdates() {
-        final Random r = new Random(0xfdb0);
+    void simpleFiveHundredWithUpdates(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(500)
                 .collect(Collectors.toList());
@@ -472,10 +487,11 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, recordsWhileBuilding, null);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    void simpleFiveHundredWithDeletes() {
-        final Random r = new Random(0xfdb5ca1eL);
+    void simpleFiveHundredWithDeletes(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(500)
                 .collect(Collectors.toList());
@@ -486,10 +502,11 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, null, deleteWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    void fiveHundredWithDeletesAndUpdates() {
-        final Random r = new Random(0x13370fdbL);
+    void fiveHundredWithDeletesAndUpdates(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(500)
                 .collect(Collectors.toList());
@@ -513,10 +530,11 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    void fiveHundredOfMixedTypesWithDeletesAndUpdates() {
-        final Random r = new Random(0xf007ba1L);
+    void fiveHundredOfMixedTypesWithDeletesAndUpdates(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> r.nextBoolean() ? randomOuterRecord(r) : randomOtherRecord(r))
                 .limit(500)
                 .collect(Collectors.toList());
@@ -529,10 +547,11 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    void sixHundredOfMixedTypesWithDeletesUpdatesAndSourceIndex() {
-        final Random r = new Random(0x50cce4L);
+    void sixHundredOfMixedTypesWithDeletesUpdatesAndSourceIndex(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> r.nextBoolean() ? randomOuterRecord(r) : randomOtherRecord(r))
                 .limit(600)
                 .collect(Collectors.toList());
@@ -546,29 +565,31 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false, sourceIndex);
     }
 
-    @Test
-    void sumFiveHundredRecords() {
-        final Random r = new Random(0xfdb5ca1eL);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void sumFiveHundredRecords(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> randomOuterRecord(r))
                 .limit(500)
                 .collect(Collectors.toList());
         singleSumIndexRebuild(records, null, null);
     }
 
-    @ParameterizedTest(name = "sumFiveHundredParallelBuild[overlap={0}]")
-    @BooleanSource
-    void sumFiveHundredParallelBuild(boolean overlap) {
-        final Random r = new Random(0xfdb5ca1eL);
+    @ParameterizedTest
+    @MethodSource("overlapArgs")
+    void sumFiveHundredParallelBuild(boolean overlap, long seed) {
+        final Random r = new Random(seed);
         List<Message> records = LongStream.range(1L, 501L)
                 .mapToObj(id -> randomOuterRecord(r, id))
                 .collect(Collectors.toList());
         singleSumIndexRebuild(records, null, null, 5, overlap);
     }
 
-    @Disabled("non-idempotent indexes on synthetic types do not checke the range set correctly")
-    @Test
-    void sumSixHundredWithUpdatesAndDeletes() {
-        final Random r = new Random(0xfdbfdbfdbL);
+    @Disabled("non-idempotent indexes on synthetic types do not check the range set correctly")
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void sumSixHundredWithUpdatesAndDeletes(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = Stream.generate(() -> r.nextBoolean() ? randomOuterRecord(r) : randomOtherRecord(r))
                 .limit(600)
                 .collect(Collectors.toList());
@@ -581,10 +602,10 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     }
 
     @Tag(Tags.Slow)
-    @ParameterizedTest(name = "simpleParallelTwoHundredRebuild[overlap={0}]")
-    @BooleanSource
-    void simpleParallelTwoHundredRebuild(boolean overlap) {
-        final Random r = new Random(0x0fdb0fdb);
+    @ParameterizedTest
+    @MethodSource("overlapArgs")
+    void simpleParallelTwoHundredRebuild(boolean overlap, long seed) {
+        final Random r = new Random(seed);
         List<Message> records = LongStream.range(0L, 200L)
                 .mapToObj(id -> randomOuterRecord(r, id))
                 .collect(Collectors.toList());
@@ -593,9 +614,9 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
     @Tag(Tags.Slow)
     @ParameterizedTest
-    @BooleanSource
-    void parallelBuildFiveHundredWithDeletesAndUpdates(boolean overlap) {
-        final Random r = new Random(0x0fdb5caL);
+    @MethodSource("overlapArgs")
+    void parallelBuildFiveHundredWithDeletesAndUpdates(boolean overlap, long seed) {
+        final Random r = new Random(seed);
         List<Message> records = LongStream.range(0L, 500L)
                 .mapToObj(id -> randomOuterRecord(r, id))
                 .collect(Collectors.toList());
@@ -609,9 +630,10 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     }
 
     @Tag(Tags.Slow)
-    @Test
-    void parallelBuildSixHundredWithDeletesAndUpdatesFromIndex() {
-        final Random r = new Random(0x50caL);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void parallelBuildSixHundredWithDeletesAndUpdatesFromIndex(long seed) {
+        final Random r = new Random(seed);
         List<Message> records = LongStream.range(0L, 600L)
                 .mapToObj(id -> randomOuterRecord(r, id))
                 .collect(Collectors.toList());
