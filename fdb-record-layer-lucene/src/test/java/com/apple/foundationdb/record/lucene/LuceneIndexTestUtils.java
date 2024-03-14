@@ -129,10 +129,10 @@ public class LuceneIndexTestUtils {
     protected static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS =
             getMapOnValueIndexWithOption("Map_with_auto_complete_excluded_fields$entry-value", ImmutableMap.of());
 
-    public static final Index SIMPLE_TEXT_SUFFIXES = simpleTextSuffixes(options -> { });
+    public static final Index SIMPLE_TEXT_SUFFIXES = simpleTextSuffixesIndex(options -> { });
 
     @Nonnull
-    private static Index simpleTextSuffixes(Consumer<Map<String, String>> optionsBuilder) {
+    public static Index simpleTextSuffixesIndex(Consumer<Map<String, String>> optionsBuilder) {
         final Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
         options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
