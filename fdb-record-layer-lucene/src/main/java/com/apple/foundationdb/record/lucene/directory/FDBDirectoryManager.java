@@ -95,7 +95,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> mergeIndex(@Nonnull LucenePartitioner partitioner, LuceneAnalyzerWrapper analyzerWrapper) {
+    public CompletableFuture<Void> mergeIndex(@Nonnull LucenePartitioner partitioner, LuceneAnalyzerWrapper analyzerWrapper, final AgilityContext agilityContext) {
         // This function will iterate the grouping keys and explicitly merge each
 
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
@@ -106,7 +106,6 @@ public class FDBDirectoryManager implements AutoCloseable {
         final Subspace subspace = state.indexSubspace;
         final KeyExpression rootExpression = state.index.getRootExpression();
 
-        final AgilityContext agilityContext = getAgilityContext(true);
         if (! (rootExpression instanceof GroupingKeyExpression)) {
             // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
             return mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner, agilityContext);
@@ -234,7 +233,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
-        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false));
+        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext());
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
@@ -245,26 +244,30 @@ public class FDBDirectoryManager implements AutoCloseable {
         return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
     }
 
-    private AgilityContext getAgilityContext(boolean useAgilityContext) {
-        final IndexDeferredMaintenanceControl deferredControl = state.store.getIndexDeferredMaintenanceControl();
-        if (!useAgilityContext || Boolean.TRUE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT))) {
+    private AgilityContext getAgilityContext() {
+        return getAgilityContext(false, state.context, state.store.getIndexDeferredMaintenanceControl());
+    }
+
+    @Nonnull
+    public static AgilityContext getAgilityContext(final boolean useAgilityContext, final FDBRecordContext context, final IndexDeferredMaintenanceControl deferredControl) {
+        if (!useAgilityContext || Boolean.TRUE.equals(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT))) {
             // Avoid potential retries:
             deferredControl.setTimeQuotaMillis(0);
             deferredControl.setSizeQuotaBytes(0);
-            return AgilityContext.nonAgile(state.context);
+            return AgilityContext.nonAgile(context);
         }
         // Here: return an agile context
         long timeQuotaMillis = deferredControl.getTimeQuotaMillis();
         if (timeQuotaMillis <= 0) {
-            timeQuotaMillis = Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
+            timeQuotaMillis = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA), 4000);
             deferredControl.setTimeQuotaMillis(timeQuotaMillis);
         }
         long sizeQuotaBytes = deferredControl.getSizeQuotaBytes();
         if (sizeQuotaBytes <= 0) {
-            sizeQuotaBytes =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
+            sizeQuotaBytes =  Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
             deferredControl.setSizeQuotaBytes(sizeQuotaBytes);
         }
-        return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
+        return AgilityContext.agile(context, timeQuotaMillis, sizeQuotaBytes);
     }
 
     @Nonnull
