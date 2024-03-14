@@ -94,7 +94,9 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (now > timeStampMillis + timeWindowMilliseconds) {
                 throw new AlreadyClosedException("Lock is too old. This=" + this + " now=" + now);
             }
-            fileLockSet(true);
+            if (!agilityContext.isClosed()) {
+                fileLockSet(true);
+            }
         }
 
 

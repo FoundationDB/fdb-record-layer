@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -64,6 +65,17 @@ public interface AgilityContext {
     void set(byte[] key, byte[] value);
 
     void flush();
+
+    // This can be called to declare the object as 'closed' after flush. Future "flush" will succeed,
+    // but any attempt to perform a transaction will cause an exception.
+    void flushAndClose();
+
+    // This can be called to declare the object as 'closed' after aborting. Future "flush" will succeed,
+    // but any attempt to perform a transaction will cause an exception.
+    // Since this is typically called after failure, the context and locks status is undefined and not being used.
+    void abortAndClose();
+
+    boolean isClosed();
 
     default CompletableFuture<byte[]> get(byte[] key) {
         return apply(context -> context.ensureActive().get(key));
@@ -152,6 +164,7 @@ public interface AgilityContext {
         private final Object commitLockSync = new Object();
         private boolean committingNow = false;
         private long prevCommitCheckTime;
+        private boolean closed = false;
 
         Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
@@ -269,6 +282,7 @@ public interface AgilityContext {
 
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
+            ensureOoen();
             final long stamp = lock.readLock();
             createIfNeeded();
             return function.apply(currentContext).thenApply(ret -> {
@@ -284,6 +298,7 @@ public interface AgilityContext {
 
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
+            ensureOoen();
             final long stamp = lock.readLock();
             createIfNeeded();
             function.accept(currentContext);
@@ -299,10 +314,38 @@ public interface AgilityContext {
             });
         }
 
+        private void ensureOoen() {
+            if (closed) {
+                throw new RecordCoreStorageException("Agile context is already closed");
+            }
+        }
+
         @Override
         public void flush() {
             commitNow();
             logSelf("Flushed agility context");
+        }
+
+        @Override
+        public void flushAndClose() {
+            closed = true;
+            commitNow();
+        }
+
+        @Override
+        public void abortAndClose() {
+            // Here: the lock status is undefined. The main goal of this function is to
+            // a) prevent accidental future use
+            // b) make future flush harmless
+            closed = true;
+            committingNow = true;
+            currentContext = null;
+            currentWriteSize = 0;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
     }
 
@@ -311,6 +354,7 @@ public interface AgilityContext {
      */
     class NonAgile implements AgilityContext {
         private final FDBRecordContext callerContext;
+        private boolean closed = false;
 
         public NonAgile(final FDBRecordContext callerContext) {
             this.callerContext = callerContext;
@@ -318,11 +362,13 @@ public interface AgilityContext {
 
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
+            ensureOoen();
             return function.apply(callerContext);
         }
 
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
+            ensureOoen();
             function.accept(callerContext);
         }
 
@@ -332,14 +378,35 @@ public interface AgilityContext {
         }
 
         @Override
+        @Nonnull
+        public FDBRecordContext getCallerContext() {
+            return callerContext;
+        }
+
+        private void ensureOoen() {
+            if (closed) {
+                throw new RecordCoreStorageException("NonAgile context is already closed");
+            }
+        }
+
+        @Override
         public void flush() {
             // This is a no-op as the caller context should be committed by the caller.
         }
 
         @Override
-        @Nonnull
-        public FDBRecordContext getCallerContext() {
-            return callerContext;
+        public void flushAndClose() {
+            closed = true;
+        }
+
+        @Override
+        public void abortAndClose() {
+            closed = true;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
     }
 
