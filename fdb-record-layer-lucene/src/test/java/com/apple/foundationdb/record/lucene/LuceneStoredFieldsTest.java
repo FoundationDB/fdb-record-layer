@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -108,11 +109,12 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     void testInsertDocuments(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
 
+        final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
@@ -129,6 +131,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
             }
         }
+        validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
     }
 
     @ParameterizedTest
@@ -136,19 +139,20 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     void testInsertMultipleTransactions(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
 
+        final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2)).getPrimaryKey());
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2)).getPrimaryKey());
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
@@ -166,6 +170,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 }
             }
         }
+        validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
     }
 
     @ParameterizedTest
@@ -217,11 +222,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
         }
-        try (FDBRecordContext context = openContext(contextProps)) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null,
-                    primaryKeys);
-        }
+        validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
     }
 
     @ParameterizedTest
@@ -229,11 +230,12 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     void testInsertDeleteDocumentsSameTransaction(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
 
+        final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
-            recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
 
             recordStore.deleteRecord(Tuple.from(1623L));
             context.commit();
@@ -243,6 +245,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(1624L, "Document 2"));
         }
+        validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
     }
 
     @ParameterizedTest
@@ -298,11 +301,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             }
         }
 
-        try (FDBRecordContext context = openContext(contextProps)) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null,
-                    primaryKeys);
-        }
+        validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
     }
 
     @ParameterizedTest
@@ -344,6 +343,9 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
         }
+
+        // we've deleted all the records
+        validatePrimaryKeySegmentIndex(index, Set.of(), SIMPLE_DOC);
     }
 
     @ParameterizedTest
@@ -352,11 +354,17 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         // Use a complex index with several fields
         Index index = type.complexIndex;
 
+        final Set<Tuple> primaryKeys = new HashSet<>();
+
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
-            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1623L, "Hello", "Hello 2", 5, 12, false, 7.123));
-            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1624L, "Hello record", "Hello record 2", 6, 13, false, 8.123));
-            recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(1625L, "Hello record layer", "Hello record layer 2", 7, 14, true, 9.123));
+
+            primaryKeys.add(recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
+                    1623L, "Hello", "Hello 2", 5, 12, false, 7.123)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
+                    1624L, "Hello record", "Hello record 2", 6, 13, false, 8.123)).getPrimaryKey());
+            primaryKeys.add(recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(
+                    1625L, "Hello record layer", "Hello record layer 2", 7, 14, true, 9.123)).getPrimaryKey());
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
@@ -388,6 +396,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
             }
         }
+        validatePrimaryKeySegmentIndex(index, primaryKeys, COMPLEX_DOC);
     }
 
     private RecordQuery buildQuery(final String term, final List<String> fields, final String docType) {
@@ -435,6 +444,14 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
     private Tuple toPrimaryKey(final FDBQueriedRecord<Message> record) {
         return record.getIndexEntry().getPrimaryKey();
+    }
+
+    private void validatePrimaryKeySegmentIndex(final Index index, final Set<Tuple> primaryKeys, final String documentType) throws IOException {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, documentType, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null,
+                    primaryKeys);
+        }
     }
 
     private void getSegments(final StoredFieldsType type, final RecordLayerPropertyStorage contextProps,
