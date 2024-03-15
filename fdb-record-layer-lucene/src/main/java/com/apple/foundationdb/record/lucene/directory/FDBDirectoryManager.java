@@ -155,6 +155,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true);
         final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(groupingKey, partitionId, agilityContext);
