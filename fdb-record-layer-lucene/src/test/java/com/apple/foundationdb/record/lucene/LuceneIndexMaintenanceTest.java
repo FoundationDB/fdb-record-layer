@@ -99,13 +99,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                                    int repartitionCount,
                                    int minDocumentCount,
                                    long seed) throws IOException {
+        // TODO run with both
         Random random = new Random(seed);
-        final boolean optimizedStoredFields = random.nextBoolean();
         final Map<String, String> options = Map.of(
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
-                LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, String.valueOf(optimizedStoredFields),
-                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
         LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
                 "isGrouped", isGrouped,
                 "isSynthetic", isSynthetic,

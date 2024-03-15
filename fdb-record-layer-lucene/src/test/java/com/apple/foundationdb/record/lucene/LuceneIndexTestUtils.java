@@ -225,13 +225,13 @@ public class LuceneIndexTestUtils {
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
 
     protected static final Index COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX = new Index("Complex$text_pky",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
 
     public static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
@@ -343,7 +343,7 @@ public class LuceneIndexTestUtils {
                     field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
             ).groupBy(field("complex").nest("score")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+                    LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
 
     protected static final Index JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES =
             new Index("JoinedComplex$text_multipleIndexes",
@@ -430,7 +430,7 @@ public class LuceneIndexTestUtils {
                             field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
                     ), LuceneIndexTypes.LUCENE,
                     ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                            LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+                            LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
 
     protected static final Index JOINED_MANY_FIELDS_INDEX = new Index(
             "Joined$many_fields_idx",
@@ -503,8 +503,7 @@ public class LuceneIndexTestUtils {
                             field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
                     ), 8), LuceneIndexTypes.LUCENE,
                     ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
-                            LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true",
-                            LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+                            LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
 
     protected static final Index JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES_NO_FREQS_POSITIONS =
             new Index("JoinedComplex$text_multipleIndexes",

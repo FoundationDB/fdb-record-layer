@@ -441,8 +441,9 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
                     LuceneLogMessageKeys.RESOURCE, segmentName));
         }
-        if (primaryKeySegmentIndex != null) {
-            primaryKeySegmentIndex.clearForSegment(segmentName);
+        final LucenePrimaryKeySegmentIndex primaryKeyIndex = getPrimaryKeySegmentIndex();
+        if (primaryKeyIndex != null) {
+            primaryKeyIndex.clearForSegment(segmentName);
         }
         byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
         agilityContext.clear(Range.startsWith(key));

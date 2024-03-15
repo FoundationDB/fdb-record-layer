@@ -2739,13 +2739,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
 
             if (primaryKeySegmentIndexEnabled) {
-                assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), greaterThan(10));
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(10));
-            } else {
                 assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), equalTo(0));
+            } else {
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), greaterThan(10));
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(0));
+                assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), equalTo(0));
             }
 
             try (FDBRecordContext context = openContext()) {
@@ -2790,13 +2790,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
 
             if (primaryKeySegmentIndexEnabled) {
-                assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), greaterThan(10));
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), equalTo(0));
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), greaterThan(10));
-            } else {
                 assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), equalTo(0));
+            } else {
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY), greaterThan(10));
                 assertThat(timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY), equalTo(0));
+                assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_MERGE_SEGMENTS), equalTo(0));
             }
 
             try (FDBRecordContext context = openContext()) {
@@ -3063,6 +3063,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     rebuildIndexMetaData(context, SIMPLE_DOC, index);
                     recordStore.saveRecord(createSimpleDocument(1000 + i, ENGINEER_JOKE, 2));
                     recordStore.saveRecord(createSimpleDocument(1010 + i, WAYLON, 2));
+                }
+                context.commit();
+            }
+
+            try (FDBRecordContext context = openContext(contextProps)) {
+                if (isSynthetic) {
+                    openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
+                } else {
+                    rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 }
                 validateIndexIntegrity(index, recordStore.indexSubspace(index), context, null, null);
                 final int fileCount = getDirectory(index, Tuple.from()).listAll().length;

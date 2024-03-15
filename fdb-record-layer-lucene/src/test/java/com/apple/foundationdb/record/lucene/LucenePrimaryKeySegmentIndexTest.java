@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.tuple.Tuple;
@@ -35,14 +35,20 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
@@ -55,13 +61,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
+    private long idCounter = 1000L;
+    private long textCounter = 1L;
+    private boolean autoMerge = false;
+
     enum Version {
-        V1(options -> {
+        Off(false, options -> {
+            options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "false");
+            options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "false");
+        }),
+        V1(true, options -> {
             options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
             options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED);
             options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true");
         }),
-        V2(options -> {
+        V2(true, options -> {
             options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
             options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED);
             options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
@@ -69,10 +83,12 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         private final Index simpleIndex;
         private final Index complexIndex;
+        public final boolean enabled;
 
-        Version(Consumer<Map<String, String>> optionsBuilder) {
+        Version(boolean enabled, Consumer<Map<String, String>> optionsBuilder) {
             this.simpleIndex = LuceneIndexTestUtils.simpleTextSuffixesIndex(optionsBuilder);
             this.complexIndex = LuceneIndexTestUtils.textAndStoredComplexIndex(optionsBuilder);
+            this.enabled = enabled;
         }
     }
 
@@ -81,10 +97,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     void insertDocuments(Version version) throws Exception {
         Index index = version.simpleIndex;
 
-        final Set<Tuple> primaryKeys = saveRecords(index,
-                createSimpleDocument(1623L, "Document 1", 2),
-                createSimpleDocument(1624L, "Document 2", 2),
-                createSimpleDocument(1547L, "NonDocument 3", 2));
+        final Set<Tuple> primaryKeys = createDocuments(index, 3);
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -97,9 +110,132 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     void insertDocumentAcrossTransactions(Version version) throws Exception {
         Index index = version.simpleIndex;
 
-        final Set<Tuple> primaryKeys = saveRecords(index, createSimpleDocument(1623L, "Document 1", 2));
-        primaryKeys.addAll(saveRecords(index, createSimpleDocument(1624L, "Document 2", 2)));
-        primaryKeys.addAll(saveRecords(index, createSimpleDocument(1547L, "NonDocument 3", 2)));
+        final Set<Tuple> primaryKeys = createDocuments(index, 1);
+        primaryKeys.addAll(createDocuments(index, 1));
+        primaryKeys.addAll(createDocuments(index, 1));
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Version.class)
+    void updateDocument(Version version) throws Exception {
+        Index index = version.simpleIndex;
+
+        final Set<Tuple> primaryKeys = createDocuments(index, 3);
+        idCounter -= 2;
+        createDocuments(index, 1);
+
+        if (version.enabled) {
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        } else {
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+        }
+    }
+
+    public static Stream<Arguments> versionAndBoolean() {
+        return Arrays.stream(Version.values())
+                .flatMap(version -> Stream.of(true, false)
+                        .map(bool -> Arguments.of(version, bool)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("versionAndBoolean")
+    void manyUpdates(Version version, boolean autoMerge) throws Exception {
+        Index index = version.simpleIndex;
+        this.autoMerge = autoMerge;
+
+        final Set<Tuple> primaryKeys = createDocuments(index, 3);
+        for (int i = 0; i < 10; i++) {
+            idCounter -= 3;
+            createDocuments(index, 3);
+        }
+
+        if (!autoMerge) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexBuilder.mergeIndex();
+            }
+        }
+
+        if (version.enabled) {
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(30, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        } else {
+            assertEquals(30, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Version.class)
+    void deleteDocument(Version version) throws Exception {
+        Index index = version.simpleIndex;
+
+        final Set<Tuple> primaryKeys = createDocuments(index, 3);
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            Tuple toDelete = List.copyOf(primaryKeys).get(1);
+            recordStore.deleteRecord(toDelete);
+            primaryKeys.remove(toDelete);
+            context.commit();
+        }
+
+        if (version.enabled) {
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        } else {
+            assertEquals(1, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Version.class)
+    void deleteAllDocuments(Version version) throws Exception {
+        Index index = version.simpleIndex;
+
+        final Set<Tuple> primaryKeys = createDocuments(index, 3);
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            for (final Tuple toDelete : primaryKeys) {
+                recordStore.deleteRecord(toDelete);
+            }
+            primaryKeys.clear();
+            context.commit();
+        }
+
+        if (version.enabled) {
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        } else {
+            assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        }
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -110,12 +246,42 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @EnumSource(Version.class)
-    void flakyAgileContext(Version version) throws Exception {
+    void deleteAllDocumentsMultipleTransactions(Version version) throws Exception {
         Index index = version.simpleIndex;
 
-        final Set<Tuple> primaryKeys = saveRecords(index, createSimpleDocument(1623L, "Document 1", 2));
-        primaryKeys.addAll(saveRecords(index, createSimpleDocument(1624L, "Document 2", 2)));
-        primaryKeys.addAll(saveRecords(index, createSimpleDocument(1547L, "NonDocument 3", 2)));
+        final Set<Tuple> primaryKeys = createDocuments(index, 3);
+
+        for (final Tuple toDelete : primaryKeys) {
+            try (FDBRecordContext context = openContext()) {
+                rebuildIndexMetaData(context, SIMPLE_DOC, index);
+                recordStore.deleteRecord(toDelete);
+                context.commit();
+            }
+        }
+        primaryKeys.clear();
+
+        if (version.enabled) {
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        } else {
+            assertEquals(3, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY));
+            assertEquals(0, timer.getCount(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Version.class)
+    void flakyAgileContext(Version version) {
+        Index index = version.simpleIndex;
+        final Set<Tuple> primaryKeys = new HashSet<>();
+        for (int i = 0; i < 3; i++) {
+            primaryKeys.addAll(createDocuments(index, 1));
+        }
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -127,7 +293,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, agilityContext.commitCount);
         }
         // V1 fails here, that's the test
-        Assumptions.assumeFalse(version == Version.V1);
+        Assumptions.assumeTrue(version == Version.V2);
         Assertions.assertAll(
                 () -> {
                     try (FDBRecordContext context = openContext()) {
@@ -139,10 +305,8 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
                     timer.reset();
                     assertNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY),
                             () -> "Count: " + timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY).getCount());
-                    saveRecords(index,
-                            createSimpleDocument(1623L, "Document 1 updated", 2),
-                            createSimpleDocument(1624L, "Document 2 updated", 2),
-                            createSimpleDocument(1547L, "NonDocument 3 updated", 2));
+                    idCounter -= 3;
+                    createDocuments(index, 3);
                     assertNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY),
                             () -> "Count: " + timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY).getCount());
                     assertEquals(3, timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY).getCount());
@@ -157,13 +321,14 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
         return super.openContext(contextProps);
     }
 
-    private Set<Tuple> saveRecords(final Index index, final TestRecordsTextProto.SimpleDocument... documents) {
+    @Nonnull
+    private Set<Tuple> createDocuments(final Index index, int count) {
         Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            for (final TestRecordsTextProto.SimpleDocument document : documents) {
-                primaryKeys.add(recordStore.saveRecord(document).getPrimaryKey());
-            }
+            IntStream.range(0, count).mapToObj(i ->
+                            recordStore.saveRecord(createSimpleDocument(idCounter++, "Document " + (textCounter++), 2)).getPrimaryKey())
+                    .forEach(primaryKeys::add);
             context.commit();
         }
         return primaryKeys;
@@ -173,7 +338,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
-        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(autoMerge);
     }
 
 

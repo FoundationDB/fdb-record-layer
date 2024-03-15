@@ -456,7 +456,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
     }
 
     private FDBDirectory createDirectory(final FDBRecordContext context) {
-        return new FDBDirectory(path.toSubspace(context), context, Map.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "true"));
+        return new FDBDirectory(path.toSubspace(context), context,
+                Map.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
     }
 
     private static class LightSegmentInfo {

@@ -77,7 +77,6 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         Default(false, options -> {
             options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
             options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED);
-            options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED);
         }),
         File(false, options -> {
             options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "false");
