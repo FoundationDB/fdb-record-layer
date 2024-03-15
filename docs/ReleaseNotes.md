@@ -22,6 +22,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** from is greater than to in a partition info [(Issue #2580)](https://github.com/FoundationDB/fdb-record-layer/issues/2580)
 * **Bug fix** Log proper file count during listAllFiles [(Issue #2584)](https://github.com/FoundationDB/fdb-record-layer/issues/2584)
+* **Bug fix** If an error happens during merge with an agile context, it may leak contexts [(Issue #2574)](https://github.com/FoundationDB/fdb-record-layer/issues/2574)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
