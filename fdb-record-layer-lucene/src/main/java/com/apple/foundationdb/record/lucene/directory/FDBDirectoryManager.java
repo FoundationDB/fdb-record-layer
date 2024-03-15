@@ -107,7 +107,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         // This agilityContext will be used to determine/iterate grouping keys and partitions. The time gap between calls might
-        // be too long for non-agile context.
+        // be too long for a non-agile context.
         final AgilityContext agilityContext = getAgilityContext(true);
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
@@ -157,22 +157,21 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true);
-        // Note: if this agilityContext experiences an exception, its state (locks, agile context) will be undefined. Hence it is not being reused.
         final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(groupingKey, partitionId, agilityContext);
         try {
             directoryWrapper.mergeIndex(analyzerWrapper);
-            agilityContext.flushAndClose();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
                         LuceneLogMessageKeys.GROUP, groupingKey,
                         LuceneLogMessageKeys.PARTITION, partitionId));
             }
         } catch (IOException e) {
-            agilityContext.abortAndClose();
+            directoryWrapper.getDirectory().getAgilityContext().abortAndReset();
             throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
                     .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
                             LuceneLogMessageKeys.PARTITION, partitionId);
         }
+        // Note: the local agilityContext cannot be closed, as it is still in use by the cached directory. When the directory closes, it should flush it.
     }
 
     private CompletableFuture<Integer> getNextOlderPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,

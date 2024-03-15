@@ -67,15 +67,12 @@ public interface AgilityContext {
     void flush();
 
     // This can be called to declare the object as 'closed' after flush. Future "flush" will succeed,
-    // but any attempt to perform a transaction will cause an exception.
+    // but any attempt to perform a transaction read/write will cause an exception.
     void flushAndClose();
 
-    // This can be called to declare the object as 'closed' after aborting. Future "flush" will succeed,
-    // but any attempt to perform a transaction will cause an exception.
-    // Since this is typically called after failure, the context and locks status is undefined and not being used.
-    void abortAndClose();
-
-    boolean isClosed();
+    // This will abort the existing agile context (if agile) and reset the locks. The only reason to
+    // call this function is after an transaction exception, buy a wrapper function, and to allow post failure cleanups.
+    void abortAndReset();
 
     default CompletableFuture<byte[]> get(byte[] key) {
         return apply(context -> context.ensureActive().get(key));
@@ -282,7 +279,7 @@ public interface AgilityContext {
 
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
-            ensureOoen();
+            ensureOpen();
             final long stamp = lock.readLock();
             createIfNeeded();
             return function.apply(currentContext).thenApply(ret -> {
@@ -298,7 +295,7 @@ public interface AgilityContext {
 
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
-            ensureOoen();
+            ensureOpen();
             final long stamp = lock.readLock();
             createIfNeeded();
             function.accept(currentContext);
@@ -314,7 +311,7 @@ public interface AgilityContext {
             });
         }
 
-        private void ensureOoen() {
+        private void ensureOpen() {
             if (closed) {
                 throw new RecordCoreStorageException("Agile context is already closed");
             }
@@ -330,22 +327,21 @@ public interface AgilityContext {
         public void flushAndClose() {
             closed = true;
             commitNow();
+            logSelf("flushAndClose agility context");
         }
 
         @Override
-        public void abortAndClose() {
-            // Here: the lock status is undefined. The main goal of this function is to
-            // a) prevent accidental future use
-            // b) make future flush harmless
-            closed = true;
+        public void abortAndReset() {
+            // Here: the lock status is undefined. The main goal of this function is to revive this object for post failure cleanups
+            lock.tryUnlockWrite();
+            boolean releasedLock = lock.tryUnlockRead();
+            for (int maxTries = 20; releasedLock && maxTries > 0; maxTries --) {
+                releasedLock = lock.tryUnlockRead();
+            }
             committingNow = true;
             currentContext = null;
             currentWriteSize = 0;
-        }
-
-        @Override
-        public boolean isClosed() {
-            return closed;
+            logSelf("AbortAndReset agility context");
         }
     }
 
@@ -362,13 +358,13 @@ public interface AgilityContext {
 
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
-            ensureOoen();
+            ensureOpen();
             return function.apply(callerContext);
         }
 
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
-            ensureOoen();
+            ensureOpen();
             function.accept(callerContext);
         }
 
@@ -383,7 +379,7 @@ public interface AgilityContext {
             return callerContext;
         }
 
-        private void ensureOoen() {
+        private void ensureOpen() {
             if (closed) {
                 throw new RecordCoreStorageException("NonAgile context is already closed");
             }
@@ -400,13 +396,8 @@ public interface AgilityContext {
         }
 
         @Override
-        public void abortAndClose() {
-            closed = true;
-        }
-
-        @Override
-        public boolean isClosed() {
-            return closed;
+        public void abortAndReset() {
+            // This is a no-op as the caller context should be handled by the caller.
         }
     }
 
