@@ -55,23 +55,40 @@ public interface AgilityContext {
         return new Agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
     }
 
-    // `apply` should be called when a returned value is expected
+    /**
+     * `apply` should be called when a returned value is expected. Performed under appropriate lock.
+     * @param function a function accepting context, returning a future
+     * @return the future of the function above
+     * @param <R> future's type
+     */
     <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) ;
 
-    // `accept` should be called when a returned value is not expected
+    /**
+     * `accept` should be called when a returned value is not expected. Performed under appropriate lock.
+     * @param function a function that accepts context
+     */
     void accept(Consumer<FDBRecordContext> function);
 
-    // `set` should be called for writes - keeping track of write size (if needed)
+    /**
+     * `set` should be called for writes - keeping track of write size (if needed).
+     * @param key key
+     * @param value value
+     */
     void set(byte[] key, byte[] value);
 
     void flush();
 
-    // This can be called to declare the object as 'closed' after flush. Future "flush" will succeed,
-    // but any attempt to perform a transaction read/write will cause an exception.
+    /**
+     * This can be called to declare the object as 'closed' after flush. Future "flush" will succeed, but any attempt
+     * to perform a transaction read/write will cause an exception.
+     */
     void flushAndClose();
 
-    // This will abort the existing agile context (if agile) and reset the locks. The only reason to
-    // call this function is after an transaction exception, buy a wrapper function, and to allow post failure cleanups.
+    /**
+     * This will abort the existing agile context (if agile) and reset the internal read/write locks. The only reason to
+     * call this function is after an transaction exception, by a wrapper function.
+     * The intention of this function is to allow cleanups after a failure, hence the object will not be 'closed'.
+     */
     void abortAndReset();
 
     default CompletableFuture<byte[]> get(byte[] key) {
@@ -333,14 +350,19 @@ public interface AgilityContext {
         @Override
         public void abortAndReset() {
             // Here: the lock status is undefined. The main goal of this function is to revive this object for post failure cleanups
-            lock.tryUnlockWrite();
-            boolean releasedLock = lock.tryUnlockRead();
-            for (int maxTries = 20; releasedLock && maxTries > 0; maxTries --) {
-                releasedLock = lock.tryUnlockRead();
+            synchronized (commitLockSync) {
+                lock.tryUnlockWrite();
+                boolean releasedLock = lock.tryUnlockRead();
+                for (int maxTries = 20; releasedLock && maxTries > 0; maxTries--) {
+                    releasedLock = lock.tryUnlockRead();
+                }
+                committingNow = false;
+                if (currentContext != null) {
+                    currentContext.close();
+                    currentContext = null;
+                }
+                currentWriteSize = 0;
             }
-            committingNow = true;
-            currentContext = null;
-            currentWriteSize = 0;
             logSelf("AbortAndReset agility context");
         }
     }

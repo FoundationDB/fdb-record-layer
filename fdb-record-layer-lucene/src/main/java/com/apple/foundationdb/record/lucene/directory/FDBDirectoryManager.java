@@ -113,7 +113,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         if (! (rootExpression instanceof GroupingKeyExpression)) {
             // Here: empty grouping keys tuple
             return mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner, agilityContext)
-                    .whenComplete((vignore, eignore) -> agilityContext.flushAndClose());
+                    .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
         }
         // Here: iterate the grouping keys and merge each
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
@@ -132,7 +132,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
                 .forEachAsync(groupingKey -> mergeIndex(analyzerWrapper, groupingKey, partitioner, agilityContext),
                         2)
-                .whenComplete((vignore, eignore) -> agilityContext.flushAndClose());
+                .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
     }
 
     private CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey,
@@ -173,6 +173,14 @@ public class FDBDirectoryManager implements AutoCloseable {
                             LuceneLogMessageKeys.PARTITION, partitionId);
         }
         // Note: the local agilityContext cannot be closed, as it is still in use by the cached directory. When the directory closes, it should flush it.
+    }
+
+    private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
+        if (ex == null) {
+            agilityContext.flushAndClose();
+        } else {
+            agilityContext.abortAndReset();
+        }
     }
 
     private CompletableFuture<Integer> getNextOlderPartitionInfo(final Tuple groupingKey, final AgilityContext agileContext,
