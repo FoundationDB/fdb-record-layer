@@ -74,11 +74,11 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         return Stream.of(null, "MySimpleRecord$primary_key", NUM_VALUE_2_INDEX.getName(), STR_VALUE_INDEX.getName());
     }
 
-    static Stream<Arguments> sourceIndexes() {
+    @Nonnull
+    static Stream<Arguments> sourceIndexesAndRandomSeeds() {
         return sourceIndexNames()
-                .flatMap(sourceIndexName ->
-                        OnlineIndexerBuildIndexTest.randomSeeds().map(seed ->
-                                Arguments.of(sourceIndexName, seed)));
+                .flatMap(sourceIndexName -> OnlineIndexerBuildIndexTest.randomSeeds()
+                        .map(seed -> Arguments.of(sourceIndexName, seed)));
     }
 
     private static String randomString(@Nonnull Random r) {
@@ -219,7 +219,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildOneHundredGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -230,7 +230,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildOneHundredWithOthersGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -244,7 +244,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildWhileInsertingGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -272,7 +272,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildWhileUpdatingGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -299,7 +299,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildWhileDeletingGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -327,7 +327,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildWhileConvertingTypeGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -388,7 +388,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildWhileDeletingGroupsGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -417,7 +417,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void buildWhileRandomlyMutatingGroupedCount(String sourceIndex, long seed) {
         Random r = new Random(seed);

@@ -159,7 +159,8 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
         }
     }
 
-    private static Stream<Arguments> overlapArgs() {
+    @Nonnull
+    private static Stream<Arguments> overlapAndRandomSeeds() {
         return Stream.of(false, true)
                 .flatMap(overlap -> OnlineIndexerBuildIndexTest.randomSeeds()
                         .map(seed -> Arguments.of(overlap, seed)));
@@ -576,7 +577,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     }
 
     @ParameterizedTest
-    @MethodSource("overlapArgs")
+    @MethodSource("overlapAndRandomSeeds")
     void sumFiveHundredParallelBuild(boolean overlap, long seed) {
         final Random r = new Random(seed);
         List<Message> records = LongStream.range(1L, 501L)
@@ -603,7 +604,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
     @Tag(Tags.Slow)
     @ParameterizedTest
-    @MethodSource("overlapArgs")
+    @MethodSource("overlapAndRandomSeeds")
     void simpleParallelTwoHundredRebuild(boolean overlap, long seed) {
         final Random r = new Random(seed);
         List<Message> records = LongStream.range(0L, 200L)
@@ -614,7 +615,7 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
     @Tag(Tags.Slow)
     @ParameterizedTest
-    @MethodSource("overlapArgs")
+    @MethodSource("overlapAndRandomSeeds")
     void parallelBuildFiveHundredWithDeletesAndUpdates(boolean overlap, long seed) {
         final Random r = new Random(seed);
         List<Message> records = LongStream.range(0L, 500L)

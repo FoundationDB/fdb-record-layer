@@ -181,13 +181,15 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, deletedIds, filter, ODD_NUM_VALUE_3_RECORDS_SUM, sourceIndex, 1, false);
     }
 
-    static Stream<Arguments> sourceIndexes() {
+    @Nonnull
+    static Stream<Arguments> sourceIndexesAndRandomSeeds() {
         return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
                 .flatMap(indexName -> OnlineIndexerBuildIndexTest.randomSeeds()
                         .map(seed -> Arguments.of(indexName, seed)));
     }
 
-    static Stream<Arguments> sourceIndexesAndFiltered() {
+    @Nonnull
+    static Stream<Arguments> sourceIndexesFilteredAndRandomSeeds() {
         return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
                 .flatMap(sourceIndex -> Stream.of(false, true)
                         .flatMap(filtered -> OnlineIndexerBuildIndexTest.randomSeeds()
@@ -209,7 +211,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void oneHundredElementsSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -251,7 +253,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void addWhileBuildingSum(Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -285,7 +287,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     public void somePreloadedSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -315,7 +317,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     void addSequentialWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -349,7 +351,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -367,7 +369,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -385,7 +387,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexes")
+    @MethodSource("sourceIndexesAndRandomSeeds")
     @Tag(Tags.Slow)
     public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
@@ -407,7 +409,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexesAndFiltered")
+    @MethodSource("sourceIndexesFilteredAndRandomSeeds")
     @Tag(Tags.Slow)
     public void oneHundredFilteredSum(@Nullable Index sourceIndex, boolean filterSource, long seed) {
         Random r = new Random(seed);
@@ -422,7 +424,7 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     }
 
     @ParameterizedTest
-    @MethodSource("sourceIndexesAndFiltered")
+    @MethodSource("sourceIndexesFilteredAndRandomSeeds")
     @Tag(Tags.Slow)
     public void updateWhileBuildingFilteredSum(@Nullable Index sourceIndex, boolean filterSource, long seed) {
         Random r = new Random(seed);
