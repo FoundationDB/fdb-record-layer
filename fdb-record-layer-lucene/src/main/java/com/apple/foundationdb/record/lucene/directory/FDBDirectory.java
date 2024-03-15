@@ -525,7 +525,7 @@ public class FDBDirectory extends Directory  {
     @Nonnull
     public List<KeyValue> readAllStoredFields(String segmentName) {
         final Range range = storedFieldsSubspace.range(Tuple.from(segmentName));
-        final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
+        final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_ALL_STORED_FIELDS,
                 agilityContext.getRange(range.begin, range.end));
         if (list == null) {
             throw new RecordCoreStorageException("Could not find stored fields")
