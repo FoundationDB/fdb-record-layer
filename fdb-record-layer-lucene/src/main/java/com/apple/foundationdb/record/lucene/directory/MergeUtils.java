@@ -67,6 +67,7 @@ class MergeUtils {
         }
     }
 
+    @SuppressWarnings("PMD.GuardLogStatement") // method is only called in a guard for isDebugEnabled
     private static void logWithCreationMessageIfNotAgile(final @Nonnull Logger logger,
                                                          final @Nonnull String staticMessage,
                                                          final @Nonnull AgilityContext context,
