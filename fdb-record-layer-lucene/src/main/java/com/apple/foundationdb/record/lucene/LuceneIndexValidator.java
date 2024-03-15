@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 /**
  * Validator for Lucene indexes.
@@ -56,6 +57,22 @@ public class LuceneIndexValidator extends IndexValidator {
     public static void validateIndexOptions(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
+        validatePrimaryKeyOptions(index.getOptions());
+    }
+
+    private static void validatePrimaryKeyOptions(final Map<String, String> options) {
+        if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED))) {
+            if (Boolean.parseBoolean(options.get(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED))) {
+                throw new MetaDataException(
+                        "Index cannot enable both " + LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED + " and "
+                                + LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED);
+            }
+            if (Boolean.parseBoolean(options.get(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED))) {
+                throw new MetaDataException(
+                        "Index cannot enable both " + LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED + " and "
+                                + LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
+            }
+        }
     }
 
     private static void validateAnalyzerNamePerFieldOption(@Nonnull String optionKey, @Nonnull Index index) {

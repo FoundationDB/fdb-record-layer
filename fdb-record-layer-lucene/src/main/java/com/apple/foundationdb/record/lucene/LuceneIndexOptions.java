@@ -101,6 +101,8 @@ public class LuceneIndexOptions {
      * Whether a separate B-tree index gives a direct mapping of live documents to segment by record primary key, that
      * utilizes an optimized stored fields to manage merges.
      * Boolean string ({@code true} or {@code false}).
+     * This is incompatible with {@link #PRIMARY_KEY_SEGMENT_INDEX_ENABLED} and {@link #OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED};
+     * if either of those are enabled, this cannot.
      */
     public static final String PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED = "primaryKeySegmentIndexV2Enabled";
 
