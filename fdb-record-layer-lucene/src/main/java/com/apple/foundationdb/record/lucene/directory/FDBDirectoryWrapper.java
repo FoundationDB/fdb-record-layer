@@ -44,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -255,12 +256,12 @@ class FDBDirectoryWrapper implements AutoCloseable {
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public IndexWriter getWriter(@Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
+    public IndexWriter getWriter(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, @Nullable final Exception exceptionAtCreation) throws IOException {
         if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key)
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key, exceptionAtCreation)
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
@@ -305,7 +306,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         directory.close();
     }
 
-    public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
-        getWriter(analyzerWrapper).maybeMerge();
+    public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, final Exception exceptionAtCreation) throws IOException {
+        getWriter(analyzerWrapper, exceptionAtCreation).maybeMerge();
     }
 }
