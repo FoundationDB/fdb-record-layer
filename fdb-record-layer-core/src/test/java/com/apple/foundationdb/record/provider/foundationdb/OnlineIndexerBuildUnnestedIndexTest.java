@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -161,9 +162,16 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
 
     @Nonnull
     private static Stream<Arguments> overlapAndRandomSeeds() {
-        return Stream.of(false, true)
-                .flatMap(overlap -> OnlineIndexerBuildIndexTest.randomSeeds()
-                        .map(seed -> Arguments.of(overlap, seed)));
+        return Stream.concat(
+                Stream.of(false, true)
+                        .flatMap(overlap -> Stream.of(0xba5eba1L, 0xb16da7a, 0xfdb05ca1eL)
+                                .map(seed -> Arguments.of(overlap, seed))),
+                RandomizedTestUtils.randomArguments(r -> {
+                    boolean overlap = r.nextBoolean();
+                    long seed = r.nextLong();
+                    return Arguments.of(overlap, seed);
+                })
+        );
     }
 
     private void assertUnnestedKeyQueryPlanFails() {

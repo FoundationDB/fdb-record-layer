@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
@@ -42,6 +43,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -70,15 +72,24 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     private static final Index NUM_VALUE_2_INDEX = new Index("MySimpleRecord$num_value_2", field("num_value_2"));
     private static final Index STR_VALUE_INDEX = new Index("MySimpleRecord$str_value_index", concatenateFields("num_value_2", "str_value_indexed"));
 
-    private static Stream<String> sourceIndexNames() {
-        return Stream.of(null, "MySimpleRecord$primary_key", NUM_VALUE_2_INDEX.getName(), STR_VALUE_INDEX.getName());
+    private static List<String> sourceIndexNames() {
+        // Use Arrays.asList instead of List.of because List.of does not allow null
+        return Arrays.asList(null, "MySimpleRecord$primary_key", NUM_VALUE_2_INDEX.getName(), STR_VALUE_INDEX.getName());
     }
 
     @Nonnull
     static Stream<Arguments> sourceIndexesAndRandomSeeds() {
-        return sourceIndexNames()
-                .flatMap(sourceIndexName -> OnlineIndexerBuildIndexTest.randomSeeds()
-                        .map(seed -> Arguments.of(sourceIndexName, seed)));
+        List<String> sourceIndexNames = sourceIndexNames();
+        return Stream.concat(
+                sourceIndexNames.stream()
+                        .flatMap(sourceIndexName -> Stream.of(0xba5eba1L, 0x5ca1e, 0x0fdb0fdb)
+                                .map(seed -> Arguments.of(sourceIndexName, seed))),
+                RandomizedTestUtils.randomArguments(r -> {
+                    String sourceIndexName = sourceIndexNames.get(r.nextInt(sourceIndexNames.size()));
+                    long seed = r.nextLong();
+                    return Arguments.of(sourceIndexName, seed);
+                })
+        );
     }
 
     private static String randomString(@Nonnull Random r) {

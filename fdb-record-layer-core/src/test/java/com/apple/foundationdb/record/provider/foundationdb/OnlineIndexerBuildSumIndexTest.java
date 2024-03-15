@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRestrictedIndexQueryTest;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Assumptions;
@@ -41,6 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -181,19 +183,40 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
         sumRebuild(records, recordsWhileBuilding, deletedIds, filter, ODD_NUM_VALUE_3_RECORDS_SUM, sourceIndex, 1, false);
     }
 
+    private static List<Index> sourceIndexes() {
+        return Arrays.asList(null, REC_NO_INDEX, NUM_VALUE_2_INDEX);
+    }
+
     @Nonnull
     static Stream<Arguments> sourceIndexesAndRandomSeeds() {
-        return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
-                .flatMap(indexName -> OnlineIndexerBuildIndexTest.randomSeeds()
-                        .map(seed -> Arguments.of(indexName, seed)));
+        List<Index> sourceIndexes = sourceIndexes();
+        return Stream.concat(
+                sourceIndexes.stream()
+                        .flatMap(index -> Stream.of(0x5ca1ab1eL, 0xba5eba11, 0xda7aba5e)
+                                .map(seed -> Arguments.of(index, seed))),
+                RandomizedTestUtils.randomArguments(r -> {
+                    Index sourceIndex = sourceIndexes.get(r.nextInt(sourceIndexes.size()));
+                    long seed = r.nextLong();
+                    return Arguments.of(sourceIndex, seed);
+                })
+        );
     }
 
     @Nonnull
     static Stream<Arguments> sourceIndexesFilteredAndRandomSeeds() {
-        return Stream.of(null, REC_NO_INDEX, NUM_VALUE_2_INDEX)
-                .flatMap(sourceIndex -> Stream.of(false, true)
-                        .flatMap(filtered -> OnlineIndexerBuildIndexTest.randomSeeds()
-                                .map(seed -> Arguments.of(sourceIndex, filtered, seed))));
+        List<Index> sourceIndexes = sourceIndexes();
+        return Stream.concat(
+                sourceIndexes.stream()
+                        .flatMap(index -> Stream.of(false, true)
+                                .flatMap(filtered -> Stream.of(0xdeadc0de, 0x5ca1efdb)
+                                        .map(seed -> Arguments.of(index, filtered, seed)))),
+                RandomizedTestUtils.randomArguments(r -> {
+                    Index sourceIndex = sourceIndexes.get(r.nextInt(sourceIndexes.size()));
+                    boolean filtered = r.nextBoolean();
+                    long seed = r.nextLong();
+                    return Arguments.of(sourceIndex, filtered, seed);
+                })
+        );
     }
 
     @Test
