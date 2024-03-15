@@ -109,6 +109,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     void testInsertDocuments(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
 
+        Set<String> segments = new HashSet<>();
         final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -117,18 +118,21 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(
                     1623L, "Document 1",
                     1624L, "Document 2"));
-            if (type.usesOptimizedStoredFields) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                if (type.usesOptimizedStoredFields) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
+                    assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
+                    assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
                 }
-                assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
-                assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
             }
         }
         validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
@@ -139,34 +143,40 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     void testInsertMultipleTransactions(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
 
+        final Set<String> segments = new HashSet<>();
         final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2)).getPrimaryKey());
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1624L, "Document 2", 2)).getPrimaryKey());
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(
                     1623L, "Document 1",
                     1624L, "Document 2"));
-            if (type.usesOptimizedStoredFields) {
-                assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
-                assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    // TODO: Find a way to force a merge and make sure the old segments are gone
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                // TODO: Find a way to force a merge and make sure the old segments are gone
+                if (type.usesOptimizedStoredFields) {
                     assertDocCountPerSegment(directory, List.of("_0", "_1", "_2", "_3"), List.of(1, 1, 1, 0));
+                    assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
+                    assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
                 }
             }
         }
@@ -192,34 +202,36 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
             context.commit();
         }
-        getSegments(type, contextProps, index, segments);
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.deleteRecord(Tuple.from(1623L));
             context.commit();
         }
-        getSegments(type, contextProps, index, segments);
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.deleteRecord(Tuple.from(1547L));
             context.commit();
         }
-        getSegments(type, contextProps, index, segments);
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(1624L, "Document 2"));
             LuceneIndexTestUtils.mergeSegments(recordStore, index);
         }
-        getSegments(type, contextProps, index, segments);
-        if (type.usesOptimizedStoredFields) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    // After a merge, all tombstones are removed and one document remains
+        getSegments(index, segments, SIMPLE_DOC);
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                // After a merge, all tombstones are removed and one document remains
+                if (type.usesOptimizedStoredFields) {
                     assertTotalDocCountInSegments(1, segments, directory);
+                    assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
                 }
-                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
         }
         validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
@@ -229,7 +241,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     @EnumSource(StoredFieldsType.class)
     void testInsertDeleteDocumentsSameTransaction(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
-
+        final Set<String> segments = new HashSet<>();
         final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
@@ -240,10 +252,23 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecord(Tuple.from(1623L));
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of(1624L, "Document 2"));
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                if (type.usesOptimizedStoredFields) {
+                    // the delete flushes, and then deletes, but we didn't merge, so the tombstoned document should
+                    // still be around
+                    assertTotalDocCountInSegments(3, segments, directory);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
+                }
+            }
         }
         validatePrimaryKeySegmentIndex(index, primaryKeys, SIMPLE_DOC);
     }
@@ -267,19 +292,19 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             primaryKeys.add(recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2)).getPrimaryKey());
             context.commit();
         }
-        getSegments(type, contextProps, index, segments);
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.updateRecord(createSimpleDocument(1623L, "Document 3 modified", 2));
             context.commit();
         }
-        getSegments(type, contextProps, index, segments);
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.updateRecord(createSimpleDocument(1624L, "Document 4 modified", 2));
             context.commit();
         }
-        getSegments(type, contextProps, index, segments);
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
@@ -289,15 +314,17 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             LuceneIndexTestUtils.mergeSegments(recordStore, index);
         }
 
-        getSegments(type, contextProps, index, segments);
-        if (type.usesOptimizedStoredFields) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    // After a merge, all tombstones are removed and 3 documents remain
+        getSegments(index, segments, SIMPLE_DOC);
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                // After a merge, all tombstones are removed and 3 documents remain
+                if (type.usesOptimizedStoredFields) {
                     assertTotalDocCountInSegments(3, segments, directory);
+                    assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
                 }
-                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
         }
 
@@ -312,6 +339,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
                 .build();
 
+        final Set<String> segments = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.saveRecord(createSimpleDocument(1623L, "Document 1", 2));
@@ -319,6 +347,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, "NonDocument 3", 2));
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             recordStore.deleteRecord(Tuple.from(1623L));
@@ -326,21 +355,24 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecord(Tuple.from(1547L));
             context.commit();
         }
+        getSegments(index, segments, SIMPLE_DOC);
         try (FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final RecordQuery query = buildQuery("Document", Collections.emptyList(), SIMPLE_DOC);
             queryAndAssertFields(query, "text", Map.of());
             LuceneIndexTestUtils.mergeSegments(recordStore, index);
         }
-
-        if (type.usesOptimizedStoredFields) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+        getSegments(index, segments, SIMPLE_DOC);
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                if (type.usesOptimizedStoredFields) {
                     // When deleting all docs from the index, the first segment (_0) was merged away and the last segment (_1) gets removed
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(0, 0));
+                    assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
                 }
-                assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
         }
 
@@ -354,6 +386,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         // Use a complex index with several fields
         Index index = type.complexIndex;
 
+        final Set<String> segments = new HashSet<>();
         final Set<Tuple> primaryKeys = new HashSet<>();
 
         try (FDBRecordContext context = openContext()) {
@@ -367,6 +400,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     1625L, "Hello record layer", "Hello record layer 2", 7, 14, true, 9.123)).getPrimaryKey());
             context.commit();
         }
+        getSegments(index, segments, COMPLEX_DOC);
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
             final RecordQuery query = buildQuery("record", Collections.emptyList(), COMPLEX_DOC);
@@ -388,12 +422,14 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     Tuple.from(6, 1624L), 8.123,
                     Tuple.from(7, 1625L), 9.123));
 
-            if (type.usesOptimizedStoredFields) {
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                if (type.usesOptimizedStoredFields) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
+                    assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 5);
+                    assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                } else {
+                    assertTotalDocCountInSegments(0, segments, directory);
                 }
-                assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 5);
-                assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
             }
         }
         validatePrimaryKeySegmentIndex(index, primaryKeys, COMPLEX_DOC);
@@ -454,17 +490,14 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void getSegments(final StoredFieldsType type, final RecordLayerPropertyStorage contextProps,
-                             final Index index, Set<String> segments) {
-        if (type.usesOptimizedStoredFields) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    for (final String file : directory.listAll()) {
-                        final String segmentName = IndexFileNames.parseSegmentName(file);
-                        if (!segmentName.equals(file)) {
-                            segments.add(segmentName);
-                        }
+    private void getSegments(final Index index, Set<String> segments, final String documentType) {
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, documentType, index);
+            try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
+                for (final String file : directory.listAll()) {
+                    final String segmentName = IndexFileNames.parseSegmentName(file);
+                    if (!segmentName.equals(file)) {
+                        segments.add(segmentName);
                     }
                 }
             }
