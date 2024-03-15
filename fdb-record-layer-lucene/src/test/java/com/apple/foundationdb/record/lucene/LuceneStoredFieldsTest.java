@@ -68,24 +68,35 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     enum StoredFieldsType {
-        File(options -> {
+        /**
+         * For testing if none of the options are specified. Currently this does not use the optimized format, but that
+         * may change in the future.
+         */
+        Default(false, options -> {
             options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
             options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED);
-        }),
-        Optimized(options -> {
-            options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
-            options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED);
-        }),
-        PrimaryKeyV2(options -> {
-            options.remove(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
             options.remove(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED);
+        }),
+        File(false, options -> {
+            options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "false");
+            options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "false");
+        }),
+        Optimized(true, options -> {
+            options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true");
+            options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "false");
+        }),
+        PrimaryKeyV2(true, options -> {
+            options.put(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "false");
+            options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, "false");
             options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true");
         });
 
+        private final boolean usesOptimizedStoredFields;
         private final Index simpleIndex;
         private final Index complexIndex;
 
-        StoredFieldsType(Consumer<Map<String, String>> optionsBuilder) {
+        StoredFieldsType(boolean usesOptimizedStoredFields, Consumer<Map<String, String>> optionsBuilder) {
+            this.usesOptimizedStoredFields = usesOptimizedStoredFields;
             this.simpleIndex = LuceneIndexTestUtils.simpleTextSuffixesIndex(optionsBuilder);
             this.complexIndex = LuceneIndexTestUtils.textAndStoredComplexIndex(optionsBuilder);
         }
@@ -109,7 +120,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             queryAndAssertFields(query, "text", Map.of(
                     1623L, "Document 1",
                     1624L, "Document 2"));
-            if (type != StoredFieldsType.File) {
+            if (type.usesOptimizedStoredFields) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
@@ -145,7 +156,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             queryAndAssertFields(query, "text", Map.of(
                     1623L, "Document 1",
                     1624L, "Document 2"));
-            if (type != StoredFieldsType.File) {
+            if (type.usesOptimizedStoredFields) {
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
                 assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
@@ -196,7 +207,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             LuceneIndexTestUtils.mergeSegments(recordStore, index);
         }
         getSegments(type, contextProps, index, segments);
-        if (type != StoredFieldsType.File) {
+        if (type.usesOptimizedStoredFields) {
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
@@ -280,7 +291,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         }
 
         getSegments(type, contextProps, index, segments);
-        if (type != StoredFieldsType.File) {
+        if (type.usesOptimizedStoredFields) {
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
@@ -331,7 +342,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             LuceneIndexTestUtils.mergeSegments(recordStore, index);
         }
 
-        if (type != StoredFieldsType.File) {
+        if (type.usesOptimizedStoredFields) {
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
@@ -377,7 +388,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                     Tuple.from(6, 1624L), 8.123,
                     Tuple.from(7, 1625L), 9.123));
 
-            if (type != StoredFieldsType.File) {
+            if (type.usesOptimizedStoredFields) {
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
                 }
@@ -437,7 +448,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
     private void getSegments(final StoredFieldsType type, final RecordLayerPropertyStorage contextProps,
                              final Index index, Set<String> segments) {
-        if (type != StoredFieldsType.File) {
+        if (type.usesOptimizedStoredFields) {
             try (FDBRecordContext context = openContext(contextProps)) {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
