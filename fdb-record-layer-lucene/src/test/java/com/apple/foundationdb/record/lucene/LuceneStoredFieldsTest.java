@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
@@ -160,7 +161,6 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
                 assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
-                    final String[] strings = directory.listAll();
                     // TODO: Find a way to force a merge and make sure the old segments are gone
                     assertDocCountPerSegment(directory, List.of("_0", "_1", "_2", "_3"), List.of(1, 1, 1, 0));
                 }
@@ -212,11 +212,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     // After a merge, all tombstones are removed and one document remains
-                    // the whims of lucene dictate which segment will have 1 document
-                    final Map<Integer, List<String>> segmentCounts = segments.stream()
-                            .collect(Collectors.groupingBy(segmentName -> directory.scanStoredFields(segmentName).join().size()));
-                    assertEquals(Set.of(0, 1), segmentCounts.keySet());
-                    assertEquals(1, segmentCounts.get(1).size());
+                    assertTotalDocCountInSegments(1, segments, directory);
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
@@ -296,11 +292,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                     // After a merge, all tombstones are removed and 3 documents remain
-                    final Map<Integer, List<String>> segmentCounts = segments.stream()
-                            .collect(Collectors.groupingBy(segmentName -> directory.scanStoredFields(segmentName).join().size()));
-                    assertEquals(3, segmentCounts.entrySet().stream()
-                            .mapToInt(entry -> entry.getKey() * entry.getValue().size())
-                            .sum(), segmentCounts::toString);
+                    assertTotalDocCountInSegments(3, segments, directory);
                 }
                 assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
             }
@@ -445,7 +437,6 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         return record.getIndexEntry().getPrimaryKey();
     }
 
-
     private void getSegments(final StoredFieldsType type, final RecordLayerPropertyStorage contextProps,
                              final Index index, Set<String> segments) {
         if (type.usesOptimizedStoredFields) {
@@ -461,6 +452,16 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 }
             }
         }
+    }
+
+    private static void assertTotalDocCountInSegments(final int expectedDocumentCount, final Set<String> segments, final FDBDirectory directory) {
+        final Map<String, Integer> segmentCounts = segments.stream()
+                .collect(Collectors.toMap(Function.identity(),
+                        segmentName -> directory.scanStoredFields(segmentName).join().size()));
+        assertEquals(expectedDocumentCount, segmentCounts.values().stream()
+                        .mapToInt(entry -> entry)
+                        .sum(),
+                segmentCounts::toString);
     }
 
     private void assertDocCountPerSegment(FDBDirectory directory, List<String> expectedSegmentNames, List<Integer> expectedDocsPerSegment) throws Exception {
