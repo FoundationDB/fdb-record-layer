@@ -77,12 +77,17 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Nonnull
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
     private final int mergeDirectoryCount;
+    private final Exception exceptionAtCreation;
 
     private FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
-
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
+        if (FDBTieredMergePolicy.usesCreationStack()) {
+            this.exceptionAtCreation = new Exception();
+        } else {
+            this.exceptionAtCreation = null;
+        }
     }
 
     @Override
@@ -160,7 +165,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final AgilityContext agilityContext = getAgilityContext(true);
         final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(groupingKey, partitionId, agilityContext);
         try {
-            directoryWrapper.mergeIndex(analyzerWrapper);
+            directoryWrapper.mergeIndex(analyzerWrapper, exceptionAtCreation);
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
                         LuceneLogMessageKeys.GROUP, groupingKey,
@@ -292,7 +297,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     @Nonnull
     public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nullable Integer partitionId, @Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
-        return getDirectoryWrapper(groupingKey, partitionId).getWriter(analyzerWrapper);
+        return getDirectoryWrapper(groupingKey, partitionId).getWriter(analyzerWrapper, exceptionAtCreation);
     }
 
     public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {
