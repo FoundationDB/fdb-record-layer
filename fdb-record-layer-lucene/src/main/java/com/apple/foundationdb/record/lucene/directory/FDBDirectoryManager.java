@@ -249,7 +249,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
-        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext());
+        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false));
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
@@ -260,8 +260,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
     }
 
-    private AgilityContext getAgilityContext() {
-        return getAgilityContext(false, state.context, state.store.getIndexDeferredMaintenanceControl());
+    private AgilityContext getAgilityContext(final boolean useAgilityContext) {
+        return getAgilityContext(useAgilityContext, state.context, state.store.getIndexDeferredMaintenanceControl());
     }
 
     @Nonnull
