@@ -30,8 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.commons.lang3.tuple.Pair;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,7 +43,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -288,8 +285,8 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
             final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
             final FailCommitsAgilityContext agilityContext = new FailCommitsAgilityContext(context, index.getSubspaceKey());
             // TODO work to make this better
-            final CompletionException completionException = assertThrows(CompletionException.class, () -> indexMaintainer.mergeIndexWithoutRepartitioning(agilityContext).join());
-            MatcherAssert.assertThat(completionException.getCause(), Matchers.instanceOf(FailedLuceneCommit.class));
+            assertThrows(FailedLuceneCommit.class,
+                    () -> indexMaintainer.mergeIndexForTesting(Tuple.from(), null, agilityContext));
             assertEquals(1, agilityContext.commitCount);
         }
         // V1 fails here, that's the test

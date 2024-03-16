@@ -36,8 +36,10 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
@@ -343,6 +345,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                     return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
                 });
+    }
+
+    @VisibleForTesting
+    public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
+                                     @Nullable final Integer partiitonId,
+                                     @Nonnull final AgilityContext agilityContext) throws IOException {
+        try (FDBDirectoryWrapper directoryWrapper = directoryManager.createDirectoryWrapper(groupingKey, partiitonId, agilityContext)) {
+            directoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), null);
+        }
     }
 
     @Nonnull
