@@ -36,6 +36,8 @@ import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.StandardDirectoryReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,6 +52,8 @@ import java.util.stream.Collectors;
  * This allows for efficient deleting of a document given that key, such as when doing index maintenance from an update.
  */
 public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIndex {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(LucenePrimaryKeySegmentIndexV2.class);
     @Nonnull
     private final FDBDirectory directory;
     @Nonnull
@@ -151,7 +155,10 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
     }
 
     @Override
-    public void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add) {
+    public void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey));
+        }
         final byte[] entryKey = ByteArrayUtil.join(subspace.getKey(), primaryKey, Tuple.from(segmentId, docId).pack());
         if (add) {
             directory.getAgilityContext().set(entryKey, new byte[0]);

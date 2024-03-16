@@ -61,8 +61,9 @@ public interface LucenePrimaryKeySegmentIndex {
      * @param segmentId the id of the segment (see {@link com.apple.foundationdb.record.lucene.directory.FDBDirectory#primaryKeySegmentId})
      * @param docId the document id within the segment
      * @param add whether to add ({@code true}) or delete ({@code false}) the entry
+     * @param segmentName name associated with the segment, for logging
      */
-    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add);
+    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName);
 
     /**
      * Clears all the primary key entries for a given segment name.

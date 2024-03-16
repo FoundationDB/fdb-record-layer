@@ -1,5 +1,5 @@
 /*
- * LucenePrimaryKeySegmentIndex.java
+ * LucenePrimaryKeySegmentIndexV1.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,8 +35,6 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FilterDirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
@@ -60,15 +58,16 @@ import java.util.stream.Collectors;
 /**
  * Maintain a B-tree index of primary key to segment and doc id.
  * This allows for efficient deleting of a document given that key, such as when doing index maintenance from an update.
+ * This works with any implementation of {@link StoredFieldsWriter}.
  */
-public class LucenePrimaryKeySegmentIndex {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LucenePrimaryKeySegmentIndex.class);
+public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIndex {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LucenePrimaryKeySegmentIndexV1.class);
     @Nonnull
     private final FDBDirectory directory;
     @Nonnull
     private final Subspace subspace;
 
-    public LucenePrimaryKeySegmentIndex(@Nonnull FDBDirectory directory, @Nonnull Subspace subspace) {
+    public LucenePrimaryKeySegmentIndexV1(@Nonnull FDBDirectory directory, @Nonnull Subspace subspace) {
         this.directory = directory;
         this.subspace = subspace;
     }
@@ -79,6 +78,7 @@ public class LucenePrimaryKeySegmentIndex {
      * @return a list of Tuple-decoded key entries
      */
     @VisibleForTesting
+    @Override
     public List<List<Object>> readAllEntries() {
         AtomicReference<List<List<Object>>> list = new AtomicReference<>();
         directory.getAgilityContext().accept(aContext -> readAllEntries(aContext, list));
@@ -107,36 +107,12 @@ public class LucenePrimaryKeySegmentIndex {
     }
 
     /**
-     * Result of {@link #findDocument}.
-     */
-    // TODO: Can be a record.
-    public static class DocumentIndexEntry {
-        @Nonnull
-        public final Tuple primaryKey;
-        @Nonnull
-        public final byte[] entryKey;
-        @Nonnull
-        public final IndexReader indexReader;
-        @Nonnull
-        public final String segmentName;
-        public final int docId;
-
-        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader,
-                                  @Nonnull String segmentName, final int docId) {
-            this.primaryKey = primaryKey;
-            this.entryKey = entryKey;
-            this.indexReader = indexReader;
-            this.segmentName = segmentName;
-            this.docId = docId;
-        }
-    }
-
-    /**
      * Return all the segments in which the given primary key appears.
      * Mostly for debug logging.
      * @param primaryKey the document's record's primary key
      * @return a list of segment names or segment ids when apparently not associated with a name
      */
+    @Override
     @SuppressWarnings("PMD.CloseResource")
     public List<String> findSegments(@Nonnull Tuple primaryKey) {
         return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
@@ -159,13 +135,7 @@ public class LucenePrimaryKeySegmentIndex {
                 }));
     }
 
-    /**
-     * Find document in index for direct delete.
-     * @param directoryReader a NRT reader
-     * @param primaryKey the document's record's primary key
-     * @return an entry with the leaf reader and document id in that segment or {@code null} if not found
-     * @see IndexWriter#tryDeleteDocument
-     */
+    @Override
     @Nullable
     public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
         final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
@@ -317,7 +287,8 @@ public class LucenePrimaryKeySegmentIndex {
         }
     }
 
-    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
+    @Override
+    public void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey));
         }
@@ -328,6 +299,13 @@ public class LucenePrimaryKeySegmentIndex {
             directory.getAgilityContext().clear(entryKey);
         }
     }
+
+    @Override
+    public void clearForSegment(final String segmentName) {
+        // no-op, this implementation deletes entries along the way
+        // which does not appear compatible with AgilityContext
+    }
+
 
     /**
      * Get the primary key byte array from a document's stored fields.
