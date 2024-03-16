@@ -288,6 +288,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
             assertThrows(FailedLuceneCommit.class,
                     () -> indexMaintainer.mergeIndexForTesting(Tuple.from(), null, agilityContext));
             assertEquals(1, agilityContext.commitCount);
+            agilityContext.abortAndReset(); // the normal merge would handle this
         }
         // V1 fails here, that's the test
         Assumptions.assumeTrue(version == Version.V2);
