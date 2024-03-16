@@ -38,6 +38,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -98,7 +99,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
@@ -113,7 +114,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
@@ -136,7 +137,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
@@ -177,7 +178,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
@@ -206,7 +207,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
@@ -236,7 +237,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
@@ -267,13 +268,13 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
-            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys, false);
         }
     }
 
     @ParameterizedTest
     @EnumSource(Version.class)
-    void flakyAgileContext(Version version) {
+    void flakyAgileContext(Version version) throws IOException {
         Index index = version.simpleIndex;
         final Set<Tuple> primaryKeys = new HashSet<>();
         for (int i = 0; i < 3; i++) {
@@ -283,12 +284,12 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+            // TODO improve this as part of #2575
             final FailCommitsAgilityContext agilityContext = new FailCommitsAgilityContext(context, index.getSubspaceKey());
-            // TODO work to make this better
             assertThrows(FailedLuceneCommit.class,
                     () -> indexMaintainer.mergeIndexForTesting(Tuple.from(), null, agilityContext));
             assertEquals(1, agilityContext.commitCount);
-            agilityContext.abortAndReset(); // the normal merge would handle this
+            agilityContext.flushAndClose(); // the normal merge would handle this
         }
         // V1 fails here, that's the test
         Assumptions.assumeTrue(version == Version.V2);
@@ -296,7 +297,8 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
                 () -> {
                     try (FDBRecordContext context = openContext()) {
                         rebuildIndexMetaData(context, SIMPLE_DOC, index);
-                        LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null, primaryKeys);
+                        LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(
+                                recordStore, index, Tuple.from(), null, primaryKeys, true);
                     }
                 },
                 () -> {
@@ -309,6 +311,22 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
                             () -> "Count: " + timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY).getCount());
                     assertEquals(3, timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY).getCount());
                 });
+        // retrying the merge should cleanup any extraneous mappings
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+            indexMaintainer.mergeIndex();
+            // This is required to close the agility context
+            // the pre-commit hook on this transaction will close the DirectoryManager
+            // which will close the directory and flush the context
+            // See also: #2574
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(
+                    recordStore, index, Tuple.from(), null, primaryKeys, false);
+        }
     }
 
     @Override

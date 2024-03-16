@@ -485,7 +485,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, documentType, index);
             LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index, Tuple.from(), null,
-                    primaryKeys);
+                    primaryKeys, false);
         }
     }
 

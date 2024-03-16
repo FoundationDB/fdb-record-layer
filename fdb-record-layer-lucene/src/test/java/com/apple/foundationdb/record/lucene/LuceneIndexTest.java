@@ -2773,7 +2773,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             primaryKeySegmentIndex.readAllEntries());
                 }
                 LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
-                        Tuple.from(), null, new HashSet<>(primaryKeys.values()));
+                        Tuple.from(), null, new HashSet<>(primaryKeys.values()), false);
             }
         } else {
             Set<Tuple> primaryKeys = new HashSet<>();
@@ -2822,7 +2822,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             primaryKeySegmentIndex.readAllEntries());
                 }
                 LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
-                        Tuple.from(), null, primaryKeys);
+                        Tuple.from(), null, primaryKeys, false);
             }
         }
     }
@@ -2967,7 +2967,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.getIndexDeferredMaintenanceControl().shouldAutoMergeDuringCommit());
             assertNotEmpty.accept(getIndexMaintainer(index));
             LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
-                    Tuple.from(), null, primaryKeys);
+                    Tuple.from(), null, primaryKeys, false);
         }
         for (int i = 0; i < 4; i++) {
             try (FDBRecordContext context = openContext(contextProps)) {
@@ -3002,7 +3002,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 }
                 LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
-                        Tuple.from(), null, primaryKeys);
+                        Tuple.from(), null, primaryKeys, false);
             }
         }
         // without this Lucene might not cleanup the files for the segments that have no live documents in them
@@ -3021,7 +3021,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             assertEmpty.accept(getIndexMaintainer(index));
             LuceneIndexTestValidator.validatePrimaryKeySegmentIndex(recordStore, index,
-                    Tuple.from(), null, Set.of());
+                    Tuple.from(), null, Set.of(), false);
         }
         return index;
     }

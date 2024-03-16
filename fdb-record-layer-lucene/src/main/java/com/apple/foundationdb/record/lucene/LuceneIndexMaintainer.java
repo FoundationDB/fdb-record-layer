@@ -351,8 +351,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
                                      @Nullable final Integer partiitonId,
                                      @Nonnull final AgilityContext agilityContext) throws IOException {
+        // TODO improve this as part of #2575
         try (FDBDirectoryWrapper directoryWrapper = directoryManager.createDirectoryWrapper(groupingKey, partiitonId, agilityContext)) {
-            directoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), null);
+            boolean success = false;
+            try {
+                directoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), null);
+                success = true;
+            } finally {
+                if (!success) {
+                    agilityContext.abortAndReset();
+                }
+            }
         }
     }
 
