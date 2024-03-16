@@ -45,15 +45,23 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     private final Subspace indexSubspace;
     @Nonnull
     private final Tuple key;
+    @Nullable
+    private final Exception exceptionAtCreation;
 
     public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl,
                                 @Nonnull AgilityContext context,
                                 @Nonnull Subspace indexSubspace,
-                                @Nonnull final Tuple key) {
+                                @Nonnull final Tuple key,
+                                @Nullable final Exception exceptionAtCreation) {
         this.mergeControl = mergeControl;
         this.context = context;
         this.indexSubspace = indexSubspace;
         this.key = key;
+        this.exceptionAtCreation = exceptionAtCreation;
+    }
+
+    public static boolean usesCreationStack() {
+        return LOGGER.isDebugEnabled();
     }
 
     boolean isAutoMergeDuringCommit(MergeTrigger mergeTrigger) {
@@ -70,7 +78,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
             final MergeSpecification merges = super.findMerges(mergeTrigger, infos, mergeContext);
-            MergeUtils.logFoundMerges(LOGGER, "Found Merges without mergeControl", context, indexSubspace, key, mergeTrigger, merges);
+            MergeUtils.logFoundMerges(LOGGER, "Found Merges without mergeControl", context, indexSubspace, key, mergeTrigger, merges, exceptionAtCreation);
             return merges;
         }
         if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
@@ -94,7 +102,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
         mergeControl.setMergesTried(specSize(spec));
 
         context.recordEvent(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
-        MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, spec);
+        MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, spec, exceptionAtCreation);
         return spec;
     }
 }

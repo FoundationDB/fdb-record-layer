@@ -343,6 +343,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .thenCompose(ignored -> {
                     IndexDeferredMaintenanceControl maintenanceControl = state.store.getIndexDeferredMaintenanceControl();
                     maintenanceControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
+                    // This agilityContext will be used to determine/iterate grouping keys and partitions. The time gap between calls might
+                    // be too long for a non-agile context.
                     final AgilityContext agilityContext = FDBDirectoryManager.getAgilityContext(true, state.context, maintenanceControl);
                     return mergeIndexWithoutRepartitioning(agilityContext);
                 });

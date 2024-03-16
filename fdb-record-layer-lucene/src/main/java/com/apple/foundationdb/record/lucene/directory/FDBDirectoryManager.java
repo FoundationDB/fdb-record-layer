@@ -77,12 +77,17 @@ public class FDBDirectoryManager implements AutoCloseable {
     @Nonnull
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
     private final int mergeDirectoryCount;
+    private final Exception exceptionAtCreation;
 
     private FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
-
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
+        if (FDBTieredMergePolicy.usesCreationStack()) {
+            this.exceptionAtCreation = new Exception();
+        } else {
+            this.exceptionAtCreation = null;
+        }
     }
 
     @Override
@@ -107,9 +112,11 @@ public class FDBDirectoryManager implements AutoCloseable {
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
-            return mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner, agilityContext);
+            // Here: empty grouping keys tuple
+            return mergeIndex(analyzerWrapper, TupleHelpers.EMPTY, partitioner, agilityContext)
+                    .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
         }
+        // Here: iterate the grouping keys and merge each
         GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
         final int groupingCount = expression.getGroupingCount();
 
@@ -121,50 +128,59 @@ public class FDBDirectoryManager implements AutoCloseable {
                 null,
                 ScanProperties.FORWARD_SCAN);
 
-        // TO DO: https://github.com/FoundationDB/fdb-record-layer/issues/2414
         return cursor
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
                 .forEachAsync(groupingKey -> mergeIndex(analyzerWrapper, groupingKey, partitioner, agilityContext),
-                        2);
+                        2)
+                .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
     }
 
     private CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey,
                                                @Nonnull LucenePartitioner partitioner, final AgilityContext agileContext) {
         if (!partitioner.isPartitioningEnabled()) {
-            try {
-                getDirectoryWrapper(groupingKey, null, agileContext).mergeIndex(analyzerWrapper);
-                return AsyncUtil.DONE;
-            } catch (IOException e) {
-                throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
-                        .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey);
-            }
+            mergeIndexNow(analyzerWrapper, groupingKey, null);
+            return AsyncUtil.DONE;
         } else {
+            // Here: iterate the partition ids and merge each
             AtomicReference<LucenePartitionInfoProto.LucenePartitionInfo> lastPartitionInfo = new AtomicReference<>();
             return AsyncUtil.whileTrue(() -> getNextOlderPartitionInfo(groupingKey, agileContext, lastPartitionInfo)
-                    .thenApply(partitionId -> mergePartition(analyzerWrapper, groupingKey, agileContext, partitionId)));
+                    .thenApply(partitionId -> {
+                        if (partitionId == null) {
+                            // partition list end
+                            return false;
+                        }
+                        mergeIndexNow(analyzerWrapper, groupingKey, partitionId);
+                        return true;
+                    }));
         }
     }
 
-    @Nonnull
-    private Boolean mergePartition(@Nonnull final LuceneAnalyzerWrapper analyzerWrapper, @Nonnull final Tuple groupingKey,
-                                   @Nonnull final AgilityContext agileContext, @Nullable final Integer partitionId) {
-        if (partitionId == null) {
-            return false;
-        } else {
-            try {
-                getDirectoryWrapper(groupingKey, partitionId, agileContext).mergeIndex(analyzerWrapper);
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
-                            LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.PARTITION, partitionId));
-                }
-                return true;
-            } catch (IOException e) {
-                throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
-                        .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey)
-                        .addLogInfo(LuceneLogMessageKeys.PARTITION, partitionId);
+    @SuppressWarnings("PMD.CloseResource")
+    private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
+        final AgilityContext agilityContext = getAgilityContext(true);
+        final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(groupingKey, partitionId, agilityContext);
+        try {
+            directoryWrapper.mergeIndex(analyzerWrapper, exceptionAtCreation);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
+                        LuceneLogMessageKeys.GROUP, groupingKey,
+                        LuceneLogMessageKeys.PARTITION, partitionId));
             }
+        } catch (IOException e) {
+            directoryWrapper.getDirectory().getAgilityContext().abortAndReset();
+            throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
+                    .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.PARTITION, partitionId);
+        }
+        // Note: the local agilityContext cannot be closed, as it is still in use by the cached directory. When the directory closes, it should flush it.
+    }
+
+    private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
+        if (ex == null) {
+            agilityContext.flushAndClose();
+        } else {
+            agilityContext.abortAndReset();
         }
     }
 
@@ -281,7 +297,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     @Nonnull
     public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nullable Integer partitionId, @Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
-        return getDirectoryWrapper(groupingKey, partitionId).getWriter(analyzerWrapper);
+        return getDirectoryWrapper(groupingKey, partitionId).getWriter(analyzerWrapper, exceptionAtCreation);
     }
 
     public DirectoryReader getDirectoryReader(@Nullable Tuple groupingKey, @Nullable Integer partititonId) throws IOException {

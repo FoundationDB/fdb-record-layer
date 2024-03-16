@@ -49,6 +49,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,10 @@ public class LuceneIndexTestValidator {
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
 
+        Map<Tuple, Map<Tuple, Tuple>> missingDocuments = new HashMap<>();
+        expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
+            missingDocuments.put(groupingKey, new HashMap<>(groupedIds));
+        });
         for (final Map.Entry<Tuple, Map<Tuple, Tuple>> entry : expectedDocumentInformation.entrySet()) {
             final Tuple groupingKey = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
@@ -173,10 +178,12 @@ public class LuceneIndexTestValidator {
                     visitedCount += partitionInfo.getCount();
                     validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                             expectedPrimaryKeys);
+                    expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
                 }
             }
-
         }
+        missingDocuments.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        assertEquals(Map.of(), missingDocuments, "We should have found all documents in the index");
     }
 
     private List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,

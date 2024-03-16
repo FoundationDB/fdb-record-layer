@@ -57,11 +57,29 @@ class MergeUtils {
                                @Nonnull final Subspace indexSubspace,
                                @Nullable final Tuple key,
                                @Nonnull final MergeTrigger mergeTrigger,
-                               @Nullable final MergePolicy.MergeSpecification merges) {
+                               @Nullable final MergePolicy.MergeSpecification merges,
+                               @Nullable final Exception exceptionAtCreation) {
         if (merges != null && logger.isDebugEnabled()) {
             final KeyValueLogMessage message = baseLogMessage(staticMessage, context, indexSubspace, key, mergeTrigger);
             message.addKeyAndValue(LuceneLogMessageKeys.MERGE_SOURCE, simpleSpec(merges));
             logWithExceptionIfNotAgile(logger, context, message);
+            logWithCreationMessageIfNotAgile(logger, staticMessage, context, indexSubspace, key, mergeTrigger, merges, exceptionAtCreation);
+        }
+    }
+
+    @SuppressWarnings("PMD.GuardLogStatement") // method is only called in a guard for isDebugEnabled
+    private static void logWithCreationMessageIfNotAgile(final @Nonnull Logger logger,
+                                                         final @Nonnull String staticMessage,
+                                                         final @Nonnull AgilityContext context,
+                                                         final @Nonnull Subspace indexSubspace,
+                                                         final @Nullable Tuple key,
+                                                         final @Nonnull MergeTrigger mergeTrigger,
+                                                         final @Nonnull MergePolicy.MergeSpecification merges,
+                                                         final @Nullable Exception exceptionAtCreation) {
+        if (!(context instanceof AgilityContext.Agile)) {
+            final KeyValueLogMessage message = baseLogMessage(staticMessage, context, indexSubspace, key, mergeTrigger);
+            message.addKeyAndValue(LuceneLogMessageKeys.MERGE_SOURCE, simpleSpec(merges));
+            logger.debug(message + " (Creation)", exceptionAtCreation);
         }
     }
 
