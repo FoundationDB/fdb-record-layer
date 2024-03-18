@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -416,5 +418,10 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 .setRecordType(recordStore.getRecordMetaData().getRecordType(rec.getDescriptorForType().getName()))
                 .setRecord(rec)
                 .build();
+    }
+
+    @Nonnull
+    static Stream<Long> randomSeeds() {
+        return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L);
     }
 }

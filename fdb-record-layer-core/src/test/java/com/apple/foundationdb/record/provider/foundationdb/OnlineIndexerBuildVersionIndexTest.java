@@ -32,7 +32,8 @@ import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -215,40 +216,44 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, null);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsVersion() {
-        Random r = new Random(0x8badf00d);
+    void oneHundredElementsVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).collect(Collectors.toList());
         versionRebuild(records);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsParallelVersion() {
-        Random r = new Random(0x8badf00d);
+    void oneHundredElementsParallelVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).collect(Collectors.toList());
         versionRebuild(records, null, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsParallelOverlapVersion() {
-        Random r = new Random(0x8badf00d);
+    void oneHundredElementsParallelOverlapVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).collect(Collectors.toList());
         versionRebuild(records, null, 5, true);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingVersion() {
-        Random r = new Random(0x8badf00d);
+    void addWhileBuildingVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).collect(Collectors.toList());
@@ -258,10 +263,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, recordsWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingParallelVersion() {
-        Random r = new Random(0x8badf00d);
+    void addWhileBuildingParallelVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(150).collect(Collectors.toList());
@@ -271,10 +277,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, recordsWhileBuilding, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingVersion() {
-        Random r = new Random(0x8badf00d);
+    void addSequentialWhileBuildingVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).collect(Collectors.toList());
@@ -286,10 +293,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, recordsWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingParallelVersion() {
-        Random r = new Random(0x8badf00d);
+    void addSequentialWhileBuildingParallelVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).collect(Collectors.toList());
@@ -301,10 +309,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, recordsWhileBuilding, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void someWithoutVersion() {
-        Random r = new Random(0x8badf00d);
+    void someWithoutVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(20)).build()
         ).limit(100).collect(Collectors.toList());
@@ -316,10 +325,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, null, 1, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void someWithoutVersionParallel() {
-        Random r = new Random(0x8badf00d);
+    void someWithoutVersionParallel(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(20)).build()
         ).limit(100).collect(Collectors.toList());
@@ -331,10 +341,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, null, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingWithoutVersion() {
-        Random r = new Random(0x8badf00d);
+    void addWhileBuildingWithoutVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(20)).build()
         ).limit(100).collect(Collectors.toList());
@@ -349,10 +360,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, recordsWhileBuilding, 1, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingWithoutVersionParallel() {
-        Random r = new Random(0x8badf00d);
+    void addWhileBuildingWithoutVersionParallel(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(20)).build()
         ).limit(100).collect(Collectors.toList());
@@ -367,10 +379,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, recordsWhileBuilding, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void sequentialWithoutVersion() {
-        Random r = new Random(0x8badf00d);
+    void sequentialWithoutVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).limit(100).collect(Collectors.toList());
@@ -382,10 +395,11 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
         versionRebuild(records, null, 1, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void sequentialWhileBuildingWithoutVersion() {
-        Random r = new Random(0x8badf00d);
+    void sequentialWhileBuildingWithoutVersion(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).limit(100).collect(Collectors.toList());

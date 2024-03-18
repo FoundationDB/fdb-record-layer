@@ -47,7 +47,8 @@ import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -395,9 +396,10 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         }
     }
 
-    @Test
-    void simpleTenJoinedRecords() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleTenJoinedRecords(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = randomSimpleRecord(r);
@@ -407,9 +409,10 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         singleValueIndexRebuild(records, null, null);
     }
 
-    @Test
-    void simpleJoinIsEmpty() {
-        final Random r = new Random(0x0fdb0fdbL);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleJoinIsEmpty(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = randomSimpleRecord(r);
@@ -425,9 +428,10 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         }
     }
 
-    @Test
-    void simpleJoinWithExtraUnjoinedRecords() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleJoinWithExtraUnjoinedRecords(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 20; i++) {
             TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = randomSimpleRecord(r);
@@ -445,10 +449,11 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         singleValueIndexRebuild(records, null, null);
     }
 
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    @Test
-    void simpleValueWithUpdatesAndDeletes() {
-        final Random r = new Random(0x5ca1e);
+    void simpleValueWithUpdatesAndDeletes(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 400; i++) {
             TestRecordsJoinIndexProto.MySimpleRecord simple = randomSimpleRecord(r);
@@ -465,9 +470,10 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding);
     }
 
-    @Test
-    void simpleTenJoinedCountRecords() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleTenJoinedCountRecords(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = randomSimpleRecord(r);
@@ -477,9 +483,10 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
         singleCountIndexRebuild(records, null, null);
     }
 
-    @Test
-    void simpleJoinCountIsEmpty() {
-        final Random r = new Random(0x0fdb0fdbL);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleJoinCountIsEmpty(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             TestRecordsJoinIndexProto.MySimpleRecord simpleRecord = randomSimpleRecord(r);
@@ -497,10 +504,11 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
     }
 
     @Tag(Tags.Slow)
-    @Test
     @Disabled("Updates to non-idempotent index during joined index build not correctly handled")
-    void simpleCountWithUpdatesAndDeletes() {
-        final Random r = new Random(0x5ca1e);
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
+    void simpleCountWithUpdatesAndDeletes(long seed) {
+        final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
         for (int i = 0; i < 400; i ++) {
             TestRecordsJoinIndexProto.MySimpleRecord simple = randomSimpleRecord(r);
