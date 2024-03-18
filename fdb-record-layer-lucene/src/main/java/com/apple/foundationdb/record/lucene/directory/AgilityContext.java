@@ -299,13 +299,10 @@ public interface AgilityContext {
             ensureOpen();
             final long stamp = lock.readLock();
             createIfNeeded();
-            return function.apply(currentContext).thenApply(ret -> {
+            return function.apply(currentContext).whenComplete((result, exception) -> {
                 lock.unlock(stamp);
-                commitIfNeeded();
-                return ret;
-            }).whenComplete((ret, ex) -> {
-                if (ex != null) {
-                    reportFdbException(ex);
+                if (exception != null) {
+                    commitIfNeeded();
                 }
             });
         }
