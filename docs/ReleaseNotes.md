@@ -17,7 +17,8 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Record type key comparisons now can be used on synthetic types [(Issue #2587)](https://github.com/FoundationDB/fdb-record-layer/issues/2587)
+* **Bug fix** Scan comparison ranges on the synthetic record type primary key do not break apart list key expression components [(Issue #2588)](https://github.com/FoundationDB/fdb-record-layer/issues/2588)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
@@ -51,15 +52,18 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -70,11 +74,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -90,7 +96,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
@@ -1054,6 +1062,237 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
 
             recordStore.deleteRecord(stored.getPrimaryKey());
             assertThat(recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().join(), empty());
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void indexMatchIncludesPrimaryKeyComponent() {
+        final Index index = new Index("indexIncludingPrimaryKey", concat(field(PARENT_CONSTITUENT).nest("other_id"), field("map_entry").nest("key")));
+        final RecordMetaData metaData = mapMetaData(setOuterAndOtherPrimaryKey(concatenateFields("other_id", "rec_id"))
+                .andThen(addMapType())
+                .andThen(metaDataBuilder -> metaDataBuilder.addIndex(UNNESTED_MAP, index)));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            Set<String> mapKeys = new HashSet<>();
+            for (long otherId = 0; otherId < 3; otherId++) {
+                for (TestRecordsNestedMapProto.OuterRecord mapRecord : sampleMapRecords()) {
+                    recordStore.saveRecord(mapRecord.toBuilder().setOtherId(otherId).build());
+                    for (TestRecordsNestedMapProto.MapRecord.Entry entry : mapRecord.getMap().getEntryList()) {
+                        mapKeys.add(entry.getKey());
+                    }
+                }
+            }
+
+            final String otherParam = "other";
+            final String keyParam = "key";
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(UNNESTED_MAP)
+                    .setFilter(Query.and(
+                            Query.field(PARENT_CONSTITUENT).matches(Query.field("other_id").equalsParameter(otherParam)),
+                            Query.field("map_entry").matches(Query.field("key").equalsParameter(keyParam))
+                    ))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan, indexPlan()
+                    .where(indexName(index.getName()))
+                    .and(scanComparisons(range("[EQUALS $" + otherParam + ", EQUALS $" + keyParam + ", IS " + UNNESTED_MAP + "]"))));
+
+            for (long otherId = -1; otherId < 4; otherId++) {
+                for (String key : mapKeys) {
+                    List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> expected;
+                    if (otherId < 0 || otherId >= 3) {
+                        expected = Collections.emptyList();
+                    } else {
+                        expected = new ArrayList<>();
+                        for (TestRecordsNestedMapProto.OuterRecord outerRecord : sampleMapRecords()) {
+                            for (TestRecordsNestedMapProto.MapRecord.Entry entry : outerRecord.getMap().getEntryList()) {
+                                if (key.equals(entry.getKey())) {
+                                    expected.add(Pair.of(outerRecord.toBuilder().setOtherId(otherId).build(), entry));
+                                }
+                            }
+                        }
+                    }
+
+                    final Bindings bindings = Bindings.newBuilder()
+                            .set(otherParam, otherId)
+                            .set(keyParam, key)
+                            .build();
+                    final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
+                    List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> results = plan.execute(recordStore, evaluationContext)
+                            .map(FDBQueriedRecord::getSyntheticRecord)
+                            .map(syntheticRecord -> Pair.of(TestRecordsNestedMapProto.OuterRecord.newBuilder().mergeFrom(syntheticRecord.getConstituent(PARENT_CONSTITUENT).getRecord()).build(), TestRecordsNestedMapProto.MapRecord.Entry.newBuilder().mergeFrom(syntheticRecord.getConstituent("map_entry").getRecord()).build()))
+                            .asList()
+                            .join();
+                    assertThat(results, containsInAnyOrder(expected.toArray()));
+                }
+            }
+
+            commit(context);
+        }
+    }
+
+    @Test
+    void multiTypeDifferentiatedByTypeKeyComparison() {
+        final Random r = new Random();
+        final Index index = new Index("otherFooIndex", concat(field(PARENT_CONSTITUENT).nest("other_int"), field("inner").nest("foo")));
+        final String middleUnnestedType = "MiddleUnnested";
+        final RecordMetaData metaData = doubleNestedMetaData(setOuterAndMiddlePrimaryKey(concatenateFields("other_int", "rec_no"))
+                .andThen(addDoubleNestedType())
+                .andThen(metaDataBuilder -> {
+                    UnnestedRecordTypeBuilder unnestedBuilder = metaDataBuilder.addUnnestedRecordType(middleUnnestedType);
+                    unnestedBuilder.addParentConstituent(PARENT_CONSTITUENT, metaDataBuilder.getRecordType("MiddleRecord"));
+                    unnestedBuilder.addNestedConstituent("inner", TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor(),
+                            PARENT_CONSTITUENT, field("other_middle").nest("inner", FanType.FanOut));
+                })
+                .andThen(metaDataBuilder -> metaDataBuilder.addMultiTypeIndex(List.of(metaDataBuilder.getIndexableRecordType(DOUBLE_NESTED), metaDataBuilder.getIndexableRecordType(middleUnnestedType)), index))
+        );
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            List<TestRecordsDoubleNestedProto.OuterRecord> outerRecords = new ArrayList<>();
+            for (long otherId = 0; otherId < 3; otherId++) {
+                for (int i = 0; i < 5; i++) {
+                    final TestRecordsDoubleNestedProto.OuterRecord outerRecord = TestRecordsDoubleNestedProto.OuterRecord.newBuilder()
+                            .setOtherInt(otherId)
+                            .setRecNo(2 * i)
+                            .addManyMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.newBuilder()
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(1L)
+                                            .setBar("one")
+                                    )
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(2L)
+                                            .setBar("two")
+                                    )
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(3L)
+                                            .setBar("three")
+                                    )
+                                    .setOtherInt(1)
+                            )
+                            .addManyMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.newBuilder()
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(1L)
+                                            .setBar("a")
+                                    )
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(2L)
+                                            .setBar("b")
+                                    )
+                                    .setOtherInt(2)
+                            )
+                            .addManyMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.newBuilder()
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(1L)
+                                            .setBar("asdf")
+                                    )
+                                    .setOtherInt(3)
+                            )
+                            .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                    .setFoo(1L)
+                                    .setBar("other")
+                            )
+                            .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                    .setFoo(2L)
+                                    .setBar("guy")
+                            )
+                            .build();
+                    final TestRecordsDoubleNestedProto.MiddleRecord middleRecord = TestRecordsDoubleNestedProto.MiddleRecord.newBuilder()
+                            .setOtherInt(otherId)
+                            .setRecNo(2 * i + 1)
+                            .setOtherMiddle(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.newBuilder()
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(1L)
+                                            .setBar("1")
+                                    )
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(2L)
+                                            .setBar("2")
+                                    )
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(3L)
+                                            .setBar("3")
+                                    )
+                                    .addInner(TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
+                                            .setFoo(4L)
+                                            .setBar("4")
+                                    )
+                                    .setOtherInt(4)
+                            )
+                            .build();
+
+                    recordStore.saveRecord(outerRecord);
+                    recordStore.saveRecord(middleRecord);
+
+                    outerRecords.add(outerRecord);
+                }
+            }
+
+            final String otherIntParam = "otherInt";
+            final String fooParam = "foo";
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(DOUBLE_NESTED)
+                    .setFilter(Query.and(
+                            Query.field(PARENT_CONSTITUENT).matches(Query.field("other_int").equalsParameter(otherIntParam)),
+                            Query.field("inner").matches(Query.field("foo").equalsParameter(fooParam))
+                    ))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            // Note: this type filter on DOUBLE_NESTED is unnecessary because of the record type key comparison, but it should be harmless
+            assertMatchesExactly(plan, typeFilterPlan(
+                    indexPlan()
+                            .where(indexName(index.getName()))
+                            .and(scanComparisons(range("[EQUALS $" + otherIntParam + ", EQUALS $" + fooParam + ", IS " + DOUBLE_NESTED + "]")))
+                    ).where(recordTypes(PrimitiveMatchers.containsAll(ImmutableSet.of(DOUBLE_NESTED))))
+            );
+
+            final FDBStoreTimer timer = recordStore.getTimer();
+            assertNotNull(timer);
+            timer.reset();
+            int nonEmptySets = 0;
+            for (long otherId = -1L; otherId < 4L; otherId++) {
+                for (long foo = 0L; foo < 4L; foo++) {
+                    List<Map<String, Message>> expected = new ArrayList<>();
+                    for (TestRecordsDoubleNestedProto.OuterRecord outerRecord : outerRecords) {
+                        if (outerRecord.getOtherInt() == otherId) {
+                            for (TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord middle : outerRecord.getManyMiddleList()) {
+                                for (TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord innerRecord : middle.getInnerList()) {
+                                    if (innerRecord.getFoo() == foo) {
+                                        for (TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord outerInner : outerRecord.getInnerList()) {
+                                            expected.add(Map.of(PARENT_CONSTITUENT, outerRecord, "middle", middle, "inner", innerRecord, "outer_inner", outerInner));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (!expected.isEmpty()) {
+                        nonEmptySets++;
+                    }
+
+                    final Bindings bindings = Bindings.newBuilder()
+                            .set(otherIntParam, otherId)
+                            .set(fooParam, foo)
+                            .build();
+                    List<Map<String, Message>> queried = plan.execute(recordStore, EvaluationContext.forBindings(bindings))
+                            .map(rec -> {
+                                assertEquals(DOUBLE_NESTED, rec.getRecordType().getName(), () -> String.format("record type for record %s should match type %s", rec, DOUBLE_NESTED));
+                                return rec.getSyntheticRecord();
+                            })
+                            .map(rec -> rec.getConstituents().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> (Message) e.getValue().getRecord())))
+                            .asList()
+                            .join();
+                    assertThat(expected, containsInAnyOrder(queried.toArray()));
+                }
+            }
+            assertThat("There should be at least one non-empty test case", nonEmptySets, greaterThan(0));
+            assertEquals(timer.getCount(FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_PASSED), timer.getCount(FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_GIVEN));
+            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED));
 
             commit(context);
         }

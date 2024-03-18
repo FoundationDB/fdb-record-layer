@@ -708,8 +708,16 @@ public class RecordQueryPlanner implements QueryPlanner {
             final List<KeyExpression> keys = new ArrayList<>(commonPrimaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(keys);
             if (!keys.isEmpty()) {
-                keys.add(0, indexKeyExpression);
-                indexKeyExpression = Key.Expressions.concat(keys);
+                final List<KeyExpression> children = new ArrayList<>(keys.size() + 1);
+                children.add(indexKeyExpression);
+                for (KeyExpression key : keys) {
+                    if (key.getColumnSize() == 1) {
+                        children.add(key);
+                    } else {
+                        children.add(Key.Expressions.list(key));
+                    }
+                }
+                indexKeyExpression = Key.Expressions.concat(children);
             }
         }
         return indexKeyExpression;
