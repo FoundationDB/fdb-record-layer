@@ -136,8 +136,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         return cursor
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
+                // Use a pipeline size of 1. We don't want to be merging multiple different groups at a time
+                // It may make sense in the future to make these concurrent, but there is enough complexity that it is
+                // better to avoid the concurrent merges.
+                // This also reduces the amount of load that a single store can cause on a system.
                 .forEachAsync(groupingKey -> mergeIndex(analyzerWrapper, groupingKey, partitioner, agilityContext),
-                        2)
+                        1)
                 .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
     }
 
