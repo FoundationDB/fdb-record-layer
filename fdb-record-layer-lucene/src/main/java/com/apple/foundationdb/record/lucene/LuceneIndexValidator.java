@@ -67,10 +67,12 @@ public class LuceneIndexValidator extends IndexValidator {
                         "Index cannot enable both " + LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED + " and "
                                 + LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED);
             }
-            if (Boolean.parseBoolean(options.get(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED))) {
+            if (options.get(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED) != null) {
                 throw new MetaDataException(
-                        "Index cannot enable both " + LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED + " and "
-                                + LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED);
+                        "The index option " + LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED +
+                                " is implied by " +
+                                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED +
+                                " and cannot be controlled independently");
             }
         }
     }
