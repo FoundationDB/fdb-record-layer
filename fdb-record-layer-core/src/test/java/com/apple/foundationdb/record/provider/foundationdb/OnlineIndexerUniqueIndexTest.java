@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -149,16 +148,6 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
-            indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
-            try (FDBRecordContext context = openContext()) {
-                assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
-                context.commit();
-            }
-            indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(5L), Key.Evaluated.scalar(10L)).join();
-            try (FDBRecordContext context = openContext()) {
-                assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
-                context.commit();
-            }
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
 
@@ -210,18 +199,17 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             context.commit();
         }
         try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
-            indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(0L), Key.Evaluated.scalar(5L)).join();
             try (FDBRecordContext context = openContext()) {
                 for (int i = 5; i < records.size(); i++) {
                     recordStore.saveRecord(records.get(i));
                 }
                 context.commit();
             }
+            buildIndexAssertThrowUniquenessViolation(indexBuilder);
             try (FDBRecordContext context = openContext()) {
                 assertEquals(10, (int)recordStore.scanUniquenessViolations(index).getCount().join());
                 context.commit();
             }
-            buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
 
         // Case 7: The second of these two transactions should fail on not_committed, and then
@@ -249,7 +237,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                     context2.getReadVersion();
                     FDBRecordStore recordStore2 = recordStore.asBuilder().setContext(context2).build();
 
-                    indexBuilder.buildUnbuiltRange(recordStore, null, Key.Evaluated.scalar(5L)).join();
+                    indexBuilder.buildIndexAsync(false).join();
                     recordStore2.saveRecord(records.get(8));
 
                     context.commit();
