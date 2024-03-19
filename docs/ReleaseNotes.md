@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.475.0
+
+
 ### 3.4.474.0
 
 * **Bug fix** Calls to AsyncUtil static methods should pass in an executor where possible [(Issue #2592)](https://github.com/FoundationDB/fdb-record-layer/issues/2592)
