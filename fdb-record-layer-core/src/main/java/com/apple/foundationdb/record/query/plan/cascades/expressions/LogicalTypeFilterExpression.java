@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -48,6 +49,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -126,10 +128,11 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+        final var maxMatchMap = getMaxMatchMapFromAliasMapping(bindingAliasMap, candidateExpression);
+        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, Optional.of(maxMatchMap));
     }
 
     @Override

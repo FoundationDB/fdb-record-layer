@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -69,17 +70,38 @@ public class MatchInfo {
     @Nonnull
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
 
+    /**
+     * This contains all the predicates in the {@code predicateMap} plus all the
+     * predicates that are pulled up from downstairs which is a mapping from the query
+     * predicate to a candidate, but with one extra field that we're changing while adding it.
+     *
+     * You are constructing accumulatedPredicateMap of current MatchInfo, you look below and find
+     * accumulated predicate maps along along each quantifier:
+     * for (entries) {
+     *     entry.key == queryPredicate
+     *     entr.vale == PredicateMapping(candidatePredicate, kind, translatedQueryPredicate)
+     *     currentAccPredMap.add(entry.key, entry.value.withNewTranslatedQueryPredicate(pullUp(entry.value.translatedQueryPredicate))
+     * }
+     */
+    @Nonnull
+    private final PredicateMap accumulatedPredicateMap;
+
     @Nonnull
     private final List<MatchedOrderingPart> matchedOrderingParts;
 
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
 
+    @Nonnull
+    private final Optional<MaxMatchMap> maxMatchMapOptional;
+
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
+                      @Nonnull final PredicateMap accumulatedPredicateMap,
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                      @Nonnull final Optional<Value> remainingComputationValueOptional) {
+                      @Nonnull final Optional<Value> remainingComputationValueOptional,
+                      @Nonnull final Optional<MaxMatchMap> maxMatchMapOptional) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
         this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
@@ -87,6 +109,7 @@ public class MatchInfo {
             quantifierToPartialMatchMap.forEachUnwrapped(((quantifier, partialMatch) -> mapBuilder.put(quantifier.getAlias(), partialMatch)));
             return mapBuilder.build();
         });
+        this.accumulatedPredicateMap = accumulatedPredicateMap;
         this.capturedConstraintsSupplier = Suppliers.memoize(this::capturedConstraintCollectorMaybe);
         this.predicateMap = predicateMap;
         this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
@@ -97,6 +120,7 @@ public class MatchInfo {
 
         this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
         this.remainingComputationValueOptional = remainingComputationValueOptional;
+        this.maxMatchMapOptional = maxMatchMapOptional;
     }
 
     @Nonnull
@@ -155,12 +179,19 @@ public class MatchInfo {
     }
 
     @Nonnull
+    public Optional<MaxMatchMap> getMaxMatchMapOptional() {
+        return maxMatchMapOptional;
+    }
+
+    @Nonnull
     public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
+                accumulatedPredicateMap,
                 matchedOrderingParts,
-                remainingComputationValueOptional);
+                remainingComputationValueOptional,
+                maxMatchMapOptional);
     }
 
     @Nonnull
@@ -180,17 +211,20 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty());
+    public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                      @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
+        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(), Optional.empty(), maxMatchMap);
     }
 
     @Nonnull
     public static Optional<MatchInfo> tryMerge(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                                @Nonnull final PredicateMap predicateMap,
-                                               @Nonnull Optional<Value> remainingComputationValueOptional) {
+                                               @Nonnull final PredicateMap accumulatedPredicateMap,
+                                               @Nonnull final Optional<Value> remainingComputationValueOptional,
+                                               @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
         final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
-        final var matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
+        final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
         matchInfos.forEach(matchInfo -> parameterMapsBuilder.add(matchInfo.getParameterBindingMap()));
         parameterMapsBuilder.add(parameterBindingMap);
@@ -213,23 +247,26 @@ public class MatchInfo {
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                 tryMergeParameterBindings(parameterMapsBuilder.build());
 
-        final var remainingComputations = regularQuantifiers.stream()
-                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
-                .map(partialMatch -> partialMatch.getMatchInfo().getRemainingComputationValueOptional())
-                .filter(Optional::isPresent)
-                .collect(ImmutableList.toImmutableList());
+//        final var remainingComputations = regularQuantifiers.stream()
+//                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
+//                .map(partialMatch -> partialMatch.getMatchInfo().getRemainingComputationValueOptional())
+//                .filter(Optional::isPresent)
+//                .collect(ImmutableList.toImmutableList());
 
-        if (!remainingComputations.isEmpty()) {
-            // We found a remaining computation among the child matches -> we cannot merge!
-            return Optional.empty();
-        }
+
+//        if (!remainingComputations.isEmpty()) {
+//            // We found a remaining computation among the child matches -> we cannot merge!
+//            return Optional.empty();
+//        }
 
         return mergedParameterBindingsOptional
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
+                        accumulatedPredicateMap,
                         orderingParts,
-                        remainingComputationValueOptional));
+                        remainingComputationValueOptional,
+                        maxMatchMap));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

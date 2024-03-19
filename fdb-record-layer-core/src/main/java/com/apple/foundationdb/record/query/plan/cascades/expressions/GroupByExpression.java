@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
@@ -46,6 +47,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -161,8 +163,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final AggregateValue translatedAggregateValue = getAggregateValue().translateCorrelations(translationMap, false);
-        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap, false);
+        final AggregateValue translatedAggregateValue = getAggregateValue().translate(translationMap, false);
+        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translate(translationMap, false);
         Verify.verify(translatedGroupingValue instanceof FieldValue);
         if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
             return new GroupByExpression(translatedAggregateValue, (FieldValue)translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));
@@ -231,9 +233,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final Optional<Compensation> childCompensation = matchInfo.getChildPartialMatch(quantifier)
                                 .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
 
-        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
-            return Compensation.impossibleCompensation();
-        }
+
+        // relax this condition for now. TODO.
+//        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
+//            return Compensation.impossibleCompensation();
+//        }
 
         return Compensation.noCompensation();
     }
@@ -241,7 +245,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
 
@@ -250,19 +254,49 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return ImmutableList.of();
         }
 
-        final var otherGroupByExpression = (GroupByExpression)candidateExpression;
+        final var candidateGroupByExpression = (GroupByExpression)candidateExpression;
 
         // the grouping values are encoded directly in the underlying SELECT-WHERE, reaching this point means that the
         // grouping values had exact match so we don't need to check them.
 
 
+        final var belowSourceAliases = partialMatchMap.keySet().stream().map(qun -> qun.get().getAlias()).collect(ImmutableSet.toImmutableSet());
+        final var remainingDeepCorrelations = bindingAliasMap.filterMappings((src, tgt) -> !belowSourceAliases.contains(src));
+        final var composedTranslationMap = getTranslationMapFromUnderlying(bindingAliasMap, partialMatchMap);
+        final var translatedAggregateValue = aggregateValue.translate(composedTranslationMap);
+        // compare to other aggregate value.
+
         // check that aggregate value is the same.
-        final var otherAggregateValue = otherGroupByExpression.getAggregateValue();
-        if (aggregateValue.subsumedBy(otherAggregateValue, aliasMap)) {
-            // placeholder for information needed for later compensation.
-            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
+        final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
+        if (translatedAggregateValue.subsumedBy(otherAggregateValue, AliasMap.emptyMap())) {
+
+            if (groupingValue == null ^ candidateGroupByExpression.groupingValue == null)  {
+                // if the query does not group by any columns, i.e. it wants table-wide aggregation value calculation
+                // we could still use leverage this index as it has this aggregation, however, we would need a rollup
+                // operator on top which we do not support at the moment, therefore, we fail for now.
+                return ImmutableList.of();
+            }
+
+            if (groupingValue != null) {
+                final var translatedGroupingValue = groupingValue.translate(composedTranslationMap);
+                final var groupingValuePrimitiveAccessors = Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(), () -> translatedGroupingValue, remainingDeepCorrelations.targets());
+                final var candidateGroupingValuePrimitiveAccessors = Values.primitiveAccessorsForType(candidateGroupByExpression.groupingValue.getResultType(), () -> candidateGroupByExpression.groupingValue, remainingDeepCorrelations.targets());
+
+                // we could check only whether the candidate grouping contains all query grouping columns
+                // but due to the lack of support of rollup, we skip this for now, and only check set-equality/
+                if (!candidateGroupingValuePrimitiveAccessors.equals(groupingValuePrimitiveAccessors)) {
+                    return ImmutableList.of();
+                }
+            }
+
+            final var maxMatchMap = composeMaxMatchMapFromUnderlying(bindingAliasMap, getResultValue(), candidateExpression.getResultValue(), partialMatchMap);
+
+            final var pulledUpPredicatesMaybe = pullUnderlyingQueryPredicates(bindingAliasMap, candidateExpression.getResultValue(), partialMatchMap);
+            return pulledUpPredicatesMaybe.map(predicateMap -> MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), predicateMap, Optional.empty(), Optional.of(maxMatchMap))
                     .map(ImmutableList::of)
-                    .orElse(ImmutableList.of());
+                    .orElse(ImmutableList.of()))
+                    .orElseGet(ImmutableList::of);
+            // placeholder for information needed for later compensation.
         }
         return ImmutableList.of();
     }

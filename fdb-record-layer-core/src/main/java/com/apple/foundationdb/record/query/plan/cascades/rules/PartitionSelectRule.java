@@ -294,7 +294,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                             .collect(ImmutableList.toImmutableList());
 
             final var newResultValue =
-                    resultValue.translateCorrelations(translationMap, false);
+                    resultValue.translate(translationMap, false);
 
             final var upperGraphExpansionBuilder = GraphExpansion.builder();
             upperGraphExpansionBuilder.addQuantifier(newUpperQuantifier);

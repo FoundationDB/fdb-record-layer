@@ -174,13 +174,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (candidatePredicate.isTautology()) {
             return Optional.of(PredicateMapping.regularMapping(this,
                     candidatePredicate,
-                    getDefaultCompensatePredicateFunction()));
+                    getDefaultCompensatePredicateFunction(), Optional.of(this.toResidualPredicate().translateValue(value -> value.translate(TranslationMap.rebaseWithAliasMap(aliasMap))))));
         }
 
         if (this.semanticEquals(candidatePredicate, aliasMap)) {
-            return Optional.of(PredicateMapping.regularMapping(this,
-                    candidatePredicate,
-                    CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMapping.regularMappingWithoutCompensation(this, candidatePredicate));
         }
         return Optional.empty();
     }
@@ -367,17 +365,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default Optional<QueryPredicate> translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
-        return replaceLeavesMaybe(t -> {
-            if (!(t instanceof PredicateWithValue)) {
-                return this;
-            }
-            final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
-            return predicateWithValue.getValue()
-                            .replaceLeavesMaybe(translationOperator)
-                    .map(predicateWithValue::withValue)
-                    .orElse(null);
-        });
+    default QueryPredicate translateValue(@Nonnull final UnaryOperator<Value> translator) {
+        return this; // most query predicates do not have {@code Value}.
     }
 
     @Nonnull

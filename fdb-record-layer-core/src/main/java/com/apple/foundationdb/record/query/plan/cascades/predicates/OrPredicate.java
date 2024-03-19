@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -243,7 +244,8 @@ public class OrPredicate extends AndOrPredicate {
                 //
                 return Optional.of(PredicateMultiMap.PredicateMapping.orTermMapping(this,
                         new ConstantPredicate(true),
-                        getDefaultCompensatePredicateFunction()));
+                        getDefaultCompensatePredicateFunction(),
+                        Optional.of(this.toResidualPredicate().translateValue(value -> value.translate(TranslationMap.rebaseWithAliasMap(aliasMap))))));
             }
         }
 
@@ -291,9 +293,9 @@ public class OrPredicate extends AndOrPredicate {
                              Objects.requireNonNull(foldNullable(Function.identity(),
                                      (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
                                              boundParameterPrefixMap,
-                                             ImmutableList.copyOf(childFunctions)))))));
+                                             ImmutableList.copyOf(childFunctions))))), Optional.of(this.toResidualPredicate().translateValue(value -> value.translate(TranslationMap.rebaseWithAliasMap(aliasMap))))));
         } else {
-            return Optional.of(PredicateMultiMap.PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMultiMap.PredicateMapping.regularMappingWithoutCompensation(this, candidatePredicate));
         }
     }
 

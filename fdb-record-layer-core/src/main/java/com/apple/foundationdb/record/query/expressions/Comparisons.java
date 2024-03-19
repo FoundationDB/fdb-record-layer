@@ -96,6 +96,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -769,6 +770,16 @@ public class Comparisons {
         @Nonnull
         Comparison withType(@Nonnull Type newType);
 
+        @Nonnull
+        default Comparison withValue(@Nonnull Value value) {
+            return this;
+        }
+
+        @Nonnull
+        default Comparison translateValue(@Nonnull UnaryOperator<Value> valueTranslator) {
+            return this;
+        }
+
         /**
          * Get the comparison value without any bindings.
          * @return the value to be compared
@@ -837,6 +848,8 @@ public class Comparisons {
         default List<Value> getValues() {
             return ImmutableList.of();
         }
+
+
 
         @Nonnull
         @SuppressWarnings("unused")
@@ -1439,6 +1452,15 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
+        public ValueComparison withValue(@Nonnull final Value value) {
+            if (comparandValue == value) {
+                return this;
+            }
+            return new ValueComparison(getType(), value);
+        }
+
+        @Nonnull
         public Value getComparandValue() {
             return comparandValue;
         }
@@ -1461,7 +1483,13 @@ public class Comparisons {
                 return this;
             }
 
-            return new ValueComparison(type, comparandValue.translateCorrelations(translationMap, false), parameterRelationshipGraph);
+            return new ValueComparison(type, comparandValue.translate(translationMap, false), parameterRelationshipGraph);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateValue(@Nonnull UnaryOperator<Value> valueTranslator) {
+            return withValue(valueTranslator.apply(comparandValue));
         }
 
         @Nonnull
@@ -2547,6 +2575,16 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        public Comparison withValue(@Nonnull final Value value) {
+            final var newInner = inner.withValue(value);
+            if (newInner == inner) {
+                return this;
+            }
+            return new MultiColumnComparison(newInner);
+        }
+
+        @Nonnull
+        @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             final var translatedInner = inner.translateCorrelations(translationMap);
@@ -2555,6 +2593,16 @@ public class Comparisons {
             } else {
                 return new MultiColumnComparison(translatedInner);
             }
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateValue(@Nonnull final UnaryOperator<Value> valueTranslator) {
+            final var newInner = inner.translateValue(valueTranslator);
+            if (newInner == inner) {
+                return this;
+            }
+            return new MultiColumnComparison(newInner);
         }
 
         @Nonnull
@@ -2760,6 +2808,26 @@ public class Comparisons {
         @Override
         public Comparison withType(@Nonnull final Type newType) {
             return from(function, originalComparison.withType(newType));
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withValue(@Nonnull final Value value) {
+            final var newComparison = originalComparison.withValue(value);
+            if (newComparison == originalComparison) {
+                return this;
+            }
+            return from(function, newComparison);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison translateValue(@Nonnull final UnaryOperator<Value> valueTranslator) {
+            final var newComparison = originalComparison.translateValue(valueTranslator);
+            if (newComparison == originalComparison) {
+                return this;
+            }
+            return from(function, newComparison);
         }
 
         @Nullable

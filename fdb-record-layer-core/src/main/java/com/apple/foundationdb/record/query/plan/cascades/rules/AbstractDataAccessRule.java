@@ -267,6 +267,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 continue;
             }
             partialMatchesWithCompensation.add(new PartialMatchWithCompensation(
+                    // any predicate that is not matched should be pulled up all the way up.
                     partialMatch, partialMatch.compensate(), ordering.get()));
         }
         partialMatchesWithCompensation.sort(

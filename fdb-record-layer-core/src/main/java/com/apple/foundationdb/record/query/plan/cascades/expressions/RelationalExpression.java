@@ -43,9 +43,11 @@ import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
@@ -61,6 +63,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -671,7 +674,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * </ul>
      *
      * @param candidateExpression the candidate expression
-     * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
+     * @param bindingAliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      * from one of the expressions below that quantifier
      * @param evaluationContext the evaluation context used for checking subsumption.
@@ -681,11 +684,75 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      */
     @Nonnull
     default Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                           @Nonnull final AliasMap aliasMap,
+                                           @Nonnull final AliasMap bindingAliasMap,
                                            @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                            @Nonnull final EvaluationContext evaluationContext) {
         // we don't match by default -- end
         return ImmutableList.of();
+    }
+
+    @Nonnull
+    default MaxMatchMap getMaxMatchMapFromAliasMapping(@Nonnull final AliasMap bindingAliasMap,
+                                                       @Nonnull final RelationalExpression candidateExpression) {
+        final var translatedValue = getResultValue().translate(TranslationMap.rebaseWithAliasMap(bindingAliasMap));
+        return MaxMatchMap.calculate(bindingAliasMap, getResultValue(), candidateExpression.getResultValue());
+    }
+
+    @Nonnull
+    default MaxMatchMap composeMaxMatchMapFromUnderlying(@Nonnull final AliasMap bindingAliasMap,
+                                                         @Nonnull final Value queryExpression,
+                                                         @Nonnull final Value candidateExpression,
+                                                         @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        final var underlyingTranslationMap = getTranslationMapFromUnderlying(bindingAliasMap, partialMatchMap);
+        final var translatedQueryExpression = queryExpression.translate(underlyingTranslationMap);
+        return MaxMatchMap.calculate(translatedQueryExpression, candidateExpression);
+    }
+
+    @Nonnull
+    default TranslationMap getTranslationMapFromUnderlying(@Nonnull final AliasMap bindingAliasMap,
+                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        final var pulledUpTranslationMaps = partialMatchMap.entrySet()
+                .stream()
+                .filter(entry -> entry.getValue().get().getMatchInfo().getMaxMatchMapOptional().isPresent())
+                .map(entry -> {
+                    final var belowQuantifier = entry.getKey().get().getAlias();
+                    final var belowMaxMatchMap = entry.getValue().get().getMatchInfo().getMaxMatchMapOptional().get();
+                    return belowMaxMatchMap.pullUpTranslationMap(belowQuantifier, Verify.verifyNotNull(bindingAliasMap.getTarget(belowQuantifier)));
+                }).collect(ImmutableSet.toImmutableSet());
+        Verify.verify(!pulledUpTranslationMaps.isEmpty());
+        return TranslationMap.compose(pulledUpTranslationMaps);
+    }
+
+    @Nonnull
+    default Optional<PredicateMap> pullUnderlyingQueryPredicates(@Nonnull final AliasMap bindingAliasMap,
+                                                                 @Nonnull final Value candidateResultValue,
+                                                                 @Nonnull final IdentityBiMap<Quantifier, PartialMatch> underlyingPartialMatchMap) {
+        final PredicateMap.Builder resultBuilder = PredicateMap.builder();
+        for (final var underlyingPartialMatch : underlyingPartialMatchMap.entrySet()) {
+            final var underlyingAccumulatedPredicateMap = underlyingPartialMatch.getValue().get().getMatchInfo().getAccumulatedPredicateMap();
+            for (final var predicateMap : underlyingAccumulatedPredicateMap.entries()) {
+                final var queryPredicate = predicateMap.getKey();
+                final var mapping = predicateMap.getValue();
+                final var underlyingTranslatedQueryPredicateMaybe = mapping.getTranslatedQueryPredicate();
+                if (underlyingTranslatedQueryPredicateMaybe.isEmpty()) {
+                    continue;
+                }
+                final var underlyingTranslatedQueryPredicate = underlyingTranslatedQueryPredicateMaybe.get();
+                final var candidateCorrelation = Verify.verifyNotNull(bindingAliasMap.getTarget(underlyingPartialMatch.getKey().get().getAlias()));
+                final var constantAliases = Sets.difference(bindingAliasMap.targets(), underlyingTranslatedQueryPredicate.getCorrelatedTo());
+                final var translationSuccessful = new MutableBoolean();
+                final var pulledUpTranslatedQueryPredicate = underlyingTranslatedQueryPredicate.translateValue(predicateValue -> {
+                    final var pulledUpPredicateValueMap = candidateResultValue.pullUp(ImmutableList.of(predicateValue), bindingAliasMap, constantAliases, candidateCorrelation);
+                    translationSuccessful.setValue(pulledUpPredicateValueMap.containsKey(predicateValue));
+                    return translationSuccessful.getValue() ? pulledUpPredicateValueMap.get(predicateValue) : predicateValue;
+                });
+                if (!translationSuccessful.getValue()) {
+                    return Optional.empty();
+                }
+                resultBuilder.put(queryPredicate, mapping.withTranslatedQueryPredicate(Optional.of(pulledUpTranslatedQueryPredicate)));
+            }
+        }
+        return Optional.of(resultBuilder.build());
     }
 
     /**
@@ -695,19 +762,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      *        from one of the expressions below that quantifier
+     * @param maxMatchMap the max match map.
      * @return an iterable of {@link MatchInfo}s if semantic equivalence between this expression and the candidate
      *         expression can be established
      */
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     default Iterable<MatchInfo> exactlySubsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                                   @Nonnull final AliasMap aliasMap,
-                                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+                                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                  @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
         if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
 
         if (equalsWithoutChildren(candidateExpression, aliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap)
+            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {

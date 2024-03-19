@@ -101,7 +101,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap, false);
+        final Value translatedCollectionValue = collectionValue.translate(translationMap, false);
         if (translatedCollectionValue != collectionValue) {
             return new RecordQueryExplodePlan(translatedCollectionValue);
         }

@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value}.
@@ -35,4 +37,10 @@ public interface PredicateWithValue extends LeafQueryPredicate {
 
     @Nonnull
     PredicateWithValue withValue(@Nonnull Value value);
+
+    @Nonnull
+    @Override
+    default QueryPredicate translateValue(@Nonnull final UnaryOperator<Value> translator) {
+        throw new RecordCoreException("Subclass should implement this method");
+    }
 }

@@ -26,9 +26,11 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -43,7 +45,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
@@ -81,6 +85,19 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
+    public ValuePredicate translateValue(@Nonnull final UnaryOperator<Value> translator) {
+        final var newValue = this.getValue()
+                .replaceLeavesMaybe(translator)
+                .orElseThrow(() -> new RecordCoreException("bla"));
+        final var newComparison = comparison.translateValue(translator);
+        if (newValue == value && newComparison == comparison) {
+            return this;
+        }
+        return new ValuePredicate(newValue, newComparison);
+    }
+
+    @Nonnull
+    @Override
     public Value getValue() {
         return value;
     }
@@ -110,7 +127,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        final var translatedValue = value.translateCorrelations(translationMap, false);
+        final var translatedValue = value.translate(translationMap, false);
         final Comparison newComparison;
         if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
             newComparison = comparison.translateCorrelations(translationMap);
