@@ -60,16 +60,16 @@ public final class FDBDirectoryLockFactory extends LockFactory {
     protected static class FDBDirectoryLock extends Lock {
 
         private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
-        final AgilityContext agilityContext;
-        final String lockName;
-        final UUID selfStampUuid = UUID.randomUUID();
-        long timeStampMillis;
-        final int timeWindowMilliseconds;
-        final byte[] fileLockKey;
-        boolean closed;
+        private final AgilityContext agilityContext;
+        private final String lockName;
+        private final UUID selfStampUuid = UUID.randomUUID();
+        private long timeStampMillis;
+        private final int timeWindowMilliseconds;
+        private final byte[] fileLockKey;
+        private boolean closed;
         private final Object fileLockSetLock = new Object();
 
-        public FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
+        private FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
             this.agilityContext = agilityContext;
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
