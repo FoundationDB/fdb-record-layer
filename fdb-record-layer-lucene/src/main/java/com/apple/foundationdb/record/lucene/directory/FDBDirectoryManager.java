@@ -167,6 +167,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(groupingKey, partitionId, agilityContext);
         try {
             directoryWrapper.mergeIndex(analyzerWrapper, exceptionAtCreation);
+            agilityContext.flush(); // TODO: remove this flush if directory resource is being closed without delay after merging
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
                         LuceneLogMessageKeys.GROUP, groupingKey,
