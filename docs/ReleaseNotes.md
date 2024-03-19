@@ -20,8 +20,8 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Calls to AsyncUtil static methods should pass in an executor where possible [(Issue #2592)](https://github.com/FoundationDB/fdb-record-layer/issues/2592)
-* **Bug fix** Lucene file lock may not be cleaned up in a failed merge [(Issue #2575)](https://github.com/FoundationDB/fdb-record-layer/issues/2575)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,11 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.474.0
+
+* **Bug fix** Calls to AsyncUtil static methods should pass in an executor where possible [(Issue #2592)](https://github.com/FoundationDB/fdb-record-layer/issues/2592)
+* **Bug fix** Lucene file lock may not be cleaned up in a failed merge [(Issue #2575)](https://github.com/FoundationDB/fdb-record-layer/issues/2575)
 
 ### 3.4.473.0
 
