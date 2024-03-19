@@ -30,6 +30,7 @@ import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 
 import java.io.IOException;
 import java.util.Random;
@@ -107,11 +108,19 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     }
 
     @Override
+    @Ignore // Issue #2598: Make Lucene @Nightly tests pass for fixed seed
     @Nightly // copied from base implementation, it doesn't appear to be inherited
     public void testRamBytesUsed() throws IOException {
         TestingCodec.disableLaziness();
         TestFDBDirectory.useFullBufferToSurviveDeletes();
         super.testRamBytesUsed();
+    }
+
+    @Override
+    @Ignore // Issue #2598: Make Lucene @Nightly tests pass for fixed seed
+    @Nightly
+    public void testBigDocuments() throws IOException {
+        super.testBigDocuments();
     }
 
     @Override

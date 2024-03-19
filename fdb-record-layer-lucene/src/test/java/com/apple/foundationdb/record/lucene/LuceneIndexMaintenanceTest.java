@@ -41,9 +41,9 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
+import com.apple.test.TestConfigurationUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -154,28 +154,28 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> flakyMergeArguments() {
         return Stream.concat(
                 Stream.of(
-                        Arguments.of(true, false, false, 50, 9237590782644L, true),
-                        Arguments.of(true, true, true, 31, -644766138635622644L, true),
-                        Arguments.of(false, true, true, 33, -1089113174774589435L, true),
-                        Arguments.of(false, false, false, 35, 6223372946177329440L, true)),
-                RandomizedTestUtils.randomArguments(random ->
-                        Arguments.of(random.nextBoolean(), // isGrouped
-                                random.nextBoolean(), // isSynthetic
-                                random.nextBoolean(), // primaryKeySegmentIndexEnabled
-                                random.nextInt(40) + 2, // minDocumentCount
-                                random.nextLong(), // seed for other randomness
-                                false))); // require failure
+                        Arguments.of(true, true, true, 31, -644766138635622644L, true)),
+                Stream.concat(
+                        // all of these permutations take multiple minutes, but probably are not all needed as part of
+                        // PRB, so put 3 fixed configuration that we know will fail merges in a variety of places into
+                        // the nightly build
+                        TestConfigurationUtils.onlyNightly(
+                                Stream.of(
+                                        Arguments.of(true, false, false, 50, 9237590782644L, true),
+                                        Arguments.of(false, true, true, 33, -1089113174774589435L, true),
+                                        Arguments.of(false, false, false, 35, 6223372946177329440L, true))
+                        ),
+                        RandomizedTestUtils.randomArguments(random ->
+                                Arguments.of(random.nextBoolean(), // isGrouped
+                                        random.nextBoolean(), // isSynthetic
+                                        random.nextBoolean(), // primaryKeySegmentIndexEnabled
+                                        random.nextInt(40) + 2, // minDocumentCount
+                                        random.nextLong(), // seed for other randomness
+                                        false)))); // require failure
     }
 
     /**
      * Test that the index is in a good state if the merge operation has errors.
-     * This is currently disabled due to:
-     * <ul>
-     *     <li>https://github.com/FoundationDB/fdb-record-layer/issues/2573</li>
-     *     <li>https://github.com/FoundationDB/fdb-record-layer/issues/2570</li>
-     *     <li>https://github.com/FoundationDB/fdb-record-layer/issues/2574</li>
-     *     <li>https://github.com/FoundationDB/fdb-record-layer/issues/2575</li>
-     * </ul>
      * @param isGrouped whether the index has a grouping key
      * @param isSynthetic whether the index is on a synthetic type
      * @param primaryKeySegmentIndexEnabled whether to enable the primaryKeySegmentIndex
@@ -184,24 +184,21 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
      * @param requireFailure whether it is expected that the merge will fail. Useful for ensuring tha PRBs actually
      * reproduce the issue, but hard to guarantee for randomly generated parameters
      * @throws IOException from lucene, probably
-     * @throws InterruptedException because there is a sleep
      */
     @ParameterizedTest(name = "flakyMerge({argumentsWithNames})")
     @MethodSource("flakyMergeArguments")
-    @Disabled
+    @Tag(Tags.Slow)
     void flakyMerge(boolean isGrouped,
                     boolean isSynthetic,
                     boolean primaryKeySegmentIndexEnabled,
                     int minDocumentCount,
                     long seed,
-                    boolean requireFailure) throws IOException, InterruptedException {
+                    boolean requireFailure) throws IOException {
         Random random = new Random(seed);
-        final boolean optimizedStoredFields = random.nextBoolean();
         final Map<String, String> options = Map.of(
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(Integer.MAX_VALUE),
-                LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, String.valueOf(optimizedStoredFields),
-                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
         LOGGER.info(KeyValueLogMessage.of("Running flakyMerge test",
                 "isGrouped", isGrouped,
                 "isSynthetic", isSynthetic,
@@ -229,11 +226,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
         AtomicInteger waitCounts = new AtomicInteger();
         try {
             final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout = (wait) -> {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace(KeyValueLogMessage.of("Checking wait timeout",
-                            "waitCount", waitCounts.get(),
-                            "event", wait));
-                }
                 if (wait.getClass().equals(LuceneEvents.Waits.class) &&
                         // don't have the timeout on FILE_LOCK_CLEAR because that will leave the file lock around,
                         // and the next iteration will fail on that.
@@ -242,6 +234,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                         // the Lock reference to close, and clear the lock.
                         wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET &&
                         waitCounts.getAndDecrement() == 0) {
+
                     return Pair.of(1L, TimeUnit.NANOSECONDS);
                 } else {
                     return oldAsyncToSyncTimeout == null ? Pair.of(1L, TimeUnit.DAYS) : oldAsyncToSyncTimeout.apply(wait);
@@ -250,41 +243,48 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 100; i++) {
                 fdb.setAsyncToSyncTimeout(asyncToSyncTimeout);
                 waitCounts.set(i);
+                boolean success = false;
                 try {
-                    LOGGER.debug(KeyValueLogMessage.of("Merge started",
+                    LOGGER.info(KeyValueLogMessage.of("Merge started",
                             "iteration", i));
                     explicitMergeIndex(index, contextProps, schemaSetup);
-                    LOGGER.debug(KeyValueLogMessage.of("Merge completed",
+                    LOGGER.info(KeyValueLogMessage.of("Merge completed",
                             "iteration", i));
                     Assertions.assertFalse(requireFailure && i < 15, i + " merge should have failed");
+                    success = true;
                 } catch (RecordCoreException e) {
-                    LOGGER.debug(KeyValueLogMessage.of("Merge failed",
-                                    "iteration", i), e);
-                    final LoggableTimeoutException timeoutException = findTimeoutException(e, i);
-                    findTimeoutException(e, i);
-                    Assertions.assertNotNull(timeoutException);
+                    final LoggableTimeoutException timeoutException = findTimeoutException(e);
+                    LOGGER.info(KeyValueLogMessage.of("Merge failed",
+                            "iteration", i,
+                            "cause", e.getClass(),
+                            "message", e.getMessage(),
+                            "timeout", timeoutException != null));
+                    if (timeoutException == null) {
+                        throw e;
+                    }
                     Assertions.assertEquals(1L, timeoutException.getLogInfo().get(LogMessageKeys.TIME_LIMIT.toString()), i + " " + e.getMessage());
                     Assertions.assertEquals(TimeUnit.NANOSECONDS, timeoutException.getLogInfo().get(LogMessageKeys.TIME_UNIT.toString()), i + " " + e.getMessage());
                 }
                 fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
-                Thread.sleep(TimeUnit.SECONDS.toMillis(15));
+                LOGGER.debug(KeyValueLogMessage.of("Validating",
+                        "iteration", i));
                 new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
                     schemaSetup.accept(context);
                     return recordStore;
-                }).validate(index, ids, Integer.MAX_VALUE, isSynthetic ? "child_str_value:forth" : "text_value:about");
+                }).validate(index, ids, Integer.MAX_VALUE, isSynthetic ? "child_str_value:forth" : "text_value:about", !success);
+                LOGGER.debug(KeyValueLogMessage.of("Done Validating",
+                        "iteration", i));
             }
         } finally {
             fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
             if (LOGGER.isDebugEnabled()) {
                 ids.entrySet().stream().sorted(Map.Entry.comparingByKey())
-                        .forEach(entry -> {
-                            LOGGER.debug(entry.getKey() + ": " + entry.getValue().keySet());
-                        });
+                        .forEach(entry -> LOGGER.debug(entry.getKey() + ": " + entry.getValue().keySet()));
             }
         }
     }
 
-    private static LoggableTimeoutException findTimeoutException(final RecordCoreException e, final int iteration) {
+    private static LoggableTimeoutException findTimeoutException(final RecordCoreException e) {
         Map<Throwable, String> visited = new IdentityHashMap<>();
         ArrayDeque<Throwable> toVisit = new ArrayDeque<>();
         toVisit.push(e);
@@ -316,8 +316,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
         int i = 0;
         while (i < transactionCount ||
                 // keep inserting data until at least two groups have at least minDocumentCount
-                ids.entrySet().stream()
-                        .map(entry -> entry.getValue().size())
+                ids.values().stream()
+                        .map(Map::size)
                         .sorted(Comparator.reverseOrder())
                         .limit(2).skip(isGrouped ? 1 : 0).findFirst()
                         .orElse(0) < minDocumentCount) {
