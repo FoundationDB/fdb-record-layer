@@ -177,7 +177,7 @@ public class LuceneIndexTestValidator {
                             universalSearch);
                     visitedCount += partitionInfo.getCount();
                     validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
-                            expectedPrimaryKeys);
+                            expectedPrimaryKeys, false);
                     expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
                 }
             }
@@ -259,20 +259,31 @@ public class LuceneIndexTestValidator {
                                                       @Nonnull Index index,
                                                       @Nonnull Tuple groupingKey,
                                                       @Nullable Integer partitionId,
-                                                      @Nonnull Set<Tuple> expectedPrimaryKeys) throws IOException {
+                                                      @Nonnull Set<Tuple> expectedPrimaryKeys,
+                                                      final boolean allowDuplicates) throws IOException {
         final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
-        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
+        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId)
+                .getPrimaryKeySegmentIndex();
         final String message = "Group: " + groupingKey + ", partition: " + partitionId;
-        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED))) {
+        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
+                Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED)) ) {
             assertNotNull(primaryKeySegmentIndex, message);
             final List<List<Object>> allEntries = primaryKeySegmentIndex.readAllEntries();
             // sorting the two lists for easier reading on failures
-            assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()),
-                    allEntries.stream()
-                            .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
-                            .sorted()
-                            .collect(Collectors.toList()),
-                    message);
+            if (allowDuplicates) {
+                assertEquals(new HashSet<>(expectedPrimaryKeys),
+                        allEntries.stream()
+                                .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
+                                .collect(Collectors.toSet()),
+                        message);
+            } else {
+                assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()),
+                        allEntries.stream()
+                                .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
+                                .sorted()
+                                .collect(Collectors.toList()),
+                        message);
+            }
             directoryManager.getIndexWriter(groupingKey, partitionId, LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
             final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
             for (final Tuple primaryKey : expectedPrimaryKeys) {

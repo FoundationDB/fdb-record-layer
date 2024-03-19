@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
@@ -257,11 +258,21 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
+        final Tuple mapKey = getDirectoryKey(groupingKey, partitionId);
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
+    }
+
+    @VisibleForTesting
+    public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
+        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext);
+    }
+
+    private static Tuple getDirectoryKey(final @Nullable Tuple groupingKey, final @Nullable Integer partitionId) {
         Tuple mapKey = groupingKey == null ? TupleHelpers.EMPTY : groupingKey;
         if (partitionId != null) {
             mapKey = mapKey.add(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partitionId);
         }
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
+        return mapKey;
     }
 
     private AgilityContext getAgilityContext(boolean useAgilityContext) {

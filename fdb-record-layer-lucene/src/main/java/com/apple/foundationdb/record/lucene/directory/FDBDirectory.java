@@ -37,6 +37,8 @@ import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV2;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedFieldInfosFormat;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat;
@@ -431,14 +433,19 @@ public class FDBDirectory extends Directory  {
     /**
      * Delete stored fields data from the DB.
      * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
+     * @throws IOException if there is an issue reading metadata to do the delete
      */
-    public void deleteStoredFields(@Nonnull final String segmentName) {
-        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
+    public void deleteStoredFields(@Nonnull final String segmentName) throws IOException {
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
                     LuceneLogMessageKeys.RESOURCE, segmentName));
         }
+        final LucenePrimaryKeySegmentIndex primaryKeyIndex = getPrimaryKeySegmentIndex();
+        if (primaryKeyIndex != null) {
+            primaryKeyIndex.clearForSegment(segmentName);
+        }
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
         agilityContext.clear(Range.startsWith(key));
     }
 
@@ -514,6 +521,20 @@ public class FDBDirectory extends Directory  {
                     .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
         }
         return rawBytes;
+    }
+
+    @Nonnull
+    public List<KeyValue> readAllStoredFields(String segmentName) {
+        final Range range = storedFieldsSubspace.range(Tuple.from(segmentName));
+        final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_ALL_STORED_FIELDS,
+                agilityContext.getRange(range.begin, range.end));
+        if (list == null) {
+            throw new RecordCoreStorageException("Could not find stored fields")
+                    .addLogInfo(LuceneLogMessageKeys.SEGMENT, segmentName)
+                    .addLogInfo(LogMessageKeys.RANGE_START, ByteArrayUtil2.loggable(range.begin))
+                    .addLogInfo(LogMessageKeys.RANGE_END, ByteArrayUtil2.loggable(range.end));
+        }
+        return list;
     }
 
     /**
@@ -669,6 +690,7 @@ public class FDBDirectory extends Directory  {
     }
 
     private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
+        // TODO make this transactional or ensure that it is deleted in the right order
         FDBLuceneFileReference value = cache.remove(name);
         if (value == null) {
             return false;
@@ -688,7 +710,7 @@ public class FDBDirectory extends Directory  {
         if (deferDeleteToCompoundFile) {
             if (isCompoundFile(name)) {
                 // delete all K/V content, only if the optimized stored fields format is in use
-                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+                if (usesOptimizedStoredFields()) {
                     deleteStoredFields(segmentName);
                 }
             }
@@ -699,6 +721,11 @@ public class FDBDirectory extends Directory  {
             }
         }
         return true;
+    }
+
+    public boolean usesOptimizedStoredFields() {
+        return getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)
+                || getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false);
     }
 
     /**
@@ -964,16 +991,25 @@ public class FDBDirectory extends Directory  {
      */
     @Nullable
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        if (!getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
+        if (getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
+            synchronized (this) {
+                if (primaryKeySegmentIndex == null) {
+                    final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndexV1(this, primaryKeySubspace);
+                }
+            }
+            return primaryKeySegmentIndex;
+        } else if (getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false)) {
+            synchronized (this) {
+                if (primaryKeySegmentIndex == null) {
+                    final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndexV2(this, primaryKeySubspace);
+                }
+            }
+            return primaryKeySegmentIndex;
+        } else {
             return null;
         }
-        synchronized (this) {
-            if (primaryKeySegmentIndex == null) {
-                final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
-                primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
-            }
-        }
-        return primaryKeySegmentIndex;
     }
 
     // Map segment name to integer id.

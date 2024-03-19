@@ -25,6 +25,7 @@ option java_outer_classname = "LuceneStoredFieldsProto";
 
 message LuceneStoredFields {
   repeated StoredField storedFields = 1;
+  optional bytes primaryKey = 2;
 }
 
 message StoredField {

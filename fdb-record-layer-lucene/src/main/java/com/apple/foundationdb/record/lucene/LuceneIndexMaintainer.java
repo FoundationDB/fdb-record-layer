@@ -36,8 +36,10 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
@@ -111,7 +113,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final FDBDirectoryManager directoryManager;
     private final LuceneAnalyzerCombinationProvider indexAnalyzerSelector;
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
-    protected static final String PRIMARY_KEY_FIELD_NAME = "_p";
+    public static final String PRIMARY_KEY_FIELD_NAME = "_p";
     protected static final String PRIMARY_KEY_SEARCH_NAME = "_s";
     protected static final String PRIMARY_KEY_BINARY_POINT_NAME = "_b";
     private final Executor executor;
@@ -343,6 +345,24 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     state.store.getIndexDeferredMaintenanceControl().setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                     return directoryManager.mergeIndex(partitioner, indexAnalyzerSelector.provideIndexAnalyzer(""));
                 });
+    }
+
+    @VisibleForTesting
+    public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
+                                     @Nullable final Integer partiitonId,
+                                     @Nonnull final AgilityContext agilityContext) throws IOException {
+        // TODO improve this as part of #2575
+        try (FDBDirectoryWrapper directoryWrapper = directoryManager.createDirectoryWrapper(groupingKey, partiitonId, agilityContext)) {
+            boolean success = false;
+            try {
+                directoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), null);
+                success = true;
+            } finally {
+                if (!success) {
+                    agilityContext.abortAndReset();
+                }
+            }
+        }
     }
 
     @Nonnull

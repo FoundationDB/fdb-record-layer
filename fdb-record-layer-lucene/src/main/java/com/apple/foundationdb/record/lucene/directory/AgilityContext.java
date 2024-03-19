@@ -180,7 +180,7 @@ public interface AgilityContext {
         private long prevCommitCheckTime;
         private boolean closed = false;
 
-        Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        protected Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
             contextConfigBuilder = callerContext.getConfig().toBuilder();
             contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
