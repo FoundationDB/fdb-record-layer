@@ -64,7 +64,6 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
-import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,7 +134,8 @@ public class FDBDirectory extends Directory  {
     private final Subspace fileLockSubspace;
     private final byte[] sequenceSubspaceKey;
 
-    private final LockFactory lockFactory;
+    private final FDBDirectoryLockFactory lockFactory;
+    private FDBDirectoryLockFactory.FDBDirectoryLock lastLock = null;
     private final int blockSize;
 
     /**
@@ -874,7 +874,15 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("obtainLock",
                     LuceneLogMessageKeys.LOCK_NAME, lockName));
         }
-        return lockFactory.obtainLock(null, lockName);
+        final Lock lock = lockFactory.obtainLock(null, lockName);
+        lastLock = (FDBDirectoryLockFactory.FDBDirectoryLock) lock;
+        return lock;
+    }
+
+    private void clearLockIfLocked() {
+        if (lastLock != null) {
+            lastLock.fileLockClearIfLocked();
+        }
     }
 
     /**
@@ -882,7 +890,16 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     public void close() {
-        agilityContext.flush();
+        try {
+            clearLockIfLocked();
+            agilityContext.flush();
+        } catch (RecordCoreException ex) {
+            // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
+            agilityContext.abortAndReset();
+            clearLockIfLocked();
+            agilityContext.flush();
+            throw ex;
+        }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(fileListLog("Closed FDBDirectory", Objects.requireNonNullElse(fileReferenceCache.get(), Map.of()))
                     .addKeyAndValue(LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats())

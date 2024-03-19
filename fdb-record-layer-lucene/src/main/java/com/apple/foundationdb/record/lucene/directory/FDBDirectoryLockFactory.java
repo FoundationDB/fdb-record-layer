@@ -57,7 +57,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
     }
 
-    private static class FDBDirectoryLock extends Lock {
+    protected static class FDBDirectoryLock extends Lock {
 
         private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryLock.class);
         final AgilityContext agilityContext;
@@ -179,6 +179,23 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                             fileLockCheckHeartBeat(val); // ensure valid
                                             aContext.ensureActive().clear(fileLockKey);
                                             logSelf("Cleared Lucene File Lock");
+                                        }
+                                    })
+                    ));
+        }
+
+        protected void fileLockClearIfLocked() {
+            // Here: this is part of a recovery path - clear the lock unconditionally if locked and matches uuid
+            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
+                    agilityContext.apply(aContext ->
+                            aContext.ensureActive().get(fileLockKey)
+                                    .thenAccept(val -> {
+                                        synchronized (fileLockSetLock) {
+                                            UUID existingUuid = fileLockValueToUuid(val);
+                                            if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
+                                                aContext.ensureActive().clear(fileLockKey);
+                                                logSelf("Cleared Lucene File Lock in Recovery path");
+                                            }
                                         }
                                     })
                     ));
