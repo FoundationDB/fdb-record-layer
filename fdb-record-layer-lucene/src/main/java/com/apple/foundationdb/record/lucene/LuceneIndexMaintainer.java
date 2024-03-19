@@ -414,7 +414,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                         continuation.set(newContinuation);
                                                         return true;
                                                     }
-                                                })))));
+                                                })))), state.context.getExecutor());
     }
 
     @Nonnull

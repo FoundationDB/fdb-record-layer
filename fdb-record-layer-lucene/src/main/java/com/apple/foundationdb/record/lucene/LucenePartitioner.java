@@ -445,7 +445,7 @@ public class LucenePartitioner {
 
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
 
-        return AsyncUtil.collect(rangeIterable).thenComposeAsync(targetPartition -> {
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor()).thenComposeAsync(targetPartition -> {
             if (targetPartition.isEmpty()) {
                 return getOldestPartition(groupingKey).thenApply(oldestPartition -> {
                     if (oldestPartition == null) {
@@ -543,7 +543,7 @@ public class LucenePartitioner {
             @Nonnull final Subspace indexSubspace) {
         Range range = indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE)).range();
         final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, 1, reverse, StreamingMode.WANT_ALL);
-        return AsyncUtil.collect(rangeIterable).thenApply(all -> all.isEmpty() ? null : partitionInfoFromKV(all.get(0)));
+        return AsyncUtil.collect(rangeIterable, context.getExecutor()).thenApply(all -> all.isEmpty() ? null : partitionInfoFromKV(all.get(0)));
     }
 
     /**
@@ -621,7 +621,7 @@ public class LucenePartitioner {
                     continuation.set(cursorResult.getContinuation());
                     return AsyncUtil.READY_FALSE;
                 }
-            })).thenApply(ignored -> continuation.get());
+            }), state.context.getExecutor()).thenApply(ignored -> continuation.get());
         }
     }
 
@@ -804,7 +804,7 @@ public class LucenePartitioner {
 
                     Iterator<? extends FDBIndexableRecord<Message>> recordIterator = records.iterator();
                     return AsyncUtil.whileTrue(() -> indexMaintainer.update(null, recordIterator.next())
-                            .thenApply(ignored -> recordIterator.hasNext()));
+                            .thenApply(ignored -> recordIterator.hasNext()), state.context.getExecutor());
                 }).thenApply(ignored -> records.size());
             }
             return CompletableFuture.completedFuture(0);
@@ -821,7 +821,7 @@ public class LucenePartitioner {
     public CompletableFuture<List<LucenePartitionInfoProto.LucenePartitionInfo>> getAllPartitionMetaInfo(@Nonnull final Tuple groupingKey) {
         Range range = state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).range();
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
-        return AsyncUtil.collect(rangeIterable).thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).collect(Collectors.toList()));
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor()).thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).collect(Collectors.toList()));
     }
 
     /**
@@ -864,7 +864,7 @@ public class LucenePartitioner {
                     EndpointType.TREE_START,
                     EndpointType.RANGE_EXCLUSIVE).toRange(indexSubspace);
             final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, Integer.MAX_VALUE, true, StreamingMode.WANT_ALL);
-            return AsyncUtil.collect(rangeIterable)
+            return AsyncUtil.collect(rangeIterable, context.getExecutor())
                     .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).findFirst().orElse(null));
         }
     }
@@ -893,7 +893,7 @@ public class LucenePartitioner {
                 EndpointType.RANGE_EXCLUSIVE,
                 EndpointType.TREE_END).toRange(indexSubspace);
         final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
-        return AsyncUtil.collect(rangeIterable)
+        return AsyncUtil.collect(rangeIterable, context.getExecutor())
                 .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).findFirst().orElse(null));
     }
 
