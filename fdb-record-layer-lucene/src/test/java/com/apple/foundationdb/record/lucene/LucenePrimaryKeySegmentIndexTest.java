@@ -289,7 +289,6 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
             assertThrows(FailedLuceneCommit.class,
                     () -> indexMaintainer.mergeIndexForTesting(Tuple.from(), null, agilityContext));
             assertEquals(1, agilityContext.commitCount);
-            agilityContext.flushAndClose(); // the normal merge would handle this
         }
         // V1 fails here, that's the test
         Assumptions.assumeTrue(version == Version.V2);
@@ -316,11 +315,6 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
             final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
             indexMaintainer.mergeIndex();
-            // This is required to close the agility context
-            // the pre-commit hook on this transaction will close the DirectoryManager
-            // which will close the directory and flush the context
-            // See also: #2574
-            context.commit();
         }
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, index);
