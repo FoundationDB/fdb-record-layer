@@ -920,7 +920,7 @@ public class FDBDirectory extends Directory  {
         try {
             clearLockIfLocked();
             agilityContext.flush();
-        } catch (RecordCoreException ex) {
+        } catch (RuntimeException ex) {
             // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
             agilityContext.abortAndReset();
             clearLockIfLocked();
