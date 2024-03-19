@@ -166,7 +166,7 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
                     timer.recordSinceNanoTime(SortEvents.Events.MEMORY_SORT_STORE_RECORD, startTime);
                 }
             }
-        })).thenApply(vignore -> loadResult);
+        }), source.getExecutor()).thenApply(vignore -> loadResult);
     }
 
     public abstract void removeLast(@Nonnull K currentKey);
