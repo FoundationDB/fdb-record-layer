@@ -271,12 +271,14 @@ public interface AgilityContext {
                     } catch (RuntimeException ex) {
                         reportFdbException(ex);
                         throw ex;
-                    }
-                    currentContext = null;
-                    currentWriteSize = 0;
+                    } finally {
+                        currentContext = null;
+                        currentWriteSize = 0;
 
-                    lock.unlock(stamp);
-                    committingNow = false;
+                        lock.unlock(stamp);
+                        logSelf("Released write lock " + lock);
+                        committingNow = false;
+                    }
                 }
             }
         }
