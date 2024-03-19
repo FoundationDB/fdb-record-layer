@@ -695,7 +695,6 @@ public class FDBDirectory extends Directory  {
         if (value == null) {
             return false;
         }
-        agilityContext.clear(metaSubspace.pack(name));
         final long id = value.getFieldInfosId();
         if (fieldInfosStorage.delete(id)) {
             agilityContext.clear(fieldInfosSubspace.pack(id));
@@ -720,6 +719,9 @@ public class FDBDirectory extends Directory  {
                 deleteStoredFields(segmentName);
             }
         }
+        // we want to clear this last, so that if only some of the operations are completed, the reference
+        // will stick around, and it will be cleaned up later.
+        agilityContext.clear(metaSubspace.pack(name));
         return true;
     }
 
