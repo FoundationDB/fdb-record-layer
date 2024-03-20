@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
@@ -349,20 +348,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     @VisibleForTesting
     public void mergeIndexForTesting(@Nonnull final Tuple groupingKey,
-                                     @Nullable final Integer partiitonId,
+                                     @Nullable final Integer partitionId,
                                      @Nonnull final AgilityContext agilityContext) throws IOException {
-        // TODO improve this as part of #2575
-        try (FDBDirectoryWrapper directoryWrapper = directoryManager.createDirectoryWrapper(groupingKey, partiitonId, agilityContext)) {
-            boolean success = false;
-            try {
-                directoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), null);
-                success = true;
-            } finally {
-                if (!success) {
-                    agilityContext.abortAndReset();
-                }
-            }
-        }
+        directoryManager.mergeIndexWithContext(indexAnalyzerSelector.provideIndexAnalyzer(""),
+                groupingKey, partitionId, agilityContext);
     }
 
     @Nonnull

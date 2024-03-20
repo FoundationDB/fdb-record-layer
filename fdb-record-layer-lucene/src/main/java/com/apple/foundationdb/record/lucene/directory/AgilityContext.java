@@ -271,12 +271,14 @@ public interface AgilityContext {
                     } catch (RuntimeException ex) {
                         reportFdbException(ex);
                         throw ex;
-                    }
-                    currentContext = null;
-                    currentWriteSize = 0;
+                    } finally {
+                        currentContext = null;
+                        currentWriteSize = 0;
 
-                    lock.unlock(stamp);
-                    committingNow = false;
+                        lock.unlock(stamp);
+                        logSelf("Released write lock " + lock);
+                        committingNow = false;
+                    }
                 }
             }
         }
@@ -299,13 +301,10 @@ public interface AgilityContext {
             ensureOpen();
             final long stamp = lock.readLock();
             createIfNeeded();
-            return function.apply(currentContext).thenApply(ret -> {
+            return function.apply(currentContext).whenComplete((result, exception) -> {
                 lock.unlock(stamp);
-                commitIfNeeded();
-                return ret;
-            }).whenComplete((ret, ex) -> {
-                if (ex != null) {
-                    reportFdbException(ex);
+                if (exception != null) {
+                    commitIfNeeded();
                 }
             });
         }

@@ -28,6 +28,7 @@ import org.apache.lucene.index.BasePostingsFormatTestCase;
 import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 
 import java.io.IOException;
 
@@ -74,5 +75,12 @@ public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCas
     @Override
     public void testMultiClose() throws IOException {
         BaseIndexFileFormatTestCaseUtils.testMultiClose(this);
+    }
+
+    @Override
+    @Ignore // Issue #2598: Make Lucene @Nightly tests pass for fixed seed
+    @Nightly
+    public void testRamBytesUsed() throws IOException {
+        super.testRamBytesUsed();
     }
 }

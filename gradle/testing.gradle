@@ -197,6 +197,9 @@ tasks.withType(Test).configureEach { task ->
         } else {
             systemProperties["junit.jupiter.execution.timeout.default"] = "5m"
         }
+        if (project.hasProperty('tests.nightly')) {
+            systemProperties['tests.nightly'] = 'true'
+        }
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')
         } else {

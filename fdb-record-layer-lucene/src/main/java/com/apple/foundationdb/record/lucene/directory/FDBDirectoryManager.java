@@ -46,7 +46,6 @@ import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
@@ -136,8 +135,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         return cursor
                 .map(tuple ->
                         Tuple.fromItems(tuple.getItems().subList(0, groupingCount)))
+                // Use a pipeline size of 1. We don't want to be merging multiple different groups at a time
+                // It may make sense in the future to make these concurrent, but there is enough complexity that it is
+                // better to avoid the concurrent merges.
+                // This also reduces the amount of load that a single store can cause on a system.
                 .forEachAsync(groupingKey -> mergeIndex(analyzerWrapper, groupingKey, partitioner, agilityContext),
-                        2)
+                        1)
                 .whenComplete((ignore, ex) -> closeOrAbortAgilityContext(agilityContext, ex));
     }
 
@@ -166,25 +169,41 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    @SuppressWarnings("PMD.CloseResource")
     private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true);
-        final FDBDirectoryWrapper directoryWrapper = getDirectoryWrapper(groupingKey, partitionId, agilityContext);
         try {
-            directoryWrapper.mergeIndex(analyzerWrapper, exceptionAtCreation);
-            agilityContext.flush(); // TODO: remove this flush if directory resource is being closed without delay after merging
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
-                        LuceneLogMessageKeys.GROUP, groupingKey,
-                        LuceneLogMessageKeys.PARTITION, partitionId));
+            mergeIndexWithContext(analyzerWrapper, groupingKey, partitionId, agilityContext);
+        } finally {
+            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+            // but that should be rare.
+            agilityContext.flushAndClose();
+        }
+    }
+
+    public void mergeIndexWithContext(@Nonnull final LuceneAnalyzerWrapper analyzerWrapper,
+                                       @Nonnull final Tuple groupingKey,
+                                       @Nullable final Integer partitionId,
+                                       @Nonnull final AgilityContext agilityContext) {
+        try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
+            try {
+                directoryWrapper.mergeIndex(analyzerWrapper, exceptionAtCreation);
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(KeyValueLogMessage.of("Lucene merge success",
+                            LuceneLogMessageKeys.GROUP, groupingKey,
+                            LuceneLogMessageKeys.PARTITION, partitionId));
+                }
+            } catch (IOException e) {
+                throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
+                        .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
+                                LuceneLogMessageKeys.PARTITION, partitionId);
             }
         } catch (IOException e) {
-            directoryWrapper.getDirectory().getAgilityContext().abortAndReset();
-            throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
+            // there was an IOException closing the index writer
+            throw new RecordCoreStorageException("Lucene mergeIndex close failed", e)
                     .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
                             LuceneLogMessageKeys.PARTITION, partitionId);
         }
-        // Note: the local agilityContext cannot be closed, as it is still in use by the cached directory. When the directory closes, it should flush it.
     }
 
     private static void closeOrAbortAgilityContext(AgilityContext agilityContext, Throwable ex) {
@@ -268,8 +287,8 @@ public class FDBDirectoryManager implements AutoCloseable {
         return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
     }
 
-    @VisibleForTesting
-    public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
+    public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
+                                                      final AgilityContext agilityContext) {
         return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext);
     }
 

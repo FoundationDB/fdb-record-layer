@@ -96,6 +96,26 @@ public class LuceneIndexTestValidator {
      */
     void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
                   final int repartitionCount, final String universalSearch) throws IOException {
+        validate(index, expectedDocumentInformation, repartitionCount, universalSearch, false);
+    }
+
+    /**
+     * A broad validation of the lucene index, asserting consistency, and that various operations did what they were
+     * supposed to do.
+     * <p>
+     *     This has a lot of validation that could be added, and it would be good to be able to control whether it's
+     *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
+     * </p>
+     * @param index the index to validate
+     * @param expectedDocumentInformation a map from group to primaryKey to timestamp
+     * @param repartitionCount the configured repartition count
+     * @param universalSearch a search that will return all the documents
+     * @param allowDuplicatePrimaryKeys if {@code true} this will allow multiple entries in the primary key segment
+     * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
+     * @throws IOException if there is any issue interacting with lucene
+     */
+    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
+                  final int repartitionCount, final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
         // If there is less than repartitionCount of free space in the older partition, we'll create a new partition
         // rather than moving fewer than repartitionCount
@@ -177,7 +197,7 @@ public class LuceneIndexTestValidator {
                             universalSearch);
                     visitedCount += partitionInfo.getCount();
                     validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
-                            expectedPrimaryKeys, false);
+                            expectedPrimaryKeys, allowDuplicatePrimaryKeys);
                     expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
                 }
             }

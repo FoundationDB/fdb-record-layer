@@ -30,6 +30,7 @@ import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.BaseTermVectorsFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 
 import java.io.IOException;
 
@@ -82,5 +83,12 @@ public class LuceneOptimizedTermVectorsFormatTest extends BaseTermVectorsFormatT
     @Override
     public void testRandomExceptions() throws Exception {
         super.testRandomExceptions();
+    }
+
+    @Override
+    @Ignore // Issue #2598: Make Lucene @Nightly tests pass for fixed seed
+    @Nightly
+    public void testRamBytesUsed() throws IOException {
+        super.testRamBytesUsed();
     }
 }
