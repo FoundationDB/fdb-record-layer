@@ -34,10 +34,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver.LocatableResolverLockedException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -110,7 +110,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Tag(Tags.WipesFDB)
 @Tag(Tags.RequiresFDB)
-public abstract class LocatableResolverTest extends FDBTestBase {
+public abstract class LocatableResolverTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+
     @RegisterExtension
     protected final TestingResolverFactory resolverFactory;
 
@@ -119,7 +122,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     protected FDBDatabase database;
 
     protected LocatableResolverTest(TestingResolverFactory.ResolverType resolverType) {
-        resolverFactory = new TestingResolverFactory(resolverType);
+        resolverFactory = new TestingResolverFactory(dbExtension, resolverType);
     }
 
     @BeforeEach
@@ -892,7 +895,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         // sets the timeout for all the db instances we create
         final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
-        parallelFactory.setAPIVersion(FDBTestBase.getAPIVersion());
+        parallelFactory.setAPIVersion(dbExtension.getAPIVersion());
         Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, null);
         consistently("uninitialized version is 0", () -> {
             try (FDBRecordContext context = database.openContext()) {

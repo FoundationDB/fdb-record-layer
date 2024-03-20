@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableRes
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.BiMap;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +80,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link FDBReverseDirectoryCache}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBReverseDirectoryCacheTest extends FDBTestBase {
+public class FDBReverseDirectoryCacheTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     private static final Logger logger = LoggerFactory.getLogger(FDBReverseDirectoryCacheTest.class);
 
@@ -89,11 +93,13 @@ public class FDBReverseDirectoryCacheTest extends FDBTestBase {
 
     @BeforeEach
     public void getFDB() {
-        FDBDatabaseFactory.instance().setDirectoryCacheSize(100);
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.setDirectoryCacheSize(100);
         long seed = System.currentTimeMillis();
         System.out.println("Seed " + seed);
         random = new Random(seed);
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        factory.clear();
+        fdb = dbExtension.getDatabase();
         globalScope = ScopedDirectoryLayer.global(fdb);
         fdb.clearReverseDirectoryCache();
     }

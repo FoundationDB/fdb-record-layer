@@ -22,15 +22,17 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.test.Tags;
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -57,7 +59,16 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  * pack {@link Tuple}s with incomplete versionstamps due to the difference in format starting with API version 520.
  */
 @Tag(Tags.RequiresFDB)
-public class TupleTypeUtilTest extends FDBTestBase {
+public class TupleTypeUtilTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+
+    @BeforeEach
+    void ensureInit() {
+        // Ensure that FDB has been initialized
+        dbExtension.getDatabase();
+    }
+
     @Nonnull
     private static final List<Object> VALUES = Arrays.asList(
             null,

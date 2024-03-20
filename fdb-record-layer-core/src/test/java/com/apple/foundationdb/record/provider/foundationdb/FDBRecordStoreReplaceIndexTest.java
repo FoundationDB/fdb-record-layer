@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
@@ -227,9 +228,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
 
     @Test
     public void buildReplacementsInMultipleStores() {
-        final Object[] multiStorePathObjects = {"record-test", "unit", "multiRecordStore"};
-        final KeySpacePath multiStoreRoot = TestKeySpace.getKeyspacePath(multiStorePathObjects);
-
+        final KeySpacePath multiStoreRoot = pathManager.createPath(TestKeySpace.MULTI_RECORD_STORE);
         try {
             final String recordTypeName = "MySimpleRecord";
             final Index origIndex = new Index("MySimpleRecord$repeater", Key.Expressions.field("repeater", KeyExpression.FanType.FanOut));
@@ -239,7 +238,6 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             final List<String> stores = IntStream.range(0, 10).mapToObj(i -> "store_" + i).collect(Collectors.toList());
 
             try (FDBRecordContext context = openContext()) {
-                multiStoreRoot.deleteAllData(context);
                 openSimpleRecordStore(context, allIndexesHook);
 
                 // Create a bunch of stores and disable the new index in all of them
@@ -306,7 +304,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
 
     private void forEachStore(@Nonnull KeySpacePath root, @Nonnull List<String> storePaths, @Nonnull BiConsumer<String, FDBRecordStore> subStoreConsumer) {
         for (String storePathName : storePaths) {
-            final KeySpacePath storePath = root.add("storePath", storePathName);
+            final KeySpacePath storePath = root.add(TestKeySpace.STORE_PATH, storePathName);
             final FDBRecordStore subStore = recordStore.asBuilder()
                     .setKeySpacePath(storePath)
                     .createOrOpen();

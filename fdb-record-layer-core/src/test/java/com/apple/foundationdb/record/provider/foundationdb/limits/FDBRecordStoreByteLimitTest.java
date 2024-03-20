@@ -52,7 +52,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -89,7 +88,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for the byte scan limit on query execution.
  */
 @Tag(Tags.RequiresFDB)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
     private static final StoreTimerByteCounter byteCounter = new StoreTimerByteCounter();
 
@@ -111,14 +109,13 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
         return byteCountsByRecord;
     }
 
-    public Stream<Arguments> plans() {
+    static Stream<Arguments> plans() {
         return plans(false);
     }
 
     @ParameterizedTest(name = "testPlans() [{index}] {0} {1}")
     @MethodSource("plans")
-    public void testPlansWithPreciseExecution(String description, boolean notUsed, RecordQueryPlan plan) throws Exception {
-        setupSimpleRecordStore();
+    void testPlansWithPreciseExecution(String description, boolean notUsed, RecordQueryPlan plan) {
         final List<Long> byteCountsByRecord;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStoreWithSingletonPipeline(context);
@@ -253,8 +250,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
 
     @ParameterizedTest(name = "plansByContinuation() [{index}] {0}")
     @MethodSource("plans")
-    public void testPlansReturnSameRecordsRegardlessOfLimit(String description, boolean notUsed, RecordQueryPlan plan) throws Exception {
-        setupSimpleRecordStore();
+    void testPlansReturnSameRecordsRegardlessOfLimit(String description, boolean notUsed, RecordQueryPlan plan) throws Exception {
         final Function<FDBQueriedRecord<Message>, Long> getRecNo = r -> {
             TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
             record.mergeFrom(r.getRecord());
@@ -298,7 +294,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
     }
 
     @Test
-    public void testSplitContinuation() throws Exception {
+    void testSplitContinuation() throws Exception {
         deleteSimpleRecords();
 
         final String bigValue = Strings.repeat("X", SplitHelper.SPLIT_RECORD_SIZE + 10);
@@ -336,7 +332,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
 
     @BooleanSource
     @ParameterizedTest
-    public void testHitExhaustedDuringSplit(boolean reverse) throws Exception {
+    void testHitExhaustedDuringSplit(boolean reverse) throws Exception {
         deleteSimpleRecords();
 
         // Insert a single large record
@@ -396,7 +392,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
     }
 
     @Test
-    public void simpleFullTextContainsQuery() throws Exception {
+    void simpleFullTextContainsQuery() {
         // Load a big (ish) data set
         final int recordCount = 100;
         final int batchSize = 10;
@@ -434,7 +430,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
         }
     }
 
-    public Stream<Arguments> complexTextQueries() {
+    static Stream<Arguments> complexTextQueries() {
         return Stream.of(
                 Arguments.of(RecordQuery.newBuilder()
                         .setRecordType(SIMPLE_DOC)
@@ -464,7 +460,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
      */
     @ParameterizedTest
     @MethodSource("complexTextQueries")
-    public void queryWithWideOrOfFullTextPrefixPredicates(@Nonnull RecordQuery query, int numPredicates) throws Exception {
+    void queryWithWideOrOfFullTextPrefixPredicates(@Nonnull RecordQuery query, int numPredicates) throws Exception {
         deleteSimpleRecords();
         final List<String> textSamples = ImmutableList.of(
                 TextSamples.ANGSTROM,
@@ -543,9 +539,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
 
     @ParameterizedTest(name = "testWithFailOnByteScanLimitReached [{index}] {0} {1}")
     @MethodSource("plans")
-    public void testWithFailOnByteScanLimitReached(String description, boolean notUsed, @Nonnull RecordQueryPlan plan) throws Exception {
-        setupSimpleRecordStore();
-
+    void testWithFailOnByteScanLimitReached(String description, boolean notUsed, @Nonnull RecordQueryPlan plan) throws Exception {
         for (long byteLimit = 0; byteLimit < 1000; byteLimit += 100) {
             try (FDBRecordContext context = openContext()) {
                 ExecuteProperties properties = ExecuteProperties.newBuilder()

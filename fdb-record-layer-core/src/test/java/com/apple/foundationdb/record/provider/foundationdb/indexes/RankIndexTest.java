@@ -1562,7 +1562,11 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void uniquenessViolationWithTies() throws Exception {
-        clearAndInitialize();   // Undo loadRecords.
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore.deleteAllRecords(); // Undo loadRecords
+            commit(context);
+        }
         assertThrows(RecordIndexUniquenessViolation.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, md -> {

@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.beust.jcommander.JCommander;
@@ -46,6 +48,7 @@ import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,8 +69,10 @@ import java.util.function.Function;
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Performance)
-public class FDBRecordStorePerformanceTest extends FDBTestBase {
+public class FDBRecordStorePerformanceTest {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStorePerformanceTest.class);
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     static class DatabaseParameters {
         public Object[] path = {"record-test", "performance", "recordStore"};

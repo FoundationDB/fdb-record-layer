@@ -25,7 +25,6 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -35,6 +34,9 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -43,6 +45,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,10 +72,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBStoreTimerTest {
+    @RegisterExtension
+    static FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     FDBDatabase fdb;
+    KeySpacePath path;
     FDBRecordContext context;
     private Subspace subspace;
-    ExecuteProperties ep;
 
     enum DummySizeEvents implements StoreTimer.SizeEvent {
         SIZE_EVENT_1,
@@ -87,14 +94,15 @@ public class FDBStoreTimerTest {
 
     @BeforeEach
     void setup() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RAW_DATA);
         FDBStoreTimer timer = new FDBStoreTimer();
         context = fdb.openContext(null, timer);
         setupBaseData();
     }
 
     @AfterEach
-    void teardown() {
+    void tearDown() {
         context.close();
         fdb.close();
     }
@@ -641,11 +649,7 @@ public class FDBStoreTimerTest {
     }
 
     private void setupBaseData() {
-        subspace = fdb.run(context -> {
-            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");
-            path.deleteAllData(context);
-            return path.toSubspace(context);
-        });
+        subspace = fdb.run(path::toSubspace);
 
         // Populate with data.
         fdb.database().run(tr -> {

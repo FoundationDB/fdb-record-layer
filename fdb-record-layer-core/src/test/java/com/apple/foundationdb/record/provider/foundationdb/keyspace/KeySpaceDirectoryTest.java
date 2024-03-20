@@ -34,18 +34,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
-import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
@@ -89,8 +86,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link KeySpaceDirectory}.
  */
-@Tag(Tags.RequiresFDB)
-public class KeySpaceDirectoryTest extends FDBTestBase {
+public class KeySpaceDirectoryTest {
 
     private static class KeyTypeValue {
         KeyType keyType;

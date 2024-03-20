@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.compressing.CompressingCodec;
@@ -52,6 +52,7 @@ import java.util.Random;
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsFormatTestCase {
+    private static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     public LuceneOptimizedStoredFieldsFormatTest() {
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
@@ -62,8 +63,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     public static void beforeClass() throws Exception {
         // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
         // but that class is JUnit4
-        FDBTestBase.initFDB();
-        FDBTestBase.setupBlockingInAsyncDetection();
+        dbExtension.beforeAll(null);
     }
 
     @Override
@@ -84,6 +84,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     public void setUp() throws Exception {
         super.setUp();
         TestingCodec.reset();
+        dbExtension.beforeEach(null);
         TestFDBDirectory.reset();
     }
 
@@ -92,6 +93,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
         super.tearDown();
         TestingCodec.reset();
         TestFDBDirectory.reset();
+        dbExtension.afterEach(null);
     }
 
     @Override

@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -355,6 +356,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     public void testStoredRecordSizeIsPlausible() {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+            final int recordSubspaceSize = recordStore.recordsSubspace().pack().length;
 
             TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
 
@@ -362,14 +364,14 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recBuilder.setStrValueIndexed(Strings.repeat("x", 10));
             FDBStoredRecord<Message> rec1 = recordStore.saveRecord(recBuilder.build());
             assertEquals(1, rec1.getKeyCount(), "small record should only need one key-value pair");
-            assertThat("small record should only need few key bytes", rec1.getKeySize(), allOf(greaterThan(5), lessThan(100)));
+            assertThat("small record should only need few key bytes", rec1.getKeySize(), equalTo(recordSubspaceSize + rec1.getPrimaryKey().getPackedSize() + 1));
             assertThat("small record should only need few value bytes", rec1.getValueSize(), allOf(greaterThan(10), lessThan(100)));
 
             recBuilder.setRecNo(2);
             recBuilder.setStrValueIndexed(Strings.repeat("x", 100000));
             FDBStoredRecord<Message> rec2 = recordStore.saveRecord(recBuilder.build());
             assertThat("large record should only need several key-value pairs", rec2.getKeyCount(), allOf(greaterThan(1), lessThan(10)));
-            assertThat("large record should only need few key bytes", rec2.getKeySize(), allOf(greaterThan(10), lessThan(100)));
+            assertThat("large record should only need few key bytes", rec2.getKeySize(), equalTo(rec2.getKeyCount() * (recordSubspaceSize + rec2.getPrimaryKey().getPackedSize() + 2)));
             assertThat("large record should only need many value bytes", rec2.getValueSize(), allOf(greaterThan(100000), lessThan(101000)));
 
             FDBStoredRecord<Message> rec1x = recordStore.loadRecord(rec1.getPrimaryKey());
@@ -1094,7 +1096,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testNoUnion() {
-        final KeySpacePath metaDataPath = TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore");
+        final KeySpacePath metaDataPath = pathManager.createPath(TestKeySpace.META_DATA_STORE);
         int version;
         try (FDBRecordContext context = fdb.openContext()) {
             FDBMetaDataStore metaDataStore = openMetaDataStore(context, metaDataPath, true);

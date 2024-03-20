@@ -49,17 +49,18 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetHashFunctions;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
@@ -70,6 +71,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nullable;
 import java.math.BigInteger;
@@ -93,8 +95,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@code TIME_WINDOW_LEADERBOARD} indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class LeaderboardIndexTest extends FDBTestBase {
-    FDBDatabase fdb;
+public class LeaderboardIndexTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
+    private FDBDatabase fdb;
+    KeySpacePath path;
     FDBStoreTimer metrics;
     private static int oldMaxAttempts;
     private static final int TEST_MAX_ATTEMPTS = 100;
@@ -105,10 +113,14 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
     @BeforeAll
     public static void initializeRetryPolicy() {
-        oldMaxAttempts = FDBDatabaseFactory.instance().getMaxAttempts();
-        FDBDatabaseFactory.instance().setMaxAttempts(TEST_MAX_ATTEMPTS);
-        oldMaxDelay = FDBDatabaseFactory.instance().getMaxDelayMillis();
-        FDBDatabaseFactory.instance().setMaxDelayMillis(TEST_MAX_DELAY);
+        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        if (TRACE) {
+            factory.setTrace("/tmp", "LeaderboardIndexTest");
+        }
+        oldMaxAttempts = factory.getMaxAttempts();
+        factory.setMaxAttempts(TEST_MAX_ATTEMPTS);
+        oldMaxDelay = factory.getMaxDelayMillis();
+        factory.setMaxDelayMillis(TEST_MAX_DELAY);
     }
 
     @AfterAll
@@ -118,11 +130,9 @@ public class LeaderboardIndexTest extends FDBTestBase {
     }
 
     @BeforeEach
-    public void getFDB() {
-        if (TRACE) {
-            FDBDatabaseFactory.instance().setTrace("/tmp", "LeaderboardIndexTest");
-        }
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+    void setUp() {
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         metrics = new FDBStoreTimer();
     }
 
@@ -152,7 +162,6 @@ public class LeaderboardIndexTest extends FDBTestBase {
         public abstract void addIndex(RecordMetaDataBuilder metaDataBuilder);
 
         public void openRecordStore(FDBRecordContext context, boolean clearFirst) {
-            final KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "leaderboard");
             if (clearFirst) {
                 path.deleteAllData(context);
             }

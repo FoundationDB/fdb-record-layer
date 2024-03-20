@@ -180,7 +180,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testSimplePlanGraph() throws Exception {
+    void testSimplePlanGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -211,7 +211,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testSimplePlanGraphReversed() throws Exception {
+    void testSimplePlanGraphReversed() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -245,7 +245,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testSimplePlanGraphWithNullableArray() throws Exception {
+    void testSimplePlanGraphWithNullableArray() throws Exception {
         CascadesPlanner cascadesPlanner = setUpWithNullableArray();
         // no index hints, plan a query
         final var plan = planGraph(
@@ -274,7 +274,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testFailWithBadIndexHintGraph() throws Exception {
+    void testFailWithBadIndexHintGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         final Optional<Collection<String>> allowedIndexesOptional = Optional.empty();
@@ -306,7 +306,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testPlanDifferentWithIndexHintGraph() throws Exception {
+    void testPlanDifferentWithIndexHintGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
@@ -340,7 +340,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testPlanCrossProductJoin() throws Exception {
+    void testPlanCrossProductJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
@@ -402,7 +402,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
     
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testSimpleJoin() throws Exception {
+    void testSimpleJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // with index hints (RestaurantRecord$name), plan a different query
@@ -424,7 +424,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * Tests incompatible type evolution, in particular an accessed field was shifted.
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testMediumJoinDatabaseObjectDependencies() throws Exception {
+    void testMediumJoinDatabaseObjectDependencies() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -485,7 +485,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testMediumJoin() throws Exception {
+    void testMediumJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -497,7 +497,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testMediumJoinTypeEvolutionIdentical() throws Exception {
+    void testMediumJoinTypeEvolutionIdentical() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -618,7 +618,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testMediumJoinTypeEvolutionCompatible() throws Exception {
+    void testMediumJoinTypeEvolutionCompatible() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -705,7 +705,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * Tests incompatible type evolution, in particular, an accessed field now has a different type.
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testMediumJoinTypeEvolutionIncompatible1() throws Exception {
+    void testMediumJoinTypeEvolutionIncompatible1() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -786,7 +786,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
      * Tests incompatible type evolution, in particular an accessed field was shifted.
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testMediumJoinTypeEvolutionIncompatible2() throws Exception {
+    void testMediumJoinTypeEvolutionIncompatible2() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -865,7 +865,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantReviewer, restaurantReviewerType));
     }
 
-    private RecordQueryPlan planMediumJoin(@Nonnull final CascadesPlanner cascadesPlanner) throws Exception {
+    private RecordQueryPlan planMediumJoin(@Nonnull final CascadesPlanner cascadesPlanner) {
         // find restaurants that where at least reviewed by two common reviewers
         //
         // SELECT reviewer1.name AS reviewer1Name,
@@ -953,7 +953,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testPlanFiveWayJoin() throws Exception {
+    void testPlanFiveWayJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
 
         // find restaurants that where at least reviewed by two common reviewers
@@ -1027,7 +1027,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testSimplePlanWithConstantPredicateGraph() throws Exception {
+    void testSimplePlanWithConstantPredicateGraph() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
         // no index hints, plan a query
         final var plan = planGraph(

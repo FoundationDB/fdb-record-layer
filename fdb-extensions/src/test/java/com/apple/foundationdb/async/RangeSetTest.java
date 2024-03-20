@@ -21,20 +21,19 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.directory.DirectoryLayer;
-import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.MultipleTransactions;
+import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -59,7 +58,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RangeSet}.
  */
 @Tag(Tags.RequiresFDB)
-public class RangeSetTest extends FDBTestBase {
+public class RangeSetTest {
+    @RegisterExtension
+    static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+    @RegisterExtension
+    TestSubspaceExtension rsSubspaceExtension = new TestSubspaceExtension(dbExtension);
     private Database db;
     private Subspace rsSubspace;
     private RangeSet rs;
@@ -114,8 +117,8 @@ public class RangeSetTest extends FDBTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
-        db = FDB.instance().open();
-        rsSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
+        db = dbExtension.getDatabase();
+        rsSubspace = rsSubspaceExtension.getSubspace();
         rs = new RangeSet(rsSubspace);
         rs.clear(db).join();
     }

@@ -28,12 +28,11 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -43,6 +42,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,22 +59,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Tag(Tags.RequiresFDB)
 public class ConcatCursorTest {
 
+    @RegisterExtension
+    static FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     FDBDatabase fdb;
     FDBRecordContext context;
     private Subspace subspace;
     ExecuteProperties ep;
 
     @BeforeEach
-    public void setup() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+    public void setUp() throws Exception {
+        fdb = dbExtension.getDatabase();
         context = fdb.openContext();
         setupBaseData();
     }
 
     @AfterEach
-    public void teardown() throws Exception {
+    public void tearDown() throws Exception {
         context.close();
-        fdb.close();
     }
 
     @Test
@@ -347,8 +350,7 @@ public class ConcatCursorTest {
 
     private void setupBaseData() {
         subspace = fdb.run(context -> {
-            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "concatcursor");
-            FDBRecordStore.deleteStore(context, path);
+            KeySpacePath path = pathManager.createPath();
             return path.toSubspace(context);
         });
 
