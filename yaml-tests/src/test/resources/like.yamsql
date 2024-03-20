@@ -51,9 +51,7 @@ setup:
 # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:
   connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
-  options:
-    mode: parallelized
-    repetition: 1
+  preset: single_repetition_parallelized
   tests:
     -
       - query: select * from A WHERE A1 LIKE 'abc'
@@ -105,8 +103,8 @@ test_block:
 test_block:
   connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
   options:
-    mode: parallelized
     repetition: 1
+    check_cache: false
   tests:
     -
       - query: select * from A WHERE A1 LIKE '|_|_%' ESCAPE '|'

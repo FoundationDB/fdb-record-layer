@@ -42,10 +42,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       # the query works now as expected, TODO: add data, verify results.

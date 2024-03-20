@@ -98,10 +98,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select b, c from t1 order by b, b

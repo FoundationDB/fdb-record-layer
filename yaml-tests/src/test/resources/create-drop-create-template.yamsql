@@ -33,9 +33,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/CREATE_DROP_CREATE_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);
@@ -57,9 +55,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/CREATE_DROP_CREATE_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);

@@ -30,10 +30,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/DISABLED_PROTO_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select tombstone from t1 where tombstone is null

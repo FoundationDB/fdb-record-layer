@@ -44,10 +44,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select greatest(a3, '0'), greatest(a3, '1'), greatest(a3, '2'), greatest(a3, null) from A
@@ -144,6 +140,7 @@ test_block:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
+  preset: single_repetition_ordered
   tests:
     -
       # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)

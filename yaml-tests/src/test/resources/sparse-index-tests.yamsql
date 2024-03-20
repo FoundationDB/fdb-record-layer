@@ -41,10 +41,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
@@ -77,9 +73,7 @@ test_block:
 # can use the same.
 test_block:
   connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select id from t1 where col1 < 100
@@ -112,9 +106,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select id from t1 where col1 < 200

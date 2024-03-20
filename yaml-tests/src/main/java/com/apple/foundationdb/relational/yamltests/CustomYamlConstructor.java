@@ -52,7 +52,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         //blocks
         requireLineNumber.add(Block.ConfigBlock.CONFIG_BLOCK_SETUP);
         requireLineNumber.add(Block.ConfigBlock.CONFIG_BLOCK_DESTRUCT);
-        requireLineNumber.add(Block.TestBlock.TEST_BLOCK);
+        requireLineNumber.add(TestBlock.TEST_BLOCK);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);

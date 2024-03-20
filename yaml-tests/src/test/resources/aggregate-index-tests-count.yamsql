@@ -45,10 +45,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select * from t1
@@ -84,10 +80,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select * from t2

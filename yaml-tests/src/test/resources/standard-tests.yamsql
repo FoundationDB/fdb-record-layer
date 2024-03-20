@@ -49,10 +49,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select id, case when col1 = 10 then 100

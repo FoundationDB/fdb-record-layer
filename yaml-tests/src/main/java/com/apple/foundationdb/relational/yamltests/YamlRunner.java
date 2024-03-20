@@ -117,8 +117,12 @@ public final class YamlRunner {
             return Boolean.parseBoolean(System.getProperty(TEST_NIGHTLY, "false"));
         }
 
-        Optional<String> getSeed() {
-            return Optional.ofNullable(System.getProperty(TEST_SEED, null));
+        Optional<Long> getSeed() {
+            final var maybeValue = (System.getProperty(TEST_SEED, null));
+            if (maybeValue != null) {
+                return Optional.of(Long.parseLong(maybeValue));
+            }
+            return Optional.empty();
         }
 
         Optional<Integer> getNightlyRepetition() {
@@ -164,7 +168,7 @@ public final class YamlRunner {
         Assert.thatUnchecked(Block.isConfigBlock(documents.get(0)), "Illegal Format: The first document in the file is required to be a Setup block.");
         executeConfigBlock(documents.get(0));
 
-        final var testBlocks = new ArrayList<Block.TestBlock>();
+        final var testBlocks = new ArrayList<TestBlock>();
         for (int i = 1; i < documents.size() - 1; i++) {
             final var document = documents.get(i);
             if (Block.isConfigBlock(document)) {
@@ -188,16 +192,16 @@ public final class YamlRunner {
         block.execute();
     }
 
-    private void executeTestBlock(@Nonnull Object document, List<Block.TestBlock> testBlocks) {
+    private void executeTestBlock(@Nonnull Object document, List<TestBlock> testBlocks) {
         final var block = Block.parse(document, executionContext);
-        Assert.thatUnchecked(block instanceof Block.TestBlock, "Expect the block to be a test_block at line " + block.getLineNumber());
+        Assert.thatUnchecked(block instanceof TestBlock, "Expect the block to be a test_block at line " + block.getLineNumber());
         logger.debug("⚪️ Executing `test` block at line {} in {}", block.getLineNumber(), resourcePath);
 
         block.execute();
-        testBlocks.add((Block.TestBlock) block);
+        testBlocks.add((TestBlock) block);
     }
 
-    private void evaluateTestBlockResults(List<Block.TestBlock> testBlocks) {
+    private void evaluateTestBlockResults(List<TestBlock> testBlocks) {
         RuntimeException failure = null;
         logger.info("");
         logger.info("");

@@ -37,10 +37,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/ENUM_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 1
-    check_cache: true
   tests:
     -
       - query: SELECT * From "TableA"

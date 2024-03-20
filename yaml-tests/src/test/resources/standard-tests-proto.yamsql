@@ -48,10 +48,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/STANDARD_PROTO_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where ID = 5) as y;

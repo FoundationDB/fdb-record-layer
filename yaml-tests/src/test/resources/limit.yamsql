@@ -45,10 +45,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/LIMIT_YAML?schema=LIMIT_SCHEMA"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       # limit value is not of type Long

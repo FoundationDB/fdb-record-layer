@@ -33,11 +33,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/INSERTS_UPDATES_DELETES_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
-    # to avoid another repetition on the queries.
-    check_cache: false
+  preset: single_repetition_ordered
   tests:
     -
       - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);

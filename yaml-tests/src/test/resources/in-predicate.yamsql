@@ -48,10 +48,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       # LONG value matched against IN list of only LONG values

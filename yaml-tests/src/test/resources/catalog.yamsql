@@ -42,10 +42,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       # How many databases exist in this cluster?

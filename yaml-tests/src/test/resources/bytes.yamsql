@@ -35,10 +35,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select b from lb
@@ -71,8 +67,7 @@ test_block:
 test_block:
   connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
   options:
-    mode: parallelized
-    repetition: 5
+    check_cache: false
   tests:
     -
       # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)

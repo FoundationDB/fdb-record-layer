@@ -47,10 +47,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where COL1 = 5) as y;

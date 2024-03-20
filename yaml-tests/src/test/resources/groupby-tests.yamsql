@@ -64,10 +64,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120

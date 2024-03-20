@@ -48,10 +48,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/FIELD_INDEX_PROTO_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select * from (select * from (select * from "MyTable") as x where ID = 5) as y;
@@ -79,9 +75,7 @@ test_block:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/FIELD_INDEX_PROTO_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       # we are setting here all branches of the `oneof` which is incorrect.

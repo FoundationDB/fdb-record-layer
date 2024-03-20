@@ -38,9 +38,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/ARRAYS_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: INSERT INTO A VALUES (1, [1, 2, 3]), (2, [2, 3, 4]), (3, [3, 4, 5])

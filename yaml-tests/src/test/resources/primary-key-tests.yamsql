@@ -31,9 +31,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/PRIMARY_KEY_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: INSERT INTO T1

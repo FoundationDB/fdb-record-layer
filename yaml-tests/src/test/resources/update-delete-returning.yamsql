@@ -31,9 +31,8 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/UPDATE_RETURNING_YAML?schema=TEST"
+  preset: single_repetition_ordered
   options:
-    mode: ordered
-    repetition: 1
     connection_lifecycle: block
   tests:
     -

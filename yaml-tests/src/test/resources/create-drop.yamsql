@@ -28,9 +28,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: drop schema template temp
@@ -48,9 +46,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
@@ -63,9 +59,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
@@ -78,9 +72,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP2'
@@ -93,9 +85,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -108,9 +98,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -123,9 +111,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -138,9 +124,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -153,9 +137,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -168,9 +150,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
@@ -183,9 +163,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -204,9 +182,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
@@ -222,9 +198,7 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'

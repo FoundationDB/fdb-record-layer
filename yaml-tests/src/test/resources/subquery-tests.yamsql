@@ -44,10 +44,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/SUBQUERY_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       # non correlated subquery, resolving alias should be fine.

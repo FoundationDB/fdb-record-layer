@@ -24,18 +24,15 @@
 #       be the `setup` block, while the last one should be `destruct`. A file can have multiple `setup` blocks
 #       to change the environment as needed to run multiple test blocks. Config block consist of a list of commands.
 #   - test block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
-# a command of the form <cmd>: <value> (pay attention to spaces)
-# an optional subsequent list of command configurations
-# a value can span across multi lines, again please pay attention to
-# proper spacing.
-# In the following we'll start a new region to 'connect' to a database
-# most commands are similar to Relational CLI's, in fact, we're
-# using the CLI internal API to run them. such as the 'connect' command
-# below.
 ---
 setup:
-  # First entry in a block should be `connect` that defines where to execute the block
+  # First entry in a block should be `connect` that defines where to execute the block.
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  # the config block defines the list of steps that sets up the environment. Each step is a command of the form
+  # <cmd>: <value> (pay attention to spaces). Valid commands are `load schema template`, `set schema state` and `query`.
+  # In the following, we use the `query` command to run the DDL statements to set up our testing environment. Note that
+  # the commands in config block are not tested for results - they are expected to succeed as they are for `setting up`
+  # the testing environment and not the actual test.
   steps:
     - query: drop schema template if exists test_template
     # Here we use SQL to create the schema template.
@@ -52,6 +49,7 @@ setup:
     - query: create schema /FRL/YOUSSEF/test with template test_template
 ---
 setup:
+  # Another setup block to fill the data in database created above.
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
   # We are inserting an array of three rows, each containing two columns
   # note the `table` configuration is very important
@@ -60,25 +58,20 @@ setup:
     - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
 test_block:
+  # This defines the test block which contains actual test.
   # First entry in a block should be `connect`. That's true for even test_blocks
+  # required.
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
-  options:
-    # defines if the tests can be permuted.
-    # optional. default: ordered
-    mode: randomized
-    # defines how many times a particular tests should be scheduled.
-    # optional. default: 1
-    repetition: 2
-    # defines the seed for the randomizer, if the mode is `randomized`.
-    # optional. default is `System.currentTimeMillis()`
-    seed: 343434
-    # specifies if a test should be executed again to make sure that its plan is retrieved from the cache.
-    # optional. default: false
-    check_cache: true
-    # specifies the lifecycle of the created connection. For `test` the connection is created for each test execution.
-    # For `block` the connection is created just once and all the tests are executed in that connection.
-    # optional. default: test
-    connection_lifecycle: block
+  # preset defines one of the preset configurations that determines how the tests are run. There are 6 presets available
+  # to choose from:
+  #   1. single_repetition_ordered: Each test is run exactly once, in the order they are written. Cache is not checked.
+  #   2. single_repetition_randomized: Each test is run exactly once, the order is randomized. Cache is not checked.
+  #   3. single_repetition_parallelized: Each test is run exactly once, the order of test is randomized and execution is in parallel. Cache is not checked.
+  #   4. multi_repetition_ordered: Each test is run more than once, in the order they are written. Cache is checked too.
+  #   5. multi_repetition_randomized: Each test is run more than once, the order is randomized. Cache is checked too.
+  #   6. multi_repetition_parallelized: Each test is run more than once, the order of test is randomized and execution is in parallel. Cache is checked too.
+  # optional. default: multi_repetition_parallelized
+  preset: single_repetition_ordered
   tests:
     -
       # We check here an error code, as you can see, the statement is syntactically
@@ -131,11 +124,25 @@ setup:
 # Another test block to test in the new "changed" environment
 test_block:
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
+  # Running with defaults or declaring a preset is the preferred way of running the tests. However, the individual knobs
+  # can be overridden in options, if the need be.
   options:
-    # defines if the tests can be permuted.
-    mode: parallelized
+    # defines the execution mode in which the tests are run: ordered, randomized or parallelized.
+    # optional. default: parallelized
+    mode: ordered
     # defines how many times a particular tests should be scheduled.
-    repetition: 5
+    # optional. default: 5
+    repetition: 1
+    # defines the seed for the randomizer, if the mode is not `ordered`.
+    # optional. default is `System.currentTimeMillis()`
+    seed: 343434
+    # specifies if a test should be executed again to make sure that its plan is retrieved from the cache.
+    # optional. default: true
+    check_cache: false
+    # specifies the lifecycle of the created connection. For `test` the connection is created for each test execution.
+    # For `block` the connection is created just once and all the tests are executed in that connection.
+    # optional. default: test
+    connection_lifecycle: block
   tests:
     -
       # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause

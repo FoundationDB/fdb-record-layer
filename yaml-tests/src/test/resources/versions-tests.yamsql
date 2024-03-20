@@ -55,10 +55,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/VERSIONS_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;

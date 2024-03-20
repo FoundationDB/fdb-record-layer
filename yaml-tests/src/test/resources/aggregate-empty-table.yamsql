@@ -40,10 +40,6 @@ setup:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/AGG_EMPTY_TABLE_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select count(*) from T1;
@@ -291,9 +287,7 @@ test_block:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/AGG_EMPTY_TABLE_YAML?schema=TEST"
-  options:
-    mode: ordered
-    repetition: 1
+  preset: single_repetition_ordered
   tests:
     -
       - query: insert into t1 values (1, 2, 3), (2, 2, 3), (3, 2, 3)
@@ -316,10 +310,6 @@ test_block:
 ---
 test_block:
   connect: "jdbc:embed:/FRL/AGG_EMPTY_TABLE_YAML?schema=TEST"
-  options:
-    mode: parallelized
-    repetition: 5
-    check_cache: true
   tests:
     -
       - query: select count(*) from T1;
