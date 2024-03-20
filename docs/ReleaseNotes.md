@@ -19,8 +19,8 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Lucene merge flush group/partition info AgileContext before executing a merge [(Issue #2605)](https://github.com/FoundationDB/fdb-record-layer/issues/2605)
-* **Bug fix** Lucene merges no longer leave a corrupted index if it fails part way through  [(Issue #2600)](https://github.com/FoundationDB/fdb-record-layer/issues/2600)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -31,7 +31,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Always defer merges during online indexing [(Issue #2602)](https://github.com/FoundationDB/fdb-record-layer/issues/2602)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,12 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.476.0
+
+* **Bug fix** Lucene merge flush group/partition info AgileContext before executing a merge [(Issue #2605)](https://github.com/FoundationDB/fdb-record-layer/issues/2605)
+* **Bug fix** Lucene merges no longer leave a corrupted index if it fails part way through  [(Issue #2600)](https://github.com/FoundationDB/fdb-record-layer/issues/2600)
+* **Feature** Always defer merges during online indexing [(Issue #2602)](https://github.com/FoundationDB/fdb-record-layer/issues/2602)
 
 ### 3.4.475.0
 
