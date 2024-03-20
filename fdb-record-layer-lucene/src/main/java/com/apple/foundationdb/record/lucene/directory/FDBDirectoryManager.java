@@ -166,7 +166,14 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
         final AgilityContext agilityContext = getAgilityContext(true);
-        mergeIndexWithContext(analyzerWrapper, groupingKey, partitionId, agilityContext);
+        try {
+            mergeIndexWithContext(analyzerWrapper, groupingKey, partitionId, agilityContext);
+        } finally {
+            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
+            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
+            // but that should be rare.
+            agilityContext.flushAndClose();
+        }
     }
 
     public void mergeIndexWithContext(@Nonnull final LuceneAnalyzerWrapper analyzerWrapper,
@@ -191,11 +198,6 @@ public class FDBDirectoryManager implements AutoCloseable {
             throw new RecordCoreStorageException("Lucene mergeIndex close failed", e)
                     .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
                             LuceneLogMessageKeys.PARTITION, partitionId);
-        } finally {
-            // IndexWriter may release the file lock in a finally block in its own code, so if there is an error in its
-            // code, we need to commit. We could optimize this a bit, and have it only flush if it has committed anything
-            // but that should be rare.
-            agilityContext.flushAndClose();
         }
     }
 
