@@ -109,9 +109,8 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void luceneOnlineIndexingTestSimple(boolean preventMergeDuringIndexing) {
+    @Test
+    void luceneOnlineIndexingTestSimple() {
         Index index = SIMPLE_TEXT_SUFFIXES;
         disableIndex(index, SIMPLE_DOC);
         try (final FDBRecordContext context = openContext()) {
@@ -133,8 +132,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setIndex(index)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferMergeDuringIndexing(preventMergeDuringIndexing))
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));
                 indexBuilder.buildIndex(true);
@@ -241,7 +238,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setIndex(index)
                     .setLimit(transactionLimit)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferMergeDuringIndexing(true)
                             .setInitialMergesCountLimit(mergesLimit)
                             .build())
                     .build()) {
@@ -265,9 +261,8 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void luceneOnlineIndexingTestMulti(boolean preventMergeDuringIndexing) {
+    @Test
+    void luceneOnlineIndexingTestMulti() {
         int numRecords = 47;
         int transactionLimit = 10;
         int groupingCount = 1;
@@ -332,9 +327,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setTargetIndexes(indexes)
                     .setLimit(transactionLimit)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferMergeDuringIndexing(preventMergeDuringIndexing)
-                            .build())
                     .build()) {
                 for (Index index: indexes) {
                     assertTrue(recordStore.isIndexDisabled(index));
@@ -415,9 +407,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setIndex(index)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .setDeferMergeDuringIndexing(true)
-                            .build())
                     .build()) {
                 assertTrue(recordStore.isIndexDisabled(index));
                 indexBuilder.buildIndex(true);
