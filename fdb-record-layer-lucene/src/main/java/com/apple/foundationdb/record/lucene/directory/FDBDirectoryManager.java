@@ -143,7 +143,11 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private CompletableFuture<Void> mergeIndex(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey,
                                                @Nonnull LucenePartitioner partitioner, final AgilityContext agileContext) {
+        // Note: We always flush before calls to `mergeIndexNow` because we won't come back to get the next partition
+        // or group until after the merge which could be many seconds later, in which case the current transaction would
+        // no longer be valid. It may make sense to have AgilityContext.Agile commit periodically regardless of activity
         if (!partitioner.isPartitioningEnabled()) {
+            agileContext.flush();
             mergeIndexNow(analyzerWrapper, groupingKey, null);
             return AsyncUtil.DONE;
         } else {
@@ -155,6 +159,7 @@ public class FDBDirectoryManager implements AutoCloseable {
                             // partition list end
                             return false;
                         }
+                        agileContext.flush();
                         mergeIndexNow(analyzerWrapper, groupingKey, partitionId);
                         return true;
                     }));
