@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -86,13 +87,13 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                                                               @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var resultValue = groupByExpression.getResultValue(); // full result value
-        final var groupingValue = groupByExpression.getGroupingValue();
-        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
+        final var groupingValues = RecordConstructorValue.ofUnnamed(groupByExpression.getGroupingValues());
+        final var currentGroupingValue = groupingValues.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
         final var toBePushedRequestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
         for (final var requestedOrdering : requestedOrderings) {
             if (requestedOrdering.isPreserve()) {
-                if (groupingValue == null || groupingValue.isConstant()) {
+                if (groupingValues.isConstant()) {
                     toBePushedRequestedOrderingsBuilder.add(RequestedOrdering.preserve());
                 } else {
                     final var orderingParts =
@@ -114,7 +115,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                 final var pushedRequestedOrdering =
                         requestedOrdering.pushDown(resultValue, innerQuantifier.getAlias(), AliasMap.emptyMap(), correlatedTo);
 
-                if (groupingValue == null || groupingValue.isConstant()) {
+                if (groupingValues.isConstant()) {
                     //
                     // No grouping or constant grouping, there is only 0-1 record(s), and that can naturally be
                     // considered as ordered in any way needed.

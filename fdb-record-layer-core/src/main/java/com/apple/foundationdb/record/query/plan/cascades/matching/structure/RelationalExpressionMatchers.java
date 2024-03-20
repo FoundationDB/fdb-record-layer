@@ -256,7 +256,7 @@ public class RelationalExpressionMatchers {
                 AllOfMatcher.matchingAllOf(GroupByExpression.class,
                         ImmutableList.of(
                                 typedWithDownstream(GroupByExpression.class,
-                                        Extractor.of(GroupByExpression::getAggregateValue, name -> "aggregation(" + name + ")"),
+                                        Extractor.of(GroupByExpression::getAggregateValues, name -> "aggregation(" + name + ")"),
                                         downstreamAggregation),
                                 typedWithDownstream(GroupByExpression.class,
                                         Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),

@@ -44,11 +44,13 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -214,12 +216,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
         {
             // 2.1. construct aggregate expression.
-            final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)),
-                    new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed"))));
-            final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
+            final var aggCol =
+                    new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_3_indexed")));
+            final List<AggregateValue> aggregationExpr = ImmutableList.of(aggCol);
 
             // 2.2. construct grouping columns expression.
-            final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
+            final List<Value> groupingExpr = List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId()));
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(aggregationExpr, groupingExpr, qun);

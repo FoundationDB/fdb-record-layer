@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
@@ -553,11 +554,11 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     public Cardinalities visitGroupByExpression(@Nonnull final GroupByExpression element) {
         // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
         // and return a single row comprising the aggregation(s) result
-        if (element.getGroupingValue() == null) {
+        if (element.getGroupingValues().isEmpty()) {
             return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
         }
         // if the grouping value is constant, the cardinality ranges between 0 and 1.
-        if (element.getGroupingValue().isConstant()) {
+        if (element.getGroupingValues().stream().allMatch(Value::isConstant)) {
             return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
         }
         return Cardinalities.unknownMaxCardinality();

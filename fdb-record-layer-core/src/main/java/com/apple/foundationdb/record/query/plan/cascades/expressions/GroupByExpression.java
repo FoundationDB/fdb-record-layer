@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -42,20 +41,20 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -63,11 +62,11 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class GroupByExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
 
-    @Nullable
-    private final FieldValue groupingValue;
+    @Nonnull
+    private final List<Value> groupingValues;
 
     @Nonnull
-    private final AggregateValue aggregateValue;
+    private final List<AggregateValue> aggregateValues;
 
     @Nonnull
     private final Supplier<Value> computeResultSupplier;
@@ -81,15 +80,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     /**
      * Creates a new instance of {@link GroupByExpression}.
      *
-     * @param aggregateValue The aggregation {@code Value} applied to each group.
-     * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null} indicating no grouping.
+     * @param aggregateValues The aggregation {@code Value}s applied to each group.
+     * @param groupingValues The grouping {@code Value}s used to determine individual groups, can be empty indicating no grouping.
      * @param inner The underlying source of tuples to be grouped.
      */
-    public GroupByExpression(@Nonnull final AggregateValue aggregateValue,
-                             @Nullable final FieldValue groupingValue,
+    public GroupByExpression(@Nonnull final List<AggregateValue> aggregateValues,
+                             @Nonnull final List<Value> groupingValues,
                              @Nonnull final Quantifier inner) {
-        this.groupingValue = groupingValue;
-        this.aggregateValue = aggregateValue;
+        this.aggregateValues = ImmutableList.copyOf(aggregateValues);
+        this.groupingValues = ImmutableList.copyOf(groupingValues);
         this.computeResultSupplier = Suppliers.memoize(this::computeResultValue);
         this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestedOrdering);
         this.inner = inner;
@@ -129,16 +128,27 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
         final var otherGroupByExpr = ((GroupByExpression)other);
 
-        if ( (otherGroupByExpr.getGroupingValue() == null) ^ (getGroupingValue() == null) ) {
+        if (this.getGroupingValues().size() != otherGroupByExpr.getGroupingValues().size()) {
             return false;
         }
 
-        if (otherGroupByExpr.getGroupingValue() != null) {
-            return Objects.requireNonNull(getGroupingValue()).semanticEquals(otherGroupByExpr.getGroupingValue(), equivalences)
-                   && getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
-        } else {
-            return getAggregateValue().semanticEquals(otherGroupByExpr.getAggregateValue(), equivalences);
+        if (this.getAggregateValues().size() != otherGroupByExpr.getAggregateValues().size()) {
+            return false;
         }
+
+        for (int i = 0; i < this.getGroupingValues().size(); i++) {
+            if (this.getAggregateValues().get(i).semanticEquals(otherGroupByExpr.getAggregateValues().get(i), equivalences)) {
+                return false;
+            }
+        }
+
+        for (int i = 0; i < this.getGroupingValues().size(); i++) {
+            if (this.getGroupingValues().get(i).semanticEquals(otherGroupByExpr.getGroupingValues().get(i), equivalences)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
@@ -161,53 +171,53 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final AggregateValue translatedAggregateValue = (AggregateValue)getAggregateValue().translateCorrelations(translationMap);
-        final Value translatedGroupingValue = getGroupingValue() == null ? null : getGroupingValue().translateCorrelations(translationMap);
-        Verify.verify(translatedGroupingValue instanceof FieldValue);
-        if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
-            return new GroupByExpression(translatedAggregateValue, (FieldValue)translatedGroupingValue, Iterables.getOnlyElement(translatedQuantifiers));
-        }
-        return this;
+        final List<AggregateValue> translatedAggregateValues = getAggregateValues()
+                .stream()
+                .map(aggregateValue -> (AggregateValue)aggregateValue.translateCorrelations(translationMap))
+                .collect(ImmutableList.toImmutableList());
+        final var translatedGroupingValues = getGroupingValues()
+                .stream()
+                .map(groupingValue -> groupingValue.translateCorrelations(translationMap))
+                .collect(ImmutableList.toImmutableList());
+        return new GroupByExpression(translatedAggregateValues, translatedGroupingValues, Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Override
     public String toString() {
-        if (getGroupingValue() != null) {
-            return "GroupBy(" + getGroupingValue() + "), aggregationValue: " + getAggregateValue() + ", resultValue: " + computeResultSupplier.get();
-        } else {
-            return "GroupBy(NULL), aggregationValue: " + getAggregateValue() + ", resultValue: " + computeResultSupplier.get();
-        }
+        return "GroupBy("
+                + (getGroupingValues().isEmpty() ? "NULL" : groupingValues.stream().map(Objects::toString).collect(Collectors.joining(",")))
+                + "), aggregationValue: " + getAggregateValues() + ", resultValue: " + computeResultSupplier.get();
     }
 
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        if (getGroupingValue() == null) {
+        if (getGroupingValues().isEmpty()) {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNode(this,
                             "GROUP BY",
                             List.of("AGG {{agg}}"),
-                            ImmutableMap.of("agg", Attribute.gml(getAggregateValue().toString()))),
+                            ImmutableMap.of("agg", Attribute.gml(getAggregateValues().toString()))),
                     childGraphs);
         } else {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNode(this,
                             "GROUP BY",
                             List.of("AGG {{agg}}", "GROUP BY {{grouping}}"),
-                            ImmutableMap.of("agg", Attribute.gml(getAggregateValue().toString()),
-                                    "grouping", Attribute.gml(getGroupingValue().toString()))),
+                            ImmutableMap.of("agg", Attribute.gml(getAggregateValues().toString()),
+                                    "grouping", Attribute.gml(getGroupingValues().toString()))),
                     childGraphs);
         }
     }
 
-    @Nullable
-    public FieldValue getGroupingValue() {
-        return groupingValue;
+    @Nonnull
+    public List<Value> getGroupingValues() {
+        return groupingValues;
     }
 
     @Nonnull
-    public AggregateValue getAggregateValue() {
-        return aggregateValue;
+    public List<AggregateValue> getAggregateValues() {
+        return aggregateValues;
     }
 
     /**
@@ -257,8 +267,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
 
         // check that aggregate value is the same.
-        final var otherAggregateValue = otherGroupByExpression.getAggregateValue();
-        if (aggregateValue.subsumedBy(otherAggregateValue, aliasMap)) {
+        final var otherAggregateValue = otherGroupByExpression.getAggregateValues();
+        if (RecordConstructorValue.ofUnnamed(aggregateValues).subsumedBy(RecordConstructorValue.ofUnnamed(otherAggregateValue), aliasMap)) {
             // placeholder for information needed for later compensation.
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
                     .map(ImmutableList::of)
@@ -269,26 +279,39 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     @Nonnull
     private Value computeResultValue() {
-        final var aggregateColumn = Column.unnamedOf(getAggregateValue());
-        if (getGroupingValue() == null) {
-            return RecordConstructorValue.ofColumns(ImmutableList.of(aggregateColumn));
-        } else {
-            final var groupingColumn = Column.unnamedOf(getGroupingValue());
-            return RecordConstructorValue.ofColumns(ImmutableList.of(groupingColumn, aggregateColumn));
+        // this preserves any names given to grouping columns and aggregates.
+        final ImmutableList.Builder<Column<? extends Value>> columnsBuilder = ImmutableList.builder();
+        for (final var groupingValue : groupingValues) {
+            if (groupingValue instanceof Column) {
+                columnsBuilder.add((Column<? extends Value>)groupingValue);
+            } else if (groupingValue instanceof FieldValue) {
+                final var groupingFieldValue = (FieldValue)groupingValue;
+                columnsBuilder.add(Column.of(groupingFieldValue.getLastFieldName(), groupingFieldValue));
+            } else {
+                columnsBuilder.add(Column.unnamedOf(groupingValue));
+            }
         }
+        for (final var aggregateValue : aggregateValues) {
+            if (aggregateValue instanceof Column) {
+                columnsBuilder.add((Column<? extends Value>)aggregateValue);
+            } else if (aggregateValue instanceof FieldValue) {
+                final var aggregateFieldValue = (FieldValue)aggregateValue;
+                columnsBuilder.add(Column.of(aggregateFieldValue.getLastFieldName(), aggregateFieldValue));
+            } else {
+                columnsBuilder.add(Column.unnamedOf(aggregateValue));
+            }
+        }
+        return RecordConstructorValue.ofColumns(columnsBuilder.build());
     }
 
     @Nonnull
     private RequestedOrdering computeRequestedOrdering() {
-        if (groupingValue == null || groupingValue.isConstant()) {
+        if (groupingValues.stream().allMatch(Value::isConstant)) {
             return RequestedOrdering.preserve();
         }
 
-        final var groupingValueType = groupingValue.getResultType();
-        Verify.verify(groupingValueType.isRecord());
-
         return new RequestedOrdering(
-                ImmutableList.of(OrderingPart.of(groupingValue)), //TODO this should be deconstructed
+                groupingValues.stream().map(OrderingPart::of).collect(ImmutableList.toImmutableList()),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 }
