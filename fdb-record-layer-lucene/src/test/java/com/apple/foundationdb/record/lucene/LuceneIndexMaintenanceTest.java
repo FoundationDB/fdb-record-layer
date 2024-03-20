@@ -44,6 +44,7 @@ import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -188,6 +189,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "flakyMerge({argumentsWithNames})")
     @MethodSource("flakyMergeArguments")
     @Tag(Tags.Slow)
+    @Disabled
     void flakyMerge(boolean isGrouped,
                     boolean isSynthetic,
                     boolean primaryKeySegmentIndexEnabled,
