@@ -222,7 +222,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
 
             // 2.3. construct the group by expression
-            final var groupByExpression = new GroupByExpression(aggregationExpr, groupingExpr, qun);
+            final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
             qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
         }
 
