@@ -89,7 +89,7 @@ public final class RandomizedTestUtils {
         return Integer.parseInt(System.getProperty("tests.iterations", "0"));
     }
 
-    private static boolean includeRandomTests() {
+    public static boolean includeRandomTests() {
         return Boolean.parseBoolean(System.getProperty("tests.includeRandom", "false"));
     }
 }

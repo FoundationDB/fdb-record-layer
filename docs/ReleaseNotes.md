@@ -37,7 +37,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Union plans on synthetic types can choose different union comparison keys from before so continuations from plans from earlier builds may not be re-used on those queries [(Issue #2588)](https://github.com/FoundationDB/fdb-record-layer/issues/2588)
 
 // end next release
 -->
