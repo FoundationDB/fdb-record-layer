@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeAll;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 
 public abstract class YamlTestBase {
 
@@ -39,8 +40,13 @@ public abstract class YamlTestBase {
     private static FRL frl;
 
     @BeforeAll
-    public static void beforeAll() throws RelationalException {
-        frl = new FRL();
+    public static void beforeAll() throws RelationalException, SQLException {
+        var options = Options.builder()
+                .withOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
+                .withOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
+                .withOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS, 3_600_000L)
+                .build();
+        frl = new FRL(options);
     }
 
     @AfterAll

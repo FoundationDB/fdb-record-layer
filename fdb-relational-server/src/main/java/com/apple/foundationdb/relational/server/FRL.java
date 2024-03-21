@@ -86,6 +86,10 @@ public class FRL implements AutoCloseable {
     private boolean registeredJDBCEmbedDriver;
 
     public FRL() throws RelationalException {
+        this(Options.NONE);
+    }
+
+    public FRL(@Nonnull Options options) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         this.fdbDatabase = new DirectFdbConnection(fdbDb, NoOpMetricRegistry.INSTANCE);
 
@@ -110,7 +114,11 @@ public class FRL implements AutoCloseable {
                 storeCatalog,
                 null,
                 ddlFactory,
-                RelationalPlanCache.buildWithDefaults());
+                RelationalPlanCache.newRelationalCacheBuilder()
+                        .setTtl(options.getOption(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS))
+                        .setSecondaryTtl(options.getOption(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS))
+                        .setTertiaryTtl(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS))
+                        .build());
 
         // Throws ErrorCode.PROTOCOL_VIOLATION if driver already registered.
         // TODO: Clean up driver registration/get registered driver. Should it register w/ DriverManager?
