@@ -661,13 +661,13 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     .addAll(recordStore.getRecordMetaData().getSyntheticRecordType(OUTER_WITH_ENTRIES).getPrimaryKey().normalizeKeyForPositions())
                     .build();
             assertThat(comparisonKeyComponents, hasSize(4));
-            assertEquals(5, comparisonKeyComponents.stream().mapToInt(KeyExpression::getColumnSize).sum());
+            assertEquals(4, comparisonKeyComponents.stream().mapToInt(KeyExpression::getColumnSize).sum());
             assertMatchesExactly(plan, unionOnExpressionPlan(
                     indexPlan().where(indexName(unnestedOtherKeyValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + otherParam + ", EQUALS $" + k1Param + "]"))),
                     indexPlan().where(indexName(unnestedOtherKeyValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + otherParam + ", EQUALS $" + k2Param + "]")))
-            ).where(comparisonKey(list(comparisonKeyComponents))));
-            assertEquals(reverse ? 1619321562L : 1619321529L, plan.planHash(CURRENT_LEGACY));
-            assertEquals(reverse ? -403164227L : -397444169L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            ).where(comparisonKey(concat(comparisonKeyComponents))));
+            assertEquals(reverse ? 1619322554L : 1619322521L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(reverse ? 803980444L : 809700502L, plan.planHash(CURRENT_FOR_CONTINUATION));
 
             for (long otherId : otherIds) {
                 for (String key1 : keys) {
@@ -748,9 +748,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan, unionOnExpressionPlan(
                     indexPlan().where(indexName(keyIdValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + key1Param + "]"))),
                     indexPlan().where(indexName(keyIdValueIndex.getName())).and(scanComparisons(range("[EQUALS $" + key2Param + "]")))
-            ).where(comparisonKey(concat(field(PARENT_CONSTITUENT).nest("rec_id"), field("entry").nest("value"), recordType(), field(UnnestedRecordType.POSITIONS_FIELD).nest("entry")))));
-            assertEquals(reverse ? 1518478779L : 1518478746L, plan.planHash(CURRENT_LEGACY));
-            assertEquals(reverse ? 1391408828L : 1397128886L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            ).where(comparisonKey(concat(field(PARENT_CONSTITUENT).nest("rec_id"), field("entry").nest("value"), recordType(), list(field(PARENT_CONSTITUENT).nest("rec_id")), list(field(UnnestedRecordType.POSITIONS_FIELD).nest("entry"))))));
+            assertEquals(reverse ? -1283520453 : -1283520486, plan.planHash(CURRENT_LEGACY));
+            assertEquals(reverse ? -2138865240 : -2133145182, plan.planHash(CURRENT_FOR_CONTINUATION));
 
             for (String key1 : keys) {
                 for (String key2 : keys) {
@@ -835,14 +835,14 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     .addAll(recordStore.getRecordMetaData().getSyntheticRecordType(OUTER_WITH_ENTRIES).getPrimaryKey().normalizeKeyForPositions())
                     .build();
             assertThat(comparisonKeyComponents, hasSize(4));
-            assertEquals(5, comparisonKeyComponents.stream().mapToInt(KeyExpression::getColumnSize).sum());
+            assertEquals(4, comparisonKeyComponents.stream().mapToInt(KeyExpression::getColumnSize).sum());
             assertMatchesExactly(plan, inUnionOnExpressionPlan(indexPlan()
                     .where(indexName(unnestedOtherKeyValueIndex.getName()))
                     .and(scanComparisons(range("[EQUALS $" + otherParam + ", EQUALS $__in_key__0]")))
                     .and(reverse ? isReverse() : isNotReverse())
-            ).where(inUnionComparisonKey(list(comparisonKeyComponents))));
-            assertEquals(reverse ? -1181713337L : -1181714298L, plan.planHash(CURRENT_LEGACY));
-            assertEquals(reverse ? 1959162892L : 1959341638L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            ).where(inUnionComparisonKey(concat(comparisonKeyComponents))));
+            assertEquals(reverse ? -1181712345L : -1181713306L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(reverse ? -1128659733L : -1128480987L, plan.planHash(CURRENT_FOR_CONTINUATION));
 
             for (long otherId : otherIds) {
                 for (String key1 : keys) {
