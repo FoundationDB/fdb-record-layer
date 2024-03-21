@@ -72,7 +72,10 @@ public class IndexingMerger {
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
         AtomicReference<Runnable> recordTime = new AtomicReference<>();
         return AsyncUtil.whileTrue(() ->
-                common.getRunner().runAsync(context -> openRecordStore(context)
+                // Merge operation may take a long time, hence the runner's context must be a read-only. Ensure that it
+                // isn't a synchronized one, which may attempt a heartbeat write
+                // TODO: find a solution to seemingly stale synchronized sessions during slow merges
+                common.getNonSynchronizedRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
                                     long startTime = System.nanoTime();
                                     recordTime.set(() -> context.record(FDBStoreTimer.Events.MERGE_INDEX, System.nanoTime() - startTime));

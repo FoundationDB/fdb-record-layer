@@ -190,6 +190,11 @@ public class IndexingCommon {
     }
 
     @Nonnull
+    public FDBDatabaseRunner getNonSynchronizedRunner() {
+        return runner;
+    }
+
+    @Nonnull
     IndexContext getIndexContext() {
         if (isMultiTarget()) {
             // backward compatibility safeguard - modules that do not support multi targets (yet) will continue calling
