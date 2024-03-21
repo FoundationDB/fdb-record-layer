@@ -17,8 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Record type key comparisons now can be used on synthetic types [(Issue #2587)](https://github.com/FoundationDB/fdb-record-layer/issues/2587)
-* **Bug fix** Scan comparison ranges on the synthetic record type primary key do not break apart list key expression components [(Issue #2588)](https://github.com/FoundationDB/fdb-record-layer/issues/2588)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,10 +36,16 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Union plans on synthetic types can choose different union comparison keys from before so continuations from plans from earlier builds may not be re-used on those queries [(Issue #2588)](https://github.com/FoundationDB/fdb-record-layer/issues/2588)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.479.0
+
+* **Bug fix** Record type key comparisons now can be used on synthetic types [(Issue #2587)](https://github.com/FoundationDB/fdb-record-layer/issues/2587)
+* **Bug fix** Scan comparison ranges on the synthetic record type primary key do not break apart list key expression components [(Issue #2588)](https://github.com/FoundationDB/fdb-record-layer/issues/2588)
+* **Breaking change** Union plans on synthetic types can choose different union comparison keys from before so continuations from plans from earlier builds may not be re-used on those queries [(Issue #2588)](https://github.com/FoundationDB/fdb-record-layer/issues/2588)
 
 ### 3.4.477.0
 
