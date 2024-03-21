@@ -265,12 +265,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingColsValue.getResultType() instanceof Type.Record &&
                 ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
             return Quantifier.forEach(GroupExpressionRef.of(
-                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            null, selectWhereQun)));
+                    new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            GroupByExpression::nestedResults, selectWhereQun)));
         } else {
             return Quantifier.forEach(GroupExpressionRef.of(
-                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            groupingColsValue, selectWhereQun)));
+                    new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            GroupByExpression::nestedResults, selectWhereQun)));
         }
     }
 

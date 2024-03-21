@@ -139,7 +139,8 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         var aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
         final Value sumValue = (Value) new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(aggregatedFieldRef));
         final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
-        final GroupByExpression groupByExpression = new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(sumValue)), groupingValue, selectWhere);
+        final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(sumValue)),
+                GroupByExpression::nestedResults, selectWhere);
         return Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
     }
 
