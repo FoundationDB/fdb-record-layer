@@ -35,6 +35,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -70,12 +71,12 @@ public class IndexingMerger {
         this.subspaceProvider = subspaceProvider; // for logs only
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
-        AtomicReference<Runnable> recordTime = new AtomicReference<>();
+        final FDBStoreTimer timer = common.getRunner().getTimer();
+        AtomicLong mergeStartTime = new AtomicLong();
         return AsyncUtil.whileTrue(() ->
                 common.getRunner().runAsync(context -> openRecordStore(context)
                                 .thenCompose(store -> {
-                                    long startTime = System.nanoTime();
-                                    recordTime.set(() -> context.record(FDBStoreTimer.Events.MERGE_INDEX, System.nanoTime() - startTime));
+                                    mergeStartTime.set(System.nanoTime());
                                     final IndexDeferredMaintenanceControl mergeControl = store.getIndexDeferredMaintenanceControl();
                                     mergeControlRef.set(mergeControl);
                                     mergeControl.setMergesLimit(mergesLimit);
@@ -88,7 +89,10 @@ public class IndexingMerger {
                         Pair::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
-                    recordTime.get().run();
+                    if (timer != null && mergeStartTime.get() > 0) {
+                        timer.recordSinceNanoTime(FDBStoreTimer.Events.MERGE_INDEX, mergeStartTime.get());
+                    }
+                    mergeStartTime.set(0);
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
                     // Note: this mergeControl will not be re-used and should not be modified.
                     if (e == null) {
