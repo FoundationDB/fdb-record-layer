@@ -348,9 +348,10 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final var aggregateValues = scope.getAggregateValues();
             aggregateValues.forEach(ParserUtils::verifyAggregateValue);
             final var aggregationValue = RecordConstructorValue.ofColumns(aggregateValues.stream().map(Column::unnamedOf).collect(Collectors.toList()));
-            final var groupByExpression = new GroupByExpression(aggregationValue, groupByClause == null ?
+            final var groupByExpression = new GroupByExpression(groupByClause == null ?
                     null :
-                    FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0), underlyingSelectQun);
+                    FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0),
+                    aggregationValue, GroupByExpression::nestedResults, underlyingSelectQun);
             groupByExpressionType = groupByExpression.getResultValue().getResultType();
             final var groupByScope = scopes.pop();
             groupByQuantifier = Quantifier.forEach(GroupExpressionRef.of(groupByExpression), groupByQunAlias);
