@@ -2028,9 +2028,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private Quantifier groupAggregateByKey(@Nonnull Quantifier selectWhere, @Nonnull BuiltInFunction<AggregateValue> aggregate, @Nonnull Value argument) {
-        final Value aggregateValue = (Value) aggregate.encapsulate(List.of(argument));
-        final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
-        final GroupByExpression groupBy = new GroupByExpression(RecordConstructorValue.ofUnnamed(List.of(aggregateValue)), groupingValue, selectWhere);
+        final var aggregateValue = List.of((AggregateValue)aggregate.encapsulate(List.of(argument)));
+        final List<Value> groupingValue = List.of(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0));
+        final GroupByExpression groupBy = new GroupByExpression(aggregateValue, groupingValue, selectWhere);
         return Quantifier.forEach(GroupExpressionRef.of(groupBy));
     }
 

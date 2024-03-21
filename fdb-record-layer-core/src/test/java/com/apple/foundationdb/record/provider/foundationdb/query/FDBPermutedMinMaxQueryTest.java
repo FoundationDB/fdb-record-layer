@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -125,9 +126,9 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         var baseReference = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 1);
         final FieldValue groupedValue = FieldValue.ofFieldName(baseReference, "num_value_unique");
         var aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
-        final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldRef));
-        final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
-        final GroupByExpression groupByExpression = new GroupByExpression(RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)), groupingValue, selectWhere);
+        final var maxUniqueValue = (AggregateValue) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldRef));
+        final List<Value> groupingValue = List.of(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0));
+        final GroupByExpression groupByExpression = new GroupByExpression(List.of(maxUniqueValue), groupingValue, selectWhere);
         return Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
     }
 

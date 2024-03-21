@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
@@ -74,15 +75,12 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
 
-        final var groupingValue = groupByExpression.getGroupingValue();
-
-        final var currentGroupingValue = groupingValue == null ? null : groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
+        final var groupingValue = RecordConstructorValue.ofUnnamed(groupByExpression.getGroupingValues());
+        final var currentGroupingValue = groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
         // TODO: isConstant is not implemented correctly.
         // for the following FV(col1, QOV( --> RCV(FV(col1(Literal(42))...) ) it is returning false while it should return true.
-        final var requiredOrderingKeyValues = currentGroupingValue == null
-                                              ? null
-                                              : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+        final var requiredOrderingKeyValues = Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                                                       .stream()
                                                       .collect(ImmutableSet.toImmutableSet());
 
@@ -91,7 +89,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
+            if (providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
                 call.yieldExpression(implementGroupBy(call, planPartition, groupByExpression));
             }
         }
@@ -105,9 +103,9 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var newInnerPlanReference = call.memoizeMemberPlans(innerQuantifier.getRangesOver(), planPartition.getPlans());
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
         final var aliasMap = AliasMap.ofAliases(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
-        final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
-        final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
-        return RecordQueryStreamingAggregationPlan.ofNested(
+        final var rebasedAggregatedValue = RecordConstructorValue.ofUnnamed(groupByExpression.getAggregateValues()).rebase(aliasMap);
+        final var rebasedGroupingValue = RecordConstructorValue.ofUnnamed(groupByExpression.getGroupingValues()).rebase(aliasMap);
+        return RecordQueryStreamingAggregationPlan.ofFlattened(
                 newPlanQuantifier,
                 rebasedGroupingValue,
                 (AggregateValue)rebasedAggregatedValue);

@@ -35,9 +35,11 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Tests for value mapping.
@@ -1060,5 +1062,20 @@ public class ValueTranslationTest {
             final var translatedPredicate = predicate.translateCorrelationsAndSimplify(compositeTranslationMap);
             Assertions.assertEquals(expectedTranslatedPredicate, translatedPredicate);
         }
+    }
+
+    @Test
+    void pullUpWorks() {
+        var aggregatedFieldRef = fv(t, "a", "r");
+        final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldRef));
+        final var tv = rcv(
+                fv(t, "a", "q"),
+                fv(t, "a", "r"),
+                rcv(maxUniqueValue),
+                fv(t, "j", "s")
+        );
+
+        final var result = tv.pullUp(List.of(maxUniqueValue), AliasMap.identitiesFor(tv.getCorrelatedTo()), Set.of(), CorrelationIdentifier.of("BLABLABLA"));
+        System.out.println(result);
     }
 }

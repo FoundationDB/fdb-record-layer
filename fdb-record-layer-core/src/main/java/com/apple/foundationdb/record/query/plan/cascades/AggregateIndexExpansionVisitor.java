@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -191,28 +191,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
-        // add an RCV column representing the grouping columns as the first result set column
-        // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
-        final var groupingValue = RecordConstructorValue.ofColumns(
-                baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount())
-                        .stream()
-                        .map(column -> {
-                            if (column.getValue() instanceof FieldValue) {
-                                final var fieldValueNameMaybe = ((FieldValue)column.getValue()).getLastFieldName();
-                                final var namedField = fieldValueNameMaybe.map(fieldValueName -> column.getField().withName(fieldValueName)).orElse(column.getField());
-                                if (column.getField() != namedField) {
-                                    return Column.of(namedField, column.getValue());
-                                }
-                            }
-                            return column;
-                        })
-                        .collect(Collectors.toUnmodifiableList()));
-
         // flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
-        // we need to refer to the following column later on in GroupByExpression, but since its ordinal position is fixed, we can simply refer
-        // to it using an ordinal FieldAccessor (we do the same in plan generation).
-        builder.addResultColumn(Column.unnamedOf(groupingValue));
         Stream.concat(Stream.of(baseQuantifier), baseExpansion.getQuantifiers().stream())
                 .forEach(qun -> {
                     final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
@@ -257,20 +237,24 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             throw new RecordCoreException("unable to plan group by with non-field value")
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
         }
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(arguments));
+        final var aggregateValue = (AggregateValue)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(arguments));
 
-        // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
-        final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
+        // add an RCV column representing the grouping columns as the first result set column
+        // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
+        final List<Value> groupingValues =
+                baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount())
+                        .stream()
+                        .map(Column::getValue)
+                        .collect(Collectors.toUnmodifiableList());
 
-        if (groupingColsValue.getResultType() instanceof Type.Record &&
-                ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
+        if (groupingValues.isEmpty()) {
             return Quantifier.forEach(GroupExpressionRef.of(
-                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            null, selectWhereQun)));
+                    new GroupByExpression(ImmutableList.of(aggregateValue),
+                            ImmutableList.of(), selectWhereQun)));
         } else {
             return Quantifier.forEach(GroupExpressionRef.of(
-                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            groupingColsValue, selectWhereQun)));
+                    new GroupByExpression(ImmutableList.of(aggregateValue),
+                            groupingValues, selectWhereQun)));
         }
     }
 
@@ -279,7 +263,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                                                                                       @Nonnull final List<Placeholder> selectWherePlaceholders) {
         // the grouping value in GroupByExpression comes first (if set).
         @Nullable final var groupingValueReference =
-                (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValue() == null)
+                (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValues().isEmpty())
                 ? null
                 : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
