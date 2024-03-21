@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.477.0
+
+
 ### 3.4.476.0
 
 * **Bug fix** Lucene merge flush group/partition info AgileContext before executing a merge [(Issue #2605)](https://github.com/FoundationDB/fdb-record-layer/issues/2605)
