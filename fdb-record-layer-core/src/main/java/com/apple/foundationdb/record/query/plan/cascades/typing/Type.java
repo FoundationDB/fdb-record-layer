@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyArrayType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyRecordType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PArrayType;
@@ -1406,6 +1407,132 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             public AnyRecord fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                  @Nonnull final PAnyRecordType anyTypeProto) {
                 return AnyRecord.fromProto(serializationContext, anyTypeProto);
+            }
+        }
+    }
+
+    /**
+     * Special {@link Type.Array} that is undefined.
+     */
+    class AnyArray implements Type {
+        private final boolean isNullable;
+
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        public AnyArray(final boolean isNullable) {
+            this.isNullable = isNullable;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getTypeCode().name().hashCode(), isNullable());
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.RECORD;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public AnyArray withNullability(final boolean newIsNullable) {
+            if (newIsNullable == isNullable) {
+                return this;
+            } else {
+                return new AnyArray(newIsNullable);
+            }
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldNumber,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            throw new UnsupportedOperationException("type any cannot be represented in protobuf");
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (this == obj) {
+                return true;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final var otherType = (Type)obj;
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return getTypeCode().toString();
+        }
+
+        @Nonnull
+        @Override
+        public PAnyArrayType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PAnyArrayType.newBuilder()
+                    .setIsNullable(isNullable)
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PType.newBuilder().setAnyArrayType(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        public static AnyArray fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                          @Nonnull final PAnyArrayType anyTypeProto) {
+            Verify.verify(anyTypeProto.hasIsNullable());
+            return new AnyArray(anyTypeProto.getIsNullable());
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PAnyArrayType, AnyArray> {
+            @Nonnull
+            @Override
+            public Class<PAnyArrayType> getProtoMessageClass() {
+                return PAnyArrayType.class;
+            }
+
+            @Nonnull
+            @Override
+            public AnyArray fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PAnyArrayType anyTypeProto) {
+                return AnyArray.fromProto(serializationContext, anyTypeProto);
             }
         }
     }
