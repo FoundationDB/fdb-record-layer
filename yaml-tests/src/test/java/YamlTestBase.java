@@ -18,14 +18,11 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
@@ -62,13 +59,6 @@ public abstract class YamlTestBase {
                 throw ve.toSqlException();
             }
         };
-    }
-
-    public YamlTestBase() {
-        if (Debugger.getDebugger() == null && Boolean.getBoolean("debugBuild")) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-        }
-        Debugger.setup();
     }
 
     protected final void doRun(@Nonnull final String fileName) throws Exception {

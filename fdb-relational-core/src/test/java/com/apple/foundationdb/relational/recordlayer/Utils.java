@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.apple.foundationdb.relational.util.Environment;
 import com.google.protobuf.Message;
 
 import java.sql.SQLException;
@@ -112,8 +113,12 @@ public final class Utils {
         return result;
     }
 
+    /**
+     * Enables internal Cascades debugger which, among other things, sets plan identifiers in a stable fashion making
+     * it easier to view plans and reproduce planning steps.
+     */
     public static void enableCascadesDebugger() {
-        if (Debugger.getDebugger() == null && Boolean.getBoolean("debugBuild")) {
+        if (Debugger.getDebugger() == null && Environment.isDebug()) {
             Debugger.setDebugger(new DebuggerWithSymbolTables());
         }
         Debugger.setup();

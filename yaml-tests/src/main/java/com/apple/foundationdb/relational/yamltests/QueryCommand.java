@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.apple.foundationdb.relational.util.Environment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -129,11 +130,9 @@ public class QueryCommand extends Command {
     @Override
     public void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection,
                        @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
-        if (Debugger.getDebugger() != null) {
-            Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
-        }
+        enableCascadesDebugger();
         final var queryCommand = Matchers.firstEntry(Matchers.first(region), "query string");
-        final var queryString = Matchers.string(Matchers.notNull(queryCommand.getValue(), "query string"), "query string");
+        final var queryString = Matchers.notNull(Matchers.string(Matchers.notNull(queryCommand.getValue(), "query string"), "query string"), "query string");
         final var queryConfigsWithValue = region.stream().skip(1).collect(Collectors.toList());
         boolean queryHasRun = false;
         boolean queryIsRunning = false;
@@ -143,10 +142,19 @@ public class QueryCommand extends Command {
             var queryConfigWithValue = getQueryConfigWithValue(queryConfigWithValuesIterator.next(), executionContext);
             if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfigWithValue.configName)) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
-                executeConfig(queryString, queryConfigWithValue, false, connection);
+                executeConfig(queryString, queryConfigWithValue, connection);
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfigWithValue.configName) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfigWithValue.configName)) {
                 Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
-                executeConfig("explain " + queryString, queryConfigWithValue, true, connection);
+                final var savedDebugger = Debugger.getDebugger();
+                try {
+                    // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
+                    // results
+                    Debugger.setDebugger(new DebuggerWithSymbolTables());
+                    Debugger.setup();
+                    executeConfig("explain " + queryString, queryConfigWithValue, connection);
+                } finally {
+                    Debugger.setDebugger(savedDebugger);
+                }
             } else {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfigWithValue.configName)) {
                     Assert.that(!queryConfigWithValuesIterator.hasNext(), "ERROR config should be the last config specified.");
@@ -155,12 +163,12 @@ public class QueryCommand extends Command {
                 final var currentQueryString = appendWithContinuationIfPresent(queryString, continuation);
                 if (continuation != null && continuation.atEnd() && QueryConfig.QUERY_CONFIG_RESULT.equals(queryConfigWithValue.configName)) {
                     Assert.fail(String.format("‼️ Expecting to match a continuation, however no more rows are available to fetch at line %d%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "%s%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                    "%s%n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfigWithValue.lineNumber, queryConfigWithValue));
                 }
-                continuation = executeConfig(currentQueryString, queryConfigWithValue, false, connection);
+                continuation = executeConfig(currentQueryString, queryConfigWithValue, connection);
 
                 if (continuation == null || continuation.atEnd() || !queryConfigWithValuesIterator.hasNext()) {
                     queryHasRun = true;
@@ -174,18 +182,12 @@ public class QueryCommand extends Command {
         if (!queryHasRun) {
             final var lineNumber = ((CustomYamlConstructor.LinedObject) queryCommand.getKey()).getStartMark().getLine() + 1;
             final var queryConfigWithValue = new QueryConfigWithValue(QueryConfig.resolve(null), null, lineNumber, null, executionContext);
-            executeConfig(queryString, queryConfigWithValue, false, connection);
+            executeConfig(queryString, queryConfigWithValue, connection);
         }
     }
 
-    private Continuation executeConfig(@Nonnull String queryString, @Nonnull QueryConfigWithValue configWithValue,
-                                      boolean isExplain, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+    private Continuation executeConfig(@Nonnull String queryString, @Nonnull QueryConfigWithValue configWithValue, @Nonnull RelationalConnection connection) throws SQLException, RelationalException {
         logger.debug("⏳ Executing query '{}'", queryString);
-        final var savedDebugger = Debugger.getDebugger();
-        if (isExplain && Debugger.getDebugger() == null) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
-            Debugger.setup();
-        }
         Continuation continuation = ContinuationImpl.END;
         try {
             try (var s = connection.createStatement()) {
@@ -197,8 +199,6 @@ public class QueryCommand extends Command {
             }
         } catch (SQLException sqle) {
             configWithValue.getConfig().checkError(sqle, queryString, configWithValue);
-        } finally {
-            Debugger.setDebugger(savedDebugger);
         }
         logger.debug("👍 Finished executing query '{}'", queryString);
         return continuation;
@@ -240,5 +240,20 @@ public class QueryCommand extends Command {
         } else {
             Assertions.fail(message, throwable);
         }
+    }
+
+
+    /**
+     * Enables internal Cascades debugger which, among other things, sets plan identifiers in a stable fashion making
+     * it easier to view plans and reproduce planning steps.
+     *
+     * @implNote
+     * This is copied from fdb-relational-core:test subproject to avoid having a dependency just for getting access to it.
+     */
+    private static void enableCascadesDebugger() {
+        if (Debugger.getDebugger() == null && Environment.isDebug()) {
+            Debugger.setDebugger(new DebuggerWithSymbolTables());
+        }
+        Debugger.setup();
     }
 }
