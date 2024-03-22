@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,6 +60,7 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class SynchronizedSessionRunner implements FDBDatabaseRunner {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SynchronizedSessionRunner.class);
     private FDBDatabaseRunnerImpl underlying;
     private SynchronizedSession session;
 
@@ -143,7 +146,9 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
         return context -> session.checkLockAsync(context.ensureActive())
                 .thenCompose(vignore -> work.apply(context))
                 .thenApply(result -> {
+                    LOGGER.info("Updating session context");
                     session.updateLockSessionLeaseEndTime(context.ensureActive());
+                    LOGGER.info("Done updating session context");
                     return result;
                 });
     }

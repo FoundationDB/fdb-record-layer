@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import java.util.function.Function;
  */
 @API(API.Status.INTERNAL)
 public class TransactionalRunner implements AutoCloseable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TransactionalRunner.class);
 
     @Nonnull
     private final FDBDatabase database;
@@ -100,7 +103,14 @@ public class TransactionalRunner implements AutoCloseable {
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         FDBRecordContext context = openContext(clearWeakReadSemantics);
         return runnable.apply(context)
-                .thenCompose((T val) -> context.commitAsync().thenApply(vignore -> val))
+                .thenCompose((T val) -> {
+                    LOGGER.info("Committing");
+                    final CompletableFuture<T> tCompletableFuture = context.commitAsync().thenApply(vignore -> val)
+                            .whenComplete((res, err) -> {
+                                LOGGER.info("Done committing", err);
+                            });
+                    return tCompletableFuture;
+                })
                 .whenComplete((result, exception) -> context.close());
     }
 
