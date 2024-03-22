@@ -685,7 +685,7 @@ public class LucenePartitioner {
         return KeyValueLogMessage.of(staticMessage,
                 LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace,
                 LuceneLogMessageKeys.GROUP, groupingKey,
-                LuceneLogMessageKeys.PARTITION, partitionInfo.getId(),
+                LuceneLogMessageKeys.INDEX_PARTITION, partitionInfo.getId(),
                 LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
                 LuceneLogMessageKeys.COUNT, repartitionDocumentCount,
                 LuceneLogMessageKeys.PARTITION_HIGH_WATERMARK, indexPartitionHighWatermark);

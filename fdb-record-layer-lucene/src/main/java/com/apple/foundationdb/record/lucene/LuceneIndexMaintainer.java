@@ -304,7 +304,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 } else if (LOG.isDebugEnabled()) {
                     LOG.debug(KeyValueLogMessage.of("try delete document failed",
                             LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.PARTITION, partitionId,
+                            LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
                             LuceneLogMessageKeys.SEGMENT, documentIndexEntry.segmentName,
                             LuceneLogMessageKeys.DOC_ID, documentIndexEntry.docId,
                             LuceneLogMessageKeys.PRIMARY_KEY, primaryKey));
@@ -312,7 +312,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             } else if (LOG.isDebugEnabled()) {
                 LOG.debug(KeyValueLogMessage.of("primary key segment index entry not found",
                         LuceneLogMessageKeys.GROUP, groupingKey,
-                        LuceneLogMessageKeys.PARTITION, partitionId,
+                        LuceneLogMessageKeys.INDEX_PARTITION, partitionId,
                         LuceneLogMessageKeys.PRIMARY_KEY, primaryKey,
                         LuceneLogMessageKeys.SEGMENTS, segmentIndex.findSegments(primaryKey)));
             }

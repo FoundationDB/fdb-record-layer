@@ -81,7 +81,7 @@ public enum LuceneLogMessageKeys {
     COMPONENT,
     NAME,
     GROUP,
-    PARTITION,
+    INDEX_PARTITION,
     PARTITION_HIGH_WATERMARK,
     RECORD_TIMESTAMP,
     COUNT,
