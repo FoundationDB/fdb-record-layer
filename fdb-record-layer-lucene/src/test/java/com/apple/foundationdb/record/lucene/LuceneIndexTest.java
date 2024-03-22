@@ -92,6 +92,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -118,6 +119,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -185,6 +187,11 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MANY_FIELDS_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.EQUALS;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.GREATER_THAN;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.GREATER_THAN_OR_EQUALS;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.LESS_THAN;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.LESS_THAN_OR_EQUALS;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -1352,6 +1359,180 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    static Stream<Arguments> findStartingPartitionTest() {
+        return Stream.of(true, false).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void findStartingPartitionTest(boolean isSynthetic) {
+
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
+                .build();
+        final String luceneSearch = "text:about";
+
+        class LuceneQueryBuilder {
+            LuceneScanQuery buildLuceneScanQuery(Comparisons.Type comparisonType, SortType sortType, long predicateComparand) {
+                final Sort sort;
+                if (sortType == SortType.UNSORTED) {
+                    sort = null;
+                } else {
+                    sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
+                }
+
+                List<LuceneQueryClause> luceneQueryClauses =
+                        comparisonType == Comparisons.Type.NOT_EQUALS ?
+                        List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false)
+                        )
+                                                                      :
+                        List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
+                                new LuceneQueryFieldComparisonClause.LongQuery(
+                                        LuceneQueryType.QUERY, isSynthetic ? "complex_timestamp" : "timestamp",
+                                        LuceneIndexExpressions.DocumentFieldType.LONG,
+                                        new Comparisons.SimpleComparison(comparisonType, predicateComparand),
+                                        false,
+                                        null)
+                        );
+                LuceneQueryClause clause = new LuceneBooleanQuery(LuceneQueryType.QUERY, luceneQueryClauses, BooleanClause.Occur.SHOULD);
+
+                LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
+                        Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
+                        clause,
+                        sort,
+                        null,
+                        null,
+                        null);
+                return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+            }
+        }
+
+        LuceneQueryBuilder luceneQueryBuilder = new LuceneQueryBuilder();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
+            Tuple groupKey = Tuple.from(1L);
+            
+            // timestamps present in partition keys
+            long time0 = System.currentTimeMillis();
+            long time1 = System.currentTimeMillis() + 1000;
+            long time2 = System.currentTimeMillis() + 2000;
+            
+            // timestamp not in partition keys, but within a partition
+            long time1_2 = time1 + 500; // between time1 and time2
+
+            // timestamps outside the bounds of the partitions
+            long timeTooOld = time0 - 500;
+            long timeTooNew = time2 + 500;
+
+            Map<Long, String> timesForLogging = Map.of(
+                    time0, "time0",
+                    time1, "time1",
+                    time2, "time2",
+                    time1_2, "time1_2",
+                    timeTooOld, "timeTooOld",
+                    timeTooNew, "timeTooNew");
+
+            //
+            // p0: from: t0+1200 to: t0+1300
+            // p1: from: t0+1301 to: t1+1400
+            // p2: from: t1+1410 to: t2+1500
+            // p3: from: t2+1510 to: t2+1600
+            //
+            createPartitionMetadata(index, groupKey, 0, time0, time0, Tuple.from(1, 1200), Tuple.from(1, 1300));
+            createPartitionMetadata(index, groupKey, 1, time0, time1, Tuple.from(1, 1301), Tuple.from(1, 1400));
+            createPartitionMetadata(index, groupKey, 2, time1, time2, Tuple.from(1, 1410), Tuple.from(1, 1500));
+            createPartitionMetadata(index, groupKey, 3, time2, time2, Tuple.from(1, 1510), Tuple.from(1, 1600));
+
+            Map<Long, Map<Comparisons.Type, Map<SortType, Integer>>> startingPartitionExpectation = new HashMap<>();
+
+            // =====================================
+            // Expectations for time0
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime0 = Map.of(
+                    GREATER_THAN, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1),
+                    EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1));
+            startingPartitionExpectation.put(time0, expectationsForTime0);
+
+            // =====================================
+            // Expectations for time1
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime1 = Map.of(
+                    GREATER_THAN, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1),
+                    LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    EQUALS, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 2, SortType.UNSORTED, 2));
+            startingPartitionExpectation.put(time1, expectationsForTime1);
+
+            // =====================================
+            // Expectations for time2
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime2 = Map.of(
+                    GREATER_THAN, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    EQUALS, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3));
+            startingPartitionExpectation.put(time2, expectationsForTime2);
+
+            // =====================================
+            // Expectations for time1_2
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime1_2 = Map.of(
+                    GREATER_THAN, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    EQUALS, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 2, SortType.UNSORTED, 2));
+            startingPartitionExpectation.put(time1_2, expectationsForTime1_2);
+
+            // =====================================
+            // Expectations for timeTooOld
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTimeTooOld = Map.of(
+                    GREATER_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    LESS_THAN, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0));
+            startingPartitionExpectation.put(timeTooOld, expectationsForTimeTooOld);
+
+            // =====================================
+            // Expectations for timeTooNew
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTimeTooNew = Map.of(
+                    GREATER_THAN, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0));
+            startingPartitionExpectation.put(timeTooNew, expectationsForTimeTooNew);
+
+            // check all combinations against expectations
+            for (Long predicateComparand : List.of(time0, time1, time2, time1_2, timeTooOld, timeTooNew)) {
+                for (Comparisons.Type comparisonType : List.of(GREATER_THAN, GREATER_THAN_OR_EQUALS, LESS_THAN, LESS_THAN_OR_EQUALS, EQUALS)) {
+                    for (SortType sortType : EnumSet.allOf(SortType.class)) {
+                        LOGGER.debug("comparison: {} sort: {} time: {}", comparisonType, sortType, timesForLogging.get(predicateComparand));
+                        LuceneScanQuery luceneScanQuery = luceneQueryBuilder.buildLuceneScanQuery(comparisonType, sortType, predicateComparand);
+                        LucenePartitionInfoProto.LucenePartitionInfo selectedPartitionInfo = partitioner.selectQueryPartition(groupKey, luceneScanQuery);
+                        assertEquals(startingPartitionExpectation.get(predicateComparand).get(comparisonType).get(sortType), selectedPartitionInfo == null ? -1 : selectedPartitionInfo.getId());
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * test LIMIT spanning partitions.
      */
@@ -1532,6 +1713,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         for (int i = 0; i < docCount; i++) {
             recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp29DaysAgo, yesterday + 1)));
         }
+    }
+
+    void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp, Tuple fromPrimaryKey, Tuple toPrimaryKey) {
+        Tuple from = Tuple.from(fromTimestamp).add(fromPrimaryKey);
+        Tuple to = Tuple.from(toTimestamp).add(toPrimaryKey);
+        LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
+                .setCount(0)
+                .setFrom(ByteString.copyFrom(from.pack()))
+                .setTo(ByteString.copyFrom(to.pack()))
+                .setId(partitionId)
+                .build();
+
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(groupKey.add(PARTITION_META_SUBSPACE).addAll(from));
+        recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
     }
 
     void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp) {
@@ -4204,7 +4399,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static final List<String> spellcheckWords = List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
+    private static final List<String> spellcheckWords = java.util.List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
@@ -5266,8 +5461,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    protected static final List<String> autoCompletes = List.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good", "Hello Record Layer", "Hello FoundationDB!", ENGINEER_JOKE);
-    protected static final List<String> autoCompletePhrases = List.of(
+    protected static final List<String> autoCompletes = java.util.List.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good", "Hello Record Layer", "Hello FoundationDB!", ENGINEER_JOKE);
+    protected static final List<String> autoCompletePhrases = java.util.List.of(
             "united states of america",
             "welcome to the united states of america",
             "united kingdom, france, the states",

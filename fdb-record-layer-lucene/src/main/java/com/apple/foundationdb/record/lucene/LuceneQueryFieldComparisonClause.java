@@ -389,22 +389,46 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
             Comparisons.Comparison appliedComparison = applyComparisonConversion(fieldNameOverride, comparison);
             switch (appliedComparison.getType()) {
                 case EQUALS:
-                    return toBoundQuery(LongPoint.newExactQuery(appliedFieldName, (Long)comparand));
+                    return toBoundQuery(new LuceneComparisonQuery(LongPoint.newExactQuery(appliedFieldName, (Long)comparand),
+                            appliedFieldName,
+                            comparison.getType(),
+                            comparand));
                 case NOT_EQUALS: {
                     long value = (Long)comparand;
                     BooleanQuery.Builder builder = new BooleanQuery.Builder();
-                    builder.add(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, value - 1), BooleanClause.Occur.SHOULD);
-                    builder.add(LongPoint.newRangeQuery(appliedFieldName, value + 1, Long.MAX_VALUE), BooleanClause.Occur.SHOULD);
+                    builder.add(
+                            new LuceneComparisonQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, value - 1),
+                                    appliedFieldName,
+                                    comparison.getType(),
+                                    comparand),
+                            BooleanClause.Occur.SHOULD);
+                    builder.add(new LuceneComparisonQuery(LongPoint.newRangeQuery(appliedFieldName, value + 1, Long.MAX_VALUE),
+                                    appliedFieldName,
+                                    comparison.getType(),
+                                    comparand),
+                            BooleanClause.Occur.SHOULD);
                     return toBoundQuery(builder.build());
                 }
                 case LESS_THAN:
-                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, (Long)comparand - 1));
+                    return toBoundQuery(new LuceneComparisonQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, (Long)comparand - 1),
+                            appliedFieldName,
+                            comparison.getType(),
+                            comparand));
                 case LESS_THAN_OR_EQUALS:
-                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, (Long)comparand));
+                    return toBoundQuery(new LuceneComparisonQuery(LongPoint.newRangeQuery(appliedFieldName, Long.MIN_VALUE, (Long)comparand),
+                            appliedFieldName,
+                            comparison.getType(),
+                            comparand));
                 case GREATER_THAN:
-                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, (Long)comparand + 1, Long.MAX_VALUE));
+                    return toBoundQuery(new LuceneComparisonQuery(LongPoint.newRangeQuery(appliedFieldName, (Long)comparand + 1, Long.MAX_VALUE),
+                            appliedFieldName,
+                            comparison.getType(),
+                            comparand));
                 case GREATER_THAN_OR_EQUALS:
-                    return toBoundQuery(LongPoint.newRangeQuery(appliedFieldName, (Long)comparand, Long.MAX_VALUE));
+                    return toBoundQuery(new LuceneComparisonQuery(LongPoint.newRangeQuery(appliedFieldName, (Long)comparand, Long.MAX_VALUE),
+                            appliedFieldName,
+                            comparison.getType(),
+                            comparand));
                 case IN:
                     return toBoundQuery(LongPoint.newSetQuery(appliedFieldName, ((List<Long>)comparand)));
                 case NOT_NULL:
