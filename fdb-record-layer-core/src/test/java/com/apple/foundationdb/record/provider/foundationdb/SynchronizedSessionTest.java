@@ -21,20 +21,24 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -94,6 +98,20 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
             checkActive(session1Runner);
 
             session1Runner.endSession();
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void timeout(boolean sync) {
+        try (FDBDatabaseRunner sessionOnLock1 =
+                     sync ? database.newRunner().startSynchronizedSession(lockSubspace1, DEFAULT_LEASE_LENGTH_MILLIS)
+                          : database.newRunner()) {
+            sessionOnLock1.runAsync(context -> {
+                LOGGER.info("Sleeping");
+                return MoreAsyncUtil.delayedFuture(30, TimeUnit.SECONDS)
+                        .whenComplete((result, err) -> LOGGER.info("Done sleeping"));
+            }).join();
         }
     }
 

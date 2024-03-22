@@ -29,6 +29,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Base class from which all FDB tests should be derived.
@@ -52,6 +53,7 @@ public abstract class FDBTestBase {
         FDBDatabaseFactoryImpl factory = FDBDatabaseFactory.instance();
         factory.setAPIVersion(getAPIVersion());
         factory.setUnclosedWarning(true);
+        factory.setTransactionTimeoutMillis(TimeUnit.SECONDS.toMillis(10));
         factory.initFDB();
     }
 
