@@ -23,10 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -86,7 +85,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeFilterPlan> {
-    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRefOverOnlyPlans();
+    private static final BindingMatcher<? extends Reference> innerMatcher = anyRefOverOnlyPlans();
     private static final BindingMatcher<Quantifier.Physical> qunMatcher = physicalQuantifierOverRef(innerMatcher);
     private static final BindingMatcher<QueryPredicate> predMatcher = anyPredicate();
     private static final BindingMatcher<RecordQueryTypeFilterPlan> root =
@@ -99,7 +98,7 @@ public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeF
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
-        final ExpressionRef<? extends RelationalExpression> inner = bindings.get(innerMatcher);
+        final Reference inner = bindings.get(innerMatcher);
         final Quantifier.Physical qun = bindings.get(qunMatcher);
         final List<? extends QueryPredicate> predicates = bindings.getAll(predMatcher);
         final Collection<String> recordTypes = bindings.get(root).getRecordTypes();

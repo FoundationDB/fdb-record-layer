@@ -1,5 +1,5 @@
 /*
- * ExpressionRefs.java
+ * References.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,15 +37,15 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Utility methods for {@link ExpressionRef}s.
+ * Utility methods for {@link Reference}s.
  */
-public class ExpressionRefs {
-    private ExpressionRefs() {
+public class References {
+    private References() {
         // do not instantiate
     }
 
-    public static List<? extends ExpressionRef<? extends RelationalExpression>> translateCorrelations(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> refs,
-                                                                                                      @Nonnull final TranslationMap translationMap) {
+    public static List<? extends Reference> translateCorrelations(@Nonnull final List<? extends Reference> refs,
+                                                                  @Nonnull final TranslationMap translationMap) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
         }
@@ -57,7 +57,7 @@ public class ExpressionRefs {
                         .orElseThrow(() -> new RecordCoreException("graph has cycles"));
 
         final var cachedTranslationsMap =
-                Maps.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>newIdentityHashMap();
+                Maps.<Reference, Reference>newIdentityHashMap();
 
         for (final var expressionRef : expressionRefs) {
             if (expressionRef.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
@@ -71,7 +71,7 @@ public class ExpressionRefs {
 
                         // these must exist
                         Verify.verify(cachedTranslationsMap.containsKey(childReference));
-                        final ExpressionRef<? extends RelationalExpression> translatedChildReference = cachedTranslationsMap.get(childReference);
+                        final Reference translatedChildReference = cachedTranslationsMap.get(childReference);
                         if (translatedChildReference != childReference) {
                             translatedQuantifiersBuilder.add(quantifier.overNewReference(translatedChildReference));
                             allChildTranslationsSame = false;
@@ -109,7 +109,7 @@ public class ExpressionRefs {
                 if (allMembersSame) {
                     cachedTranslationsMap.put(expressionRef, expressionRef);
                 } else {
-                    cachedTranslationsMap.put(expressionRef, GroupExpressionRef.from(translatedMembersBuilder.build()));
+                    cachedTranslationsMap.put(expressionRef, Reference.from(translatedMembersBuilder.build()));
                 }
             } else {
                 cachedTranslationsMap.put(expressionRef, expressionRef);

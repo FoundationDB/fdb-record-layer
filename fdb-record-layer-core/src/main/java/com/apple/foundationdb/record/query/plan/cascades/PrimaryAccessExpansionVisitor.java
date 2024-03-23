@@ -80,7 +80,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                 new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelect());
 
         return new PrimaryScanMatchCandidate(
-                ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expression)),
+                ExpressionRefTraversal.withRoot(Reference.of(expression)),
                 parameters,
                 availableRecordTypes,
                 recordTypes,

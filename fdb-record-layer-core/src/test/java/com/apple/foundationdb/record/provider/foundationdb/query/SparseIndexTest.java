@@ -34,13 +34,12 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
@@ -159,21 +158,19 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Constructs query {@code SELECT num_value_2 FROM MySimpleRecord WHERE num_value_2 > 50} using the provided metadata.
-     * @param metadata The record metadata.
      * @param addPredicate if {@code true} attaches a predicate to the query, otherwise it does not.
      * @return A graph expansion representing the query.
      */
     @Nonnull
-    private static GroupExpressionRef<RelationalExpression> constructQueryWithPredicate(@Nonnull final RecordMetaData metadata,
-                                                                                        boolean addPredicate) {
+    private static Reference constructQueryWithPredicate(boolean addPredicate) {
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
-                Quantifier.forEach(GroupExpressionRef.of(
+                Quantifier.forEach(Reference.of(
                         new FullUnorderedScanExpression(allRecordTypes,
                                 new Type.AnyRecord(false),
                                 new AccessHints())));
 
-        qun = Quantifier.forEach(GroupExpressionRef.of(
+        qun = Quantifier.forEach(Reference.of(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
@@ -187,8 +184,8 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         queryBuilder.addResultColumn(Column.unnamedOf(num2Value));
         final var query = queryBuilder.build().buildSelect();
 
-        qun = Quantifier.forEach(GroupExpressionRef.of(query));
-        return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+        qun = Quantifier.forEach(Reference.of(query));
+        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
     }
 
     /**
@@ -218,7 +215,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
                                                                @Nonnull final Optional<Collection<String>> allowedIndexes,
                                                                boolean addQueryPredicate) {
         return planner.planGraph(
-                () -> constructQueryWithPredicate(planner.getRecordMetaData(), addQueryPredicate),
+                () -> constructQueryWithPredicate(addQueryPredicate),
                 allowedIndexes,
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();

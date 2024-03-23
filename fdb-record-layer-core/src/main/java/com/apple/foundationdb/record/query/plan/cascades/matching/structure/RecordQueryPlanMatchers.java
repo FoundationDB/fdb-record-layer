@@ -107,7 +107,7 @@ public class RecordQueryPlanMatchers {
                     final List<? extends Quantifier> quantifiers = recordQueryPlan.getQuantifiers();
                     final List<Iterable<RelationalExpression>>
                             rangedOverPlans = quantifiers.stream()
-                            .map(quantifier -> quantifier.getRangesOver().getMembers().stream().map(r -> (RelationalExpression)r).collect(ImmutableList.toImmutableList()))
+                            .map(quantifier -> quantifier.getRangesOver().getMembers().stream().collect(ImmutableList.toImmutableList()))
                             .collect(ImmutableList.toImmutableList());
                     return CrossProduct.crossProduct(rangedOverPlans);
                 }, name -> "planChildren(" + name + ")"),

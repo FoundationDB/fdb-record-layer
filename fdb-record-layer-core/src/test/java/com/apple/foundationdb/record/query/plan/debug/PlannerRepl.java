@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -162,7 +162,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onRegisterReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public void onRegisterReference(@Nonnull final Reference reference) {
         getCurrentState().registerReference(reference);
     }
 
@@ -194,7 +194,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onShow(@Nonnull final ExpressionRef<? extends RelationalExpression> ref) {
+    public void onShow(@Nonnull final Reference ref) {
         PlannerGraphProperty.show(true, ref);
     }
 
@@ -315,7 +315,7 @@ public class PlannerRepl implements Debugger {
 
     private boolean processBaseIdentifiers(final ParsedLine parsedLine,
                                            final Consumer<RelationalExpression> expressionConsumer,
-                                           final Consumer<ExpressionRef<? extends RelationalExpression>> referenceConsumer,
+                                           final Consumer<Reference> referenceConsumer,
                                            final Consumer<Quantifier> quantifierConsumer) {
         final List<String> words = parsedLine.words();
         if (words.isEmpty()) {
@@ -327,7 +327,7 @@ public class PlannerRepl implements Debugger {
 
     boolean processIdentifiers(final String potentialIdentifier,
                                final Consumer<RelationalExpression> expressionConsumer,
-                               final Consumer<ExpressionRef<? extends RelationalExpression>> referenceConsumer,
+                               final Consumer<Reference> referenceConsumer,
                                final Consumer<Quantifier> quantifierConsumer) {
         final State state = getCurrentState();
         final String upperCasePotentialIdentifier = potentialIdentifier.toUpperCase();
@@ -339,7 +339,7 @@ public class PlannerRepl implements Debugger {
             expressionConsumer.accept(expression);
             return true;
         } else if (upperCasePotentialIdentifier.startsWith("REF")) {
-            @Nullable final ExpressionRef<? extends RelationalExpression> reference = lookupInCache(state.getReferenceCache(), upperCasePotentialIdentifier, "REF");
+            @Nullable final Reference reference = lookupInCache(state.getReferenceCache(), upperCasePotentialIdentifier, "REF");
             if (reference == null) {
                 return false;
             }
@@ -399,7 +399,7 @@ public class PlannerRepl implements Debugger {
         if (object instanceof RelationalExpression) {
             @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
             return (id == null) ? null : "exp" + id;
-        } else if (object instanceof ExpressionRef) {
+        } else if (object instanceof Reference) {
             @Nullable final Integer id = state.getInvertedReferenceCache().getIfPresent(object);
             return (id == null) ? null : "ref" + id;
         }  else if (object instanceof Quantifier) {
@@ -472,11 +472,11 @@ public class PlannerRepl implements Debugger {
         printlnKeyValue("query", queryAsString);
     }
 
-    void printlnReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    void printlnReference(@Nonnull final Reference reference) {
         printlnReference(reference, "");
     }
 
-    void printlnReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, final String prefix) {
+    void printlnReference(@Nonnull final Reference reference, final String prefix) {
         printlnKeyValue(prefix + "class", reference.getClass().getSimpleName());
         getSilently("reference.toString()", reference::toString)
                 .ifPresent(referenceAsString ->
@@ -508,7 +508,7 @@ public class PlannerRepl implements Debugger {
                 printKeyValue(prefix + "  name", nameForObjectOrNotInCache(quantifier) + "; ");
                 printKeyValue("kind", quantifier.getShorthand() + "; ");
                 printKeyValue("alias", quantifier.getAlias().toString() + "; ");
-                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                final Reference rangesOver = quantifier.getRangesOver();
                 printKeyValue("ranges over", nameForObjectOrNotInCache(rangesOver));
                 println();
             }
@@ -524,7 +524,7 @@ public class PlannerRepl implements Debugger {
         printlnKeyValue(prefix + "name", nameForObjectOrNotInCache(quantifier));
         printlnKeyValue(prefix + "kind", quantifier.getShorthand());
         printlnKeyValue(prefix + "alias", quantifier.getAlias().toString());
-        final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+        final Reference rangesOver = quantifier.getRangesOver();
         printlnKeyValue(prefix + "ranges over", nameForObjectOrNotInCache(rangesOver));
     }
 
@@ -780,7 +780,7 @@ public class PlannerRepl implements Debugger {
             if (super.onCallback(plannerRepl, event)) {
                 if (event instanceof EventWithCurrentGroupReference) {
                     final EventWithCurrentGroupReference eventWithCurrentGroupReference = (EventWithCurrentGroupReference)event;
-                    if (referenceName == null || referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentGroupReference()))) {
+                    if (referenceName == null || referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentReference()))) {
                         return true;
                     }
                 }

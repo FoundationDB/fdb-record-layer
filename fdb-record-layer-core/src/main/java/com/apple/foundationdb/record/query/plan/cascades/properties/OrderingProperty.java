@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
@@ -593,7 +593,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         }
 
         @Nonnull
-        private Ordering evaluateForReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference) {
+        private Ordering evaluateForReference(@Nonnull Reference reference) {
             final var memberOrderings =
                     reference.getPlannerAttributeForMembers(ORDERING).values();
             final var allAreDistinct =

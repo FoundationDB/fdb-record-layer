@@ -21,8 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -39,12 +38,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 
 /**
- * Matchers for {@link ExpressionRef}s.
+ * Matchers for {@link Reference}s.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ReferenceMatchers {
     @Nonnull
-    private static final BindingMatcher<GroupExpressionRef<RelationalExpression>> topExpressionReferenceMatcher = BindingMatcher.instance();
+    private static final BindingMatcher<Reference> topExpressionReferenceMatcher = BindingMatcher.instance();
 
     private ReferenceMatchers() {
         // do not instantiate
@@ -52,34 +51,34 @@ public class ReferenceMatchers {
 
 
     @Nonnull
-    public static BindingMatcher<GroupExpressionRef<RelationalExpression>> getTopExpressionReferenceMatcher() {
+    public static BindingMatcher<Reference> getTopExpressionReferenceMatcher() {
         return topExpressionReferenceMatcher;
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends ExpressionRef<? extends RelationalExpression>> BindingMatcher<R> anyRef() {
-        return typed((Class<R>)(Class<?>)ExpressionRef.class);
+    public static <R extends Reference> BindingMatcher<R> anyRef() {
+        return typed((Class<R>)(Class<?>)Reference.class);
     }
 
     @Nonnull
-    public static BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> anyRefOverOnlyPlans() {
+    public static BindingMatcher<? extends Reference> anyRefOverOnlyPlans() {
         return members(all(RelationalExpressionMatchers.ofType(RecordQueryPlan.class)));
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends ExpressionRef<? extends RelationalExpression>, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)ExpressionRef.class,
-                Extractor.of(r -> r.getMembers(), name -> "members(" + name + ")"),
+    public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
+                Extractor.of(Reference::getMembers, name -> "members(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends ExpressionRef<? extends RelationalExpression>> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)ExpressionRef.class,
-                Extractor.of(r -> r.getPlanPartitions(), name -> "planPartitions(" + name + ")"),
+    public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
+                Extractor.of(Reference::getPlanPartitions, name -> "planPartitions(" + name + ")"),
                 downstream);
     }
 
@@ -92,12 +91,10 @@ public class ReferenceMatchers {
                 downstream);
     }
 
-    @SuppressWarnings("unchecked")
     public static BindingMatcher<Collection<PlanPartition>> rollUp(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
         return rollUpTo(downstream, ImmutableSet.of());
     }
 
-    @SuppressWarnings("unchecked")
     public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final PlanProperty<?> interestingAttribute) {
         return rollUpTo(downstream, ImmutableSet.of(interestingAttribute));
     }

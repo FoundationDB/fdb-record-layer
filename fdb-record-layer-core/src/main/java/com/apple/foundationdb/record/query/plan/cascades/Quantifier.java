@@ -133,7 +133,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         @Nonnull
-        public abstract Quantifier build(@Nonnull ExpressionRef<? extends RelationalExpression> rangesOver);
+        public abstract Quantifier build(@Nonnull Reference rangesOver);
     }
 
     /**
@@ -142,7 +142,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class ForEach extends Quantifier {
-        @Nonnull private final ExpressionRef<? extends RelationalExpression> rangesOver;
+        @Nonnull private final Reference rangesOver;
 
         /**
          * Builder subclass to build for-each quantifiers.
@@ -150,21 +150,21 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
             @Nonnull
             @Override
-            public ForEach build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
+            public ForEach build(@Nonnull final Reference rangesOver) {
                 return new ForEach(alias == null ? Quantifier.uniqueID() : alias,
                         rangesOver);
             }
         }
 
         private ForEach(@Nonnull final CorrelationIdentifier alias,
-                        @Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
+                        @Nonnull final Reference rangesOver) {
             super(alias);
             this.rangesOver = rangesOver;
         }
 
         @Override
         @Nonnull
-        public ExpressionRef<? extends RelationalExpression> getRangesOver() {
+        public Reference getRangesOver() {
             return rangesOver;
         }
 
@@ -183,7 +183,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public ForEach overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+        public ForEach overNewReference(@Nonnull final Reference reference) {
             return Quantifier.forEachBuilder()
                     .from(this)
                     .build(reference);
@@ -211,7 +211,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return a new for-each quantifier ranging over {@code reference}
      */
     @Nonnull
-    public static ForEach forEach(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public static ForEach forEach(@Nonnull final Reference reference) {
         return forEachBuilder()
                 .build(reference);
     }
@@ -223,7 +223,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return a new for-each quantifier ranging over {@code reference}
      */
     @Nonnull
-    public static ForEach forEach(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+    public static ForEach forEach(@Nonnull final Reference reference,
                                   @Nonnull final CorrelationIdentifier alias) {
         return forEachBuilder()
                 .withAlias(alias)
@@ -232,7 +232,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * A quantifier that conceptually flows exactly one item containing a boolean to the owning
-     * expression indicating whether the sub-graph that the quantifier ranges over produced a non-empty or an empty
+     * expression indicating whether the sub-graph that the quantifier ranges over, produced a non-empty or an empty
      * result. When the semantics of these quantifiers are realized in an execution strategy that strategy should
      * facilitate a boolean "short-circuit" mechanism as the result will be {@code true} as soon as the sub-graph produces
      * the first item.
@@ -240,7 +240,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class Existential extends Quantifier {
         @Nonnull
-        private final ExpressionRef<? extends RelationalExpression> rangesOver;
+        private final Reference rangesOver;
 
         /**
          * Builder subclass for existential quantifiers.
@@ -248,21 +248,21 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public static class ExistentialBuilder extends Builder<Existential, ExistentialBuilder> {
             @Override
             @Nonnull
-            public Existential build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
+            public Existential build(@Nonnull final Reference rangesOver) {
                 return new Existential(alias == null ? Quantifier.uniqueID() : alias,
                         rangesOver);
             }
         }
 
         private Existential(@Nonnull final CorrelationIdentifier alias,
-                            @Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
+                            @Nonnull final Reference rangesOver) {
             super(alias);
             this.rangesOver = rangesOver;
         }
 
         @Override
         @Nonnull
-        public ExpressionRef<? extends RelationalExpression> getRangesOver() {
+        public Reference getRangesOver() {
             return rangesOver;
         }
 
@@ -281,7 +281,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public Existential overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+        public Existential overNewReference(@Nonnull final Reference reference) {
             return Quantifier.existentialBuilder()
                     .from(this)
                     .build(reference);
@@ -310,7 +310,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return a new existential quantifier ranging over {@code reference}
      */
     @Nonnull
-    public static Existential existential(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public static Existential existential(@Nonnull final Reference reference) {
         return existentialBuilder()
                 .build(reference);
     }
@@ -322,7 +322,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return a new existential quantifier ranging over {@code reference}
      */
     @Nonnull
-    public static Existential existential(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+    public static Existential existential(@Nonnull final Reference reference,
                                           @Nonnull final CorrelationIdentifier alias) {
         return existentialBuilder()
                 .withAlias(alias)
@@ -336,7 +336,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class Physical extends Quantifier implements PlanSerializable {
-        @Nonnull private final ExpressionRef<? extends RelationalExpression> rangesOver;
+        @Nonnull private final Reference rangesOver;
 
         /**
          * Builder subclass for physical quantifiers.
@@ -344,7 +344,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public static class PhysicalBuilder extends Builder<Physical, PhysicalBuilder> {
             @Nonnull
             @Override
-            public Physical build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
+            public Physical build(@Nonnull final Reference rangesOver) {
                 return new Physical(alias == null ? Quantifier.uniqueID() : alias, rangesOver);
             }
 
@@ -362,14 +362,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         private Physical(@Nonnull final CorrelationIdentifier alias,
-                         @Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
+                         @Nonnull final Reference rangesOver) {
             super(alias);
             this.rangesOver = rangesOver;
         }
 
         @Override
         @Nonnull
-        public ExpressionRef<? extends RelationalExpression> getRangesOver() {
+        public Reference getRangesOver() {
             return rangesOver;
         }
 
@@ -419,7 +419,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public Physical overNewReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+        public Physical overNewReference(@Nonnull final Reference reference) {
             return Quantifier.physicalBuilder()
                     .from(this)
                     .build(reference);
@@ -436,7 +436,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public PPhysicalQuantifier toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PPhysicalQuantifier.Builder builder = PPhysicalQuantifier.newBuilder()
                     .setAlias(getAlias().getId());
-            final LinkedIdentitySet<? extends RelationalExpression> members = getRangesOver().getMembers();
+            final LinkedIdentitySet<RelationalExpression> members = getRangesOver().getMembers();
             for (final RelationalExpression member : members) {
                 Verify.verify(member instanceof RecordQueryPlan);
                 builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)member));
@@ -451,10 +451,9 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
                 membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
             }
-            final GroupExpressionRef<? extends RelationalExpression> groupExpressionRef =
-                    GroupExpressionRef.from(membersBuilder.build());
+            final Reference reference = Reference.from(membersBuilder.build());
             return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
-                    .build(groupExpressionRef);
+                    .build(reference);
         }
     }
 
@@ -466,13 +465,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         return new Physical.PhysicalBuilder();
     }
 
-    public static Physical physical(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public static Physical physical(@Nonnull final Reference reference) {
         return physicalBuilder()
                 .build(reference);
     }
 
     @Nonnull
-    public static Physical physical(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+    public static Physical physical(@Nonnull final Reference reference,
                                     @Nonnull final CorrelationIdentifier alias) {
         return physicalBuilder()
                 .withAlias(alias)
@@ -497,10 +496,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Return the reference that the quantifier ranges over.
-     * @return {@link ExpressionRef} this quantifier ranges over
+     * @return {@link Reference} this quantifier ranges over
      */
     @Nonnull
-    public abstract ExpressionRef<? extends RelationalExpression> getRangesOver();
+    public abstract Reference getRangesOver();
 
     /**
      * Return a shorthand string for the quantifier. As a quantifier's semantics is usually quite subtle and should
@@ -652,7 +651,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @Nonnull
-    public abstract Quantifier overNewReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+    public abstract Quantifier overNewReference(@Nonnull Reference reference);
 
     @Override
     @Nonnull
@@ -663,8 +662,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Quantifier translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
-        final ExpressionRef<? extends RelationalExpression> translatedReference =
+        final Reference rangesOver = getRangesOver();
+        final Reference translatedReference =
                 getRangesOver().translateCorrelations(translationMap);
         return rangesOver == translatedReference
                ? this

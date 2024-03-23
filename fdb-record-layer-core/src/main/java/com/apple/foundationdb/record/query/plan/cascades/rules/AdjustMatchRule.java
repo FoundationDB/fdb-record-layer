@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -71,14 +71,14 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
         final PlannerBindings bindings = call.getBindings();
         final PartialMatch incompleteMatch = bindings.get(rootMatcher);
 
-        final ExpressionRef<? extends RelationalExpression> queryReference = incompleteMatch.getQueryRef();
+        final Reference queryReference = incompleteMatch.getQueryRef();
         final MatchCandidate matchCandidate = incompleteMatch.getMatchCandidate();
         
-        final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
+        final SetMultimap<Reference, RelationalExpression> refToExpressionMap =
                 matchCandidate.findReferencingExpressions(ImmutableList.of(queryReference));
 
-        for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
-            final ExpressionRef<? extends RelationalExpression> candidateReference = entry.getKey();
+        for (final Map.Entry<Reference, RelationalExpression> entry : refToExpressionMap.entries()) {
+            final Reference candidateReference = entry.getKey();
             final RelationalExpression candidateExpression = entry.getValue();
             matchWithCandidate(incompleteMatch,
                     candidateExpression).ifPresent(matchInfo ->
@@ -100,7 +100,8 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
             return Optional.empty();
         }
 
-        final ExpressionRef<? extends RelationalExpression> otherRangesOver = Iterables.getOnlyElement(candidateExpression.getQuantifiers()).getRangesOver();
+        final Reference otherRangesOver =
+                Iterables.getOnlyElement(candidateExpression.getQuantifiers()).getRangesOver();
 
         if (!candidateExpression.getCorrelatedTo().equals(otherRangesOver.getCorrelatedTo())) {
             return Optional.empty();

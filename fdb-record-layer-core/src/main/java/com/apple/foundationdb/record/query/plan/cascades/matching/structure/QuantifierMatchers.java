@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -53,7 +53,7 @@ public class QuantifierMatchers {
     }
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOverRef(@Nonnull final Class<Q> bindableClass,
-                                                                                @Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
+                                                                                @Nonnull final BindingMatcher<? extends Reference> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
                 Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
                 downstream);
@@ -74,7 +74,7 @@ public class QuantifierMatchers {
         return ofTypeRangingOver(Quantifier.class, downstream);
     }
 
-    public static BindingMatcher<Quantifier> anyQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
+    public static BindingMatcher<Quantifier> anyQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.class, downstream);
     }
 
@@ -94,7 +94,7 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.Existential> existentialQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
+    public static BindingMatcher<Quantifier.Existential> existentialQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.Existential.class, downstream);
     }
 
@@ -115,7 +115,7 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.ForEach.class, downstream);
     }
 
@@ -140,7 +140,7 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.Physical> physicalQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
+    public static BindingMatcher<Quantifier.Physical> physicalQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.Physical.class, downstream);
     }
 }

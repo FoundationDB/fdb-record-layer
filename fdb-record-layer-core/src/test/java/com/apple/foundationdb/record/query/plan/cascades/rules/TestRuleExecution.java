@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -40,9 +40,9 @@ import java.util.Iterator;
 public class TestRuleExecution {
     private final boolean ruleMatched;
     @Nonnull
-    private final GroupExpressionRef<RelationalExpression> result;
+    private final Reference result;
 
-    private TestRuleExecution(boolean ruleMatched, @Nonnull GroupExpressionRef<RelationalExpression> result) {
+    private TestRuleExecution(boolean ruleMatched, @Nonnull Reference result) {
         this.ruleMatched = ruleMatched;
         this.result = result;
     }
@@ -52,7 +52,7 @@ public class TestRuleExecution {
     }
 
     @Nonnull
-    public GroupExpressionRef<RelationalExpression> getResult() {
+    public Reference getResult() {
         return result;
     }
 
@@ -69,7 +69,7 @@ public class TestRuleExecution {
 
     public static TestRuleExecution applyRule(@Nonnull PlanContext context,
                                               @Nonnull CascadesRule<? extends RelationalExpression> rule,
-                                              @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                              @Nonnull Reference group,
                                               @Nonnull final EvaluationContext evaluationContext) {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getMembers()) {

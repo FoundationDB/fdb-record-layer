@@ -25,13 +25,12 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 
@@ -84,7 +83,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 shouldPullOutFilter = unionPlan.getChildren().stream().allMatch(plan -> ((RecordQueryFilterPlan) plan).getConjunctedFilter().equals(finalFilter));
             }
 
-            List<ExpressionRef<RecordQueryPlan>> newChildren = new ArrayList<>(unionPlan.getChildren().size());
+            List<Reference> newChildren = new ArrayList<>(unionPlan.getChildren().size());
             @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
             for (RecordQueryPlan plan : unionPlan.getChildren()) {
                 RecordQueryPlan oldPlan = plan;
@@ -111,7 +110,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }
-                newChildren.add(GroupExpressionRef.of(newPlan));
+                newChildren.add(Reference.of(newPlan));
             }
 
             RecordQueryPlan newUnionPlan = new RecordQueryFetchFromPartialRecordPlan(

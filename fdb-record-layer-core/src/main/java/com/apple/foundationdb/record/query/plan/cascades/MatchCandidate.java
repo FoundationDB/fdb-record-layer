@@ -228,14 +228,14 @@ public interface MatchCandidate {
 
     @Nonnull
     @SuppressWarnings("java:S1452")
-    default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {
+    default SetMultimap<Reference, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends Reference> references) {
         final var traversal = getTraversal();
 
         final var refToExpressionMap =
-                Multimaps.<ExpressionRef<? extends RelationalExpression>, RelationalExpression>newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+                Multimaps.<Reference, RelationalExpression>newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
 
         // going up may yield duplicates -- deduplicate with this multimap
-        for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : references) {
+        for (final Reference rangesOverRef : references) {
             final var partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(this);
             for (final var partialMatch : partialMatchesForCandidate) {
                 for (final var parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
@@ -439,18 +439,18 @@ public interface MatchCandidate {
     }
 
     @Nonnull
-    static GroupExpressionRef<RelationalExpression> createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
-                                                                  @Nonnull final Collection<RecordType> availableRecordTypes,
-                                                                  @Nonnull final Set<String> queriedRecordTypeNames,
-                                                                  @Nonnull final Collection<RecordType> queriedRecordTypes,
-                                                                  @Nonnull AccessHint accessHint) {
+    static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
+                                   @Nonnull final Collection<RecordType> availableRecordTypes,
+                                   @Nonnull final Set<String> queriedRecordTypeNames,
+                                   @Nonnull final Collection<RecordType> queriedRecordTypes,
+                                   @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
-                        GroupExpressionRef.of(
+                        Reference.of(
                                 new FullUnorderedScanExpression(availableRecordTypeNames,
                                         new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
-        return GroupExpressionRef.of(
+        return Reference.of(
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));

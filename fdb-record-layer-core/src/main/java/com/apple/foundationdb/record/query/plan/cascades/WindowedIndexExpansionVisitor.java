@@ -120,7 +120,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankGroupingsAndArgumentsExpansion =
                 expandGroupingsAndArguments(innerBaseQuantifier, groupingKeyExpression, groupingAndArgumentValues);
         final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect();
-        final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
+        final var rankQuantifier = Quantifier.forEach(Reference.of(rankSelectExpression));
 
         //
         // Construct another select expression that applies the predicate on the rank value as well as adds a join
@@ -133,7 +133,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
         final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
         final var rankComparisonQuantifier =
-                Quantifier.forEach(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
+                Quantifier.forEach(Reference.of(rankAndJoiningPredicateSelectExpression));
 
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(rankComparisonQuantifier));
 
@@ -145,7 +145,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var primaryKeyValues = Lists.<Value>newArrayList();
         if (primaryKey != null) {
             // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
-            // trimPrimaryKey() function as it is causing a side-effect
+            // trimPrimaryKey() function as it is causing a side effect
             final List<KeyExpression> trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(trimmedPrimaryKeys);
 
@@ -175,7 +175,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         return new WindowedIndexScanMatchCandidate(
                 index,
                 recordTypes,
-                ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
+                ExpressionRefTraversal.withRoot(Reference.of(matchableSortExpression)),
                 baseQuantifier.getFlowedObjectType(),
                 baseAlias,
                 groupingAliases,

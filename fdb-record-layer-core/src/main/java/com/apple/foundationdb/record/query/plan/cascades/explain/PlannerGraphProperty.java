@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -75,7 +75,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
     public static final int FOR_EXPLAIN                = 0x0001;
 
     /**
-     * Indicates if {@link ExpressionRef} instances that contain exactly one variation
+     * Indicates if {@link Reference} instances that contain exactly one variation
      * are rendered.
      */
     public static final int RENDER_SINGLE_GROUPS       = 0x0002;
@@ -127,7 +127,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
      * @return the word "done" (IntelliJ really likes a return of String).
      */
     @Nonnull
-    public static String show(final boolean renderSingleGroups, @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference) {
+    public static String show(final boolean renderSingleGroups, @Nonnull final Reference rootReference) {
         return show(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, rootReference);
     }
 
@@ -153,7 +153,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
      * @return the word "done" (IntelliJ really likes a return of String).
      */
     @Nonnull
-    public static String show(final int flags, @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference) {
+    public static String show(final int flags, @Nonnull final Reference rootReference) {
         final PlannerGraph plannerGraph =
                 Objects.requireNonNull(rootReference.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
         final String dotString = exportToDot(plannerGraph);
@@ -170,7 +170,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
      */
     @Nonnull
     public static String show(final boolean renderSingleGroups,
-                              @Nonnull final ExpressionRef<? extends RelationalExpression> queryPlanRootReference,
+                              @Nonnull final Reference queryPlanRootReference,
                               @Nonnull final Set<MatchCandidate> matchCandidates) {
         final PlannerGraph queryPlannerGraph =
                 Objects.requireNonNull(queryPlanRootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups, true)));
@@ -184,7 +184,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
         matchCandidateMap.forEach((matchCandidate, matchCandidateGraph) -> graphBuilder.addGraph(matchCandidateGraph));
 
         final ExpressionRefTraversal queryGraphTraversal = ExpressionRefTraversal.withRoot(queryPlanRootReference);
-        final Set<ExpressionRef<? extends RelationalExpression>> queryGraphRefs = queryGraphTraversal.getRefs();
+        final Set<Reference> queryGraphRefs = queryGraphTraversal.getRefs();
 
         queryGraphRefs
                 .forEach(queryGraphRef -> {
@@ -466,7 +466,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
 
     @Nonnull
     @Override
-    public PlannerGraph evaluateAtRef(@Nonnull final ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<PlannerGraph> memberResults) {
+    public PlannerGraph evaluateAtRef(@Nonnull final Reference ref, @Nonnull List<PlannerGraph> memberResults) {
         if (memberResults.isEmpty()) {
             // should not happen -- but we don't want to bail
             return PlannerGraph.builder(new PlannerGraph.ExpressionRefHeadNode(ref)).build();
@@ -522,14 +522,14 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
                                                 .orElse(new PlannerGraph.ExpressionRefMemberNode());
                                 return PlannerGraph.builder(member)
                                         .addGraph(childGraph)
-                                        .addEdge(root, member, new PlannerGraph.GroupExpressionRefEdge())
+                                        .addEdge(root, member, new PlannerGraph.ReferenceEdge())
                                         .build();
                             })
                             .collect(Collectors.toList());
 
             memberGraphs.forEach(memberGraph -> {
                 plannerGraphBuilder.addGraph(memberGraph);
-                plannerGraphBuilder.addEdge(memberGraph.getRoot(), head, new PlannerGraph.GroupExpressionRefInternalEdge());
+                plannerGraphBuilder.addEdge(memberGraph.getRoot(), head, new PlannerGraph.ReferenceInternalEdge());
             });
             return plannerGraphBuilder.build();
         } else { // !renderSingleGroups && memberResults.size() == 1

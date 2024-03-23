@@ -1,5 +1,5 @@
 /*
- * GroupExpressionPrinter.java
+ * ReferencePrinter.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
@@ -30,23 +29,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A utility class for printing out a {@link GroupExpressionRef} in a readable form.
- *
- * It is generally a bit tricky to look at memoized {@link RelationalExpression}s inside a complex {@link GroupExpressionRef}
- * structure because the structure is a directed acyclic graph rather than a tree. The {@code GroupExpressionPrinter}
+ * A utility class for printing out a {@link Reference} in a readable form.
+ * <br>
+ * It is generally a bit tricky to look at memoized {@link RelationalExpression}s inside a complex {@link Reference}
+ * structure because the structure is a directed acyclic graph rather than a tree. The {@code ReferencePrinter}
  * walks the reference structure and produces a compact representation of the DAG by referring to groups by
  * pre-determined identifiers.
  */
-public class GroupExpressionPrinter {
+public class ReferencePrinter {
     @Nonnull
-    private final GroupExpressionRef<? extends RelationalExpression> rootGroup;
+    private final Reference rootGroup;
     @Nonnull
-    private final Map<ExpressionRef<? extends RelationalExpression>, Integer> seenGroups;
+    private final Map<Reference, Integer> seenGroups;
     @Nonnull
-    private final List<ExpressionRef<? extends RelationalExpression>> groups;
+    private final List<Reference> groups;
     private int nextId;
 
-    public GroupExpressionPrinter(@Nonnull GroupExpressionRef<? extends RelationalExpression> rootGroup) {
+    public ReferencePrinter(@Nonnull Reference rootGroup) {
         this.rootGroup = rootGroup;
         this.seenGroups = new HashMap<>();
         this.groups = new ArrayList<>();
@@ -57,7 +56,7 @@ public class GroupExpressionPrinter {
     public String toString() {
         final StringBuilder builder = new StringBuilder();
         exploreGroup(rootGroup);
-        for (ExpressionRef<? extends RelationalExpression> group : groups) {
+        for (Reference group : groups) {
             builder.append("Group ")
                     .append(group.hashCode())
                     .append(": [");
@@ -70,7 +69,7 @@ public class GroupExpressionPrinter {
                             .append("{ ");
                     for (final Quantifier quantifier : quantifiers) {
                         builder.append(quantifier.getShorthand()).append(" ");
-                        final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                        final Reference rangesOver = quantifier.getRangesOver();
                         builder.append(rangesOver.hashCode())
                                 .append(", ");
                     }
@@ -83,15 +82,11 @@ public class GroupExpressionPrinter {
         return builder.toString();
     }
 
-    private void exploreGroup(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        if (!(ref instanceof GroupExpressionRef)) {
-            throw new RecordCoreException("tried to print a non-group reference with the GroupExpressionPrinter");
-        }
-        GroupExpressionRef<? extends RelationalExpression> groupRef = (GroupExpressionRef<? extends RelationalExpression>) ref;
-        seenGroups.put(groupRef, nextId);
-        groups.add(groupRef);
+    private void exploreGroup(@Nonnull Reference ref) {
+        seenGroups.put(ref, nextId);
+        groups.add(ref);
         nextId++;
-        for (RelationalExpression member : groupRef.getMembers()) {
+        for (RelationalExpression member : ref.getMembers()) {
             exploreExpression(member);
         }
     }
@@ -99,7 +94,7 @@ public class GroupExpressionPrinter {
     private void exploreExpression(@Nonnull RelationalExpression expression) {
         final List<? extends Quantifier> quantifiers = expression.getQuantifiers();
         for (final Quantifier quantifier : quantifiers) {
-            final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+            final Reference rangesOver = quantifier.getRangesOver();
             if (!seenGroups.containsKey(rangesOver)) {
                 exploreGroup(rangesOver);
             }

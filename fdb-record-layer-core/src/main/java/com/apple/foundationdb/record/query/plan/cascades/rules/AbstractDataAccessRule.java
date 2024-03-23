@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -380,7 +381,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     /**
      * Private helper method to compute a map of matches to scans (no compensation applied yet).
      * @param planContext plan context
-     * @param memoizer the memoizer for {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionRef}s
+     * @param memoizer the memoizer for {@link Reference}s
      * @param matches a collection of matches
      * @return a map of the matches where a match is associated with a scan expression created based on that match
      */
@@ -402,7 +403,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     /**
      * Private helper method to compute a new match to scan map by applying a {@link LogicalDistinctExpression} on each
      * scan.
-     * @param memoizer the memoizer for {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionRef}s
+     * @param memoizer the memoizer for {@link Reference}s
      * @param matchToExpressionMap a map of matches to {@link RelationalExpression}s
      * @return a map of the matches where a match is associated with a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
      *         ranging over a {@link RecordQueryPlan} that was created based on that match

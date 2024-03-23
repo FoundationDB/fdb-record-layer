@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
@@ -41,12 +41,12 @@ import java.util.Optional;
  * <br>
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
  * {@link PlannerRuleCall#yieldExpression(Object)} method on its rule call, with a new
- * {@link ExpressionRef}. The <code>yield()</code> method can be called more than once, or zero times if no
+ * {@link Reference}. The <code>yield()</code> method can be called more than once, or zero times if no
  * alternative expressions are found.
  * <br>
  * A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
  * immutable, and the mutable ones are hidden behind interfaces that do not expose mutation methods. In particular,
- * a rule should never cast an {@link ExpressionRef} in an attempt to access it.
+ * a rule should never cast an {@link Reference} in an attempt to access it.
  * <br>
  * A rule should not store state between successive calls to {@link #onMatch(PlannerRuleCall)},
  * since it may be reused an arbitrary number of times and may be re-instantiated at any time. To simplify cleanup,

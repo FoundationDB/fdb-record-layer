@@ -22,10 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -78,7 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull
-    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerRefMatcher = anyRefOverOnlyPlans();
+    private static final BindingMatcher<? extends Reference> innerRefMatcher = anyRefOverOnlyPlans();
     @Nonnull
     private static final BindingMatcher<Quantifier.Physical> innerQuantifierMatcher = physicalQuantifierOverRef(innerRefMatcher);
     @Nonnull
@@ -93,7 +92,7 @@ public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorder
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final ExpressionRef<? extends RelationalExpression> inner = call.get(innerRefMatcher);
+        final Reference inner = call.get(innerRefMatcher);
         final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
         final RecordQueryPredicatesFilterPlan filterPlan = call.get(filterPlanMatcher);
 

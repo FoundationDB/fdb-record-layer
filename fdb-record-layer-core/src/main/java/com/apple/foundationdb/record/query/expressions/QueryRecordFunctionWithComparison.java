@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -148,7 +148,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             .addResultValue(rankValue)
                             .build();
             final var rankSelectExpression = rankExpansion.buildSelect();
-            final var rankQuantifier = Quantifier.forEach(GroupExpressionRef.of(rankSelectExpression));
+            final var rankQuantifier = Quantifier.forEach(Reference.of(rankSelectExpression));
 
             //
             // Construct another select expression that applies the predicate on the rank value as well as adds a join
@@ -173,7 +173,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var rankAndJoiningPredicateSelectExpression =
                     GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion).buildSelect();
             final var rankComparisonQuantifier =
-                    Quantifier.existential(GroupExpressionRef.of(rankAndJoiningPredicateSelectExpression));
+                    Quantifier.existential(Reference.of(rankAndJoiningPredicateSelectExpression));
 
             // create a query component that creates a path to this prefix and then applies this to it
             // this is needed for reapplication of the component if the sub query cannot be matched or only matched with

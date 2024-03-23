@@ -21,17 +21,16 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.EventWithState;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.cache.Cache;
@@ -60,9 +59,9 @@ public class Commands {
      * Interface for all kinds of commands. Commands are typed by event. When we receive a callback from the
      * planner we also receive that callback using some sort of event. The kind of event defines the context for
      * all actions taken place while the REPL has control. So for instance it may be useful for a command
-     * "current" to know the current event so it can properly print out information depending on the specifics
+     * "current" to know the current event, so it can properly print out information depending on the specifics
      * of the event.
-     *
+     * <br>
      * All commands are <em>discovered</em> through a {@link java.util.ServiceLoader}. In order to create the
      * correct information in the meta-info of the jar, we use the {@link AutoService} annotation for all
      * discoverable commands.
@@ -76,7 +75,7 @@ public class Commands {
          * @param plannerRepl the REPL
          * @param event the current event
          * @param parsedLine the tokenized input string
-         * @return {@code true} if planning should continue afterwards, {@code false} if the REPL should prompt
+         * @return {@code true} if planning should continue afterward, {@code false} if the REPL should prompt
          *         for the next command after the execution of this command has finished.
          */
         boolean executeCommand(@Nonnull PlannerRepl plannerRepl, @Nonnull E event, @Nonnull ParsedLine parsedLine);
@@ -93,7 +92,7 @@ public class Commands {
 
     /**
      * Break point command.
-     *
+     * <br>
      * Supports:
      * <ul>
      * <li>{@code break [list]} -- show all currently defined break points</li>
@@ -119,7 +118,7 @@ public class Commands {
             if (words.size() >= 2) {
                 final String word1 = words.get(1).toUpperCase();
                 if (words.size() == 2) {
-                    if ("LIST".equals(word1.toUpperCase())) {
+                    if ("LIST".equalsIgnoreCase(word1)) {
                         listBreakPoints(plannerRepl);
                         return false;
                     }
@@ -168,7 +167,7 @@ public class Commands {
                         plannerRepl.addBreakPoint(new PlannerRepl.OnRuleCallBreakPoint(candidateMatchPrefix, location));
                         return false;
                     }
-                    plannerRepl.printlnError("usage: break rulecall ruleNamePrefix [begin | end]");
+                    plannerRepl.printlnError("usage: break rule call ruleNamePrefix [begin | end]");
                     return false;
                 }
 
@@ -208,9 +207,9 @@ public class Commands {
 
                 final Optional<Debugger.Shorthand> shorthandOptional =
                         Enums.getIfPresent(Debugger.Shorthand.class, word1).toJavaUtil();
-                if (!shorthandOptional.isPresent()) {
+                if (shorthandOptional.isEmpty()) {
                     plannerRepl.printlnError("unknown event class, should be one of [" +
-                                             Arrays.stream(Debugger.Shorthand.values()).map(e -> e.name()).collect(Collectors.joining(", ")) +
+                                             Arrays.stream(Debugger.Shorthand.values()).map(Enum::name).collect(Collectors.joining(", ")) +
                                              "].");
                     return false;
                 }
@@ -445,16 +444,17 @@ public class Commands {
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
             final State state = plannerRepl.getCurrentState();
-            final Cache<Integer, ExpressionRef<? extends RelationalExpression>> referenceCache = state.getReferenceCache();
+            final Cache<Integer, Reference> referenceCache = state.getReferenceCache();
             final List<Integer> ids = Lists.newArrayList(referenceCache.asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
                 plannerRepl.printKeyValue("id", "ref" + id + "; ");
-                @Nullable final ExpressionRef<? extends RelationalExpression> reference = referenceCache.getIfPresent(id);
+                @Nullable final Reference reference = referenceCache.getIfPresent(id);
                 plannerRepl.printKeyValue("kind", reference == null ? "not in cache; " : reference.getClass().getSimpleName() + "; ");
-                if (reference instanceof GroupExpressionRef) {
-                    final GroupExpressionRef<? extends RelationalExpression> groupReference = (GroupExpressionRef<? extends RelationalExpression>)reference;
-                    final String membersString = groupReference.getMembers()
+
+                if (reference != null) {
+                    final var members = reference.getMembers();
+                    final String membersString = members
                             .stream()
                             .map(expression -> Optional.ofNullable(plannerRepl.nameForObject(expression)))
                             .filter(Optional::isPresent)
@@ -526,18 +526,12 @@ public class Commands {
             final String word1 = words.get(1).toUpperCase();
             final boolean identifiersProcessed = plannerRepl.processIdentifiers(word1,
                     expression -> expression.show(true),
-                    reference -> {
-                        if (reference instanceof GroupExpressionRef) {
-                            ((GroupExpressionRef<? extends RelationalExpression>)reference).show(true);
-                        } else {
-                            plannerRepl.println("show is not supported for non-group references.");
-                        }
-                    },
+                    reference -> reference.show(true),
                     quantifier -> plannerRepl.printlnError("show is not supported for quantifiers."));
             if (!identifiersProcessed) {
                 if (event instanceof EventWithState) {
                     final EventWithState eventWithState = (EventWithState)event;
-                    final GroupExpressionRef<? extends RelationalExpression> rootReference = eventWithState.getRootReference();
+                    final Reference rootReference = eventWithState.getRootReference();
                     if ("GRAPH".equals(word1)) {
                         PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS, rootReference);
                         return false;
@@ -680,8 +674,8 @@ public class Commands {
                 @Nullable final Quantifier quantifier = state.getQuantifierCache().getIfPresent(id);
                 if (quantifier != null) {
                     plannerRepl.printKeyValue("kind", quantifier.getShorthand() + "; ");
-                    plannerRepl.printKeyValue("alias", quantifier.getAlias().toString() + "; ");
-                    final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                    plannerRepl.printKeyValue("alias", quantifier.getAlias() + "; ");
+                    final Reference rangesOver = quantifier.getRangesOver();
                     plannerRepl.printKeyValue("ranges over", plannerRepl.nameForObjectOrNotInCache(rangesOver));
                 }
                 plannerRepl.println();

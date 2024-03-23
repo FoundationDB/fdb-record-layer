@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 
 import javax.annotation.Nonnull;
@@ -97,5 +97,5 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Nonnull
-    RecordQueryPlanWithChild withChild(@Nonnull ExpressionRef<? extends RecordQueryPlan> childRef);
+    RecordQueryPlanWithChild withChild(@Nonnull Reference childRef);
 }

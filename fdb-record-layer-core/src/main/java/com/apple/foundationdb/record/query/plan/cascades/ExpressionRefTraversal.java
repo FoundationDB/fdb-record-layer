@@ -40,8 +40,8 @@ import java.util.function.BiConsumer;
 /**
  * Utility class to provide a graph view of a expression reference DAG given by a root expression reference
  * (to a {@link RelationalExpression} that allows to perform traversal operations that are normally not possible
- * on instances of {@link ExpressionRef} such as {@link #getLeafReferences()} and {@link #getParentRefs}.
- *
+ * on instances of {@link Reference} such as {@link #getLeafReferences()} and {@link #getParentRefs}.
+ * <br>
  * The implementation of this class assumes that the original DAG is not mutated after the traversal is created.
  * If the underlying DAG is mutated against assumptions, the semantics of this class is defined in a way that calls to
  * graph-backed methods return data as if the mutation hadn't occurred while references that are being returned as part
@@ -51,18 +51,18 @@ import java.util.function.BiConsumer;
 @API(API.Status.EXPERIMENTAL)
 public class ExpressionRefTraversal {
     @Nonnull
-    private final ExpressionRef<? extends RelationalExpression> rootReference;
+    private final Reference rootReference;
     @Nonnull
-    private final MutableNetwork<ExpressionRef<? extends RelationalExpression>, ReferencePath> network;
+    private final MutableNetwork<Reference, ReferencePath> network;
     @Nonnull
-    private final SetMultimap<RelationalExpression, ExpressionRef<? extends RelationalExpression>> containedInMultiMap;
+    private final SetMultimap<RelationalExpression, Reference> containedInMultiMap;
     @Nonnull
-    private final Set<ExpressionRef<? extends RelationalExpression>> leafReferences;
+    private final Set<Reference> leafReferences;
 
-    private ExpressionRefTraversal(@Nonnull final ExpressionRef<? extends RelationalExpression> rootReference,
-                                   @Nonnull final MutableNetwork<ExpressionRef<? extends RelationalExpression>, ReferencePath> network,
-                                   @Nonnull final SetMultimap<RelationalExpression, ExpressionRef<? extends RelationalExpression>> containedInMultiMap,
-                                   @Nonnull final Set<ExpressionRef<? extends RelationalExpression>> leafReferences) {
+    private ExpressionRefTraversal(@Nonnull final Reference rootReference,
+                                   @Nonnull final MutableNetwork<Reference, ReferencePath> network,
+                                   @Nonnull final SetMultimap<RelationalExpression, Reference> containedInMultiMap,
+                                   @Nonnull final Set<Reference> leafReferences) {
         this.rootReference = rootReference;
         this.network = network;
         this.containedInMultiMap = containedInMultiMap;
@@ -70,17 +70,17 @@ public class ExpressionRefTraversal {
     }
 
     @Nonnull
-    public ExpressionRef<? extends RelationalExpression> getRootReference() {
+    public Reference getRootReference() {
         return rootReference;
     }
 
     @Nonnull
-    public Set<ExpressionRef<? extends RelationalExpression>> getRefs() {
+    public Set<Reference> getRefs() {
         return network.nodes();
     }
 
     @Nonnull
-    public Set<ExpressionRef<? extends RelationalExpression>> getLeafReferences() {
+    public Set<Reference> getLeafReferences() {
         return leafReferences;
     }
 
@@ -89,7 +89,7 @@ public class ExpressionRefTraversal {
      * @param expression the expression
      * @return a set of expression references containing {@code expression}
      */
-    public Set<ExpressionRef<? extends RelationalExpression>> getRefsContaining(final RelationalExpression expression) {
+    public Set<Reference> getRefsContaining(final RelationalExpression expression) {
         final var result = containedInMultiMap.get(expression);
         Debugger.sanityCheck(() -> Verify.verify(result.stream().allMatch(ref -> ref.getMembers().stream().anyMatch(e -> e == expression))));
         return result;
@@ -102,8 +102,8 @@ public class ExpressionRefTraversal {
      * @return the set of references that are considered parents of this reference.
      */
     @Nonnull
-    public Set<ExpressionRef<? extends RelationalExpression>> getParentRefs(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
-        final ImmutableSet.Builder<ExpressionRef<? extends RelationalExpression>> builder =
+    public Set<Reference> getParentRefs(@Nonnull final Reference reference) {
+        final ImmutableSet.Builder<Reference> builder =
                 ImmutableSet.builder();
         forEachParentExpression(reference, (ref, expression) -> builder.add(ref));
         return builder.build();
@@ -115,7 +115,7 @@ public class ExpressionRefTraversal {
      * @return the set of expressions (as identity-based set) that are considered parents of this reference.
      */
     @Nonnull
-    public Set<RelationalExpression> getParentExpressions(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public Set<RelationalExpression> getParentExpressions(@Nonnull final Reference reference) {
         final Set<RelationalExpression> result = Sets.newIdentityHashSet();
         forEachParentExpression(reference, (ref, expression) -> result.add(expression));
         return result;
@@ -127,21 +127,21 @@ public class ExpressionRefTraversal {
      * @return the set of expressions that are considered parents of this reference.
      */
     @Nonnull
-    public Set<ReferencePath> getParentRefPaths(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public Set<ReferencePath> getParentRefPaths(@Nonnull final Reference reference) {
         return network.outEdges(reference);
     }
 
-    public void forEachParentExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
-                                        @Nonnull final BiConsumer<ExpressionRef<? extends RelationalExpression>, RelationalExpression> biConsumer) {
+    public void forEachParentExpression(@Nonnull final Reference reference,
+                                        @Nonnull final BiConsumer<Reference, RelationalExpression> biConsumer) {
         final Set<ReferencePath> referencePaths = network.outEdges(reference);
         for (final ReferencePath referencePath : referencePaths) {
-            final EndpointPair<ExpressionRef<? extends RelationalExpression>> incidentNodes =
+            final EndpointPair<Reference> incidentNodes =
                     network.incidentNodes(referencePath);
             biConsumer.accept(incidentNodes.target(), referencePath.getExpression());
         }
     }
 
-    public void addExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, @Nonnull final RelationalExpression expression) {
+    public void addExpression(@Nonnull final Reference reference, @Nonnull final RelationalExpression expression) {
         descendAndAddExpressions(network,
                 containedInMultiMap,
                 leafReferences,
@@ -154,7 +154,7 @@ public class ExpressionRefTraversal {
         }
     }
 
-    public void removeExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, @Nonnull final RelationalExpression expression) {
+    public void removeExpression(@Nonnull final Reference reference, @Nonnull final RelationalExpression expression) {
         final var referencePaths = ImmutableSet.copyOf(network.inEdges(reference));
 
         for (final var referencePath : referencePaths) {
@@ -171,25 +171,25 @@ public class ExpressionRefTraversal {
      * @param rootRef the reference acting as the root for this traversal object
      * @return a new traversal object
      */
-    public static ExpressionRefTraversal withRoot(final ExpressionRef<? extends RelationalExpression> rootRef) {
-        final MutableNetwork<ExpressionRef<? extends RelationalExpression>, ReferencePath> network =
+    public static ExpressionRefTraversal withRoot(final Reference rootRef) {
+        final MutableNetwork<Reference, ReferencePath> network =
                 NetworkBuilder.directed()
                         .allowsParallelEdges(true)
                         .allowsSelfLoops(true)
                         .build();
 
-        final SetMultimap<RelationalExpression, ExpressionRef<? extends RelationalExpression>> containedInMap =
+        final SetMultimap<RelationalExpression, Reference> containedInMap =
                 Multimaps.newSetMultimap(Maps.newIdentityHashMap(), Sets::newHashSet);
-        final Set<ExpressionRef<? extends RelationalExpression>> leafRefs = Sets.newHashSet();
+        final Set<Reference> leafRefs = Sets.newHashSet();
         collectNetwork(network, containedInMap, leafRefs, rootRef);
 
         return new ExpressionRefTraversal(rootRef, network, containedInMap, leafRefs);
     }
 
-    private static void collectNetwork(@Nonnull final MutableNetwork<ExpressionRef<? extends RelationalExpression>, ReferencePath> network,
-                                       @Nonnull final SetMultimap<RelationalExpression, ExpressionRef<? extends RelationalExpression>> containedInMultiMap,
-                                       @Nonnull final Set<ExpressionRef<? extends RelationalExpression>> leafReferences,
-                                       @Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    private static void collectNetwork(@Nonnull final MutableNetwork<Reference, ReferencePath> network,
+                                       @Nonnull final SetMultimap<RelationalExpression, Reference> containedInMultiMap,
+                                       @Nonnull final Set<Reference> leafReferences,
+                                       @Nonnull final Reference reference) {
         if (network.addNode(reference)) {
             boolean anyLeafExpressions = false;
             for (final RelationalExpression expression : reference.getMembers()) {
@@ -206,14 +206,14 @@ public class ExpressionRefTraversal {
         }
     }
 
-    private static void descendAndAddExpressions(@Nonnull final MutableNetwork<ExpressionRef<? extends RelationalExpression>, ReferencePath> network,
-                                                 @Nonnull final SetMultimap<RelationalExpression, ExpressionRef<? extends RelationalExpression>> containedInMultiMap,
-                                                 @Nonnull final Set<ExpressionRef<? extends RelationalExpression>> leafReferences,
-                                                 @Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+    private static void descendAndAddExpressions(@Nonnull final MutableNetwork<Reference, ReferencePath> network,
+                                                 @Nonnull final SetMultimap<RelationalExpression, Reference> containedInMultiMap,
+                                                 @Nonnull final Set<Reference> leafReferences,
+                                                 @Nonnull final Reference reference,
                                                  final RelationalExpression expression) {
         network.addNode(reference);
         for (final Quantifier quantifier : expression.getQuantifiers()) {
-            final ExpressionRef<? extends RelationalExpression> rangesOverRef = quantifier.getRangesOver();
+            final Reference rangesOverRef = quantifier.getRangesOver();
             collectNetwork(network, containedInMultiMap, leafReferences, rangesOverRef);
             network.addEdge(rangesOverRef, reference, new ReferencePath(reference, expression, quantifier));
         }
@@ -224,14 +224,14 @@ public class ExpressionRefTraversal {
      */
     public static class ReferencePath {
         @Nonnull
-        private final ExpressionRef<? extends RelationalExpression> reference;
+        private final Reference reference;
 
         @Nonnull
         private final RelationalExpression expression;
         @Nonnull
         private final Quantifier quantifier;
 
-        public ReferencePath(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+        public ReferencePath(@Nonnull final Reference reference,
                              @Nonnull final RelationalExpression expression,
                              @Nonnull final Quantifier quantifier) {
             this.reference = reference;
@@ -240,7 +240,7 @@ public class ExpressionRefTraversal {
         }
 
         @Nonnull
-        public ExpressionRef<? extends RelationalExpression> getReference() {
+        public Reference getReference() {
             return reference;
         }
 

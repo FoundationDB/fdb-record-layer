@@ -187,7 +187,7 @@ public interface Compensation {
     /**
      * When applied to a reference this method returns a {@link RelationalExpression} consuming the
      * reference passed in that applies additional predicates as expressed by the predicate compensation map.
-     * @param memoizer the memoizer for new {@link ExpressionRef}s
+     * @param memoizer the memoizer for new {@link Reference}s
      * @param relationalExpression root of graph to apply compensation to
      * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
      *         filters and/or transformations
@@ -716,7 +716,7 @@ public interface Compensation {
         /**
          * When applied to a reference this method returns a {@link RelationalExpression} consuming the
          * reference passed in that applies additional predicates as expressed by the predicate compensation map.
-         * @param memoizer the the memoizer for new {@link ExpressionRef}s
+         * @param memoizer the the memoizer for new {@link Reference}s
          * @param relationalExpression root of graph to apply compensation to
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
@@ -752,7 +752,7 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(GroupExpressionRef.of(relationalExpression)), matchedForEachQuantifierAlias);
+            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)), matchedForEachQuantifierAlias);
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
 
             final var injectCompensationFunctions = predicateCompensationMap.values();

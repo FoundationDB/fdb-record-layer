@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
@@ -63,7 +63,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Expression-based transformation rule that matches any non-leaf expression (called an intermediate expression)
  * to a candidate expression in a {@link MatchCandidate}.
  * It yields matches of type {@link PartialMatch}. This rule further seeds the memoization
- * structure for partial matches that is kept as part of {@link ExpressionRef}. It prepares further rules such as
+ * structure for partial matches that is kept as part of {@link Reference}. It prepares further rules such as
  * other applications of {@link MatchIntermediateRule} and {@link AdjustMatchRule}.
  *
  * <p>
@@ -169,7 +169,7 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
         final PlannerBindings bindings = call.getBindings();
         final RelationalExpression expression = bindings.get(root);
         final List<? extends Quantifier> quantifiers = bindings.getAll(quantifierMatcher);
-        final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> rangesOverRefs =
+        final ImmutableList<? extends Reference> rangesOverRefs =
                 quantifiers.stream()
                         .map(Quantifier::getRangesOver)
                         .collect(ImmutableList.toImmutableList());
@@ -177,18 +177,18 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
         // form union of all possible match candidates that this rule application should look at
         final Set<MatchCandidate> childMatchCandidates = new LinkedIdentitySet<>();
         for (int i = 0; i < rangesOverRefs.size(); i++) {
-            final ExpressionRef<? extends RelationalExpression> rangesOverGroup = rangesOverRefs.get(i);
+            final Reference rangesOverGroup = rangesOverRefs.get(i);
             childMatchCandidates.addAll(rangesOverGroup.getMatchCandidates());
         }
 
         // go through all match candidates
         for (final MatchCandidate matchCandidate : childMatchCandidates) {
-            final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
+            final SetMultimap<Reference, RelationalExpression> refToExpressionMap =
                     matchCandidate.findReferencingExpressions(rangesOverRefs);
 
             // go through all reference paths, i.e., (ref, expression) pairs
-            for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
-                final ExpressionRef<? extends RelationalExpression> candidateReference = entry.getKey();
+            for (final Map.Entry<Reference, RelationalExpression> entry : refToExpressionMap.entries()) {
+                final Reference candidateReference = entry.getKey();
                 final RelationalExpression candidateExpression = entry.getValue();
                 // match this expression with the candidate expression and yield zero to n new partial matches
                 final Iterable<BoundMatch<MatchInfo>> boundMatchInfos =
@@ -266,8 +266,8 @@ public class MatchIntermediateRule extends CascadesRule<RelationalExpression> {
                                                                   @Nonnull final Quantifier quantifier,
                                                                   @Nonnull final Quantifier candidateQuantifier,
                                                                   @Nonnull final AliasMap aliasMap) {
-        final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-        final ExpressionRef<? extends RelationalExpression> otherRangesOver = candidateQuantifier.getRangesOver();
+        final Reference rangesOver = quantifier.getRangesOver();
+        final Reference otherRangesOver = candidateQuantifier.getRangesOver();
 
         final Set<PartialMatch> partialMatchesForCandidate = rangesOver.getPartialMatchesForCandidate(matchCandidate);
         return partialMatchesForCandidate.stream()

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -168,7 +167,7 @@ public class MetaDataPlanContext implements PlanContext {
     public static PlanContext forRootReference(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                                @Nonnull final RecordMetaData metaData,
                                                @Nonnull final RecordStoreState recordStoreState,
-                                               @Nonnull final ExpressionRef<? extends RelationalExpression> rootReference,
+                                               @Nonnull final Reference rootReference,
                                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter) {
         final var queriedRecordTypeNames = RecordTypesProperty.evaluate(rootReference);

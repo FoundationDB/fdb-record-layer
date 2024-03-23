@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
@@ -105,9 +104,9 @@ import java.util.function.Supplier;
  * provides an efficient interface for storing a forest of expressions, where there might be substantial overlap between
  * different trees in the forest. The memo is composed of expression groups (or just <em>groups</em>), which are
  * equivalence classes of expressions. In this implementation, the memo structure is an implicit data structure
- * represented by {@link GroupExpressionRef}s, each of which represents a group expression in Cascades and contains
+ * represented by {@link Reference}s, each of which represents a group expression in Cascades and contains
  * a set of {@link RelationalExpression}s. In turn, {@link RelationalExpression}s have some number of <em>children</em>, each
- * of which is a {@link GroupExpressionRef} and which can be traversed by the planner via the
+ * of which is a {@link Reference} and which can be traversed by the planner via the
  * {@link RelationalExpression#getQuantifiers()} method.
  * </p>
  *
@@ -187,7 +186,7 @@ import java.util.function.Supplier;
  *     </li>
  * </ul>
  *
- * @see GroupExpressionRef
+ * @see Reference
  * @see RelationalExpression
  * @see CascadesRule
  * @see CascadesCostModel
@@ -207,7 +206,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final PlannerRuleSet ruleSet;
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> currentRoot;
+    private Reference currentRoot;
     @Nonnull
     private ExpressionRefTraversal traversal;
     @Nonnull
@@ -227,7 +226,7 @@ public class CascadesPlanner implements QueryPlanner {
         this.recordStoreState = recordStoreState;
         this.ruleSet = ruleSet;
         // Placeholders until we get a query.
-        this.currentRoot = GroupExpressionRef.empty();
+        this.currentRoot = Reference.empty();
         this.traversal = ExpressionRefTraversal.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
     }
@@ -326,7 +325,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         try {
-            planPartial(() -> GroupExpressionRef.of(RelationalExpression.fromRecordQuery(metaData, query)),
+            planPartial(() -> Reference.of(RelationalExpression.fromRecordQuery(metaData, query)),
                     rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query),
                     EvaluationContext.empty());
             return resultOrFail();
@@ -337,7 +336,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    public QueryPlanResult planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
+    public QueryPlanResult planGraph(@Nonnull Supplier<Reference> expressionRefSupplier,
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                      @Nonnull final EvaluationContext evaluationContext) {
@@ -375,8 +374,8 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private void planPartial(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> expressionRefSupplier,
-                             @Nonnull Function<GroupExpressionRef<RelationalExpression>, PlanContext> contextCreatorFunction,
+    private void planPartial(@Nonnull Supplier<Reference> expressionRefSupplier,
+                             @Nonnull Function<Reference, PlanContext> contextCreatorFunction,
                              @Nonnull final EvaluationContext evaluationContext) {
         currentRoot = expressionRefSupplier.get();
         final var context = contextCreatorFunction.apply(currentRoot);
@@ -411,7 +410,7 @@ public class CascadesPlanner implements QueryPlanner {
                 if (logger.isTraceEnabled()) {
                     logger.trace(KeyValueLogMessage.of("planner state",
                             "taskStackSize", taskStack.size(),
-                            "memo", new GroupExpressionPrinter(currentRoot)));
+                            "memo", new ReferencePrinter(currentRoot)));
                 }
 
                 maxQueueSize = Math.max(maxQueueSize, taskStack.size());
@@ -422,7 +421,7 @@ public class CascadesPlanner implements QueryPlanner {
                 if (logger.isTraceEnabled()) {
                     logger.trace(KeyValueLogMessage.of("debugger requests restart of planning",
                             "taskStackSize", taskStack.size(),
-                            "memo", new GroupExpressionPrinter(currentRoot)));
+                            "memo", new ReferencePrinter(currentRoot)));
                 }
                 taskStack.clear();
                 currentRoot = expressionRefSupplier.get();
@@ -432,7 +431,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     private void exploreExpressionAndOptimizeInputs(@Nonnull PlanContext context,
-                                                    @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                                    @Nonnull Reference group,
                                                     @Nonnull final RelationalExpression expression,
                                                     final boolean forceExploration,
                                                     @Nonnull final EvaluationContext evaluationContext) {
@@ -443,7 +442,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     private void exploreExpression(@Nonnull PlanContext context,
-                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                   @Nonnull Reference group,
                                    @Nonnull final RelationalExpression expression,
                                    final boolean forceExploration,
                                    @Nonnull final EvaluationContext evaluationContext) {
@@ -482,25 +481,12 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        private final Reference group;
         @Nonnull
         private final EvaluationContext evaluationContext;
 
-        @SuppressWarnings("unchecked")
         public OptimizeGroup(@Nonnull PlanContext context,
-                             @Nonnull ExpressionRef<? extends RelationalExpression> ref,
-                             @Nonnull final EvaluationContext evaluationContext) {
-            this.context = context;
-            if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<RelationalExpression>) ref;
-            } else {
-                throw new RecordCoreArgumentException("illegal non-group reference in group expression");
-            }
-            this.evaluationContext = evaluationContext;
-        }
-
-        public OptimizeGroup(@Nonnull PlanContext context,
-                             @Nonnull GroupExpressionRef<RelationalExpression> group,
+                             @Nonnull Reference group,
                              @Nonnull final EvaluationContext evaluationContext) {
             this.context = context;
             this.group = group;
@@ -567,20 +553,15 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        private final Reference group;
         @Nonnull
         private final EvaluationContext evaluationContext;
 
-        @SuppressWarnings("unchecked")
         public ExploreGroup(@Nonnull PlanContext context,
-                            @Nonnull ExpressionRef<? extends RelationalExpression> ref,
+                            @Nonnull Reference ref,
                             @Nonnull final EvaluationContext evaluationContext) {
             this.context = context;
-            if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<RelationalExpression>) ref;
-            } else {
-                throw new RecordCoreArgumentException("illegal non-group reference in group expression");
-            }
+            this.group = ref;
             this.evaluationContext = evaluationContext;
         }
 
@@ -615,14 +596,14 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        private final Reference group;
         @Nonnull
         private final RelationalExpression expression;
         @Nonnull
         private final EvaluationContext evaluationContext;
 
         public ExploreTask(@Nonnull PlanContext context,
-                           @Nonnull GroupExpressionRef<RelationalExpression> group,
+                           @Nonnull Reference group,
                            @Nonnull RelationalExpression expression,
                            @Nonnull final EvaluationContext evaluationContext) {
             this.context = context;
@@ -642,7 +623,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        public GroupExpressionRef<RelationalExpression> getGroup() {
+        public Reference getGroup() {
             return group;
         }
 
@@ -670,7 +651,7 @@ public class CascadesPlanner implements QueryPlanner {
      */
     private abstract class AbstractExploreExpression extends ExploreTask {
         public AbstractExploreExpression(@Nonnull PlanContext context,
-                                         @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                         @Nonnull Reference group,
                                          @Nonnull RelationalExpression expression,
                                          @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, evaluationContext);
@@ -715,7 +696,7 @@ public class CascadesPlanner implements QueryPlanner {
             taskStack.push(new TransformMatchPartition(getContext(), getGroup(), getExpression(), rule, getEvaluationContext()));
         }
 
-        private void enqueueExploreGroup(ExpressionRef<? extends RelationalExpression> rangesOver) {
+        private void enqueueExploreGroup(Reference rangesOver) {
             taskStack.push(new ExploreGroup(getContext(), rangesOver, getEvaluationContext()));
         }
 
@@ -743,7 +724,7 @@ public class CascadesPlanner implements QueryPlanner {
      */
     private class ReExploreExpression extends AbstractExploreExpression {
         public ReExploreExpression(@Nonnull PlanContext context,
-                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                   @Nonnull Reference group,
                                    @Nonnull RelationalExpression expression,
                                    @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, evaluationContext);
@@ -752,7 +733,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         protected boolean shouldEnqueueRule(@Nonnull CascadesRule<?> rule) {
             final Set<PlannerConstraint<?>> requirementDependencies = rule.getConstraintDependencies();
-            final GroupExpressionRef<RelationalExpression> group = getGroup();
+            final Reference group = getGroup();
             if (!group.isExploring()) {
                 if (logger.isWarnEnabled()) {
                     logger.warn(KeyValueLogMessage.of("transformation task run on a group that is not being explored"));
@@ -775,7 +756,7 @@ public class CascadesPlanner implements QueryPlanner {
      */
     private class ExploreExpression extends AbstractExploreExpression {
         public ExploreExpression(@Nonnull PlanContext context,
-                                 @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                 @Nonnull Reference group,
                                  @Nonnull RelationalExpression expression,
                                  @Nonnull final EvaluationContext evaluationContext) {
             super(context, group, expression, evaluationContext);
@@ -801,7 +782,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        private final Reference group;
         @Nonnull
         private final RelationalExpression expression;
         @Nonnull
@@ -810,7 +791,7 @@ public class CascadesPlanner implements QueryPlanner {
         private final EvaluationContext evaluationContext;
 
         protected AbstractTransform(@Nonnull PlanContext context,
-                                    @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                    @Nonnull Reference group,
                                     @Nonnull RelationalExpression expression,
                                     @Nonnull CascadesRule<?> rule,
                                     @Nonnull final EvaluationContext evaluationContext) {
@@ -827,7 +808,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        public GroupExpressionRef<RelationalExpression> getGroup() {
+        public Reference getGroup() {
             return group;
         }
 
@@ -922,8 +903,8 @@ public class CascadesPlanner implements QueryPlanner {
                 if (!(rule instanceof PreOrderRule)) {
                     taskStack.push(this);
                 }
-                for (final ExpressionRef<? extends RelationalExpression> reference : referencesWithPushedRequirements) {
-                    if (!((GroupExpressionRef<? extends RelationalExpression>)reference).hasNeverBeenExplored()) {
+                for (final Reference reference : referencesWithPushedRequirements) {
+                    if (!reference.hasNeverBeenExplored()) {
                         taskStack.push(new ExploreGroup(context, reference, evaluationContext));
                     }
                 }
@@ -946,7 +927,7 @@ public class CascadesPlanner implements QueryPlanner {
      */
     private class TransformExpression extends AbstractTransform {
         public TransformExpression(@Nonnull PlanContext context,
-                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                   @Nonnull Reference group,
                                    @Nonnull RelationalExpression expression,
                                    @Nonnull CascadesRule<? extends RelationalExpression> rule,
                                    @Nonnull final EvaluationContext evaluationContext) {
@@ -982,7 +963,7 @@ public class CascadesPlanner implements QueryPlanner {
         private final Supplier<MatchPartition> matchPartitionSupplier;
 
         public TransformMatchPartition(@Nonnull PlanContext context,
-                                       @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                       @Nonnull Reference group,
                                        @Nonnull RelationalExpression expression,
                                        @Nonnull CascadesRule<? extends MatchPartition> rule,
                                        @Nonnull final EvaluationContext evaluationContext) {
@@ -1005,7 +986,7 @@ public class CascadesPlanner implements QueryPlanner {
         private final PartialMatch partialMatch;
 
         public TransformPartialMatch(@Nonnull PlanContext context,
-                                     @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                     @Nonnull Reference group,
                                      @Nonnull RelationalExpression expression,
                                      @Nonnull PartialMatch partialMatch,
                                      @Nonnull CascadesRule<? extends PartialMatch> rule,
@@ -1036,7 +1017,7 @@ public class CascadesPlanner implements QueryPlanner {
         final PartialMatch partialMatch;
 
         public AdjustMatch(@Nonnull final PlanContext context,
-                           @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                           @Nonnull final Reference group,
                            @Nonnull final RelationalExpression expression,
                            @Nonnull final PartialMatch partialMatch,
                            @Nonnull final EvaluationContext evaluationContext) {
@@ -1077,14 +1058,14 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        private final Reference group;
         @Nonnull
         private final RelationalExpression expression;
 
         @Nonnull final EvaluationContext evaluationContext;
 
         public OptimizeInputs(@Nonnull PlanContext context,
-                              @Nonnull GroupExpressionRef<RelationalExpression> group,
+                              @Nonnull Reference group,
                               @Nonnull RelationalExpression expression,
                               @Nonnull final EvaluationContext evaluationContext) {
             this.context = context;
@@ -1099,7 +1080,7 @@ public class CascadesPlanner implements QueryPlanner {
                 return;
             }
             for (final Quantifier quantifier : expression.getQuantifiers()) {
-                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
+                final Reference rangesOver = quantifier.getRangesOver();
                 taskStack.push(new OptimizeGroup(context, rangesOver, evaluationContext));
             }
         }
