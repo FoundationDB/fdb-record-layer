@@ -22,9 +22,7 @@ package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDBError;
-import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
-import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -34,17 +32,18 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.Tags;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -82,33 +81,24 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link BunchedMap}.
  */
 @Tag(Tags.RequiresFDB)
-public class BunchedMapTest extends FDBTestBase {
+public class BunchedMapTest {
+    @RegisterExtension
+    static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+    @RegisterExtension
+    TestSubspaceExtension bmSubspaceExtension = new TestSubspaceExtension(dbExtension);
     private static final BunchedTupleSerializer serializer = BunchedTupleSerializer.instance();
     private static final BunchedMap<Tuple, Tuple> map;
-    private static Subspace bmSubspace;
-    private static Database db;
+    private Database db;
+    private Subspace bmSubspace;
 
     static {
         map = new BunchedMap<>(BunchedTupleSerializer.instance(), Comparator.naturalOrder(), 10);
     }
 
-    @BeforeAll
-    public static void setup() throws InterruptedException, ExecutionException {
-        db = FDB.instance().open();
-        bmSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(BunchedMap.class.getSimpleName())).get();
-    }
-
-    @AfterAll
-    public static void teardown() {
-        db.close();
-    }
-
     @BeforeEach
-    public void clear() {
-        db.run(tr -> {
-            tr.clear(bmSubspace.range());
-            return null;
-        });
+    public void setUp() {
+        db = dbExtension.getDatabase();
+        bmSubspace = bmSubspaceExtension.getSubspace();
     }
 
     @Nullable

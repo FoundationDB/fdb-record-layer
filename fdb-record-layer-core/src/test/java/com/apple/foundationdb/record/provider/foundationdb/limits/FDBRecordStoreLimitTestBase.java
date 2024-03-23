@@ -39,10 +39,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.test.Tags;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.provider.Arguments;
 
 import java.util.Arrays;
@@ -55,18 +53,12 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * Base class for tests of various scan limits.
  */
 @Tag(Tags.RequiresFDB)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
-    @BeforeAll
-    public void init() {
-        clearAndInitialize();
-    }
 
     @BeforeEach
-    public void setupSimpleRecordStore() throws Exception {
+    void setupSimpleRecordStore() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.deleteAllRecords();
 
             for (int i = 0; i < 100; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -80,17 +72,17 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
         }
     }
 
-    private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
+    private static RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
         return new RecordQueryIndexPlan(indexName, scan, false);
     }
 
-    private KeyExpression primaryKey() {
+    private static KeyExpression primaryKey() {
         return field("rec_no");
     }
 
-    public Stream<Arguments> plans(boolean fail) {
+    static Stream<Arguments> plans(boolean fail) {
         RecordQueryPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         RecordQueryPlan indexPlan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
@@ -131,7 +123,7 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
                         primaryKey())));
     }
 
-    public Stream<Arguments> unorderedPlans(boolean fail) {
+    static Stream<Arguments> unorderedPlans(boolean fail) {
         return Stream.of(
                 Arguments.of("unordered union", fail, RecordQueryUnorderedUnionPlan.from(indexPlanEquals("MySimpleRecord$str_value_indexed", "even"), indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2)))
         );

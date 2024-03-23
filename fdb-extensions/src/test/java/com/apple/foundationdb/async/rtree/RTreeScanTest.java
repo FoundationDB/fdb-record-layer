@@ -21,16 +21,13 @@
 package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.FDBTestBase;
-import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.rtree.RTreeModificationTest.Item;
-import com.apple.foundationdb.directory.DirectoryLayer;
-import com.apple.foundationdb.directory.DirectorySubspace;
-import com.apple.foundationdb.directory.PathUtil;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
@@ -42,6 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -66,38 +64,26 @@ import java.util.stream.Stream;
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
-public class RTreeScanTest extends FDBTestBase {
+public class RTreeScanTest  {
     private static final Logger logger = LoggerFactory.getLogger(RTreeScanTest.class);
+    private static final boolean TRACE = false;
 
     private static final int NUM_SAMPLES = 10_000;
     private static final int NUM_QUERIES = 100;
+    @RegisterExtension
+    static TestDatabaseExtension dbExtension = new TestDatabaseExtension(TRACE);
+
     private static Database db;
-    private static DirectorySubspace rtSubspace;
-    private static DirectorySubspace rtSecondarySubspace;
+    private static Subspace rtSubspace;
+    private static Subspace rtSecondarySubspace;
     @Nullable
     private static Item[] items;
 
-    private static final boolean TRACE = false;
-
     @BeforeAll
-    public static void setUpDb() throws Exception {
-        FDB fdb = FDB.instance();
-        if (TRACE) {
-            NetworkOptions options = fdb.options();
-            options.setTraceEnable("/tmp");
-            options.setTraceLogGroup("RTreeTest");
-        }
-        db = fdb.open();
-        rtSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(RTree.class.getSimpleName())).get();
-        db.run(tr -> {
-            tr.clear(Range.startsWith(rtSubspace.getKey()));
-            return null;
-        });
-        rtSecondarySubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(RTree.class.getSimpleName(), "secondary")).get();
-        db.run(tr -> {
-            tr.clear(Range.startsWith(rtSecondarySubspace.getKey()));
-            return null;
-        });
+    public static void setUpDb() {
+        db = dbExtension.getDatabase();
+        rtSubspace = new TestSubspaceExtension(dbExtension).getSubspace();
+        rtSecondarySubspace = new TestSubspaceExtension(dbExtension).getSubspace();
         final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, ForkJoinPool.commonPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 OnReadListener.NOOP);
@@ -108,6 +94,11 @@ public class RTreeScanTest extends FDBTestBase {
 
     @AfterAll
     public static void closeDb() {
+        db.run(tr -> {
+            tr.clear(Range.startsWith(rtSubspace.getKey()));
+            tr.clear(Range.startsWith(rtSecondarySubspace.getKey()));
+            return null;
+        });
         db.close();
     }
 

@@ -54,10 +54,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
 
-    public FDBRecordStoreRepairTest() {
-        super(new Object[] { "record-test", "unit", "corruptRecordStore" });
-    }
-
     @Test
     public void cannotRepairInSnapshotIsolation() throws Exception {
         try (FDBRecordContext context = openContext()) {

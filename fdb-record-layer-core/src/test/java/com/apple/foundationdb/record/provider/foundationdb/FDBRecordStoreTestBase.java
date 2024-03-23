@@ -41,12 +41,18 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.provider.Arguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,28 +70,36 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Base class for tests for {@link FDBRecordStore}.
  */
-public abstract class FDBRecordStoreTestBase extends FDBTestBase {
+@Tag(Tags.RequiresFDB)
+public abstract class FDBRecordStoreTestBase {
+    @RegisterExtension
+    protected static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    protected final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreTestBase.class);
-
-    protected static final Object[] PATH_OBJECTS = new Object[]{"record-test", "unit", "recordStore"};
 
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;
     protected FDBStoreTimer timer = new FDBStoreTimer();
     protected boolean useCascadesPlanner = false;
     protected QueryPlanner planner;
-    protected final KeySpacePath path;
+    @Nullable
+    protected KeySpacePath path;
 
     public FDBRecordStoreTestBase() {
-        this(PATH_OBJECTS);
+        this(null);
     }
 
-    public FDBRecordStoreTestBase(Object[] path) {
-        this(TestKeySpace.getKeyspacePath(path));
+    public FDBRecordStoreTestBase(@Nullable KeySpacePath path) {
+        this.path = path;
     }
 
-    public FDBRecordStoreTestBase(final KeySpacePath keyspacePath) {
-        this.path = keyspacePath;
+    @BeforeEach
+    void initDatabaseAndPath() {
+        fdb = dbExtension.getDatabase();
+        if (path == null) {
+            path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        }
     }
 
     @Nonnull
@@ -147,10 +161,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
     }
 
     @BeforeEach
-    public void clearAndInitialize() {
-        getFDB();
-        clear();
-
+    public void initialize() {
         // Reset these indexes added and last modified versions, which can be updated during tests.
         // For example, adding the indexes to a RecordMetaDataBuilder can update these fields
         COUNT_INDEX.setAddedVersion(0);
@@ -159,21 +170,10 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         COUNT_UPDATES_INDEX.setLastModifiedVersion(0);
     }
 
-    protected void clear() {
-        fdb.run(timer, null, context -> {
-            path.deleteAllData(context);
-            return null;
-        });
-    }
-
     @AfterEach
     public void checkForOpenContexts() {
         int count = fdb.warnAndCloseOldTrackedOpenContexts(0);
         assertEquals(0, count, "should not have left any contexts open");
-    }
-
-    public void getFDB() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
     }
 
     @Nonnull

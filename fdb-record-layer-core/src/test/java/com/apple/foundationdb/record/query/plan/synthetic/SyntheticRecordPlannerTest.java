@@ -49,14 +49,12 @@ import com.apple.foundationdb.record.metadata.expressions.IntWrappingFunction;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -68,6 +66,9 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
@@ -85,6 +86,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -120,12 +122,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerTest {
-
-    private static final Object[] PATH_OBJECTS = new Object[] {"record-test", "unit", "indexTest"};
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private FDBDatabase fdb;
     private FDBStoreTimer timer;
-    private KeySpacePath path;
     private RecordMetaDataBuilder metaDataBuilder;
     private FDBRecordStore.Builder recordStoreBuilder;
 
@@ -141,25 +144,20 @@ public class SyntheticRecordPlannerTest {
     }
 
     @BeforeEach
-    public void initBuilders() throws Exception {
+    public void initBuilders() {
         metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsJoinIndexProto.getDescriptor());
+
+        fdb = dbExtension.getDatabase();
+        KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         recordStoreBuilder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaDataBuilder);
-
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+                .setMetaDataProvider(metaDataBuilder)
+                .setKeySpacePath(path);
         timer = new FDBStoreTimer();
-
-        fdb.run(timer, null, context -> {
-            path = TestKeySpace.getKeyspacePath(PATH_OBJECTS);
-            FDBRecordStore.deleteStore(context, path);
-            recordStoreBuilder.setContext(context).setKeySpacePath(path);
-            return null;
-        });
     }
 
     @Test
-    public void oneToOne() throws Exception {
+    void oneToOne() {
         metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$other_rec_no", field("other_rec_no"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("OneToOne");
         joined.addConstituent("simple", "MySimpleRecord");
@@ -201,7 +199,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void manyToOne() throws Exception {
+    void manyToOne() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("ManyToOne");
         joined.addConstituent("simple", "MySimpleRecord");
@@ -257,7 +255,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void manyToMany() throws Exception {
+    void manyToMany() {
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("ManyToMany");
         joined.addConstituent("simple", "MySimpleRecord");
         joined.addConstituent("other", "MyOtherRecord");
@@ -314,7 +312,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void selfJoin() throws Exception {
+    void selfJoin() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("SelfJoin");
         joined.addConstituent("simple1", "MySimpleRecord");
@@ -368,7 +366,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void outerJoins() throws Exception {
+    void outerJoins() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder innerJoined = metaDataBuilder.addJoinedRecordType("InnerJoined");
         innerJoined.addConstituent("simple", "MySimpleRecord");
@@ -461,7 +459,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void indexScansOverOuterJoins() throws Exception {
+    void indexScansOverOuterJoins() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder leftJoined = metaDataBuilder.addJoinedRecordType("LeftJoined");
         leftJoined.addConstituent("simple", "MySimpleRecord");
@@ -582,7 +580,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void clique() throws Exception {
+    void clique() {
         final JoinedRecordTypeBuilder clique = metaDataBuilder.addJoinedRecordType("Clique");
         clique.addConstituent("type_a", "TypeA");
         clique.addConstituent("type_b", "TypeB");
@@ -644,7 +642,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void nestedRepeated() throws Exception {
+    void nestedRepeated() {
         final KeyExpression key = field("repeated", KeyExpression.FanType.FanOut).nest("nums", KeyExpression.FanType.FanOut);
         metaDataBuilder.addIndex("NestedA", "repeatedA", key);
         metaDataBuilder.addIndex("NestedB", "repeatedB", key);
@@ -724,7 +722,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void joinIndex() throws Exception {
+    void joinIndex() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("Simple_Other");
         joined.addConstituent("simple", "MySimpleRecord");
@@ -846,7 +844,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void buildJoinIndex() throws Exception {
+    void buildJoinIndex() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("Simple_Other");
         joined.addConstituent("simple", "MySimpleRecord");
@@ -889,7 +887,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void aggregateJoinIndex() throws Exception {
+    void aggregateJoinIndex() {
         final KeyExpression pkey = concat(recordType(), field("uuid"));
         metaDataBuilder.getRecordType("Customer").setPrimaryKey(pkey);
         metaDataBuilder.getRecordType("Order").setPrimaryKey(pkey);
@@ -2004,7 +2002,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void multiFieldKeys() throws Exception {
+    void multiFieldKeys() {
         metaDataBuilder.getRecordType("MySimpleRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
         metaDataBuilder.getRecordType("MyOtherRecord").setPrimaryKey(concatenateFields("num_value", "rec_no"));
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("MultiFieldJoin");
@@ -2059,7 +2057,7 @@ public class SyntheticRecordPlannerTest {
     }
 
     @Test
-    public void rankJoinIndex() throws Exception {
+    void rankJoinIndex() throws Exception {
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("JoinedForRank");
         joined.addConstituent("simple", "MySimpleRecord");
         joined.addConstituent("other", "MyOtherRecord");

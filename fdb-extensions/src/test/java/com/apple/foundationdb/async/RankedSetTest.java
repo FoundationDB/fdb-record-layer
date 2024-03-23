@@ -22,19 +22,19 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
-import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
-import com.apple.foundationdb.directory.DirectoryLayer;
-import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,7 +54,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RankedSet}.
  */
 @Tag(Tags.RequiresFDB)
-public class RankedSetTest extends FDBTestBase {
+public class RankedSetTest {
+    @RegisterExtension
+    static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+    @RegisterExtension
+    TestSubspaceExtension rsSubspaceExtension = new TestSubspaceExtension(dbExtension);
     private Database db;
     private Subspace rsSubspace;
 
@@ -69,12 +73,8 @@ public class RankedSetTest extends FDBTestBase {
             options.setTraceEnable("/tmp");
             options.setTraceLogGroup("RankedSetTest");
         }
-        this.db = fdb.open();
-        this.rsSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getSimpleName())).get();
-        db.run(tr -> {
-            tr.clear(rsSubspace.range());
-            return null;
-        });
+        this.db = dbExtension.getDatabase();
+        this.rsSubspace = rsSubspaceExtension.getSubspace();
     }
 
     @Test

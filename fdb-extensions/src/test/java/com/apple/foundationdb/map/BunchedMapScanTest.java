@@ -22,27 +22,26 @@ package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDBError;
-import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
-import com.apple.foundationdb.FDBTestBase;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncPeekIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
-import com.apple.foundationdb.directory.DirectoryLayer;
-import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,15 +74,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for scanning in {@link BunchedMap}.
  */
 @Tag(Tags.RequiresFDB)
-public class BunchedMapScanTest extends FDBTestBase {
+public class BunchedMapScanTest {
+    @RegisterExtension
+    static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+    @RegisterExtension
+    TestSubspaceExtension bmSubspaceExtension = new TestSubspaceExtension(dbExtension);
     private static Database db;
-    private static Subspace bmSubspace;
-    private static List<Subspace> subSubspaces;
+    private Subspace bmSubspace;
+    private List<Subspace> subSubspaces;
     private static BunchedMap<Tuple, Tuple> map;
     private static List<Tuple> keys;
     private static Tuple value;
 
-    private static SubspaceSplitter<Long> splitter = new SubspaceSplitter<Long>() {
+    private SubspaceSplitter<Long> splitter = new SubspaceSplitter<>() {
         @Nonnull
         @Override
         public Subspace subspaceOf(@Nonnull byte[] keyBytes) {
@@ -106,17 +109,16 @@ public class BunchedMapScanTest extends FDBTestBase {
 
     @BeforeAll
     public static void setup() throws InterruptedException, ExecutionException {
-        db = FDB.instance().open();
-        bmSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(BunchedMapIterator.class.getSimpleName())).get();
-        subSubspaces = LongStream.range(0L, 50L).boxed().map(l -> bmSubspace.subspace(Tuple.from(l))).collect(Collectors.toList());
+        db = dbExtension.getDatabase();
         map = new BunchedMap<>(BunchedTupleSerializer.instance(), Comparator.naturalOrder(), 10);
         keys = LongStream.range(100L, 500L).boxed().map(Tuple::from).collect(Collectors.toList());
         value = Tuple.from(1066L);
     }
 
-    @AfterAll
-    public static void tearDown() {
-        db.close();
+    @BeforeEach
+    void setUp() {
+        bmSubspace = bmSubspaceExtension.getSubspace();
+        subSubspaces = LongStream.range(0L, 50L).boxed().map(l -> bmSubspace.subspace(Tuple.from(l))).collect(Collectors.toList());
     }
 
     private void clearAndPopulate() {

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -30,8 +29,11 @@ import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -39,11 +41,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -57,13 +59,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link OnlineIndexer}.
  */
 @Tag(Tags.RequiresFDB)
-public abstract class OnlineIndexerTest extends FDBTestBase {
+public abstract class OnlineIndexerTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
+    FDBDatabase fdb;
+    KeySpacePath path;
     RecordMetaData metaData;
     RecordQueryPlanner planner;
     FDBRecordStore recordStore;
-    FDBDatabase fdb;
-    Subspace subspace;
     private IndexMaintenanceFilter indexMaintenanceFilter;
     int formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
 
@@ -73,19 +79,21 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
 
     @BeforeAll
     public static void setUpForClass() {
-        oldInitialDelayMillis = FDBDatabaseFactory.instance().getInitialDelayMillis();
-        FDBDatabaseFactory.instance().setInitialDelayMillis(2L);
-        oldMaxDelayMillis = FDBDatabaseFactory.instance().getMaxDelayMillis();
-        FDBDatabaseFactory.instance().setMaxDelayMillis(4L);
-        oldMaxAttempts = FDBDatabaseFactory.instance().getMaxAttempts();
-        FDBDatabaseFactory.instance().setMaxAttempts(100);
+        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        oldInitialDelayMillis = factory.getInitialDelayMillis();
+        factory.setInitialDelayMillis(2L);
+        oldMaxDelayMillis = factory.getMaxDelayMillis();
+        factory.setMaxDelayMillis(4L);
+        oldMaxAttempts = factory.getMaxAttempts();
+        factory.setMaxAttempts(100);
     }
 
     @AfterAll
     public static void tearDownForClass() {
-        FDBDatabaseFactory.instance().setMaxDelayMillis(oldMaxDelayMillis);
-        FDBDatabaseFactory.instance().setInitialDelayMillis(oldInitialDelayMillis);
-        FDBDatabaseFactory.instance().setMaxAttempts(oldMaxAttempts);
+        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        factory.setMaxDelayMillis(oldMaxDelayMillis);
+        factory.setInitialDelayMillis(oldInitialDelayMillis);
+        factory.setMaxAttempts(oldMaxAttempts);
     }
 
     public void setIndexMaintenanceFilter(@Nullable IndexMaintenanceFilter indexMaintenanceFilter) {
@@ -103,17 +111,9 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
 
     @BeforeEach
     public void setUp() {
-        if (fdb == null) {
-            fdb = FDBDatabaseFactory.instance().getDatabase();
-            fdb.setAsyncToSyncTimeout(5, TimeUnit.MINUTES);
-        }
-        if (subspace == null) {
-            subspace = DirectoryLayer.getDefault().createOrOpen(fdb.database(), Arrays.asList("record-test", "unit", "oib")).join();
-        }
-        fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
-            return null;
-        });
+        fdb = dbExtension.getDatabase();
+        fdb.setAsyncToSyncTimeout(5, TimeUnit.MINUTES);
+        path = pathManager.createPath(TestKeySpace.RECORD_STORE);
     }
 
     void clearIndexData(@Nonnull Index index) {
@@ -151,7 +151,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
                 .setMetaDataProvider(metaData)
                 .setContext(context)
                 .setFormatVersion(formatVersion)
-                .setSubspace(subspace)
+                .setKeySpacePath(path)
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
@@ -171,7 +171,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         return OnlineIndexer.newBuilder()
                 .setDatabase(fdb)
                 .setMetaData(metaData)
-                .setSubspace(subspace)
+                .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                 .setFormatVersion(formatVersion);
     }
@@ -196,7 +196,7 @@ public abstract class OnlineIndexerTest extends FDBTestBase {
         return OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb)
                 .setMetaData(metaData)
-                .setSubspace(subspace)
+                .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
                 .setFormatVersion(formatVersion);
     }

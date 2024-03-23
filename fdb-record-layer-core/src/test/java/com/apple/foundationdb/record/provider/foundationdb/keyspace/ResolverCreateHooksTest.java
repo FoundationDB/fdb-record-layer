@@ -21,17 +21,18 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.List;
 import java.util.Random;
@@ -42,34 +43,28 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
-class ResolverCreateHooksTest extends FDBTestBase {
+class ResolverCreateHooksTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
     private FDBDatabase database;
-    private KeySpace keySpace;
+    private KeySpacePath rootPath;
     private final Random random = new Random();
 
     @BeforeEach
     public void setup() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        database = factory.getDatabase();
+        database = dbExtension.getDatabase();
         database.clearCaches();
-
-        keySpace = new KeySpace(
-                new KeySpaceDirectory("test-root", KeySpaceDirectory.KeyType.STRING, "test-" + random.nextLong())
-                        .addSubdirectory(new KeySpaceDirectory("resolvers", KeySpaceDirectory.KeyType.STRING, "resolvers")
-                                .addSubdirectory(new KeySpaceDirectory("resolverNode", KeySpaceDirectory.KeyType.STRING)))
-                        .addSubdirectory(new KeySpaceDirectory("should-use-A", KeySpaceDirectory.KeyType.STRING, "should-use-A")));
-    }
-
-    @AfterEach
-    public void teardown() {
-        database.run(context -> root().deleteAllDataAsync(context));
+        rootPath = pathManager.createPath(TestKeySpace.RESOLVER_HOOKS);
     }
 
     @Test
     void testPreWriteChecks() {
         // reads the key, and chooses the resolver based on the value
         final PreWriteCheck check = (context, providedResolver) -> {
-            CompletableFuture<LocatableResolver> expectedResolverFuture = root().add("should-use-A").toTupleAsync(context)
+            CompletableFuture<LocatableResolver> expectedResolverFuture = rootPath.add("should-use-A").toTupleAsync(context)
                     .thenCompose(keyTuple -> context.ensureActive().get(keyTuple.pack()))
                     .thenApply(value -> {
                         boolean useA = Tuple.fromBytes(value).getBoolean(0);
@@ -81,9 +76,9 @@ class ResolverCreateHooksTest extends FDBTestBase {
         final ResolverCreateHooks hooks = new ResolverCreateHooks(check, ResolverCreateHooks.DEFAULT_HOOK);
 
         // use resolver A
-        database.run(context ->
-                root().add("should-use-A").toTupleAsync(context)
-                        .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(true).pack())));
+        database.runAsync(context ->
+                rootPath.add("should-use-A").toTupleAsync(context)
+                        .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(true).pack()))).join();
 
         try (FDBRecordContext context = database.openContext()) {
             LocatableResolver resolverA = new ScopedInterningLayer(database, resolverPath(context, "A"));
@@ -95,7 +90,7 @@ class ResolverCreateHooksTest extends FDBTestBase {
 
         // use resolver B
         database.run(context ->
-                root().add("should-use-A").toTupleAsync(context)
+                rootPath.add("should-use-A").toTupleAsync(context)
                         .thenAccept(tuple -> context.ensureActive().set(tuple.pack(), Tuple.from(false).pack())));
 
         // after migration
@@ -108,12 +103,8 @@ class ResolverCreateHooksTest extends FDBTestBase {
         }
     }
 
-    private KeySpacePath root() {
-        return keySpace.path("test-root");
-    }
-
     private ResolvedKeySpacePath resolverPath(FDBRecordContext context, String value) {
-        return root().add("resolvers").add("resolverNode", value).toResolvedPath(context);
+        return rootPath.add("resolvers").add("resolverNode", value).toResolvedPath(context);
     }
 
     private static void assertChecks(FDBRecordContext context, LocatableResolver resolver, ResolverCreateHooks hooks, boolean shouldPass) {

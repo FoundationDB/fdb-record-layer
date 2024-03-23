@@ -51,7 +51,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -63,16 +62,18 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -86,6 +87,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -139,8 +141,12 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
  * Tests for {@code VERSION} type indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class VersionIndexTest extends FDBTestBase {
+public class VersionIndexTest {
     private static final byte VERSIONSTAMP_CODE = Tuple.from(Versionstamp.complete(new byte[10])).pack()[0];
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private RecordMetaData metaData;
     private RecordQueryPlanner planner;
@@ -148,23 +154,14 @@ public class VersionIndexTest extends FDBTestBase {
     private int formatVersion;
     private boolean splitLongRecords;
     private FDBDatabase fdb;
-    private Subspace subspace;
-    private Subspace subspace2;
+    private KeySpacePath path;
+    private KeySpacePath path2;
 
     @BeforeEach
     public void setUp() {
-        if (fdb == null) {
-            fdb = FDBDatabaseFactory.instance().getDatabase();
-        }
-        if (subspace == null) {
-            subspace = fdb.run(context -> TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "version").toSubspace(context));
-            subspace2 = fdb.run(context -> TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "version2").toSubspace(context));
-        }
-        fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
-            FDBRecordStore.deleteStore(context, subspace2);
-            return null;
-        });
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        path2 = pathManager.createPath(TestKeySpace.RECORD_STORE);
         formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
         splitLongRecords = false;
     }
@@ -441,7 +438,7 @@ public class VersionIndexTest extends FDBTestBase {
         recordStore = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaDataBuilder)
                 .setContext(context)
-                .setSubspace(subspace)
+                .setKeySpacePath(path)
                 .setFormatVersion(formatVersion)
                 .createOrOpen();
         metaData = recordStore.getRecordMetaData();
@@ -1186,7 +1183,7 @@ public class VersionIndexTest extends FDBTestBase {
         final FDBRecordVersion version2;
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .create();
 
             FDBStoredRecord<?> storedRecord1 = recordStore.saveRecord(record1);
@@ -1208,7 +1205,7 @@ public class VersionIndexTest extends FDBTestBase {
         // Validate that the right versions are associated with the right records
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .open();
 
             FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
@@ -1235,7 +1232,7 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .create();
 
             // Store the records with a fake complete pseudo version to avoid potential problems
@@ -1251,7 +1248,7 @@ public class VersionIndexTest extends FDBTestBase {
         final FDBRecordVersion version2;
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .open();
 
             // Update each record (just by saving with a new version)
@@ -1272,7 +1269,7 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .open();
 
             FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
@@ -1297,7 +1294,7 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .create();
 
             // Store the records with a fake complete pseudo version to avoid potential problems
@@ -1312,7 +1309,7 @@ public class VersionIndexTest extends FDBTestBase {
         final FDBRecordVersion version1;
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .open();
 
             // Change the version in one record store
@@ -1330,7 +1327,7 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .open();
 
             FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));
@@ -1369,7 +1366,7 @@ public class VersionIndexTest extends FDBTestBase {
         final FDBRecordVersion version2;
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .create();
 
             FDBStoredRecord<?> storedRecord2 = recordStore2.saveRecord(record2);
@@ -1386,7 +1383,7 @@ public class VersionIndexTest extends FDBTestBase {
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             final FDBRecordStore recordStore2 = recordStore.asBuilder()
-                    .setSubspace(subspace2)
+                    .setKeySpacePath(path2)
                     .open();
 
             FDBStoredRecord<?> storedRecord1 = recordStore.loadRecord(Tuple.from(record1.getRecNo()));

@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestHelpers;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.test.Tags;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +40,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag(Tags.RequiresFDB)
-class BlockingInAsyncDetectionTest extends FDBTestBase {
+class BlockingInAsyncDetectionTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+
+    @BeforeEach
+    void ensureInit() {
+        // Ensure the database has been initialized
+        dbExtension.getDatabase();
+    }
 
     @Test
     void testAsyncDetection() {

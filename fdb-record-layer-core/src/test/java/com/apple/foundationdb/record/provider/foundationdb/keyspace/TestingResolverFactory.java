@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.google.common.cache.CacheStats;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -54,20 +55,23 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
     private final Set<LocatableResolver> resolvers = new HashSet<>();
     private final Set<ResolverValidator.ValidatedEntry> knownBadEntries = new HashSet<>();
     private final ResolverType defaultResolverType;
+    private final FDBDatabaseExtension dbExtension;
     private FDBDatabase database;
 
-    public TestingResolverFactory(@Nonnull final ResolverType defaultResolverType) {
+    public TestingResolverFactory(@Nonnull final FDBDatabaseExtension dbExtension, @Nonnull final ResolverType defaultResolverType) {
+        this.dbExtension = dbExtension;
         this.defaultResolverType = defaultResolverType;
     }
 
     @Override
-    public void beforeEach(@Nonnull final ExtensionContext context) throws Exception {
+    public void beforeEach(@Nonnull final ExtensionContext context) {
         resolvers.clear();
         knownBadEntries.clear();
 
         FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
         factory.setDirectoryCacheSize(100);
-        database = factory.getDatabase();
+        factory.clear();
+        database = dbExtension.getDatabase();
         // clear all state in the db
         database.close();
         // resets the lock cache
@@ -77,7 +81,7 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
     }
 
     @Override
-    public void afterEach(@Nonnull final ExtensionContext context) throws Exception {
+    public void afterEach(@Nonnull final ExtensionContext context) {
         for (LocatableResolver resolver : resolvers) {
             validate(resolver);
         }

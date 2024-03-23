@@ -28,6 +28,10 @@ import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.FakeClusterFileUtil;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -41,6 +45,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
@@ -76,7 +81,12 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests of the {@link FDBRecordContext} class.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordContextTest extends FDBTestBase {
+public class FDBRecordContextTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
     // A list of transaction IDs where the left item is the original ID and the right item is the expected
     // sanitized ID. It is a list of pairs rather than a map to support null as the expected value.
     @Nonnull
@@ -111,7 +121,7 @@ public class FDBRecordContextTest extends FDBTestBase {
     @BeforeEach
     public void getFDB() {
         FDBDatabaseFactory.instance().clear();
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
     }
 
     /**
@@ -514,11 +524,9 @@ public class FDBRecordContextTest extends FDBTestBase {
     }
 
     @Test
-    public void reportConflictingKeys() {
-        final Subspace subspace = fdb.run(context -> {
-            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "conflicts");
-            return path.toSubspace(context);
-        });
+    void reportConflictingKeys() {
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        final Subspace subspace = fdb.run(path::toSubspace);
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setReportConflictingKeys(true)
                 .build();
@@ -533,7 +541,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
             final byte[] conflictBegin = subspace.pack(222);
             // Single key range.
-            final List<Range> expected = List.of(new Range(conflictBegin, ByteArrayUtil.join(conflictBegin, new byte[] { 0x00 })));
+            final List<Range> expected = List.of(new Range(conflictBegin, ByteArrayUtil.join(conflictBegin, new byte[] {0x00})));
             assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context1::commit);
             assertEquals(expected, context1.getNotCommittedConflictingKeys());
         }
@@ -607,7 +615,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @Test
     public void timeoutTalkingToFakeCluster() throws IOException {
-        final String fakeClusterFile = FDBTestBase.createFakeClusterFile("for_testing_timeouts");
+        final String fakeClusterFile = FakeClusterFileUtil.createFakeClusterFile("for_testing_timeouts");
         final FDBDatabase fakeFdb = FDBDatabaseFactory.instance().getDatabase(fakeClusterFile);
 
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()

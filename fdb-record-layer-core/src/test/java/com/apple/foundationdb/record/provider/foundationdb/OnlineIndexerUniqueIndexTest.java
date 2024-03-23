@@ -106,7 +106,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 3: Some in write-only mode.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
+            FDBRecordStore.deleteStore(context, path);
             return null;
         });
         openSimpleMetaData();
@@ -130,7 +130,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 4: Some in write-only mode with an initial range build that shouldn't affect anything.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
+            FDBRecordStore.deleteStore(context, path);
             return null;
         });
         openSimpleMetaData();
@@ -164,7 +164,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 5: Should be caught by write-only writes after build.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
+            FDBRecordStore.deleteStore(context, path);
             return null;
         });
         openSimpleMetaData();
@@ -194,7 +194,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 6: Should be caught by write-only writes after partial build.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
+            FDBRecordStore.deleteStore(context, path);
             return null;
         });
         openSimpleMetaData();
@@ -227,7 +227,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // Case 7: The second of these two transactions should fail on not_committed, and then
         // there should be a uniqueness violation.
         fdb.run(context -> {
-            FDBRecordStore.deleteStore(context, subspace);
+            FDBRecordStore.deleteStore(context, path);
             return null;
         });
         openSimpleMetaData();

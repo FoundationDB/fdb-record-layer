@@ -38,12 +38,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndNotEmptyException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreStaleMetaDataVersionException;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FakeClusterFileUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -83,8 +82,6 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     private static final ReadVersionRecordStoreStateCacheFactory readVersionCacheFactory = ReadVersionRecordStoreStateCacheFactory.newInstance();
     @Nonnull
     private static final MetaDataVersionStampStoreStateCacheFactory metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
-    @Nonnull
-    private KeySpacePath multiStorePath = TestKeySpace.getKeyspacePath(new Object[]{"record-test", "unit", "multiRecordStore"});
 
     @Nonnull
     public static Stream<FDBRecordStoreStateCacheFactory> factorySource() {
@@ -855,8 +852,8 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         FDBRecordStoreStateCache origStoreStateCache = fdb.getStoreStateCache();
         try {
             fdb.setStoreStateCache(testContext.getCache(fdb));
-            final KeySpacePath path1 = multiStorePath.add("storePath", "path1");
-            final KeySpacePath path2 = multiStorePath.add("storePath", "path2");
+            final KeySpacePath path1 = pathManager.createPath();
+            final KeySpacePath path2 = pathManager.createPath();
 
             final FDBRecordStore.Builder storeBuilder1;
             final FDBRecordStore.Builder storeBuilder2;
@@ -1252,7 +1249,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     public void useWithDifferentDatabase(FDBRecordStoreStateCacheFactory storeStateCacheFactory) throws Exception {
         FDBRecordStoreStateCacheFactory currentCacheFactory = FDBDatabaseFactory.instance().getStoreStateCacheFactory();
         try {
-            String clusterFile = FDBTestBase.createFakeClusterFile("record_store_cache_");
+            String clusterFile = FakeClusterFileUtil.createFakeClusterFile("record_store_cache_");
             FDBDatabaseFactory.instance().setStoreStateCacheFactory(readVersionCacheFactory);
             FDBDatabase secondDatabase = FDBDatabaseFactory.instance().getDatabase(clusterFile);
 

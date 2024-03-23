@@ -27,6 +27,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +40,7 @@ import org.apache.logging.log4j.ThreadContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.List;
 import java.util.Map;
@@ -64,13 +69,19 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link FDBDatabaseRunner} and {@link FDBDatabaseRunnerImpl}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBDatabaseRunnerTest extends FDBTestBase {
+public class FDBDatabaseRunnerTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
-    private FDBDatabase database;
+    FDBDatabase database;
+    KeySpacePath path;
 
     @BeforeEach
-    public void getDatabase() {
-        database = FDBDatabaseFactory.instance().getDatabase();
+    void setUp() {
+        database = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RECORD_STORE);
     }
 
     private static FDBException nonRetriableError() {
@@ -167,11 +178,11 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
             RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-            testStoreAndRetrieveSimpleRecord(database, metaData);
+            testStoreAndRetrieveSimpleRecord(database, metaData, path);
 
             runner.run(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
+                        .setKeySpacePath(path)
                         .build();
                 store.deleteRecord(Tuple.from(1066L));
                 return null;
@@ -179,7 +190,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
             FDBStoredRecord<Message> retrieved2 = runner.run(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
+                        .setKeySpacePath(path)
                         .build();
                 return store.loadRecord(Tuple.from(1066L));
             });
@@ -305,19 +316,19 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
     public void runAsyncDatabaseOperations() {
         // Tests to make sure the database operations are run and committed.
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-        testStoreAndRetrieveSimpleRecord(database, metaData);
+        testStoreAndRetrieveSimpleRecord(database, metaData, path);
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
+                        .setKeySpacePath(path)
                         .build();
                 return store.deleteRecordAsync(Tuple.from(1066L));
             }).join();
 
             FDBStoredRecord<Message> retrieved2 = runner.runAsync(context -> {
                 FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                        .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
+                        .setKeySpacePath(path)
                         .build();
                 return store.loadRecordAsync(Tuple.from(1066L));
             }).join();

@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.google.protobuf.Message;
@@ -147,7 +146,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         LOGGER.info(KeyValueLogMessage.of("creating online index builder",
                 TestLogMessageKeys.INDEX, index,
                 TestLogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
-                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()),
+                LogMessageKeys.KEY_SPACE_PATH, path,
                 LogMessageKeys.LIMIT, 20,
                 TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = newIndexerBuilder()
