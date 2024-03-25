@@ -300,7 +300,15 @@ public interface AgilityContext {
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             ensureOpen();
             final long stamp = lock.readLock();
-            createIfNeeded();
+            boolean successfulCreate = false;
+            try {
+                createIfNeeded();
+                successfulCreate = true;
+            } finally {
+                if (!successfulCreate) {
+                    lock.unlock(stamp);
+                }
+            }
             return function.apply(currentContext).whenComplete((result, exception) -> {
                 lock.unlock(stamp);
                 if (exception == null) {
@@ -313,9 +321,12 @@ public interface AgilityContext {
         public void accept(final Consumer<FDBRecordContext> function) {
             ensureOpen();
             final long stamp = lock.readLock();
-            createIfNeeded();
-            function.accept(currentContext);
-            lock.unlock(stamp);
+            try {
+                createIfNeeded();
+                function.accept(currentContext);
+            } finally {
+                lock.unlock(stamp);
+            }
             commitIfNeeded();
         }
 
