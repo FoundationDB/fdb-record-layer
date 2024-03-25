@@ -23,25 +23,30 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomUtils;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for AgilityContext.
@@ -157,7 +162,44 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         assertLoopThreadsValues();
     }
 
-    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit, boolean useProp) {
+    private enum Method {
+        Set,
+        Apply,
+        Accept
+    }
+
+    private enum LimitType {
+        Size,
+        Time
+    }
+
+    static Stream<Arguments> agilityContextLimits() {
+        return Stream.of(true, false).flatMap(useProp ->
+                Arrays.stream(LimitType.values()).flatMap(limitType ->
+                        Arrays.stream(Method.values()).filter(method ->
+                                        // AgilityContext is only aware of bytes written when set is called
+                                        limitType == LimitType.Time || method == Method.Set)
+                                .map(method ->
+                                        Arguments.of(useProp, method, limitType))));
+    }
+
+    @ParameterizedTest(name = "useProp:{0},{1} by {2}")
+    @MethodSource("agilityContextLimits")
+    void testAgilityContextOneLongWrite(boolean useProp, Method method, LimitType limitType) {
+        int sizeLimit;
+        int timeLimit;
+        switch (limitType) {
+            case Size:
+                sizeLimit = 1;
+                timeLimit = 100000;
+                break;
+            case Time:
+                sizeLimit = 100000;
+                timeLimit = 1;
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + limitType);
+        }
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeLimit)
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, timeLimit);
@@ -174,19 +216,51 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     useProp ? getAgilityContextAgileProp(context) : AgilityContext.agile(context, timeLimit, sizeLimit);
             for (int i = 0; i < loopCount; i++) {
                 byte[] key = Tuple.from(2023, i).pack();
-                byte[] val = Tuple.from(i, RobertFrost).pack();
-                agilityContext.set(key, val);
+                byte[] val = Tuple.from(i, RobertFrost, 0).pack();
+                switch (method) {
+                    case Set:
+                        agilityContext.set(key, val);
+                        break;
+                    case Apply:
+                        agilityContext.apply(innerContext -> innerContext.ensureActive()
+                                .get(key).thenApply(oldVal -> {
+                                    if (oldVal == null) {
+                                        innerContext.ensureActive().set(key, val);
+                                    } else {
+                                        final Tuple oldTuple = Tuple.fromBytes(oldVal);
+                                        innerContext.ensureActive().set(key,
+                                                TupleHelpers.subTuple(oldTuple, 0, 2)
+                                                        .add(oldTuple.getLong(2) + 1)
+                                                        .pack());
+                                    }
+                                    return oldVal;
+                                }));
+                        break;
+                    case Accept:
+                        agilityContext.accept(innerContext -> {
+                            innerContext.ensureActive().set(key, val);
+                        });
+                        break;
+                    default:
+                        throw new AssertionError("Unexpected enum value " + method);
+                }
                 if (0 == (i % 8)) {
                     napTime(2); // enforce minimal processing time
                 }
             }
             context.commit();
-            final StoreTimer.Counter byTimeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
-            final int commitsByTime = byTimeCounter == null ? 0 : byTimeCounter.getCount();
-            final StoreTimer.Counter bySizeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
-            final int commitsBySize = bySizeCounter == null ? 0 : bySizeCounter.getCount();
-            // This test should utilize at least one auto-commit in the agility context.
-            assertTrue((commitsByTime + commitsBySize) > 0);
+            final int commitsByTime = timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
+            final int commitsBySize  = timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
+            switch (limitType) {
+                case Size:
+                    MatcherAssert.assertThat(commitsBySize, Matchers.greaterThan(0));
+                    break;
+                case Time:
+                    MatcherAssert.assertThat(commitsByTime, Matchers.greaterThan(0));
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + limitType);
+            }
         }
         try (FDBRecordContext context = openContext(insertProps)) {
             final AgilityContext agilityContext = getAgilityContext(context, false);
@@ -198,19 +272,6 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 assertEquals(RobertFrost, retTuple.getString(1));
             }
         }
-    }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextSizeLimit(boolean useProp) {
-        testAgilityContextOneLongWrite(73, 100, 100000, useProp);
-    }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextTimeLimit(boolean useProp) {
-        // The 1ms time limit often triggers an auto-commit, that that cannot be guaranteed here.
-        testAgilityContextOneLongWrite(77, 100000, 1, useProp);
     }
 
     void napTime(int napTimeMilliseconds) {

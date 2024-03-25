@@ -20,7 +20,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Commit after successful calls to AgilityContext.apply [(Issue #2618)](https://github.com/FoundationDB/fdb-record-layer/issues/2618)
 * **Bug fix** Rename LuceneLogMessageKeys.PARTITION -> INDEX_PARTITION [(Issue #2614)](https://github.com/FoundationDB/fdb-record-layer/issues/2614)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

@@ -303,7 +303,7 @@ public interface AgilityContext {
             createIfNeeded();
             return function.apply(currentContext).whenComplete((result, exception) -> {
                 lock.unlock(stamp);
-                if (exception != null) {
+                if (exception == null) {
                     commitIfNeeded();
                 }
             });
