@@ -208,7 +208,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private Reference currentRoot;
     @Nonnull
-    private ExpressionRefTraversal traversal;
+    private Traversal traversal;
     @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
     // total tasks executed for the current plan
@@ -227,7 +227,7 @@ public class CascadesPlanner implements QueryPlanner {
         this.ruleSet = ruleSet;
         // Placeholders until we get a query.
         this.currentRoot = Reference.empty();
-        this.traversal = ExpressionRefTraversal.withRoot(currentRoot);
+        this.traversal = Traversal.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
     }
 
@@ -336,12 +336,12 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    public QueryPlanResult planGraph(@Nonnull Supplier<Reference> expressionRefSupplier,
+    public QueryPlanResult planGraph(@Nonnull Supplier<Reference> referenceSupplier,
                                      @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                      @Nonnull final EvaluationContext evaluationContext) {
         try {
-            planPartial(expressionRefSupplier,
+            planPartial(referenceSupplier,
                     rootReference ->
                             MetaDataPlanContext.forRootReference(configuration,
                                     metaData,
@@ -374,15 +374,15 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private void planPartial(@Nonnull Supplier<Reference> expressionRefSupplier,
+    private void planPartial(@Nonnull Supplier<Reference> referenceSupplier,
                              @Nonnull Function<Reference, PlanContext> contextCreatorFunction,
                              @Nonnull final EvaluationContext evaluationContext) {
-        currentRoot = expressionRefSupplier.get();
+        currentRoot = referenceSupplier.get();
         final var context = contextCreatorFunction.apply(currentRoot);
 
         final RelationalExpression expression = currentRoot.get();
         Debugger.withDebugger(debugger -> debugger.onQuery(expression.toString(), context));
-        traversal = ExpressionRefTraversal.withRoot(currentRoot);
+        traversal = Traversal.withRoot(currentRoot);
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot, evaluationContext));
         taskCount = 0;
@@ -424,7 +424,7 @@ public class CascadesPlanner implements QueryPlanner {
                             "memo", new ReferencePrinter(currentRoot)));
                 }
                 taskStack.clear();
-                currentRoot = expressionRefSupplier.get();
+                currentRoot = referenceSupplier.get();
                 taskStack.push(new OptimizeGroup(context, currentRoot, evaluationContext));
             }
         }
@@ -827,7 +827,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         protected PlannerBindings getInitialBindings() {
-            return PlannerBindings.from(ReferenceMatchers.getTopExpressionReferenceMatcher(), currentRoot);
+            return PlannerBindings.from(ReferenceMatchers.getTopReferenceMatcher(), currentRoot);
         }
 
         protected boolean shouldExecute() {

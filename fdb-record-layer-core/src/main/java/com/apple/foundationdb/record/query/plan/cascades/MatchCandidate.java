@@ -56,7 +56,7 @@ import java.util.Set;
 /**
  * Interface to represent a match candidate. A match candidate on code level is just a name and a data flow graph
  * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
- * rather an instance of {@link ExpressionRefTraversal} to allow for navigation of references within the candidate.
+ * rather an instance of {@link Traversal} to allow for navigation of references within the candidate.
  *
  * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
  * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
@@ -83,7 +83,7 @@ public interface MatchCandidate {
      * @return the traversal associated for this match candidate
      */
     @Nonnull
-    ExpressionRefTraversal getTraversal();
+    Traversal getTraversal();
 
     /**
      * Returns a list of parameter names for sargable parameters that can to be bound during matching.

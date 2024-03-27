@@ -1,5 +1,5 @@
 /*
- * ExpressionRefTraversal.java
+ * Traversal.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -49,7 +49,7 @@ import java.util.function.BiConsumer;
  */
 @SuppressWarnings("UnstableApiUsage")
 @API(API.Status.EXPERIMENTAL)
-public class ExpressionRefTraversal {
+public class Traversal {
     @Nonnull
     private final Reference rootReference;
     @Nonnull
@@ -59,10 +59,10 @@ public class ExpressionRefTraversal {
     @Nonnull
     private final Set<Reference> leafReferences;
 
-    private ExpressionRefTraversal(@Nonnull final Reference rootReference,
-                                   @Nonnull final MutableNetwork<Reference, ReferencePath> network,
-                                   @Nonnull final SetMultimap<RelationalExpression, Reference> containedInMultiMap,
-                                   @Nonnull final Set<Reference> leafReferences) {
+    private Traversal(@Nonnull final Reference rootReference,
+                      @Nonnull final MutableNetwork<Reference, ReferencePath> network,
+                      @Nonnull final SetMultimap<RelationalExpression, Reference> containedInMultiMap,
+                      @Nonnull final Set<Reference> leafReferences) {
         this.rootReference = rootReference;
         this.network = network;
         this.containedInMultiMap = containedInMultiMap;
@@ -171,7 +171,7 @@ public class ExpressionRefTraversal {
      * @param rootRef the reference acting as the root for this traversal object
      * @return a new traversal object
      */
-    public static ExpressionRefTraversal withRoot(final Reference rootRef) {
+    public static Traversal withRoot(final Reference rootRef) {
         final MutableNetwork<Reference, ReferencePath> network =
                 NetworkBuilder.directed()
                         .allowsParallelEdges(true)
@@ -183,7 +183,7 @@ public class ExpressionRefTraversal {
         final Set<Reference> leafRefs = Sets.newHashSet();
         collectNetwork(network, containedInMap, leafRefs, rootRef);
 
-        return new ExpressionRefTraversal(rootRef, network, containedInMap, leafRefs);
+        return new Traversal(rootRef, network, containedInMap, leafRefs);
     }
 
     private static void collectNetwork(@Nonnull final MutableNetwork<Reference, ReferencePath> network,

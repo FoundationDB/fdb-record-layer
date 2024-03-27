@@ -175,7 +175,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         return new WindowedIndexScanMatchCandidate(
                 index,
                 recordTypes,
-                ExpressionRefTraversal.withRoot(Reference.of(matchableSortExpression)),
+                Traversal.withRoot(Reference.of(matchableSortExpression)),
                 baseQuantifier.getFlowedObjectType(),
                 baseAlias,
                 groupingAliases,

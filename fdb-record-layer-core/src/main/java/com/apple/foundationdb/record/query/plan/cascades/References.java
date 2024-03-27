@@ -52,18 +52,18 @@ public class References {
 
         final var partialOrder = ReferencesAndDependenciesProperty.evaluate(refs);
 
-        final var expressionRefs =
+        final var references =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RecordCoreException("graph has cycles"));
 
         final var cachedTranslationsMap =
                 Maps.<Reference, Reference>newIdentityHashMap();
 
-        for (final var expressionRef : expressionRefs) {
-            if (expressionRef.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
+        for (final var reference : references) {
+            if (reference.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
                 var allMembersSame = true;
                 final var translatedMembersBuilder = ImmutableList.<RelationalExpression>builder();
-                for (final var member : expressionRef.getMembers()) {
+                for (final var member : reference.getMembers()) {
                     var allChildTranslationsSame = true;
                     final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
                     for (final var quantifier : member.getQuantifiers()) {
@@ -107,12 +107,12 @@ public class References {
                     translatedMembersBuilder.add(translatedMember);
                 }
                 if (allMembersSame) {
-                    cachedTranslationsMap.put(expressionRef, expressionRef);
+                    cachedTranslationsMap.put(reference, reference);
                 } else {
-                    cachedTranslationsMap.put(expressionRef, Reference.from(translatedMembersBuilder.build()));
+                    cachedTranslationsMap.put(reference, Reference.from(translatedMembersBuilder.build()));
                 }
             } else {
-                cachedTranslationsMap.put(expressionRef, expressionRef);
+                cachedTranslationsMap.put(reference, reference);
             }
         }
 

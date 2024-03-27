@@ -46,8 +46,8 @@ public class MatchPartition {
         return partialMatches;
     }
 
-    public static MatchPartition of(@Nonnull final Reference expressionReference,
+    public static MatchPartition of(@Nonnull final Reference reference,
                                     @Nonnull final RelationalExpression relationalExpression) {
-        return new MatchPartition(expressionReference.getPartialMatchesForExpression(relationalExpression));
+        return new MatchPartition(reference.getPartialMatchesForExpression(relationalExpression));
     }
 }

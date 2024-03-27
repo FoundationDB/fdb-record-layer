@@ -597,11 +597,11 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Node class for GroupExpressionRefs -- head.
+     * Node class for {@link Reference}s -- head.
      */
-    public static class ExpressionRefHeadNode extends Node {
+    public static class ReferenceHeadNode extends Node {
 
-        public ExpressionRefHeadNode(final Reference ref) {
+        public ReferenceHeadNode(final Reference ref) {
             super(ref, Reference.class.getSimpleName());
         }
 
@@ -651,14 +651,14 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Node class for GroupExpressionRefs - member.
+     * Node class for {@link Reference} - member.
      */
-    public static class ExpressionRefMemberNode extends Node {
-        public ExpressionRefMemberNode(final String name) {
+    public static class ReferenceMemberNode extends Node {
+        public ReferenceMemberNode(final String name) {
             super(new Object(), name);
         }
 
-        public ExpressionRefMemberNode() {
+        public ReferenceMemberNode() {
             super(new Object(), "m");
         }
 
@@ -773,7 +773,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Edge class for GroupExpressionRefs.
+     * Edge class for {@link Reference}.
      */
     public static class ReferenceEdge extends Edge {
         public ReferenceEdge() {
@@ -894,7 +894,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Edge class for GroupExpressionRefs.
+     * Edge class for {@link Reference}.
      */
     public static class ReferenceInternalEdge extends Edge {
         @Nonnull

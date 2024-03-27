@@ -45,7 +45,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Class to manage properties for plans. A properties map is part of an expression reference ({@link GroupExpressionRef}).
+ * Class to manage properties for plans. A properties map is part of an expression reference ({@link Reference}).
  * <br>
  * Properties for plans managed by this map are computed lazily when a caller attempts to retrieve the value of a property.
  * The reason for that is twofold. First, we want to avoid unnecessary computation of a property if it is not retrieved

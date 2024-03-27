@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -74,7 +74,7 @@ public class TestRuleExecution {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getMembers()) {
             final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
-                    .map(bindings -> new CascadesRuleCall(context, rule, group, ExpressionRefTraversal.withRoot(group), bindings, evaluationContext))
+                    .map(bindings -> new CascadesRuleCall(context, rule, group, Traversal.withRoot(group), bindings, evaluationContext))
                     .iterator();
             while (ruleCalls.hasNext()) {
                 ruleCalls.next().run();

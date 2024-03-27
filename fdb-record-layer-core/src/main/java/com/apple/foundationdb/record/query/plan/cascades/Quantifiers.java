@@ -550,9 +550,9 @@ public class Quantifiers {
      */
     public static class AliasResolver {
         @Nonnull
-        private final ExpressionRefTraversal traversal;
+        private final Traversal traversal;
 
-        public AliasResolver(@Nonnull final ExpressionRefTraversal traversal) {
+        public AliasResolver(@Nonnull final Traversal traversal) {
             this.traversal = traversal;
         }
 
@@ -579,9 +579,9 @@ public class Quantifiers {
         private void resolveCorrelationAlias(@Nonnull Reference reference,
                                              @Nonnull final CorrelationIdentifier alias,
                                              @Nonnull Set<Quantifier> resolvedQuantifiers) {
-            final Set<ExpressionRefTraversal.ReferencePath> referencePaths = traversal.getParentRefPaths(reference);
+            final Set<Traversal.ReferencePath> referencePaths = traversal.getParentRefPaths(reference);
 
-            for (final ExpressionRefTraversal.ReferencePath referencePath : referencePaths) {
+            for (final Traversal.ReferencePath referencePath : referencePaths) {
                 final RelationalExpression expression = referencePath.getExpression();
                 for (final Quantifier quantifier : expression.getQuantifiers()) {
                     if (quantifier.getAlias().equals(alias)) {
@@ -596,7 +596,7 @@ public class Quantifiers {
         }
 
         public static AliasResolver withRoot(@Nonnull final Reference rootRef) {
-            return new AliasResolver(ExpressionRefTraversal.withRoot(rootRef));
+            return new AliasResolver(Traversal.withRoot(rootRef));
         }
     }
 }

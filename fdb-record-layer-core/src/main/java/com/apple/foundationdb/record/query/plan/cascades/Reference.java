@@ -115,7 +115,7 @@ public class Reference implements Correlated<Reference>, Typed {
         if (members.size() == 1) {
             return members.iterator().next();
         }
-        throw new UngettableReferenceException("tried to dereference GroupExpressionRef with " + members.size() + " members");
+        throw new UngettableReferenceException("tried to dereference reference with " + members.size() + " members");
     }
 
     @Nonnull

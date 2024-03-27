@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -78,7 +78,7 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
         final RelationalExpression expression = call.get(root);
         // iterate through all candidates known to the context
         for (final MatchCandidate matchCandidate : context.getMatchCandidates()) {
-            final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
+            final Traversal traversal = matchCandidate.getTraversal();
             final Set<Reference> leafRefs = traversal.getLeafReferences();
             // iterate through all leaf references in all
             for (final Reference leafRef : leafRefs) {

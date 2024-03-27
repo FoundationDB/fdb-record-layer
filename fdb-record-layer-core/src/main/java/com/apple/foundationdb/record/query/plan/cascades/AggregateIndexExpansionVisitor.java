@@ -141,7 +141,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 ? Reference.of(selectHaving) // single group, sort by constant
                 : Reference.of(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
 
-        final var traversal = ExpressionRefTraversal.withRoot(maybeWithSort);
+        final var traversal = Traversal.withRoot(maybeWithSort);
         return new AggregateIndexMatchCandidate(index,
                 traversal,
                 placeHolderAliases,

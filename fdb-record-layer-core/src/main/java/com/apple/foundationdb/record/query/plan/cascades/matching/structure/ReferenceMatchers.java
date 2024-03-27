@@ -43,7 +43,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 public class ReferenceMatchers {
     @Nonnull
-    private static final BindingMatcher<Reference> topExpressionReferenceMatcher = BindingMatcher.instance();
+    private static final BindingMatcher<Reference> topReferenceMatcher = BindingMatcher.instance();
 
     private ReferenceMatchers() {
         // do not instantiate
@@ -51,8 +51,8 @@ public class ReferenceMatchers {
 
 
     @Nonnull
-    public static BindingMatcher<Reference> getTopExpressionReferenceMatcher() {
-        return topExpressionReferenceMatcher;
+    public static BindingMatcher<Reference> getTopReferenceMatcher() {
+        return topReferenceMatcher;
     }
 
     @Nonnull

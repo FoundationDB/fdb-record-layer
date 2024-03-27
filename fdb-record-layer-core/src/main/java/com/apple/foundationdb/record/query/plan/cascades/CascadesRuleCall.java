@@ -59,7 +59,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private final Reference root;
     @Nonnull
-    private final ExpressionRefTraversal traversal;
+    private final Traversal traversal;
     @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
@@ -76,7 +76,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     public CascadesRuleCall(@Nonnull PlanContext context,
                             @Nonnull CascadesRule<?> rule,
                             @Nonnull Reference root,
-                            @Nonnull ExpressionRefTraversal traversal,
+                            @Nonnull Traversal traversal,
                             @Nonnull PlannerBindings bindings,
                             @Nonnull final EvaluationContext evaluationContext) {
         this.context = context;
@@ -100,7 +100,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     }
 
     @Nonnull
-    public ExpressionRefTraversal getTraversal() {
+    public Traversal getTraversal() {
         return traversal;
     }
 
@@ -264,7 +264,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
 
             final var referencingExpressions =
                     referencePathsList.stream()
-                            .map(referencePaths -> referencePaths.stream().map(ExpressionRefTraversal.ReferencePath::getExpression).collect(LinkedIdentitySet.toLinkedIdentitySet()))
+                            .map(referencePaths -> referencePaths.stream().map(Traversal.ReferencePath::getExpression).collect(LinkedIdentitySet.toLinkedIdentitySet()))
                             .collect(ImmutableList.toImmutableList());
 
             final var referencingExpressionsIterator = referencingExpressions.iterator();

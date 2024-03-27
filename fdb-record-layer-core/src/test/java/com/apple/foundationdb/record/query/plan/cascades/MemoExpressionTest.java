@@ -114,7 +114,7 @@ public class MemoExpressionTest {
     }
 
     @Test
-    public void complexGroupExpressions() {
+    public void complexReferences() {
         SyntheticPlannerExpression root1 = new SyntheticPlannerExpression("root1",
                 ImmutableList.of(Reference.from(middleExpressions.get("middle1"), middleExpressions.get("middle2")),
                         Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"))));
@@ -144,7 +144,7 @@ public class MemoExpressionTest {
     @ValueSource(longs = { 2L, 3L, 5L })
     public void memoInsertionAtRoot(long seed) {
         Set<SyntheticPlannerExpression> trackingSet = new HashSet<>();
-        Reference groupExpression = Reference.empty();
+        Reference reference = Reference.empty();
         Reference sample = Reference.empty(); // will contain every 5th expression
 
         final Random random = new Random(seed);
@@ -152,8 +152,8 @@ public class MemoExpressionTest {
             // Generate a random expression and insert it at the root.
             SyntheticPlannerExpression expression = SyntheticPlannerExpression.generate(random, 5);
             trackingSet.add(expression);
-            groupExpression.insert(expression);
-            assertTrue(groupExpression.containsInMemo(expression));
+            reference.insert(expression);
+            assertTrue(reference.containsInMemo(expression));
             if (i % 5 == 0) {
                 sample.insert(expression);
                 assertTrue(sample.containsInMemo(expression));
@@ -161,9 +161,9 @@ public class MemoExpressionTest {
         }
 
         for (SyntheticPlannerExpression expression : trackingSet) {
-            assertTrue(groupExpression.containsInMemo(expression));
+            assertTrue(reference.containsInMemo(expression));
         }
-        assertTrue(groupExpression.containsAllInMemo(sample, AliasMap.emptyMap()));
+        assertTrue(reference.containsAllInMemo(sample, AliasMap.emptyMap()));
     }
 
     /**
