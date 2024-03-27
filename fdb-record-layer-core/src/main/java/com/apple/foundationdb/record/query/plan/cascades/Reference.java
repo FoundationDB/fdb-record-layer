@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,8 +53,19 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * This interface is used mostly as an (admittedly surmountable) barrier to rules mutating bound references directly,
- * which is undefined behavior.
+ * <p>
+ * The <em>memo</em> data structure can compactly represent a large set of similar {@link RelationalExpression}s through
+ * careful memoization. The Cascades "group expression", represented by the {@code Reference}, is the key to
+ * that memoization by sharing optimization work on a sub-expression with other parts of the expression that reference
+ * the same sub-expression.
+ * </p>
+ *
+ * <p>
+ * The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
+ * which is undefined behavior. Note that a {@link Reference} cannot be "de-referenced" using the {@link #get()}
+ * method if it contains more than one member. Expressions with more than one member should not be used outside of the
+ * query planner, and {@link #get()} should not be used inside the query planner.
+ * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class Reference implements Correlated<Reference>, Typed {
@@ -86,6 +97,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * Return the {@link RecordQueryPlan} contained in this reference.
      * @return the {@link RecordQueryPlan} contained in this reference
      * @throws UngettableReferenceException if the reference does not support retrieving its expression
+     * @throws ClassCastException if the only member of this reference is not a {@link RecordQueryPlan}
      */
     @Nonnull
     public RecordQueryPlan getAsPlan() {
@@ -609,12 +621,10 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.
+     * An exception thrown when {@link #get()} is called on a reference that does not support it,
+     * such as a reference containing more than one expression.
      * A client that encounters this exception is buggy and should not try to recover any information from the reference
      * that threw it.
-     * <br>
-     * This exceeds the normal maximum inheritance depth because of the depth of the <code>RecordCoreException</code>
-     * hierarchy.
      */
     public static class UngettableReferenceException extends RecordCoreException {
         private static final long serialVersionUID = 1;
