@@ -82,7 +82,7 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     public CompletableFuture<Node> fetchNodeInternal(@Nonnull final ReadTransaction transaction,
                                                      @Nonnull final byte[] nodeId) {
         return AsyncUtil.collect(transaction.getRange(Range.startsWith(packWithSubspace(nodeId)),
-                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL))
+                        ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL), transaction.getExecutor())
                 .thenApply(keyValues -> {
                     if (keyValues.isEmpty()) {
                         return null;

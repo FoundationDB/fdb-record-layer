@@ -27,21 +27,30 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomUtils;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for AgilityContext.
@@ -157,7 +166,42 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         assertLoopThreadsValues();
     }
 
-    void testAgilityContextOneLongWrite(int loopCount, int sizeLimit, int timeLimit, boolean useProp) {
+    private enum Method {
+        Set,
+        Apply,
+        Accept
+    }
+
+    private enum LimitType {
+        Size(1, 100_000, LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA),
+        Time(100_000, 1, LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
+
+        private final int sizeLimit;
+        private final int timeLimit;
+        private final StoreTimer.Event timerEvent;
+
+        LimitType(final int sizeLimit, final int timeLimit, final StoreTimer.Event timerEvent) {
+            this.sizeLimit = sizeLimit;
+            this.timeLimit = timeLimit;
+            this.timerEvent = timerEvent;
+        }
+    }
+
+    static Stream<Arguments> agilityContextLimits() {
+        return Stream.of(true, false).flatMap(useProp ->
+                Arrays.stream(LimitType.values()).flatMap(limitType ->
+                        Arrays.stream(Method.values()).filter(method ->
+                                        // AgilityContext is only aware of bytes written when set is called
+                                        limitType == LimitType.Time || method == Method.Set)
+                                .map(method ->
+                                        Arguments.of(useProp, method, limitType))));
+    }
+
+    @ParameterizedTest(name = "useProp:{0},{1} by {2}")
+    @MethodSource("agilityContextLimits")
+    void testAgilityContextOneLongWrite(boolean useProp, Method method, LimitType limitType) {
+        int sizeLimit = limitType.sizeLimit;
+        int timeLimit = limitType.timeLimit;
         final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeLimit)
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, timeLimit);
@@ -170,28 +214,51 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                         "To where it bent in the undergrowth;" ;
 
         try (FDBRecordContext context = useProp ? openContext(insertProps) : openContext()) {
+            final Subspace subspace = path.toSubspace(context);
             final AgilityContext agilityContext =
                     useProp ? getAgilityContextAgileProp(context) : AgilityContext.agile(context, timeLimit, sizeLimit);
             for (int i = 0; i < loopCount; i++) {
-                byte[] key = Tuple.from(2023, i).pack();
-                byte[] val = Tuple.from(i, RobertFrost).pack();
-                agilityContext.set(key, val);
+                byte[] key = subspace.pack(Tuple.from(2023, i));
+                byte[] val = Tuple.from(i, RobertFrost, 0).pack();
+                switch (method) {
+                    case Set:
+                        agilityContext.set(key, val);
+                        break;
+                    case Apply:
+                        agilityContext.apply(innerContext -> innerContext.ensureActive()
+                                .get(key).thenApply(oldVal -> {
+                                    if (oldVal == null) {
+                                        innerContext.ensureActive().set(key, val);
+                                    } else {
+                                        final Tuple oldTuple = Tuple.fromBytes(oldVal);
+                                        innerContext.ensureActive().set(key,
+                                                TupleHelpers.subTuple(oldTuple, 0, 2)
+                                                        .add(oldTuple.getLong(2) + 1)
+                                                        .pack());
+                                    }
+                                    return oldVal;
+                                })).join();
+                        break;
+                    case Accept:
+                        agilityContext.accept(innerContext -> {
+                            innerContext.ensureActive().set(key, val);
+                        });
+                        break;
+                    default:
+                        throw new AssertionError("Unexpected enum value " + method);
+                }
                 if (0 == (i % 8)) {
                     napTime(2); // enforce minimal processing time
                 }
             }
             context.commit();
-            final StoreTimer.Counter byTimeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA);
-            final int commitsByTime = byTimeCounter == null ? 0 : byTimeCounter.getCount();
-            final StoreTimer.Counter bySizeCounter = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA);
-            final int commitsBySize = bySizeCounter == null ? 0 : bySizeCounter.getCount();
-            // This test should utilize at least one auto-commit in the agility context.
-            assertTrue((commitsByTime + commitsBySize) > 0);
+            MatcherAssert.assertThat(timer.getCount(limitType.timerEvent), Matchers.greaterThan(0));
         }
         try (FDBRecordContext context = openContext(insertProps)) {
+            final Subspace subspace = path.toSubspace(context);
             final AgilityContext agilityContext = getAgilityContext(context, false);
             for (int i = 0; i < loopCount; i++) {
-                byte[] key = Tuple.from(2023, i).pack();
+                byte[] key = subspace.pack(Tuple.from(2023, i));
                 final byte[] bytes = agilityContext.get(key).join();
                 final Tuple retTuple = Tuple.fromBytes(bytes);
                 assertEquals(i, retTuple.getLong(0));
@@ -200,17 +267,97 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextSizeLimit(boolean useProp) {
-        testAgilityContextOneLongWrite(73, 100, 100000, useProp);
+    static Stream<Arguments> agilityContextLimitsNotSet() {
+        return Stream.of(true, false).flatMap(useProp ->
+                Arrays.stream(LimitType.values()).flatMap(limitType ->
+                        Arrays.stream(Method.values())
+                                .filter(method -> method != Method.Set) // There is no good way for us to inject failure
+                                .map(method -> Arguments.of(useProp, method, limitType))));
     }
 
-    @ParameterizedTest
-    @BooleanSource
-    void testAgilityContextTimeLimit(boolean useProp) {
-        // The 1ms time limit often triggers an auto-commit, that that cannot be guaranteed here.
-        testAgilityContextOneLongWrite(77, 100000, 1, useProp);
+    @ParameterizedTest(name = "useProp:{0},{1} by {2}")
+    @MethodSource("agilityContextLimitsNotSet")
+    void testAgilityContextOneLongWriteFail(boolean useProp, Method method, LimitType limitType) {
+        int sizeLimit = limitType.sizeLimit;
+        int timeLimit = limitType.timeLimit;
+        final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeLimit)
+                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, timeLimit);
+
+        String RobertFrost = // (Written in 1916. In the public domain since 2020.)
+                "Two roads diverged in a yellow wood,\n" +
+                        "And sorry I could not travel both\n" +
+                        "And be one traveler, long I stood\n" +
+                        "And looked down one as far as I could\n" +
+                        "To where it bent in the undergrowth;" ;
+
+        try (FDBRecordContext context = useProp ? openContext(insertProps) : openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            final AgilityContext agilityContext =
+                    useProp ? getAgilityContextAgileProp(context) : AgilityContext.agile(context, timeLimit, sizeLimit);
+            final byte[] unwritableKey = new byte[] { (byte)0xff };
+            for (int i = 0; i < loopCount; i++) {
+                byte[] key = subspace.pack(Tuple.from(2023, i));
+                byte[] val = Tuple.from(i, RobertFrost, 0).pack();
+                switch (method) {
+                    case Set:
+                        Assertions.assertThrows(FailException.class, () ->
+                                agilityContext.set(unwritableKey, val)
+                        );
+                        break;
+                    case Apply:
+                        final CompletionException completionException = Assertions.assertThrows(CompletionException.class, () ->
+                                agilityContext.apply(innerContext -> innerContext.ensureActive()
+                                        .get(key).thenApply(oldVal -> {
+                                            if (oldVal == null) {
+                                                innerContext.ensureActive().set(key, val);
+                                            } else {
+                                                final Tuple oldTuple = Tuple.fromBytes(oldVal);
+                                                innerContext.ensureActive().set(key,
+                                                        TupleHelpers.subTuple(oldTuple, 0, 2)
+                                                                .add(oldTuple.getLong(2) + 1)
+                                                                .pack());
+                                            }
+                                            throw new FailException();
+                                        })).join()
+                        );
+                        MatcherAssert.assertThat(completionException.getCause(), Matchers.instanceOf(FailException.class));
+                        break;
+                    case Accept:
+                        Assertions.assertThrows(FailException.class, () ->
+                                agilityContext.accept(innerContext -> {
+                                    innerContext.ensureActive().set(key, val);
+                                    throw new FailException();
+                                }));
+                        break;
+                    default:
+                        throw new AssertionError("Unexpected enum value " + method);
+                }
+                if (0 == (i % 8)) {
+                    napTime(2); // enforce minimal processing time
+                }
+            }
+            MatcherAssert.assertThat(timer.getCount(limitType.timerEvent), Matchers.equalTo(0));
+
+            // we shouldn't have committed anything yet, since everything fails
+            try (FDBRecordContext validationContext = openContext(insertProps)) {
+                for (int i = 0; i < loopCount; i++) {
+                    byte[] key = subspace.pack(Tuple.from(2023, i));
+                    Assertions.assertNull(validationContext.ensureActive().get(key).join());
+                }
+            }
+            agilityContext.flushAndClose();
+        }
+        try (FDBRecordContext context = openContext(insertProps)) {
+            final Subspace subspace = path.toSubspace(context);
+            for (int i = 0; i < loopCount; i++) {
+                byte[] key = subspace.pack(Tuple.from(2023, i));
+                final byte[] bytes = context.ensureActive().get(key).join();
+                final Tuple retTuple = Tuple.fromBytes(bytes);
+                assertEquals(i, retTuple.getLong(0));
+                assertEquals(RobertFrost, retTuple.getString(1));
+            }
+        }
     }
 
     void napTime(int napTimeMilliseconds) {
@@ -311,5 +458,10 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 }
             }
         });
+    }
+
+    @SuppressWarnings("serial")
+    private static class FailException extends RuntimeException {
+
     }
 }

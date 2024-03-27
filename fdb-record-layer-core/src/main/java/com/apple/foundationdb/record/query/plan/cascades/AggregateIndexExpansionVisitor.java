@@ -216,7 +216,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         Stream.concat(Stream.of(baseQuantifier), baseExpansion.getQuantifiers().stream())
                 .forEach(qun -> {
                     final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-                    builder.addResultColumn(Column.of(Type.Record.Field.of(quantifiedValue.getResultType(), Optional.of(qun.getAlias().getId())), quantifiedValue));
+                    builder.addResultColumn(Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue));
                 });
         builder.addAllPlaceholders(baseExpansion.getPlaceholders());
         builder.addAllPredicates(baseExpansion.getPredicates());
@@ -265,12 +265,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingColsValue.getResultType() instanceof Type.Record &&
                 ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
             return Quantifier.forEach(GroupExpressionRef.of(
-                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            null, selectWhereQun)));
+                    new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            GroupByExpression::nestedResults, selectWhereQun)));
         } else {
             return Quantifier.forEach(GroupExpressionRef.of(
-                    new GroupByExpression(RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            groupingColsValue, selectWhereQun)));
+                    new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
+                            GroupByExpression::nestedResults, selectWhereQun)));
         }
     }
 

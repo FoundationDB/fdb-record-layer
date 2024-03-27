@@ -37,6 +37,8 @@ import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV2;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedFieldInfosFormat;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFormat;
@@ -64,7 +66,6 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
-import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,7 +136,8 @@ public class FDBDirectory extends Directory  {
     private final Subspace fileLockSubspace;
     private final byte[] sequenceSubspaceKey;
 
-    private final LockFactory lockFactory;
+    private final FDBDirectoryLockFactory lockFactory;
+    private FDBDirectoryLockFactory.FDBDirectoryLock lastLock = null;
     private final int blockSize;
 
     /**
@@ -431,14 +433,19 @@ public class FDBDirectory extends Directory  {
     /**
      * Delete stored fields data from the DB.
      * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
+     * @throws IOException if there is an issue reading metadata to do the delete
      */
-    public void deleteStoredFields(@Nonnull final String segmentName) {
-        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
+    public void deleteStoredFields(@Nonnull final String segmentName) throws IOException {
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
                     LuceneLogMessageKeys.RESOURCE, segmentName));
         }
+        final LucenePrimaryKeySegmentIndex primaryKeyIndex = getPrimaryKeySegmentIndex();
+        if (primaryKeyIndex != null) {
+            primaryKeyIndex.clearForSegment(segmentName);
+        }
+        byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
         agilityContext.clear(Range.startsWith(key));
     }
 
@@ -516,6 +523,20 @@ public class FDBDirectory extends Directory  {
         return rawBytes;
     }
 
+    @Nonnull
+    public List<KeyValue> readAllStoredFields(String segmentName) {
+        final Range range = storedFieldsSubspace.range(Tuple.from(segmentName));
+        final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_ALL_STORED_FIELDS,
+                agilityContext.getRange(range.begin, range.end));
+        if (list == null) {
+            throw new RecordCoreStorageException("Could not find stored fields")
+                    .addLogInfo(LuceneLogMessageKeys.SEGMENT, segmentName)
+                    .addLogInfo(LogMessageKeys.RANGE_START, ByteArrayUtil2.loggable(range.begin))
+                    .addLogInfo(LogMessageKeys.RANGE_END, ByteArrayUtil2.loggable(range.end));
+        }
+        return list;
+    }
+
     /**
      * Lists all file names in the subspace. Puts all references in the cache.
      * Logs the count of references, and the total size of the data.
@@ -550,6 +571,7 @@ public class FDBDirectory extends Directory  {
         final CompletableFuture<List<KeyValue>> rangeList = agilityContext.apply(aContext -> aContext.ensureActive()
                 .getRange(metaSubspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL).asList());
         CompletableFuture<Void> future = rangeList.thenApply(list -> {
+            agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_FILES_COUNT, list.size());
             list.forEach(kv -> {
                 String name = metaSubspace.unpack(kv.getKey()).getString(0);
                 final FDBLuceneFileReference fileReference = Objects.requireNonNull(FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue())));
@@ -562,19 +584,7 @@ public class FDBDirectory extends Directory  {
             return null;
         }).thenAccept(ignore -> {
             if (LOGGER.isDebugEnabled()) {
-                List<String> displayList = new ArrayList<>(outMap.size());
-                long totalSize = 0L;
-                long actualTotalSize = 0L;
-                for (Map.Entry<String, FDBLuceneFileReference> entry: outMap.entrySet()) {
-                    displayList.add(entry.getKey());
-                    totalSize += entry.getValue().getSize();
-                    actualTotalSize += entry.getValue().getActualSize();
-                }
-                LOGGER.debug(getLogMessage("listAllFiles",
-                        LuceneLogMessageKeys.FILE_COUNT, displayList.size(),
-                        LuceneLogMessageKeys.FILE_LIST, displayList,
-                        LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
-                        LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize));
+                LOGGER.debug(fileListLog("listAllFiles", outMap).toString());
             }
 
             // Memoize the result in an FDBDirectory member variable. Future attempts to access files
@@ -583,6 +593,28 @@ public class FDBDirectory extends Directory  {
             fieldInfosStorage.initializeReferenceCount(fieldInfosCount);
         });
         return agilityContext.instrument(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, future, start);
+    }
+
+    private KeyValueLogMessage fileListLog(final String listAllFiles,
+                                           final Map<String, FDBLuceneFileReference> fileMap) {
+        List<String> displayList = new ArrayList<>(fileMap.size());
+        long totalSize = 0L;
+        long actualTotalSize = 0L;
+        for (Map.Entry<String, FDBLuceneFileReference> entry: fileMap.entrySet()) {
+            if (displayList.size() < 200 || entry.getKey().startsWith("segments")) {
+                displayList.add(entry.getKey());
+            }
+            totalSize += entry.getValue().getSize();
+            actualTotalSize += entry.getValue().getActualSize();
+        }
+        if (displayList.size() >= 200) {
+            displayList.add("...");
+        }
+        return getKeyValueLogMessage(listAllFiles,
+                LuceneLogMessageKeys.FILE_COUNT, fileMap.size(),
+                LuceneLogMessageKeys.FILE_LIST, displayList,
+                LuceneLogMessageKeys.FILE_TOTAL_SIZE, totalSize,
+                LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize);
     }
 
     @Nonnull
@@ -658,11 +690,11 @@ public class FDBDirectory extends Directory  {
     }
 
     private boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
+        // TODO make this transactional or ensure that it is deleted in the right order
         FDBLuceneFileReference value = cache.remove(name);
         if (value == null) {
             return false;
         }
-        agilityContext.clear(metaSubspace.pack(name));
         final long id = value.getFieldInfosId();
         if (fieldInfosStorage.delete(id)) {
             agilityContext.clear(fieldInfosSubspace.pack(id));
@@ -677,7 +709,7 @@ public class FDBDirectory extends Directory  {
         if (deferDeleteToCompoundFile) {
             if (isCompoundFile(name)) {
                 // delete all K/V content, only if the optimized stored fields format is in use
-                if (getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)) {
+                if (usesOptimizedStoredFields()) {
                     deleteStoredFields(segmentName);
                 }
             }
@@ -687,7 +719,15 @@ public class FDBDirectory extends Directory  {
                 deleteStoredFields(segmentName);
             }
         }
+        // we want to clear this last, so that if only some of the operations are completed, the reference
+        // will stick around, and it will be cleaned up later.
+        agilityContext.clear(metaSubspace.pack(name));
         return true;
+    }
+
+    public boolean usesOptimizedStoredFields() {
+        return getBooleanIndexOption(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, false)
+                || getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false);
     }
 
     /**
@@ -863,7 +903,15 @@ public class FDBDirectory extends Directory  {
             LOGGER.trace(getLogMessage("obtainLock",
                     LuceneLogMessageKeys.LOCK_NAME, lockName));
         }
-        return lockFactory.obtainLock(null, lockName);
+        final Lock lock = lockFactory.obtainLock(null, lockName);
+        lastLock = (FDBDirectoryLockFactory.FDBDirectoryLock) lock;
+        return lock;
+    }
+
+    private void clearLockIfLocked() {
+        if (lastLock != null) {
+            lastLock.fileLockClearIfLocked();
+        }
     }
 
     /**
@@ -871,10 +919,20 @@ public class FDBDirectory extends Directory  {
      */
     @Override
     public void close() {
-        agilityContext.flush();
+        try {
+            clearLockIfLocked();
+            agilityContext.flush();
+        } catch (RuntimeException ex) {
+            // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
+            agilityContext.abortAndReset();
+            clearLockIfLocked();
+            agilityContext.flush();
+            throw ex;
+        }
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(getLogMessage("close called",
-                    LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats()));
+            LOGGER.debug(fileListLog("Closed FDBDirectory", Objects.requireNonNullElse(fileReferenceCache.get(), Map.of()))
+                    .addKeyAndValue(LuceneLogMessageKeys.BLOCK_CACHE_STATS, blockCache.stats())
+                    .toString());
         }
     }
 
@@ -918,11 +976,14 @@ public class FDBDirectory extends Directory  {
 
     @Nonnull
     private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+        return getKeyValueLogMessage(staticMsg, keysAndValues).toString();
+    }
+
+    private KeyValueLogMessage getKeyValueLogMessage(final @Nonnull String staticMsg, final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
                 .addKeyAndValue(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, compressionEnabled)
-                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled)
-                .toString();
+                .addKeyAndValue(LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled);
     }
 
     /**
@@ -949,16 +1010,25 @@ public class FDBDirectory extends Directory  {
      */
     @Nullable
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        if (!getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
+        if (getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED, false)) {
+            synchronized (this) {
+                if (primaryKeySegmentIndex == null) {
+                    final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndexV1(this, primaryKeySubspace);
+                }
+            }
+            return primaryKeySegmentIndex;
+        } else if (getBooleanIndexOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, false)) {
+            synchronized (this) {
+                if (primaryKeySegmentIndex == null) {
+                    final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
+                    primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndexV2(this, primaryKeySubspace);
+                }
+            }
+            return primaryKeySegmentIndex;
+        } else {
             return null;
         }
-        synchronized (this) {
-            if (primaryKeySegmentIndex == null) {
-                final Subspace primaryKeySubspace = subspace.subspace(Tuple.from(PRIMARY_KEY_SUBSPACE));
-                primaryKeySegmentIndex = new LucenePrimaryKeySegmentIndex(this, primaryKeySubspace);
-            }
-        }
-        return primaryKeySegmentIndex;
     }
 
     // Map segment name to integer id.

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A class to hold a value computing a column together with information about the field of a record it supplies
@@ -75,6 +76,10 @@ public class Column<V extends Value> implements PlanHashable, PlanSerializable {
 
     public static <V extends Value> Column<V> unnamedOf(@Nonnull final V value) {
         return new Column<>(Field.unnamedOf(value.getResultType()), value);
+    }
+
+    public static <V extends Value> Column<V> of(@Nonnull Optional<String> fieldNameOptional, @Nonnull final V value) {
+        return new Column<>(Field.of(value.getResultType(), fieldNameOptional), value);
     }
 
     public static <V extends Value> Column<V> of(@Nonnull final Field field, @Nonnull final V value) {

@@ -730,7 +730,7 @@ public abstract class IndexingBase {
         // Copying the state also guards against changes made by other online building from check version.
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
-        maybeDeferAutoMergeDuringCommit(store);
+        deferAutoMergeDuringCommit(store);
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
@@ -1031,10 +1031,9 @@ public abstract class IndexingBase {
         return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
     }
 
-    private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
-        if (policy.shouldDeferMergeDuringIndexing()) {
-            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-        }
+    private void deferAutoMergeDuringCommit(FDBRecordStore store) {
+        // Always defer merges
+        store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
     protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {

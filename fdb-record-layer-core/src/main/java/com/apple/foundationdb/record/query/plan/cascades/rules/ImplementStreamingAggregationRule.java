@@ -80,11 +80,12 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
 
         // TODO: isConstant is not implemented correctly.
         // for the following FV(col1, QOV( --> RCV(FV(col1(Literal(42))...) ) it is returning false while it should return true.
-        final var requiredOrderingKeyValues = currentGroupingValue == null
-                                              ? null
-                                              : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
-                                                      .stream()
-                                                      .collect(ImmutableSet.toImmutableSet());
+        final var requiredOrderingKeyValues =
+                currentGroupingValue == null
+                ? null
+                : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
+                        .stream()
+                        .collect(ImmutableSet.toImmutableSet());
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
@@ -107,9 +108,8 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var aliasMap = AliasMap.ofAliases(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
         final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);
         final var rebasedGroupingValue = groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().rebase(aliasMap);
-        return RecordQueryStreamingAggregationPlan.ofNested(
-                newPlanQuantifier,
-                rebasedGroupingValue,
-                (AggregateValue)rebasedAggregatedValue);
+        return RecordQueryStreamingAggregationPlan.of(newPlanQuantifier, rebasedGroupingValue,
+                (AggregateValue)rebasedAggregatedValue,
+                groupByExpression.getResultValueFunction());
     }
 }

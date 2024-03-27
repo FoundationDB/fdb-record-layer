@@ -217,7 +217,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     @Override
     public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        return new PredicateWithValueAndRanges(value.translate2(translationMap, false),
+        return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap),
                 ranges.stream().map(range -> range.translateCorrelations(translationMap)).collect(ImmutableSet.toImmutableSet()));
     }
 

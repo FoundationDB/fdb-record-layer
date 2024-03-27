@@ -92,7 +92,6 @@ allprojects {
     // Configure JUnit tests
     tasks.withType(Test) {
         reports.junitXml.destination = project.file("${->project.buildDir}/test-results")
-        testLogging.events = ["passed", "skipped", "failed"]
     }
 
     // Configure JAR generation

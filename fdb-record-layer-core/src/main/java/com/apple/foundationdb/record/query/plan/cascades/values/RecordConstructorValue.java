@@ -358,10 +358,10 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     @Override
     public PRecordConstructorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         PRecordConstructorValue.Builder builder = PRecordConstructorValue.newBuilder();
-        builder.setResultType(resultType.toTypeProto(serializationContext));
         for (final Column<? extends Value> column : columns) {
             builder.addColumns(column.toProto(serializationContext));
         }
+        builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
 

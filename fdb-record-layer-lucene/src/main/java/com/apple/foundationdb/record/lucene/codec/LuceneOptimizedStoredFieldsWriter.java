@@ -51,7 +51,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  */
 public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsWriter.class);
-    private LuceneStoredFieldsProto.LuceneStoredFields.Builder storedFields;
+    protected LuceneStoredFieldsProto.LuceneStoredFields.Builder storedFields;
     private final FDBDirectory directory;
     private final String segmentName;
     private int docId;

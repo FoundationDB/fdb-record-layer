@@ -57,19 +57,16 @@ test.systemProperties['tests.directory'] = 'com.apple.foundationdb.record.lucene
 // it might differ
 // test.systemProperties['tests.directory'] = 'org.apache.lucene.store.RAMDirectory'
 
-// Uncomment below line to run nightly tests
-// test.systemProperties['tests.nightly'] = 'true'
-
 tasks.withType(Test) { theTask ->
-    if (!project.hasProperty('tests.includeRandom')) {
+    // We use special lucene properties here, because lucene still fails sometimes
+    // see: https://github.com/FoundationDB/fdb-record-layer/issues/2480
+    // When that issue is resolved these can be changed align with the global properties
+    if (!project.hasProperty('tests.luceneIncludeRandom')) {
         println("Fixing seed for lucene tests")
         theTask.systemProperties['tests.seed'] = "C185081D42F0F43C" // a fixed seed, should pass reliably in prb/release
     }
-    if (project.hasProperty('tests.iterations')) {
-        theTask.systemProperties['tests.iters'] = project.getProperty('tests.iterations')
-    }
-    if (project.hasProperty('tests.nightly')) {
-        theTask.systemProperties['tests.nightly'] = 'true'
+    if (project.hasProperty('tests.luceneIterations')) {
+        theTask.systemProperties['tests.iters'] = project.getProperty('tests.luceneIterations') // TODO this is broken on main...
     }
 }
 

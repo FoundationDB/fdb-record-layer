@@ -129,7 +129,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     public UpdateExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTransformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
         for (final var entry : transformMap.entrySet()) {
-            translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translate2(translationMap, false));
+            translatedTransformMapBuilder.put(entry.getKey(), entry.getValue().translateCorrelations(translationMap));
         }
         return new UpdateExpression(inner, targetRecordType, targetType, translatedTransformMapBuilder.build());
     }
@@ -229,9 +229,9 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
     @Nonnull
     public static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
         final var oldColumn =
-                Column.of(Type.Record.Field.of(inner.getFlowedObjectType(), Optional.of(OLD_FIELD_NAME)), inner.getFlowedObjectValue());
+                Column.of(Optional.of(OLD_FIELD_NAME), inner.getFlowedObjectValue());
         final var newColumn =
-                Column.of(Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME)), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
+                Column.of(Optional.of(NEW_FIELD_NAME), ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType));
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
     }
 

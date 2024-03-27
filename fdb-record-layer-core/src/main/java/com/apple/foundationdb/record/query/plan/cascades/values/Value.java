@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
@@ -55,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.O
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 /**
@@ -259,19 +258,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     @Override
     default Value rebase(@Nonnull final AliasMap aliasMap) {
-        return translate2(TranslationMap.rebaseWithAliasMap(aliasMap), false);
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
     }
 
     @Nonnull
-    default Value translate1(@Nonnull final TranslationMap translationMap) {
-        return translate2(translationMap, true);
+    default Value translateCorrelationsAndSimplify(@Nonnull final TranslationMap translationMap) {
+        final var newValue = translateCorrelations(translationMap);
+        return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Value translate2(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNecessary) {
-        final var isSimplifyNecessary = new AtomicBoolean(false);
-        final var newValue = replaceLeavesMaybe(value -> {
+    default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        return replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
@@ -281,24 +280,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
                 Verify.verify(correlatedTo.size() == 1);
                 final var sourceAlias = Iterables.getOnlyElement(correlatedTo);
-                if (translationMap.containsSourceAlias(sourceAlias)) {
-                    final var translatedValue = translationMap.applyTranslationFunction(sourceAlias, leafValue);
-                    if (translatedValue != leafValue && !Iterables.isEmpty(translatedValue.getChildren())) {
-                        isSimplifyNecessary.set(true);
-                    }
-                    return translatedValue;
-                }  else {
-                    return leafValue;
-                }
+                return translationMap.containsSourceAlias(sourceAlias)
+                       ? translationMap.applyTranslationFunction(sourceAlias, leafValue)
+                       : leafValue;
             }
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
         }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
-
-        if (simplifyIfNecessary && isSimplifyNecessary.get()) {
-            return newValue.simplify(AliasMap.emptyMap(), newValue.getCorrelatedTo());
-        }
-        return newValue;
     }
 
     @Nonnull

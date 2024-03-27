@@ -164,7 +164,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Override
     public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         List<QueryPredicate> translatedPredicates = predicates.stream().map(p -> p.translateCorrelations(translationMap)).collect(Collectors.toList());
-        final Value translatedResultValue = resultValue.translate2(translationMap, false);
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 
@@ -494,6 +494,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                         final var candidatePredicate = predicateMapping.getCandidatePredicate();
                         predicateMapBuilder.put(queryPredicate, predicateMapping);
                         remainingUnmappedCandidatePredicates.remove(candidatePredicate);
+
                         final var parameterAliasOptional = predicateMapping.getParameterAliasOptional();
                         final var comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
                         if (parameterAliasOptional.isPresent() &&

@@ -158,7 +158,15 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, ordinal);
+        switch (mode) {
+            case VC1:
+                // VC1 does not hash the ordinal.
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH);
+            case VC0:
+            default:
+                // LEGACY
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, ordinal);
+        }
     }
 
     @Nonnull

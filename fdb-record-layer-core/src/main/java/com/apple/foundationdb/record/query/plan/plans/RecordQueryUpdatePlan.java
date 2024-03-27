@@ -114,7 +114,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
-                getComputationValue().translate2(translationMap, false));
+                getComputationValue().translateCorrelations(translationMap));
     }
 
     @Nullable
@@ -128,7 +128,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
             final var value = current.getValue();
             if (value != null) {
                 Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode(value.translate2(translationMap, false), null);
+                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
             } else {
                 final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();

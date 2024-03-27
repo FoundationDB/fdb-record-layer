@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.Message;
 
@@ -50,10 +49,4 @@ public interface AggregateValue extends Value {
 
     @Nullable
     <M extends Message> Object evalToPartial(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
-
-    @Nonnull
-    @Override
-    default AggregateValue translate2(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNeeded) {
-        return (AggregateValue)Value.super.translate2(translationMap, simplifyIfNeeded);
-    }
 }

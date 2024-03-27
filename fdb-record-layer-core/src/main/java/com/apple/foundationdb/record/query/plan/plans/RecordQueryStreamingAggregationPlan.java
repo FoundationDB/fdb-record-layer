@@ -40,20 +40,18 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,6 +65,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
  * A query plan that applies an aggregate function(s) to its inputs and also places them into groups.
@@ -187,8 +186,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Override
     public RecordQueryStreamingAggregationPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedGroupingKeyValue = groupingKeyValue == null ? null : groupingKeyValue.translate2(translationMap, false);
-        final var translatedAggregateValue = aggregateValue.translate2(translationMap, false);
+        final var translatedGroupingKeyValue = groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap);
+        final var translatedAggregateValue = (AggregateValue)aggregateValue.translateCorrelations(translationMap);
 
         return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedGroupingKeyValue,
@@ -384,70 +383,32 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     public static RecordQueryStreamingAggregationPlan ofNested(@Nonnull final Quantifier.Physical inner,
                                                                @Nullable final Value groupingKeyValue,
                                                                @Nonnull final AggregateValue aggregateValue) {
-        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
-        final var aggregateAlias = CorrelationIdentifier.uniqueID();
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                nestedResults(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
+        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::nestedResults);
     }
 
     @Nonnull
     public static RecordQueryStreamingAggregationPlan ofFlattened(@Nonnull final Quantifier.Physical inner,
                                                                   @Nullable final Value groupingKeyValue,
                                                                   @Nonnull final AggregateValue aggregateValue) {
+        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::flattenedResults);
+    }
+
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
+                                                         @Nullable final Value groupingKeyValue,
+                                                         @Nonnull final AggregateValue aggregateValue,
+                                                         @Nonnull final BiFunction<Value, Value, Value> resultValueFunction) {
         final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
         final var aggregateAlias = CorrelationIdentifier.uniqueID();
+
+        final var referencedGroupingKeyValue =
+                groupingKeyValue == null
+                ? null
+                : ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType());
+        final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
+
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                flattenedResults(groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias));
-    }
-
-    @Nonnull
-    private static Value nestedResults(@Nullable final Value groupingKeyValue,
-                                       @Nonnull final AggregateValue aggregateValue,
-                                       @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                       @Nonnull final CorrelationIdentifier aggregateAlias) {
-        if (groupingKeyValue != null) {
-            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
-                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
-        } else {
-            return RecordConstructorValue.ofUnnamed(ImmutableList.of(
-                    ObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
-        }
-    }
-
-    @Nonnull
-    private static Value flattenedResults(@Nullable final Value groupingKeyValue,
-                                          @Nonnull final AggregateValue aggregateValue,
-                                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                                          @Nonnull final CorrelationIdentifier aggregateAlias) {
-        final var valuesBuilder = ImmutableList.<Value>builder();
-        if (groupingKeyValue != null) {
-            final var groupingResultType = groupingKeyValue.getResultType();
-            if (groupingResultType.isRecord()) {
-                Verify.verify(groupingResultType instanceof Type.Record);
-                final var groupingResultRecordType = (Type.Record)groupingResultType;
-                List<Type.Record.Field> fields = groupingResultRecordType.getFields();
-                for (var i = 0; i < fields.size(); i++) {
-                    valuesBuilder.add(FieldValue.ofOrdinalNumber(ObjectValue.of(groupingKeyAlias, groupingResultRecordType), i));
-                }
-            } else {
-                valuesBuilder.add(groupingKeyValue);
-            }
-        }
-
-        final var aggregateResultType = aggregateValue.getResultType();
-        if (aggregateResultType.isRecord()) {
-            Verify.verify(aggregateResultType instanceof Type.Record);
-            final var aggregateResultRecordType = (Type.Record)aggregateResultType;
-            List<Type.Record.Field> fields = aggregateResultRecordType.getFields();
-            for (var i = 0; i < fields.size(); i++) {
-                valuesBuilder.add(FieldValue.ofOrdinalNumber(ObjectValue.of(aggregateAlias, aggregateResultRecordType), i));
-            }
-        } else {
-            valuesBuilder.add(aggregateValue);
-        }
-
-        return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue));
     }
 
     /**
