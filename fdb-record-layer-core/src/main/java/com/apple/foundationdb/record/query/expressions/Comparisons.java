@@ -849,8 +849,6 @@ public class Comparisons {
             return ImmutableList.of();
         }
 
-
-
         @Nonnull
         @SuppressWarnings("unused")
         RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);

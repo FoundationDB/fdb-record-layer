@@ -21,11 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.function.UnaryOperator;
 
 /**
  * Tag interface to announce that the implementing class can provide

@@ -233,11 +233,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final Optional<Compensation> childCompensation = matchInfo.getChildPartialMatch(quantifier)
                                 .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
 
-
-        // relax this condition for now. TODO.
-//        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
-//            return Compensation.impossibleCompensation();
-//        }
+        if (childCompensation.isPresent() && (childCompensation.get().isImpossible() || childCompensation.get().isNeeded())) {
+            return Compensation.impossibleCompensation();
+        }
 
         return Compensation.noCompensation();
     }
@@ -259,44 +257,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         // the grouping values are encoded directly in the underlying SELECT-WHERE, reaching this point means that the
         // grouping values had exact match so we don't need to check them.
 
-
-        final var belowSourceAliases = partialMatchMap.keySet().stream().map(qun -> qun.get().getAlias()).collect(ImmutableSet.toImmutableSet());
-        final var remainingDeepCorrelations = bindingAliasMap.filterMappings((src, tgt) -> !belowSourceAliases.contains(src));
-        final var composedTranslationMap = getTranslationMapFromUnderlying(bindingAliasMap, partialMatchMap);
-        final var translatedAggregateValue = aggregateValue.translate(composedTranslationMap);
-        // compare to other aggregate value.
-
         // check that aggregate value is the same.
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
-        if (translatedAggregateValue.subsumedBy(otherAggregateValue, AliasMap.emptyMap())) {
-
-            if (groupingValue == null ^ candidateGroupByExpression.groupingValue == null)  {
-                // if the query does not group by any columns, i.e. it wants table-wide aggregation value calculation
-                // we could still use leverage this index as it has this aggregation, however, we would need a rollup
-                // operator on top which we do not support at the moment, therefore, we fail for now.
-                return ImmutableList.of();
-            }
-
-            if (groupingValue != null) {
-                final var translatedGroupingValue = groupingValue.translate(composedTranslationMap);
-                final var groupingValuePrimitiveAccessors = Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(), () -> translatedGroupingValue, remainingDeepCorrelations.targets());
-                final var candidateGroupingValuePrimitiveAccessors = Values.primitiveAccessorsForType(candidateGroupByExpression.groupingValue.getResultType(), () -> candidateGroupByExpression.groupingValue, remainingDeepCorrelations.targets());
-
-                // we could check only whether the candidate grouping contains all query grouping columns
-                // but due to the lack of support of rollup, we skip this for now, and only check set-equality/
-                if (!candidateGroupingValuePrimitiveAccessors.equals(groupingValuePrimitiveAccessors)) {
-                    return ImmutableList.of();
-                }
-            }
-
+        if (aggregateValue.subsumedBy(otherAggregateValue, bindingAliasMap)) {
             final var maxMatchMap = composeMaxMatchMapFromUnderlying(bindingAliasMap, getResultValue(), candidateExpression.getResultValue(), partialMatchMap);
-
             final var pulledUpPredicatesMaybe = pullUnderlyingQueryPredicates(bindingAliasMap, candidateExpression.getResultValue(), partialMatchMap);
             return pulledUpPredicatesMaybe.map(predicateMap -> MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), predicateMap, Optional.empty(), Optional.of(maxMatchMap))
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of()))
                     .orElseGet(ImmutableList::of);
-            // placeholder for information needed for later compensation.
         }
         return ImmutableList.of();
     }

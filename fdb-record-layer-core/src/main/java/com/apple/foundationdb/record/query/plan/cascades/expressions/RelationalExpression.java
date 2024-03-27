@@ -694,7 +694,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     default MaxMatchMap getMaxMatchMapFromAliasMapping(@Nonnull final AliasMap bindingAliasMap,
                                                        @Nonnull final RelationalExpression candidateExpression) {
-        final var translatedValue = getResultValue().translate(TranslationMap.rebaseWithAliasMap(bindingAliasMap));
         return MaxMatchMap.calculate(bindingAliasMap, getResultValue(), candidateExpression.getResultValue());
     }
 

@@ -71,17 +71,8 @@ public class MatchInfo {
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
 
     /**
-     * This contains all the predicates in the {@code predicateMap} plus all the
-     * predicates that are pulled up from downstairs which is a mapping from the query
-     * predicate to a candidate, but with one extra field that we're changing while adding it.
-     *
-     * You are constructing accumulatedPredicateMap of current MatchInfo, you look below and find
-     * accumulated predicate maps along along each quantifier:
-     * for (entries) {
-     *     entry.key == queryPredicate
-     *     entr.vale == PredicateMapping(candidatePredicate, kind, translatedQueryPredicate)
-     *     currentAccPredMap.add(entry.key, entry.value.withNewTranslatedQueryPredicate(pullUp(entry.value.translatedQueryPredicate))
-     * }
+     * This contains all the predicates in the {@code predicateMap} in addition to all predicates that are pulled up
+     * from children match info.
      */
     @Nonnull
     private final PredicateMap accumulatedPredicateMap;
@@ -247,17 +238,16 @@ public class MatchInfo {
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                 tryMergeParameterBindings(parameterMapsBuilder.build());
 
-//        final var remainingComputations = regularQuantifiers.stream()
-//                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
-//                .map(partialMatch -> partialMatch.getMatchInfo().getRemainingComputationValueOptional())
-//                .filter(Optional::isPresent)
-//                .collect(ImmutableList.toImmutableList());
+        final var remainingComputations = regularQuantifiers.stream()
+                .map(key -> Objects.requireNonNull(partialMatchMap.getUnwrapped(key))) // always guaranteed
+                .map(partialMatch -> partialMatch.getMatchInfo().getRemainingComputationValueOptional())
+                .filter(Optional::isPresent)
+                .collect(ImmutableList.toImmutableList());
 
-
-//        if (!remainingComputations.isEmpty()) {
-//            // We found a remaining computation among the child matches -> we cannot merge!
-//            return Optional.empty();
-//        }
+        if (!remainingComputations.isEmpty()) {
+            // We found a remaining computation among the child matches -> we cannot merge!
+            return Optional.empty();
+        }
 
         return mergedParameterBindingsOptional
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
