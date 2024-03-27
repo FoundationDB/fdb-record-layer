@@ -349,7 +349,7 @@ public abstract class IndexingBase {
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
         AtomicBoolean allReadable = new AtomicBoolean(true);
-        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
+        return common.getNonSynchronizedRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> {
                 if (store.isIndexReadable(index)) {
                     return AsyncUtil.DONE;
@@ -395,7 +395,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markIndexReadableSingleTarget(Index index, AtomicBoolean anythingChanged,
                                                                      AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
         // An extension function to reduce markIndexReadable's complexity
-        return getRunner().runAsync(context ->
+        return common.getNonSynchronizedRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store ->
                                 policy.shouldAllowUniquePendingState(store) ?
