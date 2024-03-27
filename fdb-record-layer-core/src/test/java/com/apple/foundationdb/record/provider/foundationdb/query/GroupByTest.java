@@ -171,7 +171,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private GroupExpressionRef<RelationalExpression> constructGroupByPlan(final boolean withPredicateInSelectWhere,
                                                                           final boolean withPredicateInSelectHaving) {
-        final var cascadesPlanner = (CascadesPlanner)planner;
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
                 Quantifier.forEach(GroupExpressionRef.of(

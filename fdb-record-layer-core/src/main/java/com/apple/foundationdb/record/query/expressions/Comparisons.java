@@ -1451,6 +1451,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public ValueComparison withValue(@Nonnull final Value value) {
             if (comparandValue == value) {
                 return this;
@@ -2573,6 +2574,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison withValue(@Nonnull final Value value) {
             final var newInner = inner.withValue(value);
             if (newInner == inner) {
@@ -2595,6 +2597,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateValue(@Nonnull final UnaryOperator<Value> valueTranslator) {
             final var newInner = inner.translateValue(valueTranslator);
             if (newInner == inner) {
@@ -2810,6 +2813,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison withValue(@Nonnull final Value value) {
             final var newComparison = originalComparison.withValue(value);
             if (newComparison == originalComparison) {
@@ -2820,6 +2824,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateValue(@Nonnull final UnaryOperator<Value> valueTranslator) {
             final var newComparison = originalComparison.translateValue(valueTranslator);
             if (newComparison == originalComparison) {

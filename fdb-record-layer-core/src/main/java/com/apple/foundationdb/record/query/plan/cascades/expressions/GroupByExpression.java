@@ -272,12 +272,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         // check that aggregate value is the same.
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
         if (aggregateValue.subsumedBy(otherAggregateValue, bindingAliasMap)) {
-            final var maxMatchMap = composeMaxMatchMapFromUnderlying(bindingAliasMap, getResultValue(), candidateExpression.getResultValue(), partialMatchMap);
-            final var pulledUpPredicatesMaybe = pullUnderlyingQueryPredicates(bindingAliasMap, candidateExpression.getResultValue(), partialMatchMap);
-            return pulledUpPredicatesMaybe.map(predicateMap -> MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), predicateMap, Optional.empty(), Optional.of(maxMatchMap))
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(), Optional.empty(), Optional.empty())
                     .map(ImmutableList::of)
-                    .orElse(ImmutableList.of()))
-                    .orElseGet(ImmutableList::of);
+                    .orElse(ImmutableList.of());
         }
         return ImmutableList.of();
     }

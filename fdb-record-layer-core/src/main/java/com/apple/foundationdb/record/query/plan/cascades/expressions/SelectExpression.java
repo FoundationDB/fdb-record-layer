@@ -408,12 +408,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
-                final var maxMatchMap = composeMaxMatchMapFromUnderlying(bindingAliasMap, getResultValue(), candidateExpression.getResultValue(), partialMatchMap);
-                final var pulledUpPredicates = pullUnderlyingQueryPredicates(bindingAliasMap, candidateExpression.getResultValue(), partialMatchMap);
-                return pulledUpPredicates.map(pulledUpPredicateMap -> MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), pulledUpPredicateMap, Optional.empty(), Optional.of(maxMatchMap))
+                return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(), Optional.empty(), Optional.empty())
                                 .map(ImmutableList::of)
-                                .orElse(ImmutableList.of()))
-                        .orElseGet(ImmutableList::of);
+                                .orElse(ImmutableList.of());
             } else {
                 return ImmutableList.of();
             }
@@ -466,11 +463,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
 
-        final var pulledUpPredicates = pullUnderlyingQueryPredicates(bindingAliasMap, candidateExpression.getResultValue(), partialMatchMap);
-        if (pulledUpPredicates.isEmpty()) {
-            return ImmutableList.of();
-        }
-
         //
         // We now have a multimap from predicates on the query side to predicates on the candidate side. In the trivial
         // case, this multimap only contains singular mappings for a query predicate. If it doesn't, we need to enumerate
@@ -480,7 +472,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var crossedMappings =
                 CrossProduct.crossProduct(predicateMappingsBuilder.build());
 
-        final var maxMatchMap = composeMaxMatchMapFromUnderlying(bindingAliasMap, getResultValue(), candidateExpression.getResultValue(), partialMatchMap);
         return IterableHelpers.flatMap(crossedMappings,
                 predicateMappings -> {
                     final var remainingUnmappedCandidatePredicates = Sets.<QueryPredicate>newIdentityHashSet();
@@ -521,8 +512,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                         MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap,
-                                                allParameterBindingMap, predicateMap, pulledUpPredicates.get(),
-                                                remainingValueComputationOptional, Optional.of(maxMatchMap)))
+                                                allParameterBindingMap, predicateMap, PredicateMap.empty(),
+                                                remainingValueComputationOptional, Optional.empty()))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })
