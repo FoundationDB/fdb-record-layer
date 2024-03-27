@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -319,7 +319,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final QueryPlanResult planResult;
                 try {
                     planResult = planner.planGraph(() ->
-                                    GroupExpressionRef.of(relationalExpression),
+                                    Reference.of(relationalExpression),
                             configuration.getReadableIndexes().map(s -> s),
                             IndexQueryabilityFilter.TRUE,
                             typedEvaluationContext);

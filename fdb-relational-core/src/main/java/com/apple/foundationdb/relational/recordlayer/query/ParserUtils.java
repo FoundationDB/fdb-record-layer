@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -535,7 +535,7 @@ public final class ParserUtils {
                     recordTypeName, String.join(",", allAvailableRecordTypeNames));
             // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
             return new LogicalTypeFilterExpression(recordTypeNameSet,
-                    Quantifier.forEach(GroupExpressionRef.of(
+                    Quantifier.forEach(Reference.of(
                             new FullUnorderedScanExpression(allAvailableRecordTypeNames,
                                     new Type.AnyRecord(false), accessHintSet))),
                     recordType.get());

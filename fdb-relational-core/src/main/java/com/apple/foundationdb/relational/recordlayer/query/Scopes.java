@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -229,7 +229,7 @@ public class Scopes {
         @Nonnull
         private LogicalSortExpression convertToLogicalSortExpression() {
             SelectExpression selectExpression = convertToSelectExpression();
-            final var qun = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+            final var qun = Quantifier.forEach(Reference.of(selectExpression));
             final var orderByValues = orderByCardinals.stream()
                     .map(i -> FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), i))
                     .collect(Collectors.toList());
@@ -249,7 +249,7 @@ public class Scopes {
             }
             final var projectedColumnsSize = projectionValue != null ? 0 : selectedColumnList.size();
             if (projectedCardinals.size() != projectedColumnsSize) {
-                final var qun = Quantifier.forEach(GroupExpressionRef.of(relationalExpression));
+                final var qun = Quantifier.forEach(Reference.of(relationalExpression));
                 final var builder = GraphExpansion.builder().addQuantifier(qun);
                 for (int idx : projectedCardinals) {
                     builder.addResultColumn(qun.getFlowedColumns().get(idx));

@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -322,7 +322,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 builder.addPredicate(scope.getPredicate());
             }
             scopes.pop();
-            underlyingSelectQun = Quantifier.forEach(GroupExpressionRef.of(builder.build().buildSelect()));
+            underlyingSelectQun = Quantifier.forEach(Reference.of(builder.build().buildSelect()));
             scopes.push().addQuantifier(underlyingSelectQun); // for later processing
         }
 
@@ -354,7 +354,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                     aggregationValue, GroupByExpression::nestedResults, underlyingSelectQun);
             groupByExpressionType = groupByExpression.getResultValue().getResultType();
             final var groupByScope = scopes.pop();
-            groupByQuantifier = Quantifier.forEach(GroupExpressionRef.of(groupByExpression), groupByQunAlias);
+            groupByQuantifier = Quantifier.forEach(Reference.of(groupByExpression), groupByQunAlias);
             final var selectHavingScope = scopes.push();
             selectHavingScope.addQuantifier(groupByQuantifier);
             selectHavingScope.addAllAggregateReferences(groupByScope.getAggregateReferences());
@@ -700,7 +700,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 ParserUtils.safeCastLiteral(visit(ctx.alias), String.class) :
                 ParserUtils.safeCastLiteral(tableName, String.class);
         final CorrelationIdentifier aliasId = CorrelationIdentifier.of(quantifierAlias);
-        final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(from));
+        final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(Reference.of(from));
         scopes.getCurrentScope().addQuantifier(forEachQuantifier);
         return null;
     }
@@ -724,7 +724,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var relationalExpression = ctx.selectStatement().accept(this);
         Assert.thatUnchecked(relationalExpression instanceof RelationalExpression);
         final RelationalExpression from = (RelationalExpression) relationalExpression;
-        final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(CorrelationIdentifier.of(subqueryAlias)).build(GroupExpressionRef.of(from));
+        final Quantifier.ForEach forEachQuantifier = Quantifier.forEachBuilder().withAlias(CorrelationIdentifier.of(subqueryAlias)).build(Reference.of(from));
         scopes.getCurrentScope().addQuantifier(forEachQuantifier);
         return null;
     }
@@ -865,7 +865,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.thatUnchecked(expression instanceof RelationalExpression);
         final RelationalExpression nestedSubquery = (RelationalExpression) expression;
         Assert.notNullUnchecked(nestedSubquery);
-        final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of(nestedSubquery));
+        final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.of(nestedSubquery));
         scopes.getCurrentScope().addQuantifier(existsQuantifier);
         return new ExistsValue(existsQuantifier.getFlowedObjectValue());
     }
@@ -1523,11 +1523,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             context.pop();
         }
 
-        final var inQuantifier = Quantifier.forEach(GroupExpressionRef.of(fromExpression));
+        final var inQuantifier = Quantifier.forEach(Reference.of(fromExpression));
         RelationalExpression expression = new InsertExpression(inQuantifier, targetTypeName, targetType);
         // TODO Ask hatyo to help get rid of this hack.
         if (scopes.getCurrentScopeMaybe() == null) {
-            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
+            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(Reference.of(expression)));
         }
         return QueryPlan.LogicalQueryPlan.of(expression, context, query);
     }
@@ -1569,7 +1569,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         if (ctx.RETURNING() != null) {
-            final var qun = Quantifier.forEach(GroupExpressionRef.of(expression));
+            final var qun = Quantifier.forEach(Reference.of(expression));
             final var scope = scopes.push();
             scope.addQuantifier(qun);
             visit(ctx.selectElements());
@@ -1578,7 +1578,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         // TODO Ask hatyo to help get rid of this hack.
         if (scopes.getCurrentScopeMaybe() == null) {
-            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
+            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(Reference.of(expression)));
         }
 
         return QueryPlan.LogicalQueryPlan.of(expression, context, query);
@@ -1599,7 +1599,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 targetTypeName;
         final var aliasId = CorrelationIdentifier.of(quantifierAlias);
         var fromExpression = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableNameTyped, context, scopes, new AccessHints());
-        var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(fromExpression));
+        var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(Reference.of(fromExpression));
         updateScope.addQuantifier(quantifier);
 
         context.pushDmlContext();
@@ -1642,7 +1642,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final RelationalExpression filteredFromExpression =
                 expansionBuilder.build().buildSelectWithResultValue(quantifier.getFlowedObjectValue());
 
-        final var filterQun = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
+        final var filterQun = Quantifier.forEach(Reference.of(filteredFromExpression));
         final var rebaseMap = AliasMap.ofAliases(quantifier.getAlias(), filterQun.getAlias());
 
         final var maybeTargetType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(targetTypeName).map(t -> ((RecordLayerTable) t).getType());
@@ -1675,7 +1675,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         if (ctx.RETURNING() != null) {
             final var scope = scopes.push();
-            final var selectQun = Quantifier.forEach(GroupExpressionRef.of(expression));
+            final var selectQun = Quantifier.forEach(Reference.of(expression));
             scope.addQuantifier(selectQun);
             visit(ctx.selectElements());
             return QueryPlan.LogicalQueryPlan.of(scopes.pop().convertToRelationalExpression(), context, query);
@@ -1683,7 +1683,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         //// TODO Ask hatyo to help get rid of this hack.
         if (scopes.getCurrentScopeMaybe() == null) {
-            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(GroupExpressionRef.of(expression)));
+            expression = new LogicalSortExpression(ImmutableList.of(), false, Quantifier.forEach(Reference.of(expression)));
         }
         return QueryPlan.LogicalQueryPlan.of(expression, context, query);
     }
@@ -1700,7 +1700,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         final var aliasId = CorrelationIdentifier.of(targetTypeName);
         var fromExpression = ParserUtils.quantifyOver((QualifiedIdentifierValue) tableNameTyped, context, scopes, new AccessHints());
-        var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(GroupExpressionRef.of(fromExpression));
+        var quantifier = Quantifier.forEachBuilder().withAlias(aliasId).build(Reference.of(fromExpression));
         updateScope.addQuantifier(quantifier);
 
         if (expressionCtx != null) {
@@ -1729,7 +1729,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final RelationalExpression filteredFromExpression =
                 expansionBuilder.build().buildSelectWithResultValue(quantifier.getFlowedObjectValue());
 
-        quantifier = Quantifier.forEach(GroupExpressionRef.of(filteredFromExpression));
+        quantifier = Quantifier.forEach(Reference.of(filteredFromExpression));
 
         scopes.pop();
 

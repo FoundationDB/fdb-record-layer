@@ -34,10 +34,9 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IndexPredicateExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -115,12 +114,12 @@ public final class IndexGenerator {
 
     private IndexGenerator(@Nonnull final RelationalExpression relationalExpression) {
         collectQuantifiers(relationalExpression);
-        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(GroupExpressionRef.of(relationalExpression));
+        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(Reference.of(relationalExpression));
         relationalExpressions =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RelationalException("graph has cycles", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException())
                         .stream()
-                        .map(ExpressionRef::get)
+                        .map(Reference::get)
                         .collect(toList());
         this.relationalExpression = relationalExpression;
     }
@@ -134,10 +133,10 @@ public final class IndexGenerator {
 
         collectQuantifiers(relationalExpression);
 
-        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(GroupExpressionRef.of(relationalExpression));
+        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(Reference.of(relationalExpression));
         final var expressionRefs =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
-                        .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(ExpressionRef::get).collect(toList());
+                        .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(Reference::get).collect(toList());
 
         checkValidity(expressionRefs);
 
