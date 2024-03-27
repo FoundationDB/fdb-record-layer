@@ -245,7 +245,7 @@ public class OrPredicate extends AndOrPredicate {
                 return Optional.of(PredicateMultiMap.PredicateMapping.orTermMapping(this,
                         new ConstantPredicate(true),
                         getDefaultCompensatePredicateFunction(),
-                        Optional.of(this.toResidualPredicate().translateValue(value -> value.translate(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                        Optional.of(this.toResidualPredicate().translateValue(value -> value.translate1(TranslationMap.rebaseWithAliasMap(aliasMap))))));
             }
         }
 
@@ -293,7 +293,7 @@ public class OrPredicate extends AndOrPredicate {
                              Objects.requireNonNull(foldNullable(Function.identity(),
                                      (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
                                              boundParameterPrefixMap,
-                                             ImmutableList.copyOf(childFunctions))))), Optional.of(this.toResidualPredicate().translateValue(value -> value.translate(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                                             ImmutableList.copyOf(childFunctions))))), Optional.of(this.toResidualPredicate().translateValue(value -> value.translate1(TranslationMap.rebaseWithAliasMap(aliasMap))))));
         } else {
             return Optional.of(PredicateMultiMap.PredicateMapping.regularMappingWithoutCompensation(this, candidatePredicate));
         }

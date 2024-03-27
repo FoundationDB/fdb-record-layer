@@ -703,7 +703,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                                          @Nonnull final Value candidateExpression,
                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final var underlyingTranslationMap = getTranslationMapFromUnderlying(bindingAliasMap, partialMatchMap);
-        final var translatedQueryExpression = queryExpression.translate(underlyingTranslationMap);
+        final var translatedQueryExpression = queryExpression.translate1(underlyingTranslationMap);
         return MaxMatchMap.calculate(translatedQueryExpression, candidateExpression);
     }
 

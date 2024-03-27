@@ -174,7 +174,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (candidatePredicate.isTautology()) {
             return Optional.of(PredicateMapping.regularMapping(this,
                     candidatePredicate,
-                    getDefaultCompensatePredicateFunction(), Optional.of(this.toResidualPredicate().translateValue(value -> value.translate(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                    getDefaultCompensatePredicateFunction(), Optional.of(this.toResidualPredicate().translateValue(value -> value.translate1(TranslationMap.rebaseWithAliasMap(aliasMap))))));
         }
 
         if (this.semanticEquals(candidatePredicate, aliasMap)) {

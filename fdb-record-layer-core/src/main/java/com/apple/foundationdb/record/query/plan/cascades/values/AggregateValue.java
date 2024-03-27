@@ -53,7 +53,7 @@ public interface AggregateValue extends Value {
 
     @Nonnull
     @Override
-    default AggregateValue translate(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNeeded) {
-        return (AggregateValue)Value.super.translate(translationMap, simplifyIfNeeded);
+    default AggregateValue translate2(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNeeded) {
+        return (AggregateValue)Value.super.translate2(translationMap, simplifyIfNeeded);
     }
 }

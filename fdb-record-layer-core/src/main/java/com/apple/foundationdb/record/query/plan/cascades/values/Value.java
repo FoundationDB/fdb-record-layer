@@ -259,17 +259,17 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     @Override
     default Value rebase(@Nonnull final AliasMap aliasMap) {
-        return translate(TranslationMap.rebaseWithAliasMap(aliasMap), false);
+        return translate2(TranslationMap.rebaseWithAliasMap(aliasMap), false);
     }
 
     @Nonnull
-    default Value translate(@Nonnull final TranslationMap translationMap) {
-        return translate(translationMap, true);
+    default Value translate1(@Nonnull final TranslationMap translationMap) {
+        return translate2(translationMap, true);
     }
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Value translate(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNecessary) {
+    default Value translate2(@Nonnull final TranslationMap translationMap, final boolean simplifyIfNecessary) {
         final var isSimplifyNecessary = new AtomicBoolean(false);
         final var newValue = replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
