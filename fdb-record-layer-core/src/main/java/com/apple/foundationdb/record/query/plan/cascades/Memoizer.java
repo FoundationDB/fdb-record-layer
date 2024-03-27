@@ -39,37 +39,37 @@ public interface Memoizer  {
     Memoizer NO_MEMO = new Memoizer() {
         @Nonnull
         @Override
-        public ExpressionRef<? extends RelationalExpression> memoizeExpression(@Nonnull final RelationalExpression expression) {
-            return GroupExpressionRef.of(expression);
+        public Reference memoizeExpression(@Nonnull final RelationalExpression expression) {
+            return Reference.of(expression);
         }
 
         @Nonnull
         @Override
-        public ExpressionRef<? extends RelationalExpression> memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
-            return GroupExpressionRef.of(expression);
+        public Reference memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
+            return Reference.of(expression);
         }
 
         @Nonnull
         @Override
-        public ExpressionRef<? extends RelationalExpression> memoizeMemberPlans(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return GroupExpressionRef.from(plans);
+        public Reference memoizeMemberPlans(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+            return Reference.from(plans);
         }
 
         @Nonnull
         @Override
-        public ExpressionRef<? extends RecordQueryPlan> memoizePlans(@Nonnull final RecordQueryPlan... plans) {
-            return GroupExpressionRef.from(plans);
+        public Reference memoizePlans(@Nonnull final RecordQueryPlan... plans) {
+            return Reference.from(plans);
         }
 
         @Nonnull
         @Override
-        public ExpressionRef<? extends RecordQueryPlan> memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return GroupExpressionRef.from(plans);
+        public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
+            return Reference.from(plans);
         }
 
         @Nonnull
         @Override
-        public ExpressionRef<? extends RelationalExpression> memoizeReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+        public Reference memoizeReference(@Nonnull final Reference reference) {
             return reference;
         }
 
@@ -85,8 +85,8 @@ public interface Memoizer  {
             return new ReferenceBuilder() {
                 @Nonnull
                 @Override
-                public ExpressionRef<? extends RelationalExpression> reference() {
-                    return GroupExpressionRef.from(expressions);
+                public Reference reference() {
+                    return Reference.from(expressions);
                 }
 
                 @Nonnull
@@ -99,7 +99,7 @@ public interface Memoizer  {
 
         @Nonnull
         @Override
-        public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull final ExpressionRef<? extends RelationalExpression> reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
             return memoizeBuilder(plans);
         }
 
@@ -117,30 +117,30 @@ public interface Memoizer  {
     };
 
     @Nonnull
-    ExpressionRef<? extends RelationalExpression> memoizeExpression(@Nonnull RelationalExpression expression);
+    Reference memoizeExpression(@Nonnull RelationalExpression expression);
 
     @Nonnull
-    ExpressionRef<? extends RelationalExpression> memoizeLeafExpression(@Nonnull RelationalExpression expression);
+    Reference memoizeLeafExpression(@Nonnull RelationalExpression expression);
 
 
     @Nonnull
-    ExpressionRef<? extends RelationalExpression> memoizeMemberPlans(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
-                                                                     @Nonnull Collection<? extends RecordQueryPlan> plans);
+    Reference memoizeMemberPlans(@Nonnull Reference reference,
+                                 @Nonnull Collection<? extends RecordQueryPlan> plans);
 
     @Nonnull
-    ExpressionRef<? extends RecordQueryPlan> memoizePlans(@Nonnull RecordQueryPlan... plans);
+    Reference memoizePlans(@Nonnull RecordQueryPlan... plans);
 
     @Nonnull
-    ExpressionRef<? extends RecordQueryPlan> memoizePlans(@Nonnull Collection<? extends RecordQueryPlan> plans);
+    Reference memoizePlans(@Nonnull Collection<? extends RecordQueryPlan> plans);
 
     @Nonnull
-    ExpressionRef<? extends RelationalExpression> memoizeReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+    Reference memoizeReference(@Nonnull Reference reference);
 
     @Nonnull
     ReferenceBuilder memoizeExpressionBuilder(@Nonnull RelationalExpression expression);
 
     @Nonnull
-    ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+    ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull Reference reference,
                                                @Nonnull Collection<? extends RecordQueryPlan> plans);
 
     @Nonnull
@@ -158,7 +158,7 @@ public interface Memoizer  {
      */
     interface ReferenceBuilder {
         @Nonnull
-        ExpressionRef<? extends RelationalExpression> reference();
+        Reference reference();
 
         @Nonnull
         Set<? extends RelationalExpression> members();

@@ -100,7 +100,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
      * Traversal object of the expanded index scan graph.
      */
     @Nonnull
-    private final ExpressionRefTraversal traversal;
+    private final Traversal traversal;
 
     @Nonnull
     private final KeyExpression fullKeyExpression;
@@ -113,7 +113,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     public ValueIndexScanMatchCandidate(@Nonnull Index index,
                                         @Nonnull Collection<RecordType> queriedRecordTypes,
-                                        @Nonnull final ExpressionRefTraversal traversal,
+                                        @Nonnull final Traversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
                                         @Nonnull final Type baseType,
                                         @Nonnull final CorrelationIdentifier baseAlias,
@@ -158,7 +158,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public ExpressionRefTraversal getTraversal() {
+    public Traversal getTraversal() {
         return traversal;
     }
 

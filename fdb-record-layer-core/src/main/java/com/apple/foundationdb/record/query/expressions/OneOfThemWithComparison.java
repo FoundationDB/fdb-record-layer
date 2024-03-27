@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -107,14 +107,14 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
         final SelectExpression selectExpression =
                 GraphExpansion.builder()
                         .addQuantifier(childBase)
                         .addPredicate(childBase.getFlowedObjectValue().withComparison(comparison))
                         .build()
                         .buildSimpleSelectOverQuantifier(childBase);
-        final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
+        final Quantifier.Existential childQuantifier = Quantifier.existential(Reference.of(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it
         // this is needed for reapplication of the component if the sub query cannot be matched or only matched with

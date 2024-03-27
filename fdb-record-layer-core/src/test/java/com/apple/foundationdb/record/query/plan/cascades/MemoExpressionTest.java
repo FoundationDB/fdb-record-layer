@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests of the Memo data structure implemented by {@link GroupExpressionRef} and {@link RelationalExpression}.
+ * Tests of the Memo data structure implemented by {@link Reference} and {@link RelationalExpression}.
  */
 public class MemoExpressionTest {
     @Nonnull
@@ -62,7 +62,7 @@ public class MemoExpressionTest {
 
         // Middle expressions with one child
         for (int childMemberCount = 1; childMemberCount <= 4; childMemberCount++) {
-            GroupExpressionRef<SyntheticPlannerExpression> middleChildGroup = GroupExpressionRef.empty();
+            Reference middleChildGroup = Reference.empty();
             for (int i = 1; i <= childMemberCount; i++) {
                 middleChildGroup.insert(leafExpressions.get("leaf" + i));
             }
@@ -71,8 +71,8 @@ public class MemoExpressionTest {
         }
         // Middle expressions with two children
         for (int childSplitPosition = 1; childSplitPosition <= 3; childSplitPosition++) {
-            GroupExpressionRef<SyntheticPlannerExpression> leftGroup = GroupExpressionRef.empty();
-            GroupExpressionRef<SyntheticPlannerExpression> rightGroup = GroupExpressionRef.empty();
+            Reference leftGroup = Reference.empty();
+            Reference rightGroup = Reference.empty();
             for (int i = 1; i <= childSplitPosition; i++) {
                 leftGroup.insert(leafExpressions.get("leaf" + i));
             }
@@ -87,73 +87,73 @@ public class MemoExpressionTest {
 
     @Test
     public void identicalSets() {
-        GroupExpressionRef<SyntheticPlannerExpression> justALeaf1 = GroupExpressionRef.of(leafExpressions.get("leaf1"));
-        GroupExpressionRef<SyntheticPlannerExpression> justALeaf2 = GroupExpressionRef.of(leafExpressions.get("leaf2"));
+        Reference justALeaf1 = Reference.of(leafExpressions.get("leaf1"));
+        Reference justALeaf2 = Reference.of(leafExpressions.get("leaf2"));
         assertTrue(justALeaf1.containsAllInMemo(justALeaf1, AliasMap.emptyMap()));
         assertFalse(justALeaf1.containsAllInMemo(justALeaf2, AliasMap.emptyMap()));
 
-        GroupExpressionRef<SyntheticPlannerExpression> multipleLeaves1 = GroupExpressionRef.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
-        GroupExpressionRef<SyntheticPlannerExpression> multipleLeaves2 = GroupExpressionRef.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"));
+        Reference multipleLeaves1 = Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
+        Reference multipleLeaves2 = Reference.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"));
         assertTrue(multipleLeaves1.containsAllInMemo(multipleLeaves1, AliasMap.emptyMap()));
         assertFalse(multipleLeaves1.containsAllInMemo(multipleLeaves2, AliasMap.emptyMap()));
 
-        GroupExpressionRef<SyntheticPlannerExpression> complexExpression = GroupExpressionRef.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2"));
+        Reference complexExpression = Reference.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2"));
         assertTrue(complexExpression.containsAllInMemo(complexExpression, AliasMap.emptyMap()));
     }
 
     @Test
     public void flatSets() {
-        GroupExpressionRef<SyntheticPlannerExpression> allLeaves = GroupExpressionRef.from(leafExpressions.values());
-        GroupExpressionRef<SyntheticPlannerExpression> justALeaf = GroupExpressionRef.of(leafExpressions.get("leaf1"));
+        Reference allLeaves = Reference.from(leafExpressions.values());
+        Reference justALeaf = Reference.of(leafExpressions.get("leaf1"));
         assertTrue(allLeaves.containsAllInMemo(justALeaf, AliasMap.emptyMap()));
         assertFalse(justALeaf.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
 
-        GroupExpressionRef<SyntheticPlannerExpression> multipleLeaves = GroupExpressionRef.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
+        Reference multipleLeaves = Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
         assertTrue(allLeaves.containsAllInMemo(multipleLeaves, AliasMap.emptyMap()));
         assertFalse(multipleLeaves.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
     }
 
     @Test
-    public void complexGroupExpressions() {
+    public void complexReferences() {
         SyntheticPlannerExpression root1 = new SyntheticPlannerExpression("root1",
-                ImmutableList.of(GroupExpressionRef.from(middleExpressions.get("middle1"), middleExpressions.get("middle2")),
-                        GroupExpressionRef.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"))));
+                ImmutableList.of(Reference.from(middleExpressions.get("middle1"), middleExpressions.get("middle2")),
+                        Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"))));
         SyntheticPlannerExpression root2 = new SyntheticPlannerExpression("root2",
-                ImmutableList.of(GroupExpressionRef.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2-2")),
-                        GroupExpressionRef.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"))));
+                ImmutableList.of(Reference.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2-2")),
+                        Reference.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"))));
         SyntheticPlannerExpression root1copy = new SyntheticPlannerExpression("root1",
-                    ImmutableList.of(GroupExpressionRef.of(leafExpressions.get("leaf3")),
-                            GroupExpressionRef.of(leafExpressions.get("leaf4"))));
-        GroupExpressionRef<SyntheticPlannerExpression> firstTwoRoots = GroupExpressionRef.from(root1, root2);
-        GroupExpressionRef<SyntheticPlannerExpression> allRoots = GroupExpressionRef.from(root1, root2, root1copy);
+                    ImmutableList.of(Reference.of(leafExpressions.get("leaf3")),
+                            Reference.of(leafExpressions.get("leaf4"))));
+        Reference firstTwoRoots = Reference.from(root1, root2);
+        Reference allRoots = Reference.from(root1, root2, root1copy);
         assertEquals(3, allRoots.getMembers().size());
 
-        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1), AliasMap.emptyMap()));
-        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.from(root1, root2), AliasMap.emptyMap()));
+        assertTrue(firstTwoRoots.containsAllInMemo(Reference.of(root1), AliasMap.emptyMap()));
+        assertTrue(firstTwoRoots.containsAllInMemo(Reference.from(root1, root2), AliasMap.emptyMap()));
         assertTrue(allRoots.containsAllInMemo(firstTwoRoots, AliasMap.emptyMap()));
-        assertFalse(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1copy), AliasMap.emptyMap()));
+        assertFalse(firstTwoRoots.containsAllInMemo(Reference.of(root1copy), AliasMap.emptyMap()));
         assertFalse(firstTwoRoots.containsAllInMemo(allRoots, AliasMap.emptyMap()));
 
         SyntheticPlannerExpression singleRefExpression = new SyntheticPlannerExpression("root1",
-                ImmutableList.of(GroupExpressionRef.of(middleExpressions.get("middle1")), // has only a single member in its child group
-                        GroupExpressionRef.of(leafExpressions.get("leaf1"))));
-        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(singleRefExpression), AliasMap.emptyMap()));
+                ImmutableList.of(Reference.of(middleExpressions.get("middle1")), // has only a single member in its child group
+                        Reference.of(leafExpressions.get("leaf1"))));
+        assertTrue(firstTwoRoots.containsAllInMemo(Reference.of(singleRefExpression), AliasMap.emptyMap()));
     }
 
     @ParameterizedTest
     @ValueSource(longs = { 2L, 3L, 5L })
     public void memoInsertionAtRoot(long seed) {
         Set<SyntheticPlannerExpression> trackingSet = new HashSet<>();
-        GroupExpressionRef<SyntheticPlannerExpression> groupExpression = GroupExpressionRef.empty();
-        GroupExpressionRef<SyntheticPlannerExpression> sample = GroupExpressionRef.empty(); // will contain every 5th expression
+        Reference reference = Reference.empty();
+        Reference sample = Reference.empty(); // will contain every 5th expression
 
         final Random random = new Random(seed);
         for (int i = 0; i < 100; i++) {
-            // Generate a random expression and it insert it at the root.
+            // Generate a random expression and insert it at the root.
             SyntheticPlannerExpression expression = SyntheticPlannerExpression.generate(random, 5);
             trackingSet.add(expression);
-            groupExpression.insert(expression);
-            assertTrue(groupExpression.containsInMemo(expression));
+            reference.insert(expression);
+            assertTrue(reference.containsInMemo(expression));
             if (i % 5 == 0) {
                 sample.insert(expression);
                 assertTrue(sample.containsInMemo(expression));
@@ -161,9 +161,9 @@ public class MemoExpressionTest {
         }
 
         for (SyntheticPlannerExpression expression : trackingSet) {
-            assertTrue(groupExpression.containsInMemo(expression));
+            assertTrue(reference.containsInMemo(expression));
         }
-        assertTrue(groupExpression.containsAllInMemo(sample, AliasMap.emptyMap()));
+        assertTrue(reference.containsAllInMemo(sample, AliasMap.emptyMap()));
     }
 
     /**
@@ -181,7 +181,7 @@ public class MemoExpressionTest {
         }
 
         public SyntheticPlannerExpression(@Nonnull String identity,
-                                          @Nonnull List<ExpressionRef<? extends RelationalExpression>> children) {
+                                          @Nonnull List<Reference> children) {
             this.identity = identity;
             this.quantifiers = Quantifiers.forEachQuantifiers(children);
         }
@@ -227,9 +227,9 @@ public class MemoExpressionTest {
                 return new SyntheticPlannerExpression(name);
             }
             int numChildren = random.nextInt(4); // Uniform random integer 0 and 3 (inclusive)
-            List<ExpressionRef<? extends RelationalExpression>> children = new ArrayList<>(numChildren);
+            List<Reference> children = new ArrayList<>(numChildren);
             for (int i = 0; i < numChildren; i++) {
-                children.add(GroupExpressionRef.of(generate(random, maxDepth - 1)));
+                children.add(Reference.of(generate(random, maxDepth - 1)));
             }
             return new SyntheticPlannerExpression(name, children);
         }

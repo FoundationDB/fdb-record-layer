@@ -34,8 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -208,7 +207,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<ExpressionRef<RecordQueryPlan>> childRefs = ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right));
+        final List<Reference> childRefs = ImmutableList.of(Reference.of(left), Reference.of(right));
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefs),
                 comparisonKey,
                 left.isReverse(),
@@ -238,9 +237,9 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         if (!children.stream().allMatch(child -> child.isReverse() == firstReverse)) {
             throw new RecordCoreArgumentException("children of union plan do all have same value for reverse field");
         }
-        final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(GroupExpressionRef.of(child));
+            childRefsBuilder.add(Reference.of(child));
         }
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefsBuilder.build()),
                 comparisonKey,

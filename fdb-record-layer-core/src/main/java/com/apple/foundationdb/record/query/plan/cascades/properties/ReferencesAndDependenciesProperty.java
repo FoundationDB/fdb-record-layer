@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.google.common.collect.ImmutableList;
@@ -38,25 +38,25 @@ import java.util.Objects;
 /**
  * This property establishes a partial order over the expressions contained in a subgraph.
  */
-public class ReferencesAndDependenciesProperty implements ExpressionProperty<PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>>>, RelationalExpressionVisitorWithDefaults<PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>>> {
+public class ReferencesAndDependenciesProperty implements ExpressionProperty<PartiallyOrderedSet<Reference>>, RelationalExpressionVisitorWithDefaults<PartiallyOrderedSet<Reference>> {
 
     @Nonnull
     @Override
-    public PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>>> childResults) {
+    public PartiallyOrderedSet<Reference> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<PartiallyOrderedSet<Reference>> childResults) {
         return mergePartialOrders(childResults);
     }
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
-    public PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>>> memberResults) {
+    public PartiallyOrderedSet<Reference> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<PartiallyOrderedSet<Reference>> memberResults) {
         final var membersPartialOrder = mergePartialOrders(memberResults);
 
         final var membersSet = membersPartialOrder.getSet();
         final var membersDependencyMap = membersPartialOrder.getDependencyMap();
 
-        final var setBuilder = ImmutableSet.<ExpressionRef<? extends RelationalExpression>>builder();
-        final var dependencyMapBuilder = ImmutableSetMultimap.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>builder();
+        final var setBuilder = ImmutableSet.<Reference>builder();
+        final var dependencyMapBuilder = ImmutableSetMultimap.<Reference, Reference>builder();
 
         setBuilder.addAll(membersSet);
         setBuilder.add(ref);
@@ -72,9 +72,9 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>> mergePartialOrders(@Nonnull Iterable<PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>>> partialOrders) {
-        final var setBuilder = ImmutableSet.<ExpressionRef<? extends RelationalExpression>>builder();
-        final var dependencyMapBuilder = ImmutableSetMultimap.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>builder();
+    private PartiallyOrderedSet<Reference> mergePartialOrders(@Nonnull Iterable<PartiallyOrderedSet<Reference>> partialOrders) {
+        final var setBuilder = ImmutableSet.<Reference>builder();
+        final var dependencyMapBuilder = ImmutableSetMultimap.<Reference, Reference>builder();
 
         for (final var partialOrder : partialOrders) {
             setBuilder.addAll(partialOrder.getSet());
@@ -85,14 +85,14 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
     }
 
     @Nonnull
-    public static PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>> evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    public static PartiallyOrderedSet<Reference> evaluate(@Nonnull Reference ref) {
         @Nullable final var nullableResult =
                 ref.acceptPropertyVisitor(new ReferencesAndDependenciesProperty());
         return Objects.requireNonNull(nullableResult);
     }
 
     @Nonnull
-    public static PartiallyOrderedSet<ExpressionRef<? extends RelationalExpression>> evaluate(@Nonnull Iterable<? extends ExpressionRef<? extends RelationalExpression>> refs) {
+    public static PartiallyOrderedSet<Reference> evaluate(@Nonnull Iterable<? extends Reference> refs) {
         final var property = new ReferencesAndDependenciesProperty();
         final var refResults = Streams.stream(refs)
                 .map(ref -> Objects.requireNonNull(ref.acceptPropertyVisitor(property)))

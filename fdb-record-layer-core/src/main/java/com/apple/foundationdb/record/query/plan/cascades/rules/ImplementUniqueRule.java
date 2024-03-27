@@ -22,11 +22,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
@@ -54,7 +53,7 @@ public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
     private static final CollectionMatcher<PlanPartition> anyPlanPartitionMatcher = all(anyPlanPartition());
 
     @Nonnull
-    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher = planPartitions(
+    private static final BindingMatcher<Reference> innerReferenceMatcher = planPartitions(
             where(planPartition -> planPartition.getAttributesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
                                    && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
                     rollUp(anyPlanPartitionMatcher)));

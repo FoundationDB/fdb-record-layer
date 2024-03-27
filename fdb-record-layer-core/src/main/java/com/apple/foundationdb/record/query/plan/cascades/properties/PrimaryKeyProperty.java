@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
@@ -374,7 +374,7 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
             return commonPrimaryKeyValuesMaybeFromOptionals(primaryKeysFromChildren);
         }
 
-        private Optional<List<Value>> evaluateForReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference) {
+        private Optional<List<Value>> evaluateForReference(@Nonnull Reference reference) {
             final var memberPrimaryKeysCollection =
                     reference.getPlannerAttributeForMembers(PRIMARY_KEY).values();
 

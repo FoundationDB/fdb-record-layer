@@ -23,11 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -78,12 +77,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  *
  * where lowerPred has been rebased (pulled up through upperQun). upperQun' on the right side is still a duplicated
- * quantifier but it shares the same name.
+ * quantifier, but it shares the same name.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class CombineFilterRule extends CascadesRule<LogicalFilterExpression> {
-    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRef();
+    private static final BindingMatcher<? extends Reference> innerMatcher = anyRef();
     private static final BindingMatcher<Quantifier.ForEach> lowerQunMatcher = forEachQuantifierOverRef(innerMatcher);
     private static final BindingMatcher<QueryPredicate> lowerMatcher = anyPredicate();
     private static final BindingMatcher<Quantifier.ForEach> upperQunMatcher =
@@ -104,7 +103,7 @@ public class CombineFilterRule extends CascadesRule<LogicalFilterExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
-        final ExpressionRef<?> inner = bindings.get(innerMatcher);
+        final Reference inner = bindings.get(innerMatcher);
         final Quantifier.ForEach lowerQun = bindings.get(lowerQunMatcher);
         final List<? extends QueryPredicate> lowerPreds = bindings.getAll(lowerMatcher);
         final Quantifier.ForEach upperQun = call.get(upperQunMatcher);

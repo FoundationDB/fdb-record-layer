@@ -27,22 +27,21 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -74,7 +73,7 @@ public class CombineFilterRuleTest {
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,
                                                               @Nonnull RelationalExpression inner) {
-        final var baseRef = GroupExpressionRef.of(inner);
+        final var baseRef = Reference.of(inner);
         final Quantifier.ForEach innerQuantifier = Quantifier.forEach(baseRef);
         return new LogicalFilterExpression(
                 queryComponent.expand(innerQuantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),
@@ -86,7 +85,7 @@ public class CombineFilterRuleTest {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
-            GroupExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
+            Reference root = Reference.of(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter2, basePlan)));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertTrue(execution.isRuleMatched());
@@ -99,7 +98,7 @@ public class CombineFilterRuleTest {
     public void doesNotCoalesce() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            GroupExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
+            Reference root = Reference.of(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter1, basePlan)));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertTrue(execution.isRuleMatched());
@@ -113,7 +112,7 @@ public class CombineFilterRuleTest {
     public void doesNotMatchSingleFilter() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            GroupExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
+            Reference root = Reference.of(
                     buildLogicalFilter(filter1, basePlan));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertFalse(execution.isRuleMatched());

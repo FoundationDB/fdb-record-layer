@@ -184,7 +184,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         final var matchableSortExpression = new MatchableSortExpression(parameters, isReverse, sealedExpansion.buildSelect());
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
-                ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
+                Traversal.withRoot(Reference.of(matchableSortExpression)),
                 parameters,
                 baseQuantifier.getFlowedObjectType(),
                 baseQuantifier.getAlias(),

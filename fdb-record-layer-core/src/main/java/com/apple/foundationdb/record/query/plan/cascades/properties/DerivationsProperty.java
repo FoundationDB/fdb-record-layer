@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -734,7 +734,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         }
 
         @Nonnull
-        private Derivations evaluateForReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference) {
+        private Derivations evaluateForReference(@Nonnull Reference reference) {
             final RelationalExpression expression = reference.get();
             return visit((RecordQueryPlan)expression);
         }

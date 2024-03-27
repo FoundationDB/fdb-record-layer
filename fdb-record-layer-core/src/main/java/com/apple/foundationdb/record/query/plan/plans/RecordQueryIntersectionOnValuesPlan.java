@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryIntersecti
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -108,7 +108,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
 
     @Nonnull
     @Override
-    public RecordQueryIntersectionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+    public RecordQueryIntersectionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
         return new RecordQueryIntersectionOnValuesPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)

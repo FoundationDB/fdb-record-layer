@@ -23,12 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PropertiesMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -62,7 +61,7 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
     private static final BindingMatcher<PlanPartition> intersectionLegPlanPartitionMatcher = anyPlanPartition();
 
     @Nonnull
-    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> intersectionLegReferenceMatcher =
+    private static final BindingMatcher<Reference> intersectionLegReferenceMatcher =
             planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
                     rollUpTo(any(intersectionLegPlanPartitionMatcher), PropertiesMap.allAttributesExcept(DISTINCT_RECORDS, ORDERING))));
 

@@ -23,10 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
@@ -52,7 +51,7 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
     @Nonnull
-    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> innerReferenceMatcher =
+    private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
                     any(innerPlanPartitionMatcher)));
 

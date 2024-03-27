@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -156,7 +156,7 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static LogicalIntersectionExpression from(@Nonnull List<? extends ExpressionRef<? extends RelationalExpression>> children, @Nonnull List<? extends Value> comparisonKeyValues) {
+    public static LogicalIntersectionExpression from(@Nonnull List<? extends Reference> children, @Nonnull List<? extends Value> comparisonKeyValues) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to intersection expression");
         }

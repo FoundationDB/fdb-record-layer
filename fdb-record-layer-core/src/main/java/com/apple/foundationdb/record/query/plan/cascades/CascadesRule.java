@@ -44,12 +44,12 @@ import java.util.Set;
  *
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
  * {@link PlannerRuleCall#yieldExpression(Object)} method on its rule call, with a new
- * {@link ExpressionRef}. The <code>yield()</code> method can be called more than once, or zero times if no
+ * {@link Reference}. The <code>yield()</code> method can be called more than once, or zero times if no
  * alternative expressions are found.
  *
  * A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
  * immutable, and the mutable ones are hidden behind interfaces that do not expose mutation methods. In particular,
- * a rule should never cast an {@link ExpressionRef} in an attempt to access it.
+ * a rule should never cast an {@link Reference} in an attempt to access it.
  *
  * A <code>CascadesRule</code> should not store state between successive calls to {@link #onMatch(CascadesRuleCall)},
  * since it may be reused an arbitrary number of times and may be reinstantiated at any time. To simplify cleanup,
@@ -61,7 +61,7 @@ import java.util.Set;
  * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class CascadesRule<T> implements PlannerRule<ExpressionRef<? extends RelationalExpression>, CascadesRuleCall, T> {
+public abstract class CascadesRule<T> implements PlannerRule<Reference, CascadesRuleCall, T> {
     @Nonnull
     private final BindingMatcher<T> matcher;
 

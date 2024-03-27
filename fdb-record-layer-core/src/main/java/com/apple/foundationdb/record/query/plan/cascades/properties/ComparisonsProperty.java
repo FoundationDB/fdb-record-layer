@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -127,7 +127,7 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
 
     @Nonnull
     @Override
-    public Set<Comparisons.Comparison> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Set<Comparisons.Comparison>> memberResults) {
+    public Set<Comparisons.Comparison> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Set<Comparisons.Comparison>> memberResults) {
         final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
         for (final var memberResult : memberResults) {
             if (memberResult != null) {

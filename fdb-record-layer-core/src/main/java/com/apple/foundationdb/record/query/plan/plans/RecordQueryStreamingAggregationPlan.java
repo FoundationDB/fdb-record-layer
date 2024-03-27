@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -199,7 +199,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public RecordQueryStreamingAggregationPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryStreamingAggregationPlan withChild(@Nonnull final Reference childRef) {
         return new RecordQueryStreamingAggregationPlan(Quantifier.physical(childRef, inner.getAlias()),
                 groupingKeyValue,
                 aggregateValue,

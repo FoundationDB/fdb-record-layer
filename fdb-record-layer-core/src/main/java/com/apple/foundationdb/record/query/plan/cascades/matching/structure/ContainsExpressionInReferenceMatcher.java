@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 
@@ -36,9 +36,9 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class ContainsExpressionInReferenceMatcher extends TypedMatcher<RelationalExpression> {
     @Nonnull
-    private final BindingMatcher<? extends GroupExpressionRef<RelationalExpression>> otherMatcher;
+    private final BindingMatcher<? extends Reference> otherMatcher;
 
-    private ContainsExpressionInReferenceMatcher(@Nonnull final BindingMatcher<? extends GroupExpressionRef<RelationalExpression>> otherMatcher) {
+    private ContainsExpressionInReferenceMatcher(@Nonnull final BindingMatcher<? extends Reference> otherMatcher) {
         super(RelationalExpression.class);
         this.otherMatcher = otherMatcher;
     }
@@ -58,8 +58,8 @@ public class ContainsExpressionInReferenceMatcher extends TypedMatcher<Relationa
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final RelationalExpression in) {
         Verify.verify(outerBindings.containsKey(otherMatcher));
 
-        final GroupExpressionRef<RelationalExpression> groupExpressionRef = outerBindings.get(otherMatcher);
-        if (groupExpressionRef.containsExactly(in)) {
+        final Reference reference = outerBindings.get(otherMatcher);
+        if (reference.containsExactly(in)) {
             return Stream.of(PlannerBindings.from(this, in));
         } else {
             return Stream.empty();
@@ -72,7 +72,7 @@ public class ContainsExpressionInReferenceMatcher extends TypedMatcher<Relationa
     }
 
     @Nonnull
-    public static BindingMatcher<RelationalExpression> containsExpressionInReference(@Nonnull final BindingMatcher<? extends GroupExpressionRef<RelationalExpression>> otherMatcher) {
+    public static BindingMatcher<RelationalExpression> containsExpressionInReference(@Nonnull final BindingMatcher<? extends Reference> otherMatcher) {
         return new ContainsExpressionInReferenceMatcher(otherMatcher);
     }
 }

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -44,7 +44,7 @@ public class LogicalUniqueExpression implements RelationalExpressionWithChildren
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalUniqueExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
+    public LogicalUniqueExpression(@Nonnull Reference innerRef) {
         this(Quantifier.forEach(innerRef));
     }
 

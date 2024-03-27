@@ -36,8 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -110,16 +109,16 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull List<? extends RecordQueryPlan> children) {
         final boolean reverse = children.get(0).isReverse();
-        ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> builder = ImmutableList.builder();
+        ImmutableList.Builder<Reference> builder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            builder.add(GroupExpressionRef.of(child));
+            builder.add(Reference.of(child));
         }
         return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(builder.build()), reverse);
     }
 
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
-        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))),
+        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(ImmutableList.of(Reference.of(left), Reference.of(right))),
                 left.isReverse());
     }
 
@@ -139,7 +138,7 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryUnorderedUnionPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+    public RecordQueryUnorderedUnionPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
         return new RecordQueryUnorderedUnionPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)

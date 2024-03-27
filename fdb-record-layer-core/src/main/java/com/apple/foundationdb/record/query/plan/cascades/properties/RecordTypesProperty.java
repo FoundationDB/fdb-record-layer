@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
@@ -141,7 +141,7 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
 
     @Nonnull
     @Override
-    public Set<String> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref,
+    public Set<String> evaluateAtRef(@Nonnull Reference ref,
                                      @Nonnull List<Set<String>> memberResults) {
         final Set<String> union = new HashSet<>();
         for (Set<String> resultSet : memberResults) {
@@ -151,13 +151,13 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    public static Set<String> evaluate(@Nonnull Reference ref) {
         return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.empty())));
     }
 
     @Nonnull
     public static Set<String> evaluate(@Nonnull AliasResolver aliasResolver,
-                                       @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+                                       @Nonnull Reference ref) {
         return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(Optional.of(aliasResolver))));
     }
 

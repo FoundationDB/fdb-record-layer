@@ -110,7 +110,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
         }
 
         @Override
@@ -119,7 +119,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()));
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()));
         }
 
         @Override
@@ -141,7 +141,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
             plannerRepl.printlnExpression(event.getExpression(), "  ");
         }
 
@@ -151,7 +151,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
             plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(event.getExpression()));
         }
 
@@ -174,7 +174,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
         }
 
         @Override
@@ -183,7 +183,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()));
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()));
         }
 
         @Override
@@ -205,7 +205,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
             final Object bindable = event.getBindable();
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printlnExpression((RelationalExpression)bindable);
@@ -221,7 +221,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
             final Object bindable = event.getBindable();
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
@@ -250,7 +250,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
             plannerRepl.printlnKeyValue("rule", event.getRule().toString());
             plannerRepl.printlnKeyValue("bindings", "");
             final CascadesRuleCall ruleCall = event.getRuleCall();
@@ -277,7 +277,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
             final Object bindable = event.getBindable();
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
@@ -306,7 +306,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
             plannerRepl.printlnKeyValue("expression", "");
             plannerRepl.printlnExpression(event.getExpression(), "  ");
         }
@@ -317,7 +317,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
             plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(event.getExpression()));
         }
 
@@ -340,7 +340,7 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            plannerRepl.printlnReference(event.getCurrentReference(), "  ");
             plannerRepl.printlnKeyValue("expression", "");
         }
 
@@ -350,7 +350,7 @@ public class Processors {
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
             plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(event.getExpression()) + "; ");
         }
 

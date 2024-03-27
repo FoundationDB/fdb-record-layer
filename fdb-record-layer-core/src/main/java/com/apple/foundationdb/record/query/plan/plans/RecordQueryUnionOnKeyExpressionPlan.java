@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -86,7 +86,7 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryUnionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+    public RecordQueryUnionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
         return new RecordQueryUnionOnKeyExpressionPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
