@@ -289,8 +289,3 @@ if (!ext.fdbEnvironment.isEmpty()) {
         }
     }
 }
-
-tasks.withType(Checkstyle) {
-    minHeapSize = "200m"
-    maxHeapSize = "4g"
-}

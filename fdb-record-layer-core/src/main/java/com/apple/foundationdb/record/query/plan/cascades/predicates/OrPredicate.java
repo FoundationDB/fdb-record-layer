@@ -245,7 +245,7 @@ public class OrPredicate extends AndOrPredicate {
                 return Optional.of(PredicateMultiMap.PredicateMapping.orTermMapping(this,
                         new ConstantPredicate(true),
                         getDefaultCompensatePredicateFunction(),
-                        Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                        Optional.empty())); // TODO: provide a translated predicate value here.
             }
         }
 

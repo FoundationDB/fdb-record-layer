@@ -165,11 +165,9 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             if (!existentialAlias.equals(aliasMap.getTarget(candidateExistsPredicate.getExistentialAlias()))) {
                 return Optional.empty();
             }
-            final var translatedQueryPredicate = Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))));
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe, translatedQueryPredicate));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe, Optional.empty()));  // TODO: provide a translated predicate value here.
         } else if (candidatePredicate.isTautology()) {
-            final var translatedQueryPredicate = Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))));
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe, translatedQueryPredicate));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, this::injectCompensationFunctionMaybe, Optional.empty()));  // TODO: provide a translated predicate value here.
         }
         return Optional.empty();
     }

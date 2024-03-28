@@ -289,17 +289,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
-    //          (,)                 X, Y, A-B
-    //         /  |
-    //        add  sub
-    //        / \  / \
-    //        X Y  A B
-
-    // M3:
-    //  x -> x
-    //  y -> y
-    //  A-B -> A-B
-
     @Nonnull
     default <V extends Value> V narrow(@Nonnull Class<V> narrowedClass) {
         return narrowedClass.cast(this);

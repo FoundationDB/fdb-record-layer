@@ -83,6 +83,10 @@ public class MatchInfo {
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
 
+    /**
+     * a map of maximum matches between the query result {@code Value} and the corresponding candidate's result
+     * {@code Value}.
+     */
     @Nonnull
     private final Optional<MaxMatchMap> maxMatchMapOptional;
 

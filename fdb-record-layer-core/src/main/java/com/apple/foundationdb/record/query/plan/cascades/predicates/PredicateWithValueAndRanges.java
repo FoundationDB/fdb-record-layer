@@ -297,7 +297,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         }
                         return injectCompensationFunctionMaybe();
                     }, Optional.of(alias), Optional.empty(),
-                            Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                            Optional.empty()));  // TODO: provide a translated predicate value here.
                 } else {
                     return Optional.empty();
                 }
@@ -313,7 +313,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         }
                         return injectCompensationFunctionMaybe();
                     }, Optional.of(alias), Optional.of(captureConstraint(candidate)),
-                            Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                            Optional.empty()));  // TODO: provide a translated predicate value here.
                 } else {
                     return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
@@ -326,14 +326,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         }
                         return injectCompensationFunctionMaybe();
                     }, Optional.empty(), Optional.of(captureConstraint(candidate)),
-                            Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                            Optional.empty()));  // TODO: provide a translated predicate value here.
                 }
             }
         }
 
         if (candidatePredicate.isTautology()) {
             return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe(),
-                    Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                    Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
         //
@@ -345,7 +345,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             // Note that we never have to reapply the predicate as both sides are always semantically
             // equivalent.
             return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded(),
-                    Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                    Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
         return Optional.empty();
