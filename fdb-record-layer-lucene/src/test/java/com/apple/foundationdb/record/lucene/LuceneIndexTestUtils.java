@@ -53,7 +53,6 @@ import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.search.Sort;
-import org.junit.jupiter.params.provider.Arguments;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -522,59 +521,8 @@ public class LuceneIndexTestUtils {
                             LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME,
                             LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
 
-    public static Stream<Arguments> luceneIndexMapParams() {
-        return Stream.of(
-                Arguments.of(Map.ofEntries(
-                                Map.entry(SIMPLE_TEXT_SUFFIXES_KEY, SIMPLE_TEXT_SUFFIXES),
-                                Map.entry(MANY_FIELDS_INDEX_KEY, MANY_FIELDS_INDEX),
-                                Map.entry(TEXT_AND_BOOLEAN_INDEX_KEY, TEXT_AND_BOOLEAN_INDEX),
-                                Map.entry(TEXT_AND_NUMBER_INDEX_KEY, TEXT_AND_NUMBER_INDEX),
-                                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY, SIMPLE_TEXT_WITH_AUTO_COMPLETE),
-                                Map.entry(MAP_ON_VALUE_INDEX_KEY, MAP_ON_VALUE_INDEX),
-                                Map.entry(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX),
-                                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY, COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
-                                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY, QUERY_ONLY_SYNONYM_LUCENE_INDEX),
-                                Map.entry(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY, AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX),
-                                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX_KEY, QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX),
-                                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_KEY, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE),
-                                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_KEY, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE),
-                                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS_KEY, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS),
-                                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS_KEY, SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS),
-                                Map.entry(SPELLCHECK_INDEX_KEY, SPELLCHECK_INDEX),
-                                Map.entry(SPELLCHECK_INDEX_COMPLEX_KEY, SPELLCHECK_INDEX_COMPLEX),
-                                Map.entry(COMPLEX_MULTIPLE_GROUPED_KEY, COMPLEX_MULTIPLE_GROUPED),
-                                Map.entry(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY, COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE),
-                                Map.entry(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY, ANALYZER_CHOOSER_TEST_LUCENE_INDEX),
-                                Map.entry(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY, AUTO_COMPLETE_SIMPLE_LUCENE_INDEX)),
-                        false,
-                        List.of(1498044543, -417696951, -687982540, -1626985233, -1008465729, 1532371150, -42167700)),
-                Arguments.of(Map.ofEntries(
-                                Map.entry(SIMPLE_TEXT_SUFFIXES_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(MANY_FIELDS_INDEX_KEY, JOINED_MANY_FIELDS_INDEX),
-                                Map.entry(TEXT_AND_BOOLEAN_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(TEXT_AND_NUMBER_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(MAP_ON_VALUE_INDEX_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
-                                Map.entry(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_PRIMARY_KEY_SEGMENT_INDEXES),
-                                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
-                                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY, JOINED_SYNONYM_ONLY_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY, JOINED_AUTHORITATIVE_SYNONYM_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX_KEY, JOINED_QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX),
-                                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
-                                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
-                                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES_NO_FREQS_POSITIONS),
-                                Map.entry(SPELLCHECK_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(SPELLCHECK_INDEX_COMPLEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
-                                Map.entry(COMPLEX_MULTIPLE_GROUPED_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
-                                Map.entry(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
-                                Map.entry(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_ANALYZER_CHOOSER_INDEXES),
-                                Map.entry(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES)),
-                        true,
-                        List.of(1373414429, -542327065, 1373414429, -1751615347, -1644529491, -1644529491, 2019229269))
-        );
+    public static Stream<IndexedType> luceneIndexMapParams() {
+        return Stream.of(IndexedType.values());
     }
 
     protected static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
@@ -869,6 +817,84 @@ public class LuceneIndexTestUtils {
                 return new LuceneAnalyzerWrapper("TEST_NGRAM",
                         new NgramAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, 3, 30, false));
             }
+        }
+    }
+
+    /**
+     * Whether to test with synthetic record types or standard record types.
+     */
+    public enum IndexedType {
+        Synthetic(Map.ofEntries(
+                Map.entry(SIMPLE_TEXT_SUFFIXES_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(MANY_FIELDS_INDEX_KEY, JOINED_MANY_FIELDS_INDEX),
+                Map.entry(TEXT_AND_BOOLEAN_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(TEXT_AND_NUMBER_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(MAP_ON_VALUE_INDEX_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
+                Map.entry(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_PRIMARY_KEY_SEGMENT_INDEXES),
+                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
+                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY, JOINED_SYNONYM_ONLY_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY, JOINED_AUTHORITATIVE_SYNONYM_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX_KEY, JOINED_QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX),
+                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
+                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
+                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES_NO_FREQS_POSITIONS),
+                Map.entry(SPELLCHECK_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(SPELLCHECK_INDEX_COMPLEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(COMPLEX_MULTIPLE_GROUPED_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
+                Map.entry(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
+                Map.entry(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_ANALYZER_CHOOSER_INDEXES),
+                Map.entry(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES)),
+                true,
+                List.of(1373414429, -542327065, 1373414429, -1751615347, -1644529491, -1644529491, 2019229269)),
+        NonSynthetic(Map.ofEntries(
+                Map.entry(SIMPLE_TEXT_SUFFIXES_KEY, SIMPLE_TEXT_SUFFIXES),
+                Map.entry(MANY_FIELDS_INDEX_KEY, MANY_FIELDS_INDEX),
+                Map.entry(TEXT_AND_BOOLEAN_INDEX_KEY, TEXT_AND_BOOLEAN_INDEX),
+                Map.entry(TEXT_AND_NUMBER_INDEX_KEY, TEXT_AND_NUMBER_INDEX),
+                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY, SIMPLE_TEXT_WITH_AUTO_COMPLETE),
+                Map.entry(MAP_ON_VALUE_INDEX_KEY, MAP_ON_VALUE_INDEX),
+                Map.entry(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX),
+                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY, COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX),
+                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY, QUERY_ONLY_SYNONYM_LUCENE_INDEX),
+                Map.entry(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY, AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX),
+                Map.entry(QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX_KEY, QUERY_ONLY_SYNONYM_LUCENE_COMBINED_SETS_INDEX),
+                Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_KEY, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE),
+                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_KEY, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE),
+                Map.entry(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS_KEY, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS),
+                Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS_KEY, SIMPLE_TEXT_WITH_AUTO_COMPLETE_NO_FREQS_POSITIONS),
+                Map.entry(SPELLCHECK_INDEX_KEY, SPELLCHECK_INDEX),
+                Map.entry(SPELLCHECK_INDEX_COMPLEX_KEY, SPELLCHECK_INDEX_COMPLEX),
+                Map.entry(COMPLEX_MULTIPLE_GROUPED_KEY, COMPLEX_MULTIPLE_GROUPED),
+                Map.entry(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY, COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE),
+                Map.entry(ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY, ANALYZER_CHOOSER_TEST_LUCENE_INDEX),
+                Map.entry(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY, AUTO_COMPLETE_SIMPLE_LUCENE_INDEX)),
+                false,
+                List.of(1498044543, -417696951, -687982540, -1626985233, -1008465729, 1532371150, -42167700));
+
+        private final Map<String, Index> indexes;
+        private final boolean isSynthetic;
+        private final List<Integer> planHashes;
+
+        IndexedType(final Map<String, Index> indexes, final boolean isSynthetic, final List<Integer> planHashes) {
+            this.indexes = indexes;
+            this.isSynthetic = isSynthetic;
+            this.planHashes = planHashes;
+        }
+
+        public Index getIndex(final String key) {
+            return indexes.get(key);
+        }
+
+        public boolean isSynthetic() {
+            return isSynthetic;
+        }
+
+        public List<Integer> getPlanHashes() {
+            return planHashes;
         }
     }
 }
