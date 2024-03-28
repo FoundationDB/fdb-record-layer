@@ -58,6 +58,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -234,6 +235,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
+    @Nonnull
+    @Override
+    public PredicateWithValueAndRanges translateValue(@Nonnull final UnaryOperator<Value> translator) {
+        final var newValue = Verify.verifyNotNull(this.getValue().replace(translator));
+        final var newRanges = ranges.stream().map(range -> range.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
+        return new PredicateWithValueAndRanges(newValue, newRanges);
+    }
+
     /**
      * Checks whether this predicate implies a {@code candidatePredicate}, if so, we return a {@link PredicateMapping}
      * reflecting the implication itself in addition to a context needed to effectively implement the mapping (i.e. the
@@ -287,7 +296,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.of(alias), Optional.empty()));
+                    }, Optional.of(alias), Optional.empty(),
+                            Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
                 } else {
                     return Optional.empty();
                 }
@@ -302,7 +312,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.of(alias), Optional.of(captureConstraint(candidate))));
+                    }, Optional.of(alias), Optional.of(captureConstraint(candidate)),
+                            Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
                 } else {
                     return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
@@ -314,13 +325,15 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.empty(), Optional.of(captureConstraint(candidate))));
+                    }, Optional.empty(), Optional.of(captureConstraint(candidate)),
+                            Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
                 }
             }
         }
 
         if (candidatePredicate.isTautology()) {
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe(),
+                    Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
         }
 
         //
@@ -331,7 +344,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         if (semanticEquals(candidatePredicate, aliasMap)) {
             // Note that we never have to reapply the predicate as both sides are always semantically
             // equivalent.
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded(),
+                    Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
         }
 
         return Optional.empty();

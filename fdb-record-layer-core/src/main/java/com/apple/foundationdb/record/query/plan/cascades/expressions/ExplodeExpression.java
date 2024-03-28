@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -127,10 +128,10 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, Optional.empty());
     }
 
     @Override
