@@ -38,8 +38,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -78,7 +77,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     private final RecordQuerySortKey key;
 
     public RecordQuerySortPlan(@Nonnull final RecordQueryPlan plan, @Nonnull final RecordQuerySortKey key) {
-        this(Quantifier.physical(GroupExpressionRef.of(plan)), key);
+        this(Quantifier.physical(Reference.of(plan)), key);
     }
 
     private RecordQuerySortPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final RecordQuerySortKey key) {
@@ -167,7 +166,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
         return new RecordQuerySortPlan(Quantifier.physical(childRef), key);
     }
 

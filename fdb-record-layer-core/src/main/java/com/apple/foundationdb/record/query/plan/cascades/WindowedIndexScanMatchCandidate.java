@@ -118,7 +118,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
      * Traversal object of the expanded index scan graph.
      */
     @Nonnull
-    private final ExpressionRefTraversal traversal;
+    private final Traversal traversal;
 
     @Nonnull
     private final KeyExpression fullKeyExpression;
@@ -131,7 +131,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     public WindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> queriedRecordTypes,
-                                           @Nonnull final ExpressionRefTraversal traversal,
+                                           @Nonnull final Traversal traversal,
                                            @Nonnull final Type baseType,
                                            @Nonnull final CorrelationIdentifier baseAlias,
                                            @Nonnull final List<CorrelationIdentifier> groupingAliases,
@@ -180,7 +180,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public ExpressionRefTraversal getTraversal() {
+    public Traversal getTraversal() {
         return traversal;
     }
 

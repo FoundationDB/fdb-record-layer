@@ -36,7 +36,7 @@ import java.util.stream.Stream;
  * A binding matcher is an object that can be matched against a complex object tree, while binding certain
  * references in the tree to matcher objects. The bindings can be retrieved from the {@link PlannerBindings} once one
  * or more bindings are established.
- *
+ * <br>
  * Extreme care should be taken when implementing binding matchers, since it can be very delicate.
  * In particular, binding matchers may (or may not) be reused between successive rule calls and should be stateless.
  * Additionally, implementors must use the (default) reference equals for any binding matcher as the
@@ -52,7 +52,7 @@ public interface BindingMatcher<T> {
     String INDENTATION = "    ";
 
     /**
-     * Get a class that this matcher can match. Ideally, it should be the lowest such class but it may not be.
+     * Get a class that this matcher can match. Ideally, it should be the lowest such class, but it may not be.
      * A planner will generally use this method to quickly determine a set of rules that could match an expression,
      * without considering each rule and trying to apply it. A good implementation of this method helps the planner
      * match rules efficiently.
@@ -76,7 +76,7 @@ public interface BindingMatcher<T> {
 
     /**
      * A matcher is completely agnostic to the actual class of an object that is being passed in meaning that
-     * a matcher that can only match e.g. a {@link String} can be asked to match a {@link Long}. By contract it must
+     * a matcher that can only match e.g. a {@link String} can be asked to match a {@link Long}. By contract, it must
      * not ever match that {@code Long} but the call to {@code bindMatches} is allowed and even encouraged.
      * This method is implemented as a {@code default} which should be {@code final} as well if Java allowed
      * {@code default}s to be {@code final}. The implementation checks the class of the object that is passed in to be
@@ -213,7 +213,7 @@ public interface BindingMatcher<T> {
      *         object
      */
     static <T> BindingMatcher<T> instance() {
-        return new BindingMatcher<T>() {
+        return new BindingMatcher<>() {
             @Nonnull
             @Override
             public Class<T> getRootClass() {

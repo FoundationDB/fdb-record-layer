@@ -49,7 +49,7 @@ import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.getTopExpressionReferenceMatcher;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.getTopReferenceMatcher;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
@@ -65,7 +65,7 @@ public class RelationalExpressionMatchers {
 
     @Nonnull
     public static BindingMatcher<RelationalExpression> isTopExpression() {
-        return ContainsExpressionInReferenceMatcher.containsExpressionInReference(getTopExpressionReferenceMatcher());
+        return ContainsExpressionInReferenceMatcher.containsExpressionInReference(getTopReferenceMatcher());
     }
 
     public static BindingMatcher<RelationalExpression> anyExpression() {

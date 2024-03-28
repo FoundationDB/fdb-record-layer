@@ -36,8 +36,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Case class to represent a partial match. A partial match is stored in a multi map in {@link GroupExpressionRef}s that
- * are part of a query graph. A partial match is never stored in a {@link GroupExpressionRef} of a match candidate.
+ * Case class to represent a partial match. A partial match is stored in a multi-map in {@link Reference}s that
+ * are part of a query graph. A partial match is never stored in a {@link Reference} of a match candidate.
  * A partial match establishes the a relation ships between a reference {@code ref1} in a query graph and a reference
  * {@code ref2} in a match candidate. It should be interpreted as there is a partial match between {@code ref1} and
  * {@code ref2} if {@code ref1} is result-equivalent to {@code ref2'} under the bindings in the alias map returned by
@@ -67,7 +67,7 @@ public class PartialMatch {
      * Expression reference in query graph.
      */
     @Nonnull
-    private final ExpressionRef<? extends RelationalExpression> queryRef;
+    private final Reference queryRef;
 
     /**
      * Expression in query graph.
@@ -79,7 +79,7 @@ public class PartialMatch {
      * Expression reference in match candidate graph.
      */
     @Nonnull
-    private final ExpressionRef<? extends RelationalExpression> candidateRef;
+    private final Reference candidateRef;
 
     /**
      * Compensation operator that can be applied to the scan of the materialized version of the match candidate.
@@ -104,9 +104,9 @@ public class PartialMatch {
     
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
-                        @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,
+                        @Nonnull final Reference queryRef,
                         @Nonnull final RelationalExpression queryExpression,
-                        @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                        @Nonnull final Reference candidateRef,
                         @Nonnull final MatchInfo matchInfo) {
         this.boundAliasMap = boundAliasMap;
         this.matchCandidate = matchCandidate;
@@ -132,7 +132,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public ExpressionRef<? extends RelationalExpression> getQueryRef() {
+    public Reference getQueryRef() {
         return queryRef;
     }
 
@@ -142,7 +142,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public ExpressionRef<? extends RelationalExpression> getCandidateRef() {
+    public Reference getCandidateRef() {
         return candidateRef;
     }
 

@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -32,7 +32,7 @@ import java.util.NoSuchElementException;
 
 /**
  * A map-like structure that supports a map from a binding to a collection of objects, such as
- * {@link RelationalExpression}s and {@link ExpressionRef}s. A binding's
+ * {@link RelationalExpression}s and {@link Reference}s. A binding's
  * key is a pointer to the {@link BindingMatcher} that created the binding, eliminating the need for a unique string
  * or symbol identifier. A {@code PlannerBindings} is immutable but has a {@link Builder} that can be used to build up a
  * set of bindings incrementally. Additionally, bindings can be combined using {@link #mergedWith(PlannerBindings)}.

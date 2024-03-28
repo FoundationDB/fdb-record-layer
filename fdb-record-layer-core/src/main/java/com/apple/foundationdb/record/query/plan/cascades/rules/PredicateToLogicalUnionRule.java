@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
@@ -232,7 +231,7 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
                         .map(predicate -> predicate.withAtomicity(true))
                         .collect(LinkedIdentitySet.toLinkedIdentitySet());
 
-        final var relationalExpressionReferences = Lists.<ExpressionRef<? extends RelationalExpression>>newArrayList();
+        final var references = Lists.<Reference>newArrayList();
         for (final var orTermPredicate : dnfPredicate.getChildren()) {
             final var orTermCorrelatedTo = orTermPredicate.getCorrelatedTo();
 
@@ -261,18 +260,18 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
                     new SelectExpression(lowerResultValue,
                             ImmutableList.copyOf(Iterables.concat(neededForEachQuantifiers, neededAdditionalQuantifiers)),
                             ImmutableList.<QueryPredicate>builder().addAll(fixedAtomicPredicates).add(orTermPredicate).build());
-            final ExpressionRef<? extends RelationalExpression> memoizedSelectExpressionLeg = call.memoizeExpression(selectExpressionLeg);
+            final Reference memoizedSelectExpressionLeg = call.memoizeExpression(selectExpressionLeg);
             final var uniqueExpressionLeg = new LogicalUniqueExpression(Quantifier.forEach(memoizedSelectExpressionLeg));
             final var memoizedUniqueExpressionLeg = call.memoizeExpression(uniqueExpressionLeg);
-            relationalExpressionReferences.add(memoizedUniqueExpressionLeg);
+            references.add(memoizedUniqueExpressionLeg);
         }
         
-        var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionReferences)));
+        var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(references)));
 
         unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalDistinctExpression(Quantifier.forEach(unionReferenceBuilder.reference())));
 
         if (!isSimpleResultValue) {
-            final ExpressionRef<? extends RelationalExpression> unionReference = unionReferenceBuilder.reference();
+            final Reference unionReference = unionReferenceBuilder.reference();
             final var unionQuantifier = referredAliasByResultOptional.map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(unionReference)).orElse(Quantifier.forEach(unionReference));
             unionReferenceBuilder = call.memoizeExpressionBuilder(new SelectExpression(resultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
         }

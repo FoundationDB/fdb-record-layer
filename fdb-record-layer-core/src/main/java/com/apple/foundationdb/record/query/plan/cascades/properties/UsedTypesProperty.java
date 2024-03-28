@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -55,7 +55,7 @@ public class UsedTypesProperty implements ExpressionProperty<Set<Type>>, Relatio
 
     @Nonnull
     @Override
-    public Set<Type> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Set<Type>> memberResults) {
+    public Set<Type> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Set<Type>> memberResults) {
         return unionTypes(memberResults);
     }
 
@@ -68,7 +68,7 @@ public class UsedTypesProperty implements ExpressionProperty<Set<Type>>, Relatio
         return resultBuilder.build();
     }
 
-    public static Set<Type> evaluate(ExpressionRef<? extends RelationalExpression> ref) {
+    public static Set<Type> evaluate(Reference ref) {
         return ref.acceptPropertyVisitor(INSTANCE);
     }
 

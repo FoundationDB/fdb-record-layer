@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.google.common.base.Verify;
@@ -225,7 +224,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
             }
         }
 
-        final List<? extends ExpressionRef<? extends RecordQueryPlan>> newPushedInnerPlans =
+        final List<? extends Reference> newPushedInnerPlans =
                 pushableFetchPlans
                         .stream()
                         .map(RecordQueryFetchFromPartialRecordPlan::getChild)
@@ -246,12 +245,11 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         if (nonPushableQuantifiers.isEmpty()) {
             call.yieldExpression(newFetchPlan);
         } else {
-            final List<ExpressionRef<? extends RecordQueryPlan>> newFetchPlanAndResidualInners =
+            final List<Reference> newFetchPlanAndResidualInners =
                     Streams.concat(Stream.of(call.memoizePlans(newFetchPlan)),
                             nonPushableQuantifiers
                                     .stream()
-                                    .map(Quantifier.Physical::getRangesOver)
-                                    .map(RecordQueryPlan::narrowReference))
+                                    .map(Quantifier.Physical::getRangesOver))
                             .collect(ImmutableList.toImmutableList());
             call.yieldExpression(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners));
         }

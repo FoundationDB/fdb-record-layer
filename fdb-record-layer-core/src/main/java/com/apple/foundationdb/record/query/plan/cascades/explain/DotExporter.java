@@ -219,9 +219,9 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         final ArrayList<N> childrenOperatorList = new ArrayList<>();
         for (final E currentEdge : orderedChildrenEdges) {
             final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
-            if (currentChildNode instanceof PlannerGraph.ExpressionRefHeadNode) {
+            if (currentChildNode instanceof PlannerGraph.ReferenceHeadNode) {
                 final Set<N> refMembers = network.predecessors(currentChildNode);
-                for (final N refMember : Sets.filter(refMembers, refMember -> refMember instanceof PlannerGraph.ExpressionRefMemberNode)) {
+                for (final N refMember : Sets.filter(refMembers, refMember -> refMember instanceof PlannerGraph.ReferenceMemberNode)) {
                     childrenOperatorList.addAll(network.predecessors(refMember));
                 }
             } else {

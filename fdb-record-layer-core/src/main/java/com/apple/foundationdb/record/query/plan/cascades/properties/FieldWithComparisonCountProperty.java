@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
@@ -79,7 +79,7 @@ public class FieldWithComparisonCountProperty implements ExpressionProperty<Inte
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
+    public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
         int min = Integer.MAX_VALUE;
         for (int memberResult : memberResults) {
             if (memberResult < min) {
@@ -89,7 +89,7 @@ public class FieldWithComparisonCountProperty implements ExpressionProperty<Inte
         return min;
     }
 
-    public static int evaluate(ExpressionRef<? extends RelationalExpression> ref) {
+    public static int evaluate(Reference ref) {
         return ref.acceptPropertyVisitor(INSTANCE);
     }
 

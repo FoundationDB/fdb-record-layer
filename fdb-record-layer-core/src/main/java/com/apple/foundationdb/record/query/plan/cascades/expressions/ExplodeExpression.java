@@ -131,8 +131,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        final var maxMatchMap = getMaxMatchMapFromAliasMapping(bindingAliasMap, candidateExpression);
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, Optional.of(maxMatchMap));
+        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, Optional.empty());
     }
 
     @Override

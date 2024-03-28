@@ -87,37 +87,37 @@ public class Quantifiers {
 
     /**
      * Create a list of for-each quantifiers from a list of references to range over.
-     * @param rangesOverExpressions iterable {@link ExpressionRef}s of {@link RelationalExpression}s
+     * @param rangesOverExpressions iterable {@link Reference}s of {@link RelationalExpression}s
      * @return a list of for-each quantifiers where each quantifier ranges over one of the given references
      */
     @Nonnull
-    public static List<ForEach> forEachQuantifiers(@Nonnull final Iterable<ExpressionRef<? extends RelationalExpression>> rangesOverExpressions) {
+    public static List<ForEach> forEachQuantifiers(@Nonnull final Iterable<Reference> rangesOverExpressions) {
         return fromExpressions(rangesOverExpressions, Quantifier::forEach);
     }
 
     /**
      * Create a list of existential quantifiers from a list of expression references these quantifiers should range over.
-     * @param rangesOverPlans iterable {@link ExpressionRef}s of of {@link RelationalExpression}s.
+     * @param rangesOverPlans iterable {@link Reference}s of of {@link RelationalExpression}s.
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
     @Nonnull
-    public static List<Existential> existentialQuantifiers(@Nonnull final Iterable<ExpressionRef<? extends RelationalExpression>> rangesOverPlans) {
+    public static List<Existential> existentialQuantifiers(@Nonnull final Iterable<Reference> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::existential);
     }
 
     /**
      * Create a list of physical quantifiers given a list of references these quantifiers should range over.
-     * @param rangesOverPlans iterable {@link ExpressionRef}s of {@link RecordQueryPlan}
+     * @param rangesOverPlans iterable {@link Reference}s of {@link RecordQueryPlan}
      * @return a list of physical quantifiers where each quantifier ranges over a reference contained in the given iterable
      */
     @Nonnull
-    public static List<Physical> fromPlans(@Nonnull final Iterable<? extends ExpressionRef<? extends RecordQueryPlan>> rangesOverPlans) {
+    public static List<Physical> fromPlans(@Nonnull final Iterable<? extends Reference> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::physical);
     }
 
     /**
      * Create a list of quantifiers given a list of references these quantifiers should range over.
-     * @param rangesOverExpressions iterable of {@link ExpressionRef}s the quantifiers will be created to range over
+     * @param rangesOverExpressions iterable of {@link Reference}s the quantifiers will be created to range over
      * @param creator lambda to to be called for each expression reference contained in {@code rangesOverExpression}s
      *        to create the actual quantifier. This allows for callers to create different kinds of quantifier based
      *        on needs.
@@ -125,8 +125,8 @@ public class Quantifiers {
      * @return a list of quantifiers where each quantifier ranges over an reference contained in the given iterable
      */
     @Nonnull
-    public static <Q extends Quantifier> List<Q> fromExpressions(@Nonnull final Iterable<? extends ExpressionRef<? extends RelationalExpression>> rangesOverExpressions,
-                                                                 @Nonnull final Function<ExpressionRef<? extends RelationalExpression>, Q> creator) {
+    public static <Q extends Quantifier> List<Q> fromExpressions(@Nonnull final Iterable<? extends Reference> rangesOverExpressions,
+                                                                 @Nonnull final Function<Reference, Q> creator) {
         return StreamSupport
                 .stream(rangesOverExpressions.spliterator(), false)
                 .map(creator)
@@ -514,7 +514,7 @@ public class Quantifiers {
         // Take care of the case that two distinct quantifiers range over the same ref (CSE).
         //
         final var oldToNewRefMap =
-                Maps.<ExpressionRef<? extends RelationalExpression>, ExpressionRef<? extends RelationalExpression>>newIdentityHashMap();
+                Maps.<Reference, Reference>newIdentityHashMap();
         final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
 
         for (final Quantifier quantifier : quantifiers) {
@@ -550,25 +550,25 @@ public class Quantifiers {
      */
     public static class AliasResolver {
         @Nonnull
-        private final ExpressionRefTraversal traversal;
+        private final Traversal traversal;
 
-        public AliasResolver(@Nonnull final ExpressionRefTraversal traversal) {
+        public AliasResolver(@Nonnull final Traversal traversal) {
             this.traversal = traversal;
         }
 
         public Set<Quantifier> resolveCorrelationAlias(@Nonnull RelationalExpression expression,
                                                        @Nonnull final CorrelationIdentifier alias) {
-            final Set<ExpressionRef<? extends RelationalExpression>> refsContaining = traversal.getRefsContaining(expression);
+            final Set<Reference> refsContaining = traversal.getRefsContaining(expression);
             final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
 
-            for (final ExpressionRef<? extends RelationalExpression> reference : refsContaining) {
+            for (final Reference reference : refsContaining) {
                 resolveCorrelationAlias(reference, alias, resolvedQuantifiers);
             }
 
             return resolvedQuantifiers;
         }
 
-        public Set<Quantifier> resolveCorrelationAlias(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+        public Set<Quantifier> resolveCorrelationAlias(@Nonnull Reference reference,
                                                        @Nonnull final CorrelationIdentifier alias) {
 
             final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
@@ -576,12 +576,12 @@ public class Quantifiers {
             return resolvedQuantifiers;
         }
 
-        private void resolveCorrelationAlias(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+        private void resolveCorrelationAlias(@Nonnull Reference reference,
                                              @Nonnull final CorrelationIdentifier alias,
                                              @Nonnull Set<Quantifier> resolvedQuantifiers) {
-            final Set<ExpressionRefTraversal.ReferencePath> referencePaths = traversal.getParentRefPaths(reference);
+            final Set<Traversal.ReferencePath> referencePaths = traversal.getParentRefPaths(reference);
 
-            for (final ExpressionRefTraversal.ReferencePath referencePath : referencePaths) {
+            for (final Traversal.ReferencePath referencePath : referencePaths) {
                 final RelationalExpression expression = referencePath.getExpression();
                 for (final Quantifier quantifier : expression.getQuantifiers()) {
                     if (quantifier.getAlias().equals(alias)) {
@@ -595,8 +595,8 @@ public class Quantifiers {
             }
         }
 
-        public static AliasResolver withRoot(@Nonnull final ExpressionRef<? extends RelationalExpression> rootRef) {
-            return new AliasResolver(ExpressionRefTraversal.withRoot(rootRef));
+        public static AliasResolver withRoot(@Nonnull final Reference rootRef) {
+            return new AliasResolver(Traversal.withRoot(rootRef));
         }
     }
 }

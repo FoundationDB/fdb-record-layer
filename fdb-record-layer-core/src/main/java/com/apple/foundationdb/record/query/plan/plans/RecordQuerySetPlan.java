@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
@@ -162,7 +162,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return a new set-based plan
      */
     @Nonnull
-    RecordQuerySetPlan withChildrenReferences(@Nonnull List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren);
+    RecordQuerySetPlan withChildrenReferences(@Nonnull List<? extends Reference> newChildren);
 
     /**
      * Returns whether the set operation is dynamic if it only has exactly one leg, i.e., the leg of the plan can be

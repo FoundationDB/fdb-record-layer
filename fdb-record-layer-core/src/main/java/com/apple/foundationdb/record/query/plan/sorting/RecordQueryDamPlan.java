@@ -37,8 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -87,7 +86,7 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
     private final RecordQuerySortKey key;
 
     public RecordQueryDamPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
-        this(Quantifier.physical(GroupExpressionRef.of(plan)), key);
+        this(Quantifier.physical(Reference.of(plan)), key);
     }
 
     private RecordQueryDamPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {
@@ -175,7 +174,7 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryPlanWithChild withChild(@Nonnull Reference childRef) {
         return new RecordQueryDamPlan(Quantifier.physical(childRef), key);
     }
 

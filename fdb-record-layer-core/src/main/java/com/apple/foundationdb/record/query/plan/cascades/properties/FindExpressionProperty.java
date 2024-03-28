@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
@@ -74,7 +74,7 @@ public class FindExpressionProperty implements ExpressionProperty<Map<Class<? ex
 
     @Nonnull
     @Override
-    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> memberResults) {
+    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> memberResults) {
         Verify.verify(memberResults.size() == 1);
         return Iterables.getOnlyElement(memberResults);
     }

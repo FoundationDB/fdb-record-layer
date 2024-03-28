@@ -138,10 +138,10 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
-                ? GroupExpressionRef.of(selectHaving) // single group, sort by constant
-                : GroupExpressionRef.of(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
+                ? Reference.of(selectHaving) // single group, sort by constant
+                : Reference.of(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
 
-        final var traversal = ExpressionRefTraversal.withRoot(maybeWithSort);
+        final var traversal = Traversal.withRoot(maybeWithSort);
         return new AggregateIndexMatchCandidate(index,
                 traversal,
                 placeHolderAliases,
@@ -223,7 +223,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(baseExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return Pair.of(Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
+        return Pair.of(Quantifier.forEach(Reference.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
     }
 
     @Nonnull
@@ -264,11 +264,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         if (groupingColsValue.getResultType() instanceof Type.Record &&
                 ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
-            return Quantifier.forEach(GroupExpressionRef.of(
+            return Quantifier.forEach(Reference.of(
                     new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                             GroupByExpression::nestedResults, selectWhereQun)));
         } else {
-            return Quantifier.forEach(GroupExpressionRef.of(
+            return Quantifier.forEach(Reference.of(
                     new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                             GroupByExpression::nestedResults, selectWhereQun)));
         }

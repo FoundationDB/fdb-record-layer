@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -85,13 +85,13 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
 
     @Nonnull
     @Override
-    public QueryPredicate evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<QueryPredicate> memberResults) {
+    public QueryPredicate evaluateAtRef(@Nonnull Reference ref, @Nonnull List<QueryPredicate> memberResults) {
         Verify.verify(memberResults.size() == 1);
         return Iterables.getOnlyElement(memberResults);
     }
 
     @Nonnull
-    public static QueryPredicate evaluate(ExpressionRef<? extends RelationalExpression> ref) {
+    public static QueryPredicate evaluate(Reference ref) {
         return Verify.verifyNotNull(ref.acceptPropertyVisitor(INSTANCE));
     }
 

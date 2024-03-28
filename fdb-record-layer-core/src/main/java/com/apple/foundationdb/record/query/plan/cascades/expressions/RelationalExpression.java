@@ -35,9 +35,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
@@ -88,7 +87,7 @@ import java.util.stream.StreamSupport;
  * object with two different kinds of fields: regular Java fields and reference fields. The regular fields represent
  * "node information", which pertains only to this specific node in the tree. In contrast, the reference fields represent
  * this expression's children in the tree, such as its inputs and filter/sort expressions, and are always hidden behind
- * an {@link ExpressionRef}.
+ * an {@link Reference}.
  *
  * Deciding whether certain fields constitute "node information" (and should therefore be a regular field) or
  * "hierarchical information" (and therefore should not be) is subtle and more of an art than a science. There are two
@@ -122,18 +121,18 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final var recordTypesFromQuery = query.getRecordTypes();
         final var queriedRecordTypes = recordTypesFromQuery.isEmpty() ? allRecordTypes : recordTypesFromQuery;
 
-        final GroupExpressionRef<? extends RelationalExpression> baseRef;
+        final Reference baseRef;
         Quantifier.ForEach quantifier;
         if (queriedRecordTypes.isEmpty()) {
-            baseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+            baseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = GroupExpressionRef.of(new FullUnorderedScanExpression(allRecordTypes,
+            final var fuseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
-            baseRef = GroupExpressionRef.of(
+            baseRef = Reference.of(
                     new LogicalTypeFilterExpression(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
@@ -153,19 +152,19 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                     GraphExpansion.builder().addQuantifier(quantifier).build()
                             .buildSimpleSelectOverQuantifier(quantifier);
         }
-        quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+        quantifier = Quantifier.forEach(Reference.of(selectExpression));
 
         if (query.removesDuplicates()) {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalDistinctExpression(quantifier)));
+            quantifier = Quantifier.forEach(Reference.of(new LogicalDistinctExpression(quantifier)));
         }
 
         if (query.getSort() != null) {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(
+            quantifier = Quantifier.forEach(Reference.of(
                     new LogicalSortExpression(ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType()),
                             query.isSortReverse(),
                             quantifier)));
         } else {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, quantifier)));
+            quantifier = Quantifier.forEach(Reference.of(new LogicalSortExpression(ImmutableList.of(), false, quantifier)));
         }
 
         if (query.getRequiredResults() != null) {
@@ -176,7 +175,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                     .flatMap(keyExpression -> keyExpression.normalizeKeyForPositions().stream())
                                     .collect(ImmutableList.toImmutableList()),
                             quantifier);
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalProjectionExpression(projectedValues, quantifier)));
+            quantifier = Quantifier.forEach(Reference.of(new LogicalProjectionExpression(projectedValues, quantifier)));
         }
 
         return quantifier.getRangesOver().get();
@@ -687,12 +686,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                            @Nonnull final EvaluationContext evaluationContext) {
         // we don't match by default -- end
         return ImmutableList.of();
-    }
-
-    @Nonnull
-    default MaxMatchMap getMaxMatchMapFromAliasMapping(@Nonnull final AliasMap bindingAliasMap,
-                                                       @Nonnull final RelationalExpression candidateExpression) {
-        return MaxMatchMap.calculate(bindingAliasMap, getResultValue(), candidateExpression.getResultValue());
     }
 
     /**

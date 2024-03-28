@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -55,8 +55,8 @@ class State {
     @Nonnull
     private final Cache<Integer, RelationalExpression> expressionCache;
     @Nonnull private final Cache<RelationalExpression, Integer> invertedExpressionsCache;
-    @Nonnull private final Cache<Integer, ExpressionRef<? extends RelationalExpression>> referenceCache;
-    @Nonnull private final Cache<ExpressionRef<? extends RelationalExpression>, Integer> invertedReferenceCache;
+    @Nonnull private final Cache<Integer, Reference> referenceCache;
+    @Nonnull private final Cache<Reference, Integer> invertedReferenceCache;
     @Nonnull private final Cache<Integer, Quantifier> quantifierCache;
     @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
 
@@ -80,9 +80,9 @@ class State {
         source.getExpressionCache().asMap().forEach(copyExpressionCache::put);
         final Cache<RelationalExpression, Integer> copyInvertedExpressionsCache = CacheBuilder.newBuilder().weakKeys().build();
         source.getInvertedExpressionsCache().asMap().forEach(copyInvertedExpressionsCache::put);
-        final Cache<Integer, ExpressionRef<? extends RelationalExpression>> copyReferenceCache = CacheBuilder.newBuilder().weakValues().build();
+        final Cache<Integer, Reference> copyReferenceCache = CacheBuilder.newBuilder().weakValues().build();
         source.getReferenceCache().asMap().forEach(copyReferenceCache::put);
-        final Cache<ExpressionRef<? extends RelationalExpression>, Integer> copyInvertedReferenceCache = CacheBuilder.newBuilder().weakKeys().build();
+        final Cache<Reference, Integer> copyInvertedReferenceCache = CacheBuilder.newBuilder().weakKeys().build();
         source.getInvertedReferenceCache().asMap().forEach(copyInvertedReferenceCache::put);
         final Cache<Integer, Quantifier> copyQuantifierCache = CacheBuilder.newBuilder().weakValues().build();
         source.getQuantifierCache().asMap().forEach(copyQuantifierCache::put);
@@ -123,8 +123,8 @@ class State {
     private State(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
                   @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
                   @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
-                  @Nonnull final Cache<Integer, ExpressionRef<? extends RelationalExpression>> referenceCache,
-                  @Nonnull final Cache<ExpressionRef<? extends RelationalExpression>, Integer> invertedReferenceCache,
+                  @Nonnull final Cache<Integer, Reference> referenceCache,
+                  @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
                   @Nonnull final Cache<Integer, Quantifier> quantifierCache,
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
                   @Nonnull final List<Debugger.Event> events,
@@ -164,12 +164,12 @@ class State {
     }
 
     @Nonnull
-    public Cache<Integer, ExpressionRef<? extends RelationalExpression>> getReferenceCache() {
+    public Cache<Integer, Reference> getReferenceCache() {
         return referenceCache;
     }
 
     @Nonnull
-    public Cache<ExpressionRef<? extends RelationalExpression>, Integer> getInvertedReferenceCache() {
+    public Cache<Reference, Integer> getInvertedReferenceCache() {
         return invertedReferenceCache;
     }
 
@@ -214,12 +214,12 @@ class State {
         }
     }
 
-    public void registerReference(final ExpressionRef<? extends RelationalExpression> reference) {
+    public void registerReference(final Reference reference) {
         if (invertedReferenceCache.getIfPresent(reference) == null) {
-            final int index = getIndex(ExpressionRef.class);
+            final int index = getIndex(Reference.class);
             referenceCache.put(index, reference);
             invertedReferenceCache.put(reference, index);
-            updateIndex(ExpressionRef.class, i -> i + 1);
+            updateIndex(Reference.class, i -> i + 1);
         }
     }
 

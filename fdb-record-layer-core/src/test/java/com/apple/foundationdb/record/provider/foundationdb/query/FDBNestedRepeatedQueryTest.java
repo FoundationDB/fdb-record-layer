@@ -57,13 +57,12 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexAggregate;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
@@ -1551,7 +1550,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                         Column.of(Optional.of("other_id"), FieldValue.ofFieldName(outerQun.getFlowedObjectValue(), "other_id")),
                         Column.of(Optional.of("key"), FieldValue.ofFieldName(explodeEntryQun.getFlowedObjectValue(), "key"))
                 ));
-                final Quantifier selectWhereGroupBy = Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.builder()
+                final Quantifier selectWhereGroupBy = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                         .addQuantifier(outerQun)
                         .addQuantifier(explodeEntryQun)
                         .addResultColumn(Column.unnamedOf(groupingValue))
@@ -1565,7 +1564,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 final Quantifier groupBy = groupAggregateByKey(selectWhereGroupBy, new NumericAggregationValue.Sum.SumFn(), aggregatedValue);
 
                 // Select both grouping keys plus the aggregate value
-                final Quantifier selectHaving = Quantifier.forEach(GroupExpressionRef.of(GraphExpansion.builder()
+                final Quantifier selectHaving = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                         .addQuantifier(groupBy)
                         .addResultColumn(Column.of(Optional.of("other_id"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0), 0)))
                         .addResultColumn(Column.of(Optional.of("key"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0), 1)))
@@ -1612,7 +1611,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     private void testAggregateIndex(RecordMetaDataHook hook, List<TestRecordsNestedMapProto.OuterRecord> data,
                                     IndexAggregateFunction normalAggregate, IndexAggregateFunction unnestedAggregate,
                                     Function<List<TestRecordsNestedMapProto.OuterRecord>, Map<String, Tuple>> aggregator,
-                                    @Nullable Supplier<GroupExpressionRef<RelationalExpression>> querySupplier) {
+                                    @Nullable Supplier<Reference> querySupplier) {
         Map<String, Tuple> aggregatedByKey = aggregator.apply(data);
         Set<String> keys = mapKeys(data);
 
@@ -1731,7 +1730,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
      * @return a query that sums the int values associated with a single key
      */
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> querySumIntValueByKey() {
+    private Reference querySumIntValueByKey() {
         final Quantifier outerQun = outerRecQun();
         final Quantifier entryQun = explodeEntryQun(outerQun, "key", "int_value");
         final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryQun);
@@ -1749,7 +1748,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
      * @return a query that sums the int values for all entries in a record associated with a single key
      */
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> querySumIntValueForRecordByKey() {
+    private Reference querySumIntValueForRecordByKey() {
         final Quantifier outerQun = outerRecQun();
         final Quantifier entryKeyQun = explodeEntryQun(outerQun, "key");
         final Quantifier entryIntValueQun = explodeEntryQun(outerQun, "int_value");
@@ -1983,7 +1982,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     private Quantifier explodeEntryQun(@Nonnull Quantifier outerQun, @Nonnull String... fields) {
         ExplodeExpression explodeExpression = ExplodeExpression.explodeField((Quantifier.ForEach)outerQun, List.of("map", "entry"));
-        Quantifier explodeQun = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
+        Quantifier explodeQun = Quantifier.forEach(Reference.of(explodeExpression));
         var selectBuilder = GraphExpansion.builder();
         List<Column<? extends Value>> resultFields = Arrays.stream(fields)
                 .map(fieldName -> {
@@ -1995,10 +1994,10 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 .addAllResultColumns(resultFields)
                 .build()
                 .buildSelect();
-        return Quantifier.forEach(GroupExpressionRef.of(select));
+        return Quantifier.forEach(Reference.of(select));
     }
 
-    private void assertFailsToPlan(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> querySupplier, String... allowedIndexes) {
+    private void assertFailsToPlan(@Nonnull Supplier<Reference> querySupplier, String... allowedIndexes) {
         final RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planGraph(querySupplier, allowedIndexes));
         assertThat(rce.getMessage(), containsString("Cascades planner could not plan query"));
     }
@@ -2023,7 +2022,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         for (Quantifier entryQun : entryQuns) {
             selectWhereBuilder.addResultColumn(Column.of(Optional.of(entryQun.getAlias().getId()), entryQun.getFlowedObjectValue()));
         }
-        return Quantifier.forEach(GroupExpressionRef.of(selectWhereBuilder.build().buildSelect()));
+        return Quantifier.forEach(Reference.of(selectWhereBuilder.build().buildSelect()));
     }
 
     @Nonnull
@@ -2032,7 +2031,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
         final GroupByExpression groupBy = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(aggregateValue)),
                 GroupByExpression::nestedResults, selectWhere);
-        return Quantifier.forEach(GroupExpressionRef.of(groupBy));
+        return Quantifier.forEach(Reference.of(groupBy));
     }
 
     @Nonnull
@@ -2045,11 +2044,11 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 .addResultColumn(Column.of(Optional.of("aggregate"), aggregate))
                 .build()
                 .buildSelect();
-        return Quantifier.forEach(GroupExpressionRef.of(selectHaving));
+        return Quantifier.forEach(Reference.of(selectHaving));
     }
 
     @Nonnull
-    public GroupExpressionRef<RelationalExpression> unsorted(@Nonnull Quantifier qun) {
-        return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, qun));
+    public Reference unsorted(@Nonnull Quantifier qun) {
+        return Reference.of(new LogicalSortExpression(List.of(), false, qun));
     }
 }
