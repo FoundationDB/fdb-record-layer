@@ -1182,5 +1182,13 @@ public class LucenePartitioner {
             this.canHaveMatches = canHaveMatches;
             this.startPartition = startPartition;
         }
+
+        @Override
+        public String toString() {
+            return "PartitionedQueryHint{" +
+                    "startPartition=" + startPartition +
+                    ", canHaveMatches=" + canHaveMatches +
+                    '}';
+        }
     }
 }
