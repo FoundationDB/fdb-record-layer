@@ -162,7 +162,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (scanType.equals(LuceneScanTypes.BY_LUCENE)) {
             LuceneScanQuery scanQuery = (LuceneScanQuery)scanBounds;
             // if partitioning is enabled, a non-null continuation will include the current partition info
-            LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = continuation == null ? partitioner.selectQueryPartition(scanQuery.getGroupKey(), scanQuery) : null;
+            LucenePartitioner.PartitionedQueryHint partitionedQueryHint = continuation == null ? partitioner.selectQueryPartition(scanQuery.getGroupKey(), scanQuery) : null;
+            if (partitionedQueryHint != null && !partitionedQueryHint.canHaveMatches) {
+                return RecordCursor.empty(state.context.getExecutor());
+            }
+            LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionedQueryHint == null ? null : partitionedQueryHint.startPartition;
+
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                     partitioner,
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
