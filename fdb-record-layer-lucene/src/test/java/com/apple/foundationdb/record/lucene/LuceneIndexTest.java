@@ -74,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -1536,7 +1537,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> functionalPartitionFieldPredicateTest() {
-        return Stream.of(Arguments.of(ThreadLocalRandom.current().nextLong()));
+        return Stream.concat(
+                Stream.of(23045978L,
+                        98432L,
+                        -439208L,
+                        -547118062778370833L,
+                        -8561053686039912077L).map(Arguments::of),
+                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())));
     }
 
     @ParameterizedTest
@@ -1581,20 +1588,32 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         for (long queriedValue = 1L; queriedValue <= 12L; queriedValue++) {
                             LOGGER.debug("i={}, queriedValue={}, comparisonType={}, sortType={}", i, queriedValue, comparisonType, sortType);
                             LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, queriedValue, luceneSearch);
-                            RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, luceneScanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false));
+                            try (RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, luceneScanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false))) {
 
-                            List<IndexEntry> entries = indexEntryCursor.asList().join();
+                                Stream<Tuple> actualKeys = indexEntryCursor.asList().join()
+                                        .stream().map(IndexEntry::getPrimaryKey);
 
-                            List<Tuple> expectedKeys = queryLocal(primaryKeys, comparisonType, queriedValue, sortType);
-                            assertEquals(expectedKeys.size(), entries.size());
-                            if (sortType == SortType.UNSORTED) {
-                                // just verify "they're all there"
-                                assertEquals(new HashSet<>(expectedKeys), entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
-                            } else {
+                                List<Tuple> expectedKeys = queryLocal(primaryKeys, comparisonType, queriedValue, sortType);
+                                if (sortType == SortType.UNSORTED) {
+                                    actualKeys = actualKeys.sorted();
+                                    expectedKeys.sort(Comparator.naturalOrder());
+                                }
                                 // verify "they're there", and in the expected order
-                                assertEquals(expectedKeys, entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toList()));
+                                assertEquals(expectedKeys, actualKeys.collect(Collectors.toList()),
+                                        () -> {
+                                            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer) recordStore.getIndexMaintainer(index);
+                                            return primaryKeys.entrySet().stream().sorted(Map.Entry.comparingByValue())
+                                                    .map(entry -> entry.getValue() + " " + entry.getKey())
+                                                    .collect(Collectors.joining(", ", "All data: [", "]\n")) +
+                                                    indexMaintainer.getPartitioner().getAllPartitionMetaInfo(Tuple.from(1)).join()
+                                                            .stream()
+                                                            .sorted(Comparator.comparing(partitionInfo -> Tuple.fromBytes(partitionInfo.getFrom().toByteArray())))
+                                                            .map(partitionInfo -> partitionInfo.getId() + ": [" +
+                                                                    Tuple.fromBytes(partitionInfo.getFrom().toByteArray()) + "," +
+                                                                    Tuple.fromBytes(partitionInfo.getTo().toByteArray()) + "]")
+                                                            .collect(Collectors.joining(", ", "Partitions: [", "]"));
+                                        });
                             }
-                            indexEntryCursor.close();
                         }
                     }
                 }
