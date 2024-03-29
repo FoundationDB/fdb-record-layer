@@ -98,6 +98,7 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.util.LuceneTestCase;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -1529,42 +1530,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
         final String luceneSearch = "text:about";
 
-        class LuceneQueryBuilder {
-            LuceneScanQuery buildLuceneScanQuery(Comparisons.Type comparisonType, SortType sortType, long predicateComparand) {
-                final Sort sort;
-                if (sortType == SortType.UNSORTED) {
-                    sort = null;
-                } else {
-                    sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
-                }
-
-                List<LuceneQueryClause> luceneQueryClauses =
-                        comparisonType == Comparisons.Type.NOT_EQUALS ?
-                        List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false)
-                        )
-                                                                      :
-                        List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
-                                new LuceneQueryFieldComparisonClause.LongQuery(
-                                        LuceneQueryType.QUERY, isSynthetic ? "complex_timestamp" : "timestamp",
-                                        LuceneIndexExpressions.DocumentFieldType.LONG,
-                                        new Comparisons.SimpleComparison(comparisonType, predicateComparand),
-                                        false,
-                                        null)
-                        );
-                LuceneQueryClause clause = new LuceneBooleanQuery(LuceneQueryType.QUERY, luceneQueryClauses, BooleanClause.Occur.SHOULD);
-
-                LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
-                        Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
-                        clause,
-                        sort,
-                        null,
-                        null,
-                        null);
-                return scan.bind(recordStore, index, EvaluationContext.EMPTY);
-            }
-        }
-
-        LuceneQueryBuilder luceneQueryBuilder = new LuceneQueryBuilder();
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
@@ -1595,7 +1560,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // p1: from: t0+1301 to: t1+1400
             // p2: from: t1+1410 to: t2+1500
             // p3: from: t2+1510 to: t2+1600
-            //
+            // create partition metadata directly rather than depending on repartitioning to ensure that the partitions
             createPartitionMetadata(index, groupKey, 0, time0, time0, Tuple.from(1, 1200), Tuple.from(1, 1300));
             createPartitionMetadata(index, groupKey, 1, time0, time1, Tuple.from(1, 1301), Tuple.from(1, 1400));
             createPartitionMetadata(index, groupKey, 2, time1, time2, Tuple.from(1, 1410), Tuple.from(1, 1500));
@@ -1674,8 +1639,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 for (Comparisons.Type comparisonType : List.of(Type.GREATER_THAN, Type.GREATER_THAN_OR_EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.EQUALS)) {
                     for (SortType sortType : EnumSet.allOf(SortType.class)) {
                         LOGGER.debug("comparison: {} sort: {} time: {}", comparisonType, sortType, timesForLogging.get(predicateComparand));
-                        LuceneScanQuery luceneScanQuery = luceneQueryBuilder.buildLuceneScanQuery(comparisonType, sortType, predicateComparand);
-                        LucenePartitionInfoProto.LucenePartitionInfo selectedPartitionInfo = partitioner.selectQueryPartition(groupKey, luceneScanQuery);
+                        LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, predicateComparand, luceneSearch);
+                        LucenePartitionInfoProto.LucenePartitionInfo selectedPartitionInfo = partitioner.selectQueryPartition(groupKey, luceneScanQuery).startPartition;
                         assertEquals(startingPartitionExpectation.get(predicateComparand).get(comparisonType).get(sortType), selectedPartitionInfo == null ? -1 : selectedPartitionInfo.getId());
                     }
                 }
@@ -4548,7 +4513,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static final List<String> spellcheckWords = java.util.List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
+    private static final List<String> spellcheckWords = List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
@@ -5610,8 +5575,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    protected static final List<String> autoCompletes = java.util.List.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good", "Hello Record Layer", "Hello FoundationDB!", ENGINEER_JOKE);
-    protected static final List<String> autoCompletePhrases = java.util.List.of(
+    protected static final List<String> autoCompletes = List.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good", "Hello Record Layer", "Hello FoundationDB!", ENGINEER_JOKE);
+    protected static final List<String> autoCompletePhrases = List.of(
             "united states of america",
             "welcome to the united states of america",
             "united kingdom, france, the states",
