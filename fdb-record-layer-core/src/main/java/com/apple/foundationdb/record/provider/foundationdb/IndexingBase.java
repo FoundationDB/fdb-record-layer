@@ -193,9 +193,8 @@ public abstract class IndexingBase {
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable, boolean useSyncLock) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
-                LogMessageKeys.SHOULD_MARK_READABLE, markReadable)
-                .addKeysAndValues(indexingLogMessageKeyValues())
-                .addKeysAndValues(common.indexLogMessageKeyValues());
+                LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
+        long startNanos = System.nanoTime();
         final CompletableFuture<Void> buildIndexAsyncFuture;
         FDBDatabaseRunner runner = getRunner();
         Index index = common.getPrimaryIndex();
@@ -218,6 +217,9 @@ public abstract class IndexingBase {
             buildIndexAsyncFuture = handleStateAndDoBuildIndexAsync(markReadable, message);
         }
         return buildIndexAsyncFuture.whenComplete((vignore, ex) -> {
+            message.addKeysAndValues(indexingLogMessageKeyValues()) // add these here to pick up state accumulated during build
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
             if (LOGGER.isWarnEnabled() && (ex != null)) {
                 message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
                 LOGGER.warn(message.toString(), ex);

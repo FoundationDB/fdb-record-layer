@@ -19,7 +19,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Log total records scanned and time during index build  [(Issue #2629)](https://github.com/FoundationDB/fdb-record-layer/issues/2629)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** IndexingMerger: assume a write-only context by using a non synchronized runner [(Issue #2611)](https://github.com/FoundationDB/fdb-record-layer/issues/2611)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

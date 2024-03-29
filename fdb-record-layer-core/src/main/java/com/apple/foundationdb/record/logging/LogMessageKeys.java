@@ -58,6 +58,7 @@ public enum LogMessageKeys {
     TRANSACTION_NAME,
     AGE_SECONDS,
     CONSTITUENT,
+    TOTAL_MICROS,
     // record splitting/unsplitting
     KEY,
     KEY_TUPLE,
