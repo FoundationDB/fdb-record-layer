@@ -74,7 +74,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -97,7 +96,6 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.util.LuceneTestCase;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -1538,11 +1536,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> functionalPartitionFieldPredicateTest() {
-        return RandomizedTestUtils.randomArguments(random ->
-                Arguments.of(random.nextLong()));
+        return Stream.of(Arguments.of(ThreadLocalRandom.current().nextLong()));
     }
 
-    @LuceneTestCase.Slow
     @ParameterizedTest
     @MethodSource
     void functionalPartitionFieldPredicateTest(long seed) {
@@ -1566,7 +1562,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
             for (int i = 0; i < docCount; i++) {
-                long timestamp = random.nextInt(9) + 1; // 1 - 10
+                long timestamp = (long) random.nextInt(10) + 2; // 2 - 11
                 long docId = 1000L + i;
                 ComplexDocument cd = ComplexDocument.newBuilder()
                         .setGroup(1)
@@ -1582,7 +1578,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
                 for (SortType sortType : EnumSet.allOf(SortType.class)) {
                     for (Comparisons.Type comparisonType : List.of(EQUALS, LESS_THAN, LESS_THAN_OR_EQUALS, GREATER_THAN_OR_EQUALS, GREATER_THAN)) {
-                        for (long queriedValue = 0; queriedValue <= 11; queriedValue++) {
+                        for (long queriedValue = 1L; queriedValue <= 12L; queriedValue++) {
                             LOGGER.debug("i={}, queriedValue={}, comparisonType={}, sortType={}", i, queriedValue, comparisonType, sortType);
                             LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, queriedValue, luceneSearch);
                             RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, luceneScanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false));
