@@ -199,6 +199,8 @@ tasks.withType(Test).configureEach { task ->
         }
         if (project.hasProperty('tests.nightly')) {
             systemProperties['tests.nightly'] = 'true'
+        } else {
+            task.testFramework.options.excludeTags.add('SuperSlow')
         }
         if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')
