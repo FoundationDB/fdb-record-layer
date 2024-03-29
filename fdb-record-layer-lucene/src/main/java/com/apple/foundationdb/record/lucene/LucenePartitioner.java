@@ -178,7 +178,14 @@ public class LucenePartitioner {
      * no partitioning metadata exist for the given query
      */
     public PartitionedQueryHint selectQueryPartition(@Nonnull Tuple groupKey, @Nullable LuceneScanQuery luceneScanQuery) {
-        return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, selectQueryPartitionAsync(groupKey, luceneScanQuery));
+        return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, selectQueryPartitionAsync(groupKey, luceneScanQuery)
+                .whenComplete((val, err) -> {
+                    if (err == null) {
+                        LOGGER.debug("Starting partition: " + val);
+                    } else {
+                        LOGGER.debug("Failed to get starting partition " + err);
+                    }
+                }));
     }
 
     /**
@@ -1184,6 +1191,14 @@ public class LucenePartitioner {
         PartitionedQueryHint(boolean canHaveMatches, LucenePartitionInfoProto.LucenePartitionInfo startPartition) {
             this.canHaveMatches = canHaveMatches;
             this.startPartition = startPartition;
+        }
+
+        @Override
+        public String toString() {
+            return "PartitionedQueryHint{" +
+                    "startPartition=" + startPartition +
+                    ", canHaveMatches=" + canHaveMatches +
+                    '}';
         }
     }
 }
