@@ -387,6 +387,11 @@ public class Reference implements Correlated<Reference>, Typed {
         return propertiesMap.getPlanPartitions();
     }
 
+    @Nonnull
+    public Set<RelationalExpression> getExploratoryMembers() {
+        return null; // TODO
+    }
+
     @Nullable
     public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
         if (property.shouldVisit(this)) {
