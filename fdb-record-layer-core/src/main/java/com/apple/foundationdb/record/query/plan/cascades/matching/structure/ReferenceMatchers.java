@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
@@ -79,6 +79,14 @@ public class ReferenceMatchers {
     public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
                 Extractor.of(Reference::getPlanPartitions, name -> "planPartitions(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <R extends Reference> BindingMatcher<R> exploratoryMembers(@Nonnull final BindingMatcher<? extends Iterable<? extends RelationalExpression>> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
+                Extractor.of(Reference::getExploratoryMembers, name -> "exploratoryMembers(" + name + ")"),
                 downstream);
     }
 
