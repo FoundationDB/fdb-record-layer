@@ -41,6 +41,8 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -376,6 +378,44 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
         }
+    }
+
+    @Test
+    public void logsEnd() {
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 50).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
+        ).collect(Collectors.toList());
+        Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            context.commit();
+        }
+        final List<String> logs = TestHelpers.assertLogs(IndexingBase.class, "build index online", () -> {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                    .setIndex(index)
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+            return null;
+        });
+
+        MatcherAssert.assertThat(logs, Matchers.hasSize(1));
+        final String log = logs.get(0);
+        MatcherAssert.assertThat(log, Matchers.allOf(
+                Matchers.containsString("records_scanned=\"50\""),
+                Matchers.containsString("indexing_method=\"multi target by records\""),
+                Matchers.containsString("total_micros"),
+                Matchers.containsString("target_index_name"),
+                Matchers.containsString("result=\"success\""),
+                Matchers.containsString("indexer_id")));
     }
 
     @Test
