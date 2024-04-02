@@ -31,12 +31,25 @@ import java.util.Set;
  */
 public class IndexDeferredMaintenanceControl {
     private Set<Index> mergeRequiredIndexes = null;
-    private boolean autoMergeDuringCommit = true;
+    private boolean autoMergeDuringCommit = false;
     private long mergesLimit = 0;
     private long mergesFound;
     private long mergesTried;
     private long timeQuotaMillis;
     private long sizeQuotaBytes;
+    private int repartitionDocumentCount = 0;
+    private boolean repartitionCapped = false;
+    private LastStep lastStep = LastStep.NONE;
+
+
+    /**
+     * During the deferred operation, each step should record its action. If exception occurs, this will help identify the cause.
+     */
+    public enum LastStep {
+        NONE,
+        REBALANCE,
+        MERGE,
+    }
 
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
@@ -68,8 +81,9 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Indicate to the index maintenance to automatically merge indexes during commit (if applicable).
-     * If the user sets it to false, they are responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
+     * The default is false, so the user is responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
      * function with the set of indexes returned by {@link #getMergeRequiredIndexes()} as target indexes.
+     * If set to true, the index maintenance operation will be done inline during the commit.
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
@@ -154,5 +168,58 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setSizeQuotaBytes(final long sizeQuotaBytes) {
         this.sizeQuotaBytes = sizeQuotaBytes;
+    }
+
+    /**
+     * During the deferred operation, each step should record its action. If exception occurs, this will help identify the cause.
+     * @return last recorded deferred action.
+     */
+    public LastStep getLastStep() {
+        return lastStep;
+    }
+
+    /**
+     * During the deferred operation, each step should record its action. If exception occurs, this will help identify the cause.
+     * @param lastStep the last deferred action - set by the caller.
+     */
+    public void setLastStep(final LastStep lastStep) {
+        this.lastStep = lastStep;
+    }
+
+    /**
+     * Max number of documents to move during partitions re-balancing (per partition).
+     * Values:
+     * Positive num: use this count
+     * Zero: use default count, and set it in this controller
+     * Negative num : skip partitions re-balancing
+     * @return number of documents to move
+     */
+    public int getRepartitionDocumentCount() {
+        return repartitionDocumentCount;
+    }
+
+    /**
+     * Max number of documents to move during partitions re-balancing (per partition).
+     * @param repartitionDocumentCount number of documents to move
+     */
+    public void setRepartitionDocumentCount(final int repartitionDocumentCount) {
+        this.repartitionDocumentCount = repartitionDocumentCount;
+    }
+
+    /**
+     * Repartitioning capped due to hitting maximum limit.
+     *
+     * @return <code>true</code> if repartitioning was capped
+     */
+    public boolean repartitionCapped() {
+        return repartitionCapped;
+    }
+
+    /**
+     * Set repartitioning capped due to hitting maximum limit.
+     * @param repartitionCapped <code>true</code> if repartitioning capped
+     */
+    public void setRepartitionCapped(final boolean repartitionCapped) {
+        this.repartitionCapped = repartitionCapped;
     }
 }

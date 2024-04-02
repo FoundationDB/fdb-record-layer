@@ -38,8 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -268,7 +267,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     @Override
-    public abstract RecordQueryInUnionPlan withChild(@Nonnull ExpressionRef<? extends RecordQueryPlan> childRef);
+    public abstract RecordQueryInUnionPlan withChild(@Nonnull Reference childRef);
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -426,7 +425,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                              final boolean isReverse,
                                                              final int maxNumberOfValuesAllowed,
                                                              @Nonnull final Bindings.Internal internal) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(GroupExpressionRef.of(inner)),
+        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.of(inner)),
                 inSources,
                 comparisonKey,
                 isReverse,

@@ -23,13 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint.ReferencedFields;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -54,7 +53,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushReferencedFieldsThroughFilterRule extends CascadesRule<LogicalFilterExpression> implements PreOrderRule {
-    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
+    private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
     private static final BindingMatcher<LogicalFilterExpression> root =
@@ -72,7 +71,7 @@ public class PushReferencedFieldsThroughFilterRule extends CascadesRule<LogicalF
         final Set<FieldValue> fieldValuesFromPredicates =
                 RelationalExpressionWithPredicates.fieldValuesFromPredicates(predicates);
 
-        final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
+        final Reference lowerRef = bindings.get(lowerRefMatcher);
         final ImmutableSet<FieldValue> allReferencedValues = ImmutableSet.<FieldValue>builder()
                 .addAll(call.getPlannerConstraint(ReferencedFieldsConstraint.REFERENCED_FIELDS)
                         .map(ReferencedFields::getReferencedFieldValues)

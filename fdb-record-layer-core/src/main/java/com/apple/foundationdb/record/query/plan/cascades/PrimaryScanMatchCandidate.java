@@ -56,7 +56,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
      * Traversal object of the primary scan graph (not the query graph).
      */
     @Nonnull
-    private final ExpressionRefTraversal traversal;
+    private final Traversal traversal;
 
     /**
      * Set of record types that are available in the context of the query.
@@ -79,7 +79,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
 
-    public PrimaryScanMatchCandidate(@Nonnull final ExpressionRefTraversal traversal,
+    public PrimaryScanMatchCandidate(@Nonnull final Traversal traversal,
                                      @Nonnull final List<CorrelationIdentifier> parameters,
                                      @Nonnull final Collection<RecordType> availableRecordTypes,
                                      @Nonnull final Collection<RecordType> queriedRecordTypes,
@@ -102,7 +102,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
 
     @Nonnull
     @Override
-    public ExpressionRefTraversal getTraversal() {
+    public Traversal getTraversal() {
         return traversal;
     }
 

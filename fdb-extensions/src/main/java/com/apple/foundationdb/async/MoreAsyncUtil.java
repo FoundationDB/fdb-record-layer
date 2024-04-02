@@ -38,6 +38,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -204,7 +205,7 @@ public class MoreAsyncUtil {
 
             @Override
             public CompletableFuture<List<T>> asList() {
-                return collect(this);
+                return collect(this, executor);
             }
         };
     }

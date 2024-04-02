@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -68,6 +69,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -797,8 +799,11 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private static Stream<Integer> threadCount() {
-        return Stream.of(1, 10);
+    private static Stream<Arguments> threadCount() {
+        return Stream.concat(
+                Stream.of(1, 10).map(Arguments::of),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextInt(10) + 1)));
     }
 
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")

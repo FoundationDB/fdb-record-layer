@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionOnV
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -104,7 +104,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+    public RecordQueryInUnionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
         return withChild(Iterables.getOnlyElement(newChildren));
     }
 
@@ -121,7 +121,7 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnValuesPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryInUnionOnValuesPlan withChild(@Nonnull final Reference childRef) {
         return new RecordQueryInUnionOnValuesPlan(Quantifier.physical(childRef),
                 getInSources(),
                 getComparisonKeyValues(),

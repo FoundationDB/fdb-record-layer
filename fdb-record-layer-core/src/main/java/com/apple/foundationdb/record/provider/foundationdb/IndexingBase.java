@@ -193,9 +193,8 @@ public abstract class IndexingBase {
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable, boolean useSyncLock) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
-                LogMessageKeys.SHOULD_MARK_READABLE, markReadable)
-                .addKeysAndValues(indexingLogMessageKeyValues())
-                .addKeysAndValues(common.indexLogMessageKeyValues());
+                LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
+        long startNanos = System.nanoTime();
         final CompletableFuture<Void> buildIndexAsyncFuture;
         FDBDatabaseRunner runner = getRunner();
         Index index = common.getPrimaryIndex();
@@ -218,6 +217,9 @@ public abstract class IndexingBase {
             buildIndexAsyncFuture = handleStateAndDoBuildIndexAsync(markReadable, message);
         }
         return buildIndexAsyncFuture.whenComplete((vignore, ex) -> {
+            message.addKeysAndValues(indexingLogMessageKeyValues()) // add these here to pick up state accumulated during build
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
             if (LOGGER.isWarnEnabled() && (ex != null)) {
                 message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
                 LOGGER.warn(message.toString(), ex);
@@ -349,7 +351,7 @@ public abstract class IndexingBase {
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
         AtomicBoolean allReadable = new AtomicBoolean(true);
-        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
+        return common.getNonSynchronizedRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> {
                 if (store.isIndexReadable(index)) {
                     return AsyncUtil.DONE;
@@ -395,7 +397,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markIndexReadableSingleTarget(Index index, AtomicBoolean anythingChanged,
                                                                      AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
         // An extension function to reduce markIndexReadable's complexity
-        return getRunner().runAsync(context ->
+        return common.getNonSynchronizedRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store ->
                                 policy.shouldAllowUniquePendingState(store) ?
@@ -730,7 +732,7 @@ public abstract class IndexingBase {
         // Copying the state also guards against changes made by other online building from check version.
         AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
-        maybeDeferAutoMergeDuringCommit(store);
+        deferAutoMergeDuringCommit(store);
 
         return validateTypeStamp(store)
                 .thenCompose(ignore ->
@@ -1031,10 +1033,9 @@ public abstract class IndexingBase {
         return indexingMergerMap.computeIfAbsent(index.getName(), k -> new IndexingMerger(index, common, policy.getInitialMergesCountLimit()));
     }
 
-    private void maybeDeferAutoMergeDuringCommit(FDBRecordStore store) {
-        if (policy.shouldDeferMergeDuringIndexing()) {
-            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-        }
+    private void deferAutoMergeDuringCommit(FDBRecordStore store) {
+        // Always defer merges
+        store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
     protected static boolean notAllRangesExhausted(Tuple cont, Tuple end) {

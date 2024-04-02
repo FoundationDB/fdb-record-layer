@@ -33,14 +33,13 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -79,7 +78,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testSimpleGroupBy() throws Exception {
+    public void testSimpleGroupBy() {
         setupHookAndAddData(true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
@@ -99,7 +98,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void attemptToPlanGroupByWithoutCompatiblySortedIndexFails() throws Exception {
+    public void attemptToPlanGroupByWithoutCompatiblySortedIndexFails() {
         setupHookAndAddData(false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
@@ -110,7 +109,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testAggregateIndexPlanning() throws Exception {
+    public void testAggregateIndexPlanning() {
         setupHookAndAddData(false, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
@@ -123,7 +122,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testIndexPlanningWithPredicateInSelectWhere() throws Exception {
+    public void testIndexPlanningWithPredicateInSelectWhere() {
         setupHookAndAddData(true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
@@ -143,7 +142,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testIndexPlanningWithPredicateInSelectWhereMatchesAggregateIndex() throws Exception {
+    public void testIndexPlanningWithPredicateInSelectWhereMatchesAggregateIndex() {
         setupHookAndAddData(true, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
@@ -156,7 +155,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testIndexPlanningWithPredicateInSelectWhereAndSelectHavingMatchesAggregateIndex() throws Exception {
+    public void testIndexPlanningWithPredicateInSelectWhereAndSelectHavingMatchesAggregateIndex() {
         setupHookAndAddData(true, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
@@ -169,17 +168,16 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private GroupExpressionRef<RelationalExpression> constructGroupByPlan(final boolean withPredicateInSelectWhere,
-                                                                          final boolean withPredicateInSelectHaving) {
-        final var cascadesPlanner = (CascadesPlanner)planner;
+    private Reference constructGroupByPlan(final boolean withPredicateInSelectWhere,
+                                           final boolean withPredicateInSelectHaving) {
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
-                Quantifier.forEach(GroupExpressionRef.of(
+                Quantifier.forEach(Reference.of(
                         new FullUnorderedScanExpression(allRecordTypes,
                                 new Type.AnyRecord(false),
                                 new AccessHints())));
 
-        qun = Quantifier.forEach(GroupExpressionRef.of(
+        qun = Quantifier.forEach(Reference.of(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
@@ -188,7 +186,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         final var scanAlias = qun.getAlias();
         final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
-        final var groupingCol = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value);
+        final var groupingCol = Column.of(Optional.of("num_value_2"), num2Value);
         final var groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingCol));
 
         // 1. build the underlying select, result expr = ( (num_value_2 as GB) <group1>, ($qun as qun) <group2>)
@@ -196,11 +194,11 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var selectBuilder = GraphExpansion.builder();
 
             // <group1>
-            final var col1 = Column.of(Type.Record.Field.of(groupingColGroup.getResultType(), Optional.of(groupByColAlias.getId())), groupingColGroup);
+            final var col1 = Column.of(Optional.of(groupByColAlias.getId()), groupingColGroup);
 
             // <group2>
             final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-            final var col2 = Column.of(Type.Record.Field.of(quantifiedValue.getResultType(), Optional.of(qun.getAlias().getId())), quantifiedValue);
+            final var col2 = Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue);
 
             selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
 
@@ -208,7 +206,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
             }
 
-            qun = Quantifier.forEach(GroupExpressionRef.of(selectBuilder.build().buildSelect()));
+            qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
         }
 
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
@@ -222,15 +220,15 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
 
             // 2.3. construct the group by expression
-            final var groupByExpression = new GroupByExpression(aggregationExpr, groupingExpr, qun);
-            qun = Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
+            final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
+            qun = Quantifier.forEach(Reference.of(groupByExpression));
         }
 
         // 3. construct the select expression on top containing the final result set
         {
             // construct a result set that makes sense.
             final var numValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "num_value_2");
-            final var numValue2Reference = Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), numValue2FieldValue);
+            final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
             final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
 
             final var graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference));
@@ -240,12 +238,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             }
 
             final var result = graphBuilder.build().buildSelect();
-            qun = Quantifier.forEach(GroupExpressionRef.of(result));
-            return GroupExpressionRef.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+            qun = Quantifier.forEach(Reference.of(result));
+            return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
         }
     }
 
-    protected void setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) throws Exception {
+    protected void setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStoreTestBase.RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);

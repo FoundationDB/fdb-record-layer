@@ -44,9 +44,8 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -54,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -318,7 +318,7 @@ public class PlanStringRepresentationTest {
     private static Pair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
-        return Pair.of(new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(childPlan.getLeft())), resultValue),
+        return Pair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
                 String.format("map(%s[%s])", childPlan.getRight(), resultValue));
     }
 

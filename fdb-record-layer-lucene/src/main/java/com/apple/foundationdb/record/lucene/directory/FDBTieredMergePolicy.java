@@ -21,24 +21,47 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneEvents;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.SegmentInfos;
 import org.apache.lucene.index.TieredMergePolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 
 @ParametersAreNonnullByDefault
 class FDBTieredMergePolicy extends TieredMergePolicy {
-    @Nullable private final IndexDeferredMaintenanceControl mergeControl;
-    private final FDBRecordContext context;
 
-    public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl, FDBRecordContext context) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FDBTieredMergePolicy.class);
+    @Nullable private final IndexDeferredMaintenanceControl mergeControl;
+    private final AgilityContext context;
+    @Nonnull
+    private final Subspace indexSubspace;
+    @Nonnull
+    private final Tuple key;
+    @Nullable
+    private final Exception exceptionAtCreation;
+
+    public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl,
+                                @Nonnull AgilityContext context,
+                                @Nonnull Subspace indexSubspace,
+                                @Nonnull final Tuple key,
+                                @Nullable final Exception exceptionAtCreation) {
         this.mergeControl = mergeControl;
         this.context = context;
+        this.indexSubspace = indexSubspace;
+        this.key = key;
+        this.exceptionAtCreation = exceptionAtCreation;
+    }
+
+    public static boolean usesCreationStack() {
+        return LOGGER.isDebugEnabled();
     }
 
     boolean isAutoMergeDuringCommit(MergeTrigger mergeTrigger) {
@@ -54,7 +77,9 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
-            return super.findMerges(mergeTrigger, infos, mergeContext);
+            final MergeSpecification merges = super.findMerges(mergeTrigger, infos, mergeContext);
+            MergeUtils.logFoundMerges(LOGGER, "Found Merges without mergeControl", context, indexSubspace, key, mergeTrigger, merges, exceptionAtCreation);
+            return merges;
         }
         if (!mergeControl.shouldAutoMergeDuringCommit() && isAutoMergeDuringCommit(mergeTrigger)) {
             // Here: skip it. The merge should be performed later by the user.
@@ -76,7 +101,8 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
         }
         mergeControl.setMergesTried(specSize(spec));
 
-        context.record(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
+        context.recordEvent(LuceneEvents.Events.LUCENE_FIND_MERGES, System.nanoTime() - startTime);
+        MergeUtils.logFoundMerges(LOGGER, "Found Merges", context, indexSubspace, key, mergeTrigger, spec, exceptionAtCreation);
         return spec;
     }
 }

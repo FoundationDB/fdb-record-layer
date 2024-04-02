@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
@@ -601,7 +601,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
     @Nonnull
     @Override
-    public Cardinalities evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Cardinalities> memberResults) {
+    public Cardinalities evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Cardinalities> memberResults) {
         return intersectCardinalities(memberResults);
     }
 
@@ -764,7 +764,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     }
 
     @Nonnull
-    public static Cardinalities evaluate(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    public static Cardinalities evaluate(@Nonnull Reference ref) {
         @Nullable final var nullableResult =
                 ref.acceptPropertyVisitor(new CardinalitiesProperty());
         return Objects.requireNonNull(nullableResult);

@@ -55,8 +55,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -577,7 +576,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     @Nonnull
-    protected RecordQueryPlan planGraph(@Nonnull Supplier<GroupExpressionRef<RelationalExpression>> querySupplier, @Nonnull String... allowedIndexes) {
+    protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull String... allowedIndexes) {
         assertThat(planner, instanceOf(CascadesPlanner.class));
         final CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
         final Optional<Collection<String>> allowedIndexesOptional;
@@ -609,9 +608,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             throw new RuntimeException(e);
         }
 
-        serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
+        final PlanSerializationContext deserializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), PlanHashable.CURRENT_FOR_CONTINUATION);
         final RecordQueryPlan deserializedPlan =
-                RecordQueryPlan.fromRecordQueryPlanProto(serializationContext, parsedPlanProto);
+                RecordQueryPlan.fromRecordQueryPlanProto(deserializationContext, parsedPlanProto);
         Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), deserializedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         Assertions.assertTrue(plan.structuralEquals(deserializedPlan));
         return deserializedPlan;

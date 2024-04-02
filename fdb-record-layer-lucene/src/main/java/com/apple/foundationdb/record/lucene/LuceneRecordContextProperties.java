@@ -98,9 +98,18 @@ public final class LuceneRecordContextProperties {
     /**
      * Number of documents to move from a partition when its size exceeds {@link com.apple.foundationdb.record.lucene.LuceneIndexOptions#INDEX_PARTITION_HIGH_WATERMARK}.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 10);
+    public static final RecordLayerPropertyKey<Integer> LUCENE_REPARTITION_DOCUMENT_COUNT = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", 16);
+    /**
+     * Maximum number of documents to move during a re-balancing run.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.max.document.count", 1000);
     /**
      * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.repartition.document.count", (int)(TimeUnit.MINUTES.toMillis(10)));
+    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.file.lock.window.milliseconds", (int)(TimeUnit.MINUTES.toMillis(10)));
+    /**
+     * Use concurrent merge scheduler. The default is now to assume deferred operations when available, and hence
+     * assume that merge will not be performed during IO but in a background process.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_USE_CONCURRENT_MERGE_SCHEDULER = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.useConcurrentMergeScheduler", false);
 }

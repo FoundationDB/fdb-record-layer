@@ -36,6 +36,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MergePolicy;
+import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
@@ -43,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -53,7 +55,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@link FDBDirectory} contains cached information from FDB, it is important for cache coherency that all writers
  * (etc.) accessing that directory go through the same wrapper object so that they share a common cache.
  */
-class FDBDirectoryWrapper implements AutoCloseable {
+public class FDBDirectoryWrapper implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryWrapper.class);
 
     // Lucene Optimized Codec Singleton
@@ -63,6 +65,8 @@ class FDBDirectoryWrapper implements AutoCloseable {
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
     private final int mergeDirectoryCount;
+    private final AgilityContext agilityContext;
+    private final Tuple key;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile IndexWriter writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
@@ -76,7 +80,9 @@ class FDBDirectoryWrapper implements AutoCloseable {
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
         this.state = state;
+        this.key = key;
         this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext);
+        this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
 
@@ -107,14 +113,26 @@ class FDBDirectoryWrapper implements AutoCloseable {
         return writerReader;
     }
 
-    private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
+    private static class FDBDirectorySerialMergeScheduler extends MergeScheduler {
+        /**
+         * This class is temporarily duplicating FDBDirectoryMergeScheduler.
+         * TODO: After verified, either delete FDBDirectoryMergeScheduler or delete FDBDirectorySerialMergeScheduler.
+         */
         @Nonnull
         private final IndexMaintainerState state;
         private final int mergeDirectoryCount;
+        @Nonnull
+        private final AgilityContext agilityContext;
+        @Nonnull
+        private final Tuple key;
 
-        private FDBDirectoryMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount) {
+        private FDBDirectorySerialMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount,
+                                           @Nonnull final AgilityContext agilityContext,
+                                           @Nonnull final Tuple key) {
             this.state = state;
             this.mergeDirectoryCount = mergeDirectoryCount;
+            this.agilityContext = agilityContext;
+            this.key = key;
         }
 
         @SuppressWarnings({
@@ -126,26 +144,94 @@ class FDBDirectoryWrapper implements AutoCloseable {
             long startTime = System.nanoTime();
             if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
-                    if (LOGGER.isTraceEnabled()) {
-                        LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge based on probability"));
+                    if (mergeSource.hasPendingMerges()) {
+                        MergeUtils.logExecutingMerge(LOGGER, "Executing Merge based on probability", agilityContext, state.indexSubspace, key, trigger);
+                    }
+                    serialMerge(mergeSource, trigger);
+                } else {
+                    skipMerge(mergeSource);
+                }
+            } else {
+                if (mergeSource.hasPendingMerges()) {
+                    MergeUtils.logExecutingMerge(LOGGER, "Executing Merge", agilityContext, state.indexSubspace, key, trigger);
+                }
+                serialMerge(mergeSource, trigger);
+            }
+            state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
+        }
+
+        private void skipMerge(final MergeSource mergeSource) {
+            synchronized (this) {
+                MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
+                while (nextMerge != null) {
+                    nextMerge.setAborted();
+                    mergeSource.onMergeFinished(nextMerge);
+                    nextMerge = mergeSource.getNextMerge();
+                }
+            }
+        }
+
+        // This is copied form SerialMergeScheduler::merge, but is called as a non-synchronized function.
+        void serialMerge(MergeSource mergeSource, MergeTrigger trigger) throws IOException {
+            while (true) {
+                MergePolicy.OneMerge merge = mergeSource.getNextMerge();
+                if (merge == null) {
+                    break;
+                }
+                mergeSource.merge(merge);
+            }
+        }
+
+        @Override
+        public void close() {
+            // Nothing to do
+        }
+    }
+
+    private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
+        @Nonnull
+        private final IndexMaintainerState state;
+        private final int mergeDirectoryCount;
+        @Nonnull
+        private final AgilityContext agilityContext;
+        @Nonnull
+        private final Tuple key;
+
+        private FDBDirectoryMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount,
+                                           @Nonnull final AgilityContext agilityContext,
+                                           @Nonnull final Tuple key) {
+            this.state = state;
+            this.mergeDirectoryCount = mergeDirectoryCount;
+            this.agilityContext = agilityContext;
+            this.key = key;
+        }
+
+        @SuppressWarnings({
+                "squid:S2245", // ThreadLocalRandom not used in case where cryptographic security is needed
+                "squid:S3776", // Cognitive complexity is too high. Candidate for later refactoring
+        })
+        @Override
+        public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
+            long startTime = System.nanoTime();
+            if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
+                if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
+                    if (mergeSource.hasPendingMerges()) {
+                        MergeUtils.logExecutingMerge(LOGGER, "Executing Merge Concurrently based on probability", agilityContext, state.indexSubspace, key, trigger);
                     }
                     super.merge(mergeSource, trigger);
                 } else {
-                    skipMerge(mergeSource, trigger, "probability optimization");
+                    skipMerge(mergeSource);
                 }
             } else {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Basic Lucene index merge"));
+                if (mergeSource.hasPendingMerges()) {
+                    MergeUtils.logExecutingMerge(LOGGER, "Executing Merge Concurrently", agilityContext, state.indexSubspace, key, trigger);
                 }
                 super.merge(mergeSource, trigger);
             }
             state.context.record(LuceneEvents.Events.LUCENE_MERGE, System.nanoTime() - startTime);
         }
 
-        private void skipMerge(final MergeSource mergeSource, final MergeTrigger trigger, String reason) {
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace(FDBDirectoryManager.getMergeLogMessage(mergeSource, trigger, state, "Lucene index skipped. Reason: " + reason));
-            }
+        private void skipMerge(final MergeSource mergeSource) {
             synchronized (this) {
                 MergePolicy.OneMerge nextMerge = mergeSource.getNextMerge();
                 while (nextMerge != null) {
@@ -157,21 +243,32 @@ class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
+    private MergeScheduler getMergeScheduler(@Nonnull IndexMaintainerState state,
+                                             int mergeDirectoryCount,
+                                             @Nonnull final AgilityContext agilityContext,
+                                             @Nonnull final Tuple key) {
+        final Boolean useConcurrent = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_CONCURRENT_MERGE_SCHEDULER);
+        return Boolean.TRUE.equals(useConcurrent) ?
+               new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key) :
+               new FDBDirectorySerialMergeScheduler(state, mergeDirectoryCount, agilityContext, key);
+
+    }
+
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public IndexWriter getWriter(@Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
+    public IndexWriter getWriter(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, @Nullable final Exception exceptionAtCreation) throws IOException {
         if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
             synchronized (this) {
                 if (writer == null || !writerAnalyzerId.equals(analyzerWrapper.getUniqueIdentifier())) {
                     final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, state.context)
+                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key, exceptionAtCreation)
                             .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
                             .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
                     tieredMergePolicy.setNoCFSRatio(1.00);
                     IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzerWrapper.getAnalyzer())
                             .setUseCompoundFile(USE_COMPOUND_FILE)
                             .setMergePolicy(tieredMergePolicy)
-                            .setMergeScheduler(new FDBDirectoryMergeScheduler(state, mergeDirectoryCount))
+                            .setMergeScheduler(getMergeScheduler(state, mergeDirectoryCount, agilityContext, key))
                             .setCodec(CODEC)
                             .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
 
@@ -209,7 +306,7 @@ class FDBDirectoryWrapper implements AutoCloseable {
         directory.close();
     }
 
-    public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper) throws IOException {
-        getWriter(analyzerWrapper).maybeMerge();
+    public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, final Exception exceptionAtCreation) throws IOException {
+        getWriter(analyzerWrapper, exceptionAtCreation).maybeMerge();
     }
 }

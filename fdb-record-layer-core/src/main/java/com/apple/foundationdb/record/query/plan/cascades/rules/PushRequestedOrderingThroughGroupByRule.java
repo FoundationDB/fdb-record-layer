@@ -23,13 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -49,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupByExpression> implements CascadesRule.PreOrderRule  {
 
-    private static final BindingMatcher<ExpressionRef<? extends RelationalExpression>> lowerRefMatcher = ReferenceMatchers.anyRef();
+    private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     @Nonnull
@@ -141,7 +140,8 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     
                     // create a mutable set of required ordering values
                     final var requiredOrderingValues =
-                            new LinkedHashSet<>(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo));
+                            new LinkedHashSet<>(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
+                                    () -> currentGroupingValue, correlatedTo));
 
                     final var resultOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
                     boolean isPushedAndRequiredCompatible = true;

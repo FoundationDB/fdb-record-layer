@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -34,7 +34,7 @@ import java.io.IOException;
 /**
  * The "legacy" stored fields reader implementation - this one wraps around the Lucene default implementation and provides lazy initialization.
  */
-public class LazyStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
+public class LazyStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndexV1.StoredFieldsReaderSegmentInfo {
     private LazyCloseable<StoredFieldsReader> storedFieldsReader;
     private Directory directory;
     private SegmentInfo si;

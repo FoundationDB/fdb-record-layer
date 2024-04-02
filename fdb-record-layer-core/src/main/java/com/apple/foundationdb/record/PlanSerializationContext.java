@@ -24,20 +24,24 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PPlanReference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * Context class defining the state of serialization/deserialization currently in-flight.
+ * Context class defining the state of serialization/deserialization currently in-flight. An object of this class is
+ * stateful and mutable and not to be considered thread-safe.
  */
 @API(API.Status.INTERNAL)
 public class PlanSerializationContext {
-
     @Nonnull
     private final PlanSerializationRegistry registry;
     @Nonnull
@@ -46,17 +50,22 @@ public class PlanSerializationContext {
     @Nonnull
     private final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap;
 
+    @Nonnull
+    private final BiMap<Type.Record, Integer> knownRecordTypesMap;
+
     public PlanSerializationContext(@Nonnull final PlanSerializationRegistry registry,
                                     @Nonnull final PlanHashMode mode) {
-        this(registry, mode, IdentityBiMap.create());
+        this(registry, mode, IdentityBiMap.create(), HashBiMap.create());
     }
 
     public PlanSerializationContext(@Nonnull final PlanSerializationRegistry registry,
                                     @Nonnull final PlanHashMode mode,
-                                    @Nonnull final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap) {
+                                    @Nonnull final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap,
+                                    @Nonnull final BiMap<Type.Record, Integer> knownRecordTypesMap) {
         this.registry = registry;
         this.mode = mode;
         this.knownPlansMap = knownPlansMap;
+        this.knownRecordTypesMap = knownRecordTypesMap;
     }
 
     @Nonnull
@@ -81,18 +90,18 @@ public class PlanSerializationContext {
 
     @Nonnull
     public PPlanReference toPlanReferenceProto(@Nonnull final RecordQueryPlan recordQueryPlan) {
-        if (knownPlansMap.containsKeyUnwrapped(recordQueryPlan)) {
+        Integer referenceId = knownPlansMap.getUnwrapped(recordQueryPlan);
+        if (referenceId != null) {
             //
             // Plan has already been visited -- just set the reference.
             //
-            int referenceId = Objects.requireNonNull(knownPlansMap.getUnwrapped(recordQueryPlan));
             return PPlanReference.newBuilder().setReferenceId(referenceId).build();
         }
 
         //
         // First time the plan is being visited, set the reference and the message.
         //
-        final int referenceId = knownPlansMap.size();
+        referenceId = knownPlansMap.size();
         knownPlansMap.putUnwrapped(recordQueryPlan, referenceId);
         return PPlanReference.newBuilder()
                 .setReferenceId(referenceId)
@@ -111,5 +120,29 @@ public class PlanSerializationContext {
         final RecordQueryPlan recordQueryPlan = RecordQueryPlan.fromRecordQueryPlanProto(this, Objects.requireNonNull(planReferenceProto.getRecordQueryPlan()));
         Verify.verify(knownPlansMap.putUnwrapped(recordQueryPlan, referenceId) == null);
         return recordQueryPlan;
+    }
+
+    public int registerReferenceIdForRecordType(@Nonnull final Type.Record recordType) {
+        // use a new reference id
+        return registerReferenceIdForRecordType(recordType, knownRecordTypesMap.size());
+    }
+
+    public int registerReferenceIdForRecordType(@Nonnull final Type.Record recordType, final int referenceId) {
+        //
+        // First time the type is being visited, set the reference and the message.
+        //
+        knownRecordTypesMap.put(recordType, referenceId);
+        return referenceId;
+    }
+
+    @Nullable
+    public Integer lookupReferenceIdForRecordType(@Nonnull final Type.Record type) {
+        return knownRecordTypesMap.get(type);
+    }
+
+    @Nullable
+    public Type.Record lookupRecordTypeForReferenceId(final int referenceId) {
+        final BiMap<Integer, Type.Record> inverse = knownRecordTypesMap.inverse();
+        return inverse.get(referenceId);
     }
 }

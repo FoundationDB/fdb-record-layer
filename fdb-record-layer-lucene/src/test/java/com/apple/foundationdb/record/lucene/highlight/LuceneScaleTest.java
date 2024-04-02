@@ -532,10 +532,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 if (!store.isIndexReadable(INDEX.getName())) {
                     indexBuilder = OnlineIndexer.newBuilder()
                             .setRecordStore(store)
-                            .addTargetIndex(INDEX.getName())
-                            .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                                    .setDeferMergeDuringIndexing(true)
-                                    .build());
+                            .addTargetIndex(INDEX.getName());
                 }
                 context.commit();
             }

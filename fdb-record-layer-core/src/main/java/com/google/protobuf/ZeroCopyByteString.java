@@ -34,4 +34,8 @@ public class ZeroCopyByteString {
         return UnsafeByteOperations.unsafeWrap(bytes);
     }
 
+    public static ByteString wrap(@Nonnull byte[] bytes, int offset, int length) {
+        return UnsafeByteOperations.unsafeWrap(bytes, offset, length);
+    }
+
 }

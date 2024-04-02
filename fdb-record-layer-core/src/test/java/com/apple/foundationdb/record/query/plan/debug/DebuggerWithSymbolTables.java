@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -97,7 +97,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
-    public void onRegisterReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+    public void onRegisterReference(@Nonnull final Reference reference) {
         getCurrentState().registerReference(reference);
     }
 
@@ -123,7 +123,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
-    public void onShow(@Nonnull final ExpressionRef<? extends RelationalExpression> ref) {
+    public void onShow(@Nonnull final Reference ref) {
         // do nothing
     }
 
@@ -208,7 +208,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         if (object instanceof RelationalExpression) {
             @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
             return (id == null) ? null : "exp" + id;
-        } else if (object instanceof ExpressionRef) {
+        } else if (object instanceof Reference) {
             @Nullable final Integer id = state.getInvertedReferenceCache().getIfPresent(object);
             return (id == null) ? null : "ref" + id;
         }  else if (object instanceof Quantifier) {

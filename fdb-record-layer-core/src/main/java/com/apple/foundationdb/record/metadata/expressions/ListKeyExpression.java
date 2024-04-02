@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -162,7 +163,22 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
-        return children;
+        // The list key expression places each child (regardless of the number of columns) into a
+        // single nested tuple when it is evaluated. When normalizing this key expression, we
+        // need each child to be placed in its own position, but we wrap it in a list so that
+        // we don't lose the fact that the children will be nested. This also maintains the
+        // invariant that:
+        //    expr.evaluate(record) == Key.Expressions.concat(expr.normalizeKeyForPositions()).evaluate(record)
+        if (children.isEmpty()) {
+            return ImmutableList.of();
+        } else if (children.size() == 1) {
+            return ImmutableList.of(this);
+        }
+        ImmutableList.Builder<KeyExpression> builder = ImmutableList.builderWithExpectedSize(children.size());
+        for (KeyExpression child : children) {
+            builder.add(Key.Expressions.list(child));
+        }
+        return builder.build();
     }
 
     @Override

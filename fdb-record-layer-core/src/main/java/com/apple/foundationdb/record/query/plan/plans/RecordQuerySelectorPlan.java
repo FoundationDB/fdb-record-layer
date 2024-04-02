@@ -38,8 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -87,7 +86,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     /**
      * Factory method that takes in a list of relative probabilities and created a selection policy based on them.
      *
-     * @param children the list of subplans
+     * @param children the list of sub plans
      * @param relativePlanProbabilities a list (of the same length as the children) that determines the relative
      * probability for selecting the plan. Sum of all the probabilities must be 100.
      * @return newly created plan
@@ -110,9 +109,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         if (children.isEmpty()) {
             throw new RecordCoreArgumentException("Selector plan should have at least one plan");
         }
-        final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(GroupExpressionRef.of(child));
+            childRefsBuilder.add(Reference.of(child));
         }
         return new RecordQuerySelectorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), planSelector);
     }

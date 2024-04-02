@@ -128,9 +128,17 @@ public class LuceneOptimizedPointsFormatTest extends BasePointsFormatTestCase {
     }
 
     @Override
+    @Ignore // Issue #2598: Make Lucene @Nightly tests pass for fixed seed
     @Nightly
     public void testRandomBinaryBig() throws Exception {
         TestFDBDirectory.allowAddIndexes();
         super.testRandomBinaryBig();
+    }
+
+    @Override
+    @Ignore // Issue #2598: Make Lucene @Nightly tests pass for fixed seed
+    @Nightly
+    public void testRamBytesUsed() throws IOException {
+        super.testRamBytesUsed();
     }
 }

@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndexV1;
 import com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import org.apache.lucene.codecs.StoredFieldsReader;
@@ -34,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -44,7 +46,7 @@ import java.util.List;
  * The subspace for the range of documents is the segment name.
  * Within the subspace, each document key is then suffixed by the docId.
  */
-public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndex.StoredFieldsReaderSegmentInfo {
+public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implements LucenePrimaryKeySegmentIndexV1.StoredFieldsReaderSegmentInfo {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneOptimizedStoredFieldsReader.class);
     private final FDBDirectory directory;
     private final SegmentInfo si;
@@ -57,6 +59,16 @@ public class LuceneOptimizedStoredFieldsReader extends StoredFieldsReader implem
         this.fieldInfos = fieldInfos;
         this.directory = directory;
         this.segmentName = si.name;
+    }
+
+    public static List<byte[]> getPrimaryKeys(final String segmentName, final FDBDirectory directory) throws IOException {
+        final List<KeyValue> rawStoredFields = directory.readAllStoredFields(segmentName);
+        List<byte[]> primaryKeys = new ArrayList<>();
+        for (final KeyValue rawStoredField : rawStoredFields) {
+            final var storedFields = LuceneStoredFieldsProto.LuceneStoredFields.parseFrom(rawStoredField.getValue());
+            primaryKeys.add(storedFields.getPrimaryKey().toByteArray());
+        }
+        return primaryKeys;
     }
 
     @Override

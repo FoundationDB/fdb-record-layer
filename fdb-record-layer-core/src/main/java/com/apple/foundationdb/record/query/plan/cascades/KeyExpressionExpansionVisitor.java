@@ -121,32 +121,35 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 .add(fieldName)
                 .build();
         final Value value;
+        final Column<?> column;
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
                 value = state.registerValue(childBase.getFlowedObjectValue());
+                column = Column.unnamedOf(value);
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
-                    childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
+                    childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
                 } else {
-                    childExpansion = GraphExpansion.ofResultColumn(Column.unnamedOf(value));
+                    childExpansion = GraphExpansion.ofResultColumn(column);
                 }
                 final SelectExpression selectExpression =
                         childExpansion
                                 .withBase(childBase)
                                 .buildSelect();
-                final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+                final Quantifier childQuantifier = Quantifier.forEach(Reference.of(selectExpression));
                 final GraphExpansion.Sealed sealedChildExpansion =
                         childExpansion.seal();
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
             case None:
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
+                column = Column.unnamedOf(value);
                 if (state.isKey()) {
-                    return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
+                    return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
                 }
-                return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
+                return GraphExpansion.ofResultColumn(column);
             case Concatenate: // TODO collect/concatenate function
             default:
         }
@@ -207,7 +210,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
                 final SelectExpression selectExpression =
                         sealedBaseAndChildExpansion.buildSelect();
-                final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+                final Quantifier childQuantifier = Quantifier.forEach(Reference.of(selectExpression));
                 return sealedBaseAndChildExpansion
                         .builderWithInheritedPlaceholders()
                         .pullUpQuantifier(childQuantifier)

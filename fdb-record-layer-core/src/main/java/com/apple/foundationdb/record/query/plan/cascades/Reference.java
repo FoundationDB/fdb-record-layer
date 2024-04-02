@@ -1,9 +1,9 @@
 /*
- * GroupExpressionRef.java
+ * Reference.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphPro
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
@@ -52,28 +53,24 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * A Cascades-style group expression, representing the members of set of {@link RelationalExpression}s that belong to
- * the same equivalence class.
- *
  * <p>
  * The <em>memo</em> data structure can compactly represent a large set of similar {@link RelationalExpression}s through
- * careful memoization. The Cascades "group expression", represented by the {@code GroupExpressionRef}, is the key to
+ * careful memoization. The Cascades "group expression", represented by the {@code Reference}, is the key to
  * that memoization by sharing optimization work on a sub-expression with other parts of the expression that reference
  * the same sub-expression.
  * </p>
  *
  * <p>
  * The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
- * which is undefined behavior. Note that a {@link GroupExpressionRef} cannot be "dereferenced" using the {@link #get()}
+ * which is undefined behavior. Note that a {@link Reference} cannot be "de-referenced" using the {@link #get()}
  * method if it contains more than one member. Expressions with more than one member should not be used outside of the
  * query planner, and {@link #get()} should not be used inside the query planner.
  * </p>
- * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public class GroupExpressionRef<T extends RelationalExpression> implements ExpressionRef<T> {
+public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
-    private final LinkedIdentitySet<T> members;
+    private final LinkedIdentitySet<RelationalExpression> members;
 
     @Nonnull
     private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
@@ -83,11 +80,11 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Nonnull
     private final PropertiesMap propertiesMap;
 
-    private GroupExpressionRef() {
+    private Reference() {
         this(new LinkedIdentitySet<>());
     }
 
-    private GroupExpressionRef(@Nonnull LinkedIdentitySet<T> members) {
+    private Reference(@Nonnull LinkedIdentitySet<RelationalExpression> members) {
         this.members = members;
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
@@ -96,17 +93,32 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         Debugger.registerReference(this);
     }
 
+    /**
+     * Return the {@link RecordQueryPlan} contained in this reference.
+     * @return the {@link RecordQueryPlan} contained in this reference
+     * @throws UngettableReferenceException if the reference does not support retrieving its expression
+     * @throws ClassCastException if the only member of this reference is not a {@link RecordQueryPlan}
+     */
     @Nonnull
-    @Override
-    public T get() {
+    public RecordQueryPlan getAsPlan() {
+        return (RecordQueryPlan)get();
+    }
+
+    /**
+     * Return the expression contained in this reference. If the reference does not support getting its expresssion
+     * (for example, because it holds more than one expression, or none at all), this should throw an exception.
+     * @return the expression contained in this reference
+     * @throws UngettableReferenceException if the reference does not support retrieving its expression
+     */
+    @Nonnull
+    public RelationalExpression get() {
         if (members.size() == 1) {
             return members.iterator().next();
         }
-        throw new UngettableReferenceException("tried to dereference GroupExpressionRef with " + members.size() + " members");
+        throw new UngettableReferenceException("tried to dereference reference with " + members.size() + " members");
     }
 
     @Nonnull
-    @Override
     public ConstraintsMap getConstraintsMap() {
         return constraintsMap;
     }
@@ -115,7 +127,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      * Legacy method that calls {@link #pruneWith(RelationalExpression)} while being synchronized on {@code this}.
      * @param newValue new expression to replace members of this reference.
      */
-    public synchronized void replace(@Nonnull T newValue) {
+    public synchronized void replace(@Nonnull RelationalExpression newValue) {
         pruneWith(newValue);
     }
 
@@ -124,7 +136,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      * to prune the variations of a reference down to exactly one new member.
      * @param newValue new value to replace existing members
      */
-    public void pruneWith(@Nonnull T newValue) {
+    public void pruneWith(@Nonnull RelationalExpression newValue) {
         final Map<PlanProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {
             propertiesForPlan = propertiesMap.getCurrentPropertiesForPlan((RecordQueryPlan)newValue);
@@ -137,17 +149,16 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     /**
      * Inserts a new expression into this reference. This particular overload utilized the precomputed propertied of
-     * a {@link RecordQueryPlan} that already is thought to reside in another {@link ExpressionRef}.
+     * a {@link RecordQueryPlan} that already is thought to reside in another {@link Reference}.
      * @param newValue new expression to be inserted
      * @param otherRef a reference that already contains {@code newValue}
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    @Override
-    public boolean insertFrom(@Nonnull final T newValue, @Nonnull final ExpressionRef<T> otherRef) {
-        if (newValue instanceof RecordQueryPlan && otherRef instanceof GroupExpressionRef) {
+    public boolean insertFrom(@Nonnull final RelationalExpression newValue, @Nonnull final Reference otherRef) {
+        if (newValue instanceof RecordQueryPlan) {
             final var propertiesForPlan =
-                    Objects.requireNonNull(((GroupExpressionRef<T>)otherRef).propertiesMap.getPropertiesForPlan((RecordQueryPlan)newValue));
+                    Objects.requireNonNull(otherRef.propertiesMap.getPropertiesForPlan((RecordQueryPlan)newValue));
 
             return insert(newValue, propertiesForPlan);
         }
@@ -161,8 +172,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    @Override
-    public boolean insert(@Nonnull final T newValue) {
+    public boolean insert(@Nonnull final RelationalExpression newValue) {
         return insert(newValue, null);
     }
 
@@ -175,7 +185,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    private boolean insert(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
+    private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
             final boolean containsInMemo = containsInMemo(newValue);
@@ -198,7 +208,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      * the expression memoized.
      * @param newValue new expression to be inserted (without check)
      */
-    public void insertUnchecked(@Nonnull final T newValue) {
+    public void insertUnchecked(@Nonnull final RelationalExpression newValue) {
         insertUnchecked(newValue, null);
     }
 
@@ -211,7 +221,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      */
-    public void insertUnchecked(@Nonnull final T newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
+    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
         members.add(newValue);
@@ -225,18 +235,17 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         }
     }
 
-    public boolean containsExactly(@Nonnull T expression) {
+    public boolean containsExactly(@Nonnull RelationalExpression expression) {
         return members.contains(expression);
     }
 
-    @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean containsAllInMemo(@Nonnull final ExpressionRef<? extends RelationalExpression> otherRef,
+    public boolean containsAllInMemo(@Nonnull final Reference otherRef,
                                      @Nonnull final AliasMap equivalenceMap) {
         if (this == otherRef) {
             return true;
         }
-        
+
         for (final RelationalExpression otherMember : otherRef.getMembers()) {
             if (!containsInMemo(otherMember, equivalenceMap, members)) {
                 return false;
@@ -275,7 +284,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
-        for (final T member : getMembers()) {
+        for (final RelationalExpression member : getMembers()) {
             builder.addAll(member.getCorrelatedTo());
         }
         return builder.build();
@@ -284,21 +293,14 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @SuppressWarnings("java:S1905")
     @Nonnull
     @Override
-    public GroupExpressionRef<T> rebase(@Nonnull final AliasMap translationMap) {
-        final var expressionRef = translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
-        if (expressionRef instanceof GroupExpressionRef<?>) {
-            return (GroupExpressionRef<T>)expressionRef;
-        } else {
-            return GroupExpressionRef.from(expressionRef.getMembers());
-        }
+    public Reference rebase(@Nonnull final AliasMap translationMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap));
     }
 
     @Nonnull
-    @Override
-    @SuppressWarnings("unchecked")
-    public ExpressionRef<T> translateCorrelations(@Nonnull final TranslationMap translationMap) {
-        final var translatedRefs = ExpressionRefs.translateCorrelations(ImmutableList.of(this), translationMap);
-        return (ExpressionRef<T>)Iterables.getOnlyElement(translatedRefs);
+    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        final var translatedRefs = References.translateCorrelations(ImmutableList.of(this), translationMap);
+        return Iterables.getOnlyElement(translatedRefs);
     }
 
     /**
@@ -352,50 +354,44 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     @Nonnull
-    @Override
-    public LinkedIdentitySet<T> getMembers() {
+    public LinkedIdentitySet<RelationalExpression> getMembers() {
         return members;
     }
 
     /**
-     * Re-reference members of this group, i.e., use a subset of members to from a new {@link GroupExpressionRef}.
+     * Re-reference members of this group, i.e., use a subset of members to from a new {@link Reference}.
      * Note that {@code this} group must not need exploration.
      *
      * @param expressions a collection of expressions that all have to be members of this group
-     * @return a new explored {@link GroupExpressionRef}
+     * @return a new explored {@link Reference}
      */
-    @SuppressWarnings({"SuspiciousMethodCalls", "unchecked"})
     @Nonnull
-    @Override
-    public ExpressionRef<T> referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
+    public Reference referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
         Verify.verify(!needsExploration());
         Verify.verify(getMembers().containsAll(expressions));
 
-        final var members = new LinkedIdentitySet<T>();
-        expressions.forEach(expression -> members.add((T)expression));
-        final var newRef = new GroupExpressionRef<>(members);
+        final var members = new LinkedIdentitySet<RelationalExpression>();
+        members.addAll(expressions);
+        final var newRef = new Reference(members);
         newRef.getConstraintsMap().setExplored();
         return newRef;
     }
 
     @Nonnull
-    @Override
     public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
         return propertiesMap.getPlannerAttributeForAllPlans(planProperty);
     }
 
     @Nonnull
-    @Override
     public List<PlanPartition> getPlanPartitions() {
         return propertiesMap.getPlanPartitions();
     }
 
     @Nullable
-    @Override
     public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
         if (property.shouldVisit(this)) {
             final List<U> memberResults = new ArrayList<>(members.size());
-            for (T member : members) {
+            for (RelationalExpression member : members) {
                 final U result = property.shouldVisit(member) ? property.visit(member) : null;
                 if (result == null) {
                     return null;
@@ -411,14 +407,14 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Override
     public String toString() {
         return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
-                                    getMembers().stream()
-                       .map(debugger::nameForObject)
-                       .collect(Collectors.joining(",")) + "]")
-                .orElse("ExpressionRef@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
+                        getMembers().stream()
+                                .map(debugger::nameForObject)
+                                .collect(Collectors.joining(",")) + "]")
+                .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
@@ -428,18 +424,18 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             return false;
         }
 
-        final GroupExpressionRef<T> otherRef = (GroupExpressionRef<T>)other;
+        final Reference otherRef = (Reference)other;
 
-        final Iterator<T> iterator = members.iterator();
-        final ImmutableMultimap.Builder<Integer, T> expressionsMapBuilder = ImmutableMultimap.builder();
+        final Iterator<RelationalExpression> iterator = members.iterator();
+        final ImmutableMultimap.Builder<Integer, RelationalExpression> expressionsMapBuilder = ImmutableMultimap.builder();
 
         while (iterator.hasNext()) {
-            final T next = iterator.next();
+            final RelationalExpression next = iterator.next();
             expressionsMapBuilder.put(next.semanticHashCode(), next);
         }
-        final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
+        final ImmutableMultimap<Integer, RelationalExpression> expressionsMap = expressionsMapBuilder.build();
 
-        for (final T otherMember : otherRef.getMembers()) {
+        for (final RelationalExpression otherMember : otherRef.getMembers()) {
             if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, aliasMap))) {
                 return true;
             }
@@ -449,25 +445,35 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Override
     public int semanticHashCode() {
-        final Iterator<T> iterator = members.iterator();
+        final Iterator<RelationalExpression> iterator = members.iterator();
         final ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
 
         while (iterator.hasNext()) {
-            final T next = iterator.next();
+            final RelationalExpression next = iterator.next();
             builder.add(next.semanticHashCode());
         }
 
         return Objects.hash(builder.build());
     }
 
+    /**
+     * Return all match candidates that partially match this reference. This set must be a subset of all {@link MatchCandidate}s
+     * in the {@link PlanContext} during planning. Note that it is possible that a particular match candidate matches this
+     * reference more than once.
+     * @return a set of match candidates that partially match this reference.
+     */
     @Nonnull
-    @Override
     public Set<MatchCandidate> getMatchCandidates() {
         return partialMatchMap.keySet();
     }
 
+    /**
+     * Return all partial matches that match a given expression. This method is agnostic of the {@link MatchCandidate}
+     * that created the partial match.
+     * @param expression expression to return partial matches for. This expression has to be a member of this reference
+     * @return a collection of partial matches that matches the give expression to some candidate
+     */
     @Nonnull
-    @Override
     public Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull final RelationalExpression expression) {
         return partialMatchMap.values()
                 .stream()
@@ -477,13 +483,24 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 .collect(ImmutableSet.toImmutableSet());
     }
 
+    /**
+     * Return all partial matches for the {@link MatchCandidate} passed in.
+     * @param candidate match candidate
+     * @return a set of partial matches for {@code candidate}
+     */
     @Nonnull
-    @Override
     public Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate) {
         return partialMatchMap.get(candidate);
     }
 
-    @Override
+    /**
+     * Add the {@link PartialMatch} passed in to this reference for the {@link MatchCandidate} passed in.
+     * @param candidate match candidate this partial match relates to
+     * @param partialMatch a new partial match.
+     * @return {@code true} if this call added a new partial, {@code false} if the partial match passed in was already
+     *         contained in this reference
+     */
+    @SuppressWarnings("UnusedReturnValue")
     public boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch) {
         return partialMatchMap.put(candidate, partialMatch);
     }
@@ -491,7 +508,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     /**
      * Method to render the graph rooted at this reference. This is needed for graph integration into IntelliJ as
      * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
-     * {@link GroupExpressionRef}. During debugging you can then click show() on an instance and enjoy the query graph
+     * {@link Reference}. During debugging you can then click show() on an instance and enjoy the query graph
      * it represents rendered in your standard browser.
      * @param renderSingleGroups whether to render group references with just one member
      * @return the String "done"
@@ -555,8 +572,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                             member.getQuantifiers(),
                             otherExpression.getQuantifiers(),
                             ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
-                                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-                                final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
+                                final Reference rangesOver = quantifier.getRangesOver();
+                                final Reference otherRangesOver = otherQuantifier.getRangesOver();
                                 return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
                             }));
         } else {
@@ -580,27 +597,40 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
     }
 
-    public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {
-        return new GroupExpressionRef<>();
+    public static Reference empty() {
+        return new Reference();
     }
 
-    public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
-        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
+    public static Reference of(@Nonnull RelationalExpression expression) {
+        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(expression);
         members.add(expression);
-        return new GroupExpressionRef<>(members);
+        return new Reference(members);
     }
 
-    @SuppressWarnings("unchecked")
-    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull T... expressions) {
+    public static Reference from(@Nonnull RelationalExpression... expressions) {
         return from(Arrays.asList(expressions));
     }
 
-    public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
-        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
+    public static Reference from(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
         expressions.forEach(Debugger::registerExpression);
         members.addAll(expressions);
-        return new GroupExpressionRef<>(members);
+        return new Reference(members);
+    }
+
+    /**
+     * An exception thrown when {@link #get()} is called on a reference that does not support it,
+     * such as a reference containing more than one expression.
+     * A client that encounters this exception is buggy and should not try to recover any information from the reference
+     * that threw it.
+     */
+    public static class UngettableReferenceException extends RecordCoreException {
+        private static final long serialVersionUID = 1;
+
+        public UngettableReferenceException(String message) {
+            super(message);
+        }
     }
 }

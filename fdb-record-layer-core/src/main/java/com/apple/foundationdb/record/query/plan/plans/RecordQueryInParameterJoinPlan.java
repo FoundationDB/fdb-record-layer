@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInParamete
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -66,7 +65,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                                           @Nonnull final String externalBinding,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
-        this(Quantifier.physical(GroupExpressionRef.of(plan)),
+        this(Quantifier.physical(Reference.of(plan)),
                 bindingName,
                 internal,
                 externalBinding,
@@ -118,7 +117,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
         return new RecordQueryInParameterJoinPlan(Quantifier.physical(childRef), inSource, internal);
     }
 

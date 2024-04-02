@@ -44,7 +44,7 @@ import java.util.Objects;
  * <p>
  * To avoid littering {@link RelationalExpression} classes with methods for various properties, properties are implemented
  * using a variant of the hierarchical visitor pattern over a DAG of {@link RelationalExpression}s, {@link Quantifier}s,
- * and {@link ExpressionRef}s.
+ * and {@link Reference}s.
  * A property can be evaluated against an expression tree by having the visitor traverse a DAG of heterogeneous objects
  * where expressions are said to own quantifiers which range over expression references which then contain expressions
  * again. Shared subgraphs are visited multiple times. If desired, the caller must ensure that a subgraph is not
@@ -88,13 +88,13 @@ public interface ExpressionProperty<T> extends RelationalExpressionVisitor<T> {
      * Return whether the property should visit the given reference and, transitively, the members of the reference.
      * Called on expression references in the graph in visit pre-order of the depth-first traversal of the graph.
      * That is, as a reference is visited, {@code shouldVisit()} is called on that reference.
-     * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtRef(ExpressionRef, List)} will
+     * If {@code shouldVisit()} returns {@code false}, then {@link #evaluateAtRef(Reference, List)} will
      * not be called on the given reference.
      * @param ref the expression reference to visit
      * @return {@code true} if the members of {@code ref} should be visited and {@code false} if they should not be visited
      */
     @SuppressWarnings("unused")
-    default boolean shouldVisit(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    default boolean shouldVisit(@Nonnull Reference ref) {
         return true;
     }
 
@@ -136,7 +136,7 @@ public interface ExpressionProperty<T> extends RelationalExpressionVisitor<T> {
      * @return the value of property at the given reference
      */
     @Nonnull
-    T evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<T> memberResults);
+    T evaluateAtRef(@Nonnull Reference ref, @Nonnull List<T> memberResults);
 
     /**
      * Evaluate the property at the given quantifier, using the result of evaluating the property at the
@@ -145,7 +145,7 @@ public interface ExpressionProperty<T> extends RelationalExpressionVisitor<T> {
      * That is, as each quantifier is visited (after the expression reference it ranges over has been visited, if applicable),
      * {@code evaluateAtQuantifier()} is called on that quantifier.
      * @param quantifier the quantifier to visit
-     * @param rangesOverResult the result of the property evaluated at the {@link ExpressionRef} {@code quantifier}
+     * @param rangesOverResult the result of the property evaluated at the {@link Reference} {@code quantifier}
      *        ranges over
      * @return the value of property at the given quantifier
      */

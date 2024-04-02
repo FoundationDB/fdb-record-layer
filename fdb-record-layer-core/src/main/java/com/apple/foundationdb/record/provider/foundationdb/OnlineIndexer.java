@@ -2132,7 +2132,6 @@ public class OnlineIndexer implements AutoCloseable {
         private final List<Tuple> mutualIndexingBoundaries;
         private final boolean allowUnblock;
         private final String allowUnblockId;
-        private final boolean deferMergeDuringIndexing;
         private final long initialMergesCountLimit;
         private final boolean reverseScanOrder;
 
@@ -2161,7 +2160,6 @@ public class OnlineIndexer implements AutoCloseable {
          * @param mutualIndexingBoundaries if present, use this predefined list of ranges. Else, split ranges by shards
          * @param allowUnblock if true, allow unblocking
          * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
-         * @param deferMergeDuringIndexing if true, do not merge indexes in indexing transactions but in a separate ones
          * @param initialMergesCountLimit the initial max merges count for index merger
          * @param reverseScanOrder if true, scan records in reverse order
          */
@@ -2171,7 +2169,7 @@ public class OnlineIndexer implements AutoCloseable {
                                boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
                                boolean allowUnblock, String allowUnblockId,
-                               boolean deferMergeDuringIndexing, long initialMergesCountLimit,
+                               long initialMergesCountLimit,
                                boolean reverseScanOrder) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
@@ -2187,7 +2185,6 @@ public class OnlineIndexer implements AutoCloseable {
             this.mutualIndexingBoundaries = mutualIndexingBoundaries;
             this.allowUnblock = allowUnblock;
             this.allowUnblockId = allowUnblockId;
-            this.deferMergeDuringIndexing = deferMergeDuringIndexing;
             this.initialMergesCountLimit = initialMergesCountLimit;
             this.reverseScanOrder = reverseScanOrder;
         }
@@ -2259,7 +2256,6 @@ public class OnlineIndexer implements AutoCloseable {
                     .setMutualIndexing(mutualIndexing)
                     .setMutualIndexingBoundaries(mutualIndexingBoundaries)
                     .setAllowUnblock(allowUnblock, allowUnblockId)
-                    .setDeferMergeDuringIndexing(deferMergeDuringIndexing)
                     .setInitialMergesCountLimit(initialMergesCountLimit)
                     .setReverseScanOrder(reverseScanOrder)
                     ;
@@ -2357,16 +2353,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * If true, attempt to merge indexes in separate transactions. This feature may be used to avoid
-         * transaction timeout(s) for indexes that require merge and support deferred merge.
-         * @return true if should defer index merge during the indexing process.
-         */
-        @API(API.Status.EXPERIMENTAL)
-        public boolean shouldDeferMergeDuringIndexing() {
-            return this.deferMergeDuringIndexing;
-        }
-
-        /**
          * Get the initial merges count limit for {@link #mergeIndex()} and the indexing process.
          * The default is 0 - which means unlimited.
          * @return the initial merges count limit.
@@ -2413,7 +2399,6 @@ public class OnlineIndexer implements AutoCloseable {
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
             private String allowUnblockId = null;
-            private boolean deferMergeDuringIndexing = false;
             private long initialMergesCountLimit = 0;
             private boolean reverseScanOrder = false;
 
@@ -2663,19 +2648,6 @@ public class OnlineIndexer implements AutoCloseable {
                 return setAllowUnblock(allowUnblock, null);
             }
 
-            /**
-             *  If set to true, attempt to merge indexes in separate transactions. This feature may be used to avoid
-             *  transaction timeout(s), and only affects indexes that require merge and support deferred merge.
-             * The default value is false.
-             * @param deferMergeDuringIndexing if true, attempt to merge indexes in separate transactions.
-             * @return this builder
-             */
-            @API(API.Status.EXPERIMENTAL)
-            public Builder setDeferMergeDuringIndexing(boolean deferMergeDuringIndexing) {
-                this.deferMergeDuringIndexing = deferMergeDuringIndexing;
-                return this;
-            }
-
 
             /**
              * Set the initial merges count limit for {@link #mergeIndex()} and the indexing process.
@@ -2708,7 +2680,7 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        deferMergeDuringIndexing, initialMergesCountLimit, reverseScanOrder);
+                        initialMergesCountLimit, reverseScanOrder);
             }
         }
     }

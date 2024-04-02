@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRefTraversal;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -46,7 +46,7 @@ import java.util.Set;
 /**
  * Expression-based transformation rule that matches any leaf expression. The rule creates matches of type
  * {@link PartialMatch} for any match between this expression and a leaf expression in a {@link MatchCandidate}.
- * It seeds the memoization structure for partial matches that is kept as part of {@link ExpressionRef}. It prepares
+ * It seeds the memoization structure for partial matches that is kept as part of {@link Reference}. It prepares
  * further rules such as {@link MatchIntermediateRule} and {@link AdjustMatchRule}.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -78,10 +78,10 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
         final RelationalExpression expression = call.get(root);
         // iterate through all candidates known to the context
         for (final MatchCandidate matchCandidate : context.getMatchCandidates()) {
-            final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
-            final Set<ExpressionRef<? extends RelationalExpression>> leafRefs = traversal.getLeafReferences();
+            final Traversal traversal = matchCandidate.getTraversal();
+            final Set<Reference> leafRefs = traversal.getLeafReferences();
             // iterate through all leaf references in all
-            for (final ExpressionRef<? extends RelationalExpression> leafRef : leafRefs) {
+            for (final Reference leafRef : leafRefs) {
                 for (final RelationalExpression leafMember : leafRef.getMembers()) {
                     // A leaf reference strictly is a reference that contains at least one member expression that does
                     // not have any quantifiers it ranges over. We need to make sure that we actually filter out all

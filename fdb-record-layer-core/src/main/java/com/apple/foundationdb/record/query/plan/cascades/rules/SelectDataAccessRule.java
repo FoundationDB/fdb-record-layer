@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -174,7 +174,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
 
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()
                         .withAlias(matchedAlias)
-                        .build(call.memoizeReference(GroupExpressionRef.from(dataAccessExpressions)));
+                        .build(call.memoizeReference(Reference.from(dataAccessExpressions)));
                 
                 final var compensatedDataAccessExpression =
                         GraphExpansion.builder()

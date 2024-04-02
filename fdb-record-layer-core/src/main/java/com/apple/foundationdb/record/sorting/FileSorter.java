@@ -170,7 +170,7 @@ public class FileSorter<K, V>  {
                 // Save from memory and, if necessary, consolidate into a single file.
                 return CompletableFuture.runAsync(() -> saveToNextFile(1), executor).thenApply(vignore -> false);
             }
-        })).thenApply(vignore -> loadResult);
+        }), executor).thenApply(vignore -> loadResult);
     }
 
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})

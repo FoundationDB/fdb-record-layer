@@ -71,7 +71,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     // The expression representation of the match candidate.
     @Nonnull
-    private final ExpressionRefTraversal traversal;
+    private final Traversal traversal;
 
     // list of aliases pertaining ordering information.
     @Nonnull
@@ -102,7 +102,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
      * @param selectHavingResultValue The select-having expression result value.
      */
     public AggregateIndexMatchCandidate(@Nonnull final Index index,
-                                        @Nonnull final ExpressionRefTraversal traversal,
+                                        @Nonnull final Traversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases,
                                         @Nonnull final Collection<RecordType> recordTypes,
                                         @Nonnull final Type baseType,
@@ -126,7 +126,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nonnull
     @Override
-    public ExpressionRefTraversal getTraversal() {
+    public Traversal getTraversal() {
         return traversal;
     }
 

@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -83,7 +83,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             @Nullable final String label =
                     Debugger.mapDebugger(debugger -> quantifier.getAlias().getId()).orElse(null);
 
-            final GroupExpressionRefEdge edge;
+            final ReferenceEdge edge;
             if (quantifier instanceof Quantifier.Existential) {
                 edge = new ExistentialQuantifierEdge(label, dependsOn);
             } else if (quantifier instanceof Quantifier.ForEach) {
@@ -91,7 +91,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             } else if (quantifier instanceof Quantifier.Physical) {
                 edge = new PhysicalQuantifierEdge(label, dependsOn);
             } else {
-                edge = new GroupExpressionRefEdge(label, dependsOn);
+                edge = new ReferenceEdge(label, dependsOn);
             }
 
             plannerGraphBuilder
@@ -119,7 +119,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         Edge previousEdge = null;
         for (int i = 0; i < sortedChildGraphs.size(); i++) {
             final PlannerGraph childGraph = sortedChildGraphs.get(i);
-            final GroupExpressionRefEdge edge;
+            final ReferenceEdge edge;
             final Set<? extends AbstractEdge> dependsOn =
                     previousEdge == null
                     ? ImmutableSet.of()
@@ -133,7 +133,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                 label = null;
             }
 
-            edge = new GroupExpressionRefEdge(label, dependsOn);
+            edge = new ReferenceEdge(label, dependsOn);
 
             plannerGraphBuilder
                     .addGraph(childGraph)
@@ -149,8 +149,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         final InternalPlannerGraphBuilder plannerGraphBuilder =
                 builder(node);
 
-        GroupExpressionRefEdge edge;
-        edge = new GroupExpressionRefEdge(null, ImmutableSet.of());
+        ReferenceEdge edge;
+        edge = new ReferenceEdge(null, ImmutableSet.of());
         plannerGraphBuilder
                 .addGraph(innerGraph)
                 .addEdge(innerGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
@@ -597,12 +597,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Node class for GroupExpressionRefs -- head.
+     * Node class for {@link Reference}s -- head.
      */
-    public static class ExpressionRefHeadNode extends Node {
+    public static class ReferenceHeadNode extends Node {
 
-        public ExpressionRefHeadNode(final ExpressionRef<? extends RelationalExpression> ref) {
-            super(ref, ExpressionRef.class.getSimpleName());
+        public ReferenceHeadNode(final Reference ref) {
+            super(ref, Reference.class.getSimpleName());
         }
 
         @Nonnull
@@ -651,14 +651,14 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Node class for GroupExpressionRefs - member.
+     * Node class for {@link Reference} - member.
      */
-    public static class ExpressionRefMemberNode extends Node {
-        public ExpressionRefMemberNode(final String name) {
+    public static class ReferenceMemberNode extends Node {
+        public ReferenceMemberNode(final String name) {
             super(new Object(), name);
         }
 
-        public ExpressionRefMemberNode() {
+        public ReferenceMemberNode() {
             super(new Object(), "m");
         }
 
@@ -773,18 +773,18 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Edge class for GroupExpressionRefs.
+     * Edge class for {@link Reference}.
      */
-    public static class GroupExpressionRefEdge extends Edge {
-        public GroupExpressionRefEdge() {
+    public static class ReferenceEdge extends Edge {
+        public ReferenceEdge() {
             this(ImmutableSet.of());
         }
 
-        public GroupExpressionRefEdge(final Set<? extends AbstractEdge> dependsOn) {
+        public ReferenceEdge(final Set<? extends AbstractEdge> dependsOn) {
             this(null, dependsOn);
         }
 
-        public GroupExpressionRefEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+        public ReferenceEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
             super(label, dependsOn);
         }
 
@@ -798,7 +798,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     /**
      * Edge class for for-each quantifiers.
      */
-    public static class ForEachQuantifierEdge extends GroupExpressionRefEdge {
+    public static class ForEachQuantifierEdge extends ReferenceEdge {
         public ForEachQuantifierEdge() {
             this(null, ImmutableSet.of());
         }
@@ -815,7 +815,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     /**
      * Edge class for existential quantifiers.
      */
-    public static class ExistentialQuantifierEdge extends GroupExpressionRefEdge {
+    public static class ExistentialQuantifierEdge extends ReferenceEdge {
         public ExistentialQuantifierEdge() {
             this(null, ImmutableSet.of());
         }
@@ -844,7 +844,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     /**
      * Edge class for physical quantifiers.
      */
-    public static class PhysicalQuantifierEdge extends GroupExpressionRefEdge {
+    public static class PhysicalQuantifierEdge extends ReferenceEdge {
         public PhysicalQuantifierEdge() {
             this(null, ImmutableSet.of());
         }
@@ -867,7 +867,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     /**
      * Edge class for modification (delete, insert, update) targets.
      */
-    public static class ModificationTargetEdge extends GroupExpressionRefEdge {
+    public static class ModificationTargetEdge extends ReferenceEdge {
         public ModificationTargetEdge() {
             this(null, ImmutableSet.of());
         }
@@ -894,9 +894,9 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
-     * Edge class for GroupExpressionRefs.
+     * Edge class for {@link Reference}.
      */
-    public static class GroupExpressionRefInternalEdge extends Edge {
+    public static class ReferenceInternalEdge extends Edge {
         @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {

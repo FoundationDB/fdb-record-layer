@@ -85,6 +85,8 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             }
         }
         if (isRequired) {
+            // If any of the copiers refused since they were asked to copy a null into a required field, this following
+            // build call will fail with an exception.
             return recordBuilder.build();
         }
         return allCopiersRefused ? null : recordBuilder.build();
@@ -261,11 +263,16 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                 return false;
             }
 
+            Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             Object value = getForOrdinalPath(tuple, ordinalPath);
             if (value == null) {
-                return true;
+                //
+                // The logic here goes like this: If the field is null, but it is required we cannot
+                // copy the value as it is required to be non-null. If it is null, but it is optional or repeated,
+                // null is assumed to be the default and the field remains unset.
+                //
+                return !fieldDescriptor.isRequired();
             }
-            Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             switch (fieldDescriptor.getType()) {
                 case INT32:
                     value = ((Long)value).intValue();

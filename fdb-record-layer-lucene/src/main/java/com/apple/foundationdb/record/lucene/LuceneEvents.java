@@ -68,6 +68,14 @@ public class LuceneEvents {
         LUCENE_MERGE("Lucene merge"),
         /** Number of find merge calls (calculation of lucene's required merges). */
         LUCENE_FIND_MERGES("Lucene find merges"),
+        /**
+         * Amount of time spent in a transaction doing partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION_TRANSACTION("Lucene rebalance partition transaction"),
+        /**
+         * Amount of time spent moving documents during partition rebalancing.
+         */
+        LUCENE_REBALANCE_PARTITION("Lucene rebalance partition")
         ;
 
         private final String title;
@@ -144,6 +152,8 @@ public class LuceneEvents {
         WAIT_LUCENE_GET_FILE_REFERENCE("lucene get file reference"),
         /** Wait to read schema. */
         WAIT_LUCENE_GET_SCHEMA("lucene get schema"),
+        /** Wait to read all stored fields for a segment. */
+        WAIT_LUCENE_GET_ALL_STORED_FIELDS("lucene get stored all fields"),
         /** Wait to read stored fields. */
         WAIT_LUCENE_GET_STORED_FIELDS("lucene get stored fields"),
         /** Wait to read a data block. */
@@ -221,6 +231,8 @@ public class LuceneEvents {
         LUCENE_AGILE_COMMITS_SIZE_QUOTA("lucene agile commits size quota", false),
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
+        /** Count of times a rebalance was called. */
+        LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false)
         ;
 
         private final String title;
@@ -272,6 +284,12 @@ public class LuceneEvents {
         LUCENE_WRITE("lucene index writes", true),
         /** Write Stored Fields operations on the FDBDirectory. */
         LUCENE_WRITE_STORED_FIELDS("lucene write stored fields"),
+        /**
+         * The number of docs moved during each transaction as part of partition rebalance.
+         */
+        LUCENE_REBALANCE_PARTITION_DOCS("lucene rebalance partition count"),
+        /** Size of the list of files loaded in loadFileReferenceCacheForMemoization operation in FDBDirectory. */
+        LUCENE_FILES_COUNT("lucene files"),
         ;
 
         private final String title;

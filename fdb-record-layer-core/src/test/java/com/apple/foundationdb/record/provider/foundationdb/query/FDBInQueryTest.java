@@ -157,7 +157,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [0, 2]
         RecordQueryPlan plan = planQuery(query);
-        
+
         if (planner instanceof RecordQueryPlanner) {
             assertMatchesExactly(plan,
                     filterPlan(descendantPlans(scanPlan().where(scanComparisons(unbounded()))))
@@ -1586,6 +1586,53 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getRecNo() % 4, anyOf(is(3L), is(2L))),
                 TestHelpers::assertDiscardedNone));
+    }
+
+    /**
+     * Verify that one-of-them queries work with IN when sorted on a second field, if union is allowed.
+     */
+    @ParameterizedTest
+    @EnumSource(InAsOrUnionMode.class)
+    void testOneOfThemInSortBySecondField(InAsOrUnionMode inAsOrMode) throws Exception {
+        RecordMetaDataHook recordMetaDataHook = metadata ->
+                metadata.addIndex("MySimpleRecord", "ind",
+                        concat(field("repeater", FanType.FanOut), field("str_value_indexed")));
+        setupSimpleRecordStore(recordMetaDataHook,
+                (i, builder) -> builder.setRecNo(i)
+                        .setStrValueIndexed((i & 1) == 1 ? "odd" : "even")
+                        .addAllRepeater(Arrays.asList(10 + i % 4, 20 + i % 4)));
+        List<Integer> inList = Arrays.asList(13, 22);
+        QueryComponent filter = Query.field("repeater").oneOfThem().in(inList);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(filter)
+                .setSort(field("str_value_indexed"))
+                .build();
+        assertTrue(planner instanceof RecordQueryPlanner);
+        planner.setConfiguration(inAsOrMode.configure(planner.getConfiguration().asBuilder())
+                .build());
+        RecordQueryPlan plan = planQuery(query);
+        // ∪(__in_repeater__0 IN [13, 22]) Index(ind [EQUALS $__in_repeater__0]) | UnorderedPrimaryKeyDistinct()
+        // Index(MySimpleRecord$str_value_indexed <,>) | one of repeater IN [13, 22]
+        boolean asUnion = inAsOrMode == InAsOrUnionMode.AS_UNION;
+        assertMatchesExactly(plan,
+                asUnion ?
+                unorderedPrimaryKeyDistinctPlan(
+                        inUnionOnExpressionPlan(indexPlan().where(indexName("ind"))
+                                .and(scanComparisons(range("[EQUALS $__in_repeater__0]"))))
+                                .where(inUnionComparisonKey(concat(field("str_value_indexed"), primaryKey("MySimpleRecord"))))
+                                .and(inUnionValuesSources(exactly(inUnionInValues(equalsObject(inList))
+                                        .and(inUnionBindingName("__in_repeater__0")))))) :
+                filterPlan(indexPlan()
+                        .where(indexName("MySimpleRecord$str_value_indexed"))
+                        .and(scanComparisons(unbounded()))
+                ).where(queryComponents(exactly(equalsObject(filter)))));
+        assertEquals(asUnion ? 1408337059 : 324839336, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
+                rec -> assertThat(rec.getRecNo() % 4, anyOf(is(3L), is(2L))),
+                asUnion ?
+                TestHelpers::assertDiscardedNone :
+                context -> TestHelpers.assertDiscardedExactly(50, context)));
     }
 
     /**

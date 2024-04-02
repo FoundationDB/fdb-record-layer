@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -192,7 +194,7 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
     }
 
     @Test
-    public void singleElementRank() {
+    void singleElementRank() {
         TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(1517)
                 .setNumValue2(95)
@@ -200,40 +202,44 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
         rankRebuild(Collections.singletonList(record));
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsRank() {
-        Random r = new Random(0x5ca1ab1e);
+    void oneHundredElementsRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         rankRebuild(records);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsParallelRank() {
-        Random r = new Random(0x5ca1ab1e);
+    void oneHundredElementsParallelRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         rankRebuild(records, null, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void oneHundredElementsParallelOverlapRank() {
-        Random r = new Random(0xf005ba11);
+    public void oneHundredElementsParallelOverlapRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
         rankRebuild(records, null, 5, true);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingRank() {
-        Random r = new Random(0xdeadc0de);
+    public void addWhileBuildingRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
@@ -243,10 +249,11 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
         rankRebuild(records, recordsWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addWhileBuildingParallelRank() {
-        Random r = new Random(0xdeadc0de);
+    void addWhileBuildingParallelRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong() / 2).setNumValue2(r.nextInt(10)).build()
         ).limit(150).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
@@ -256,10 +263,11 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
         rankRebuild(records, recordsWhileBuilding, 5, false);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void somePreloadedRank() {
-        Random r = new Random(0x5ca1ab1e);
+    void somePreloadedRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(r.nextLong()).setNumValue2(r.nextInt(10)).build()
         ).limit(100).sorted(Comparator.comparingLong(TestRecords1Proto.MySimpleRecord::getRecNo)).collect(Collectors.toList());
@@ -275,10 +283,11 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
         rankRebuild(records);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingRank() {
-        Random r = new Random(0xba5eba11);
+    void addSequentialWhileBuildingRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).collect(Collectors.toList());
@@ -288,10 +297,11 @@ public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuild
         rankRebuild(records, recordsWhileBuilding);
     }
 
-    @Test
+    @ParameterizedTest
+    @MethodSource("randomSeeds")
     @Tag(Tags.Slow)
-    public void addSequentialWhileBuildingParallelRank() {
-        Random r = new Random(0xba5eba11);
+    void addSequentialWhileBuildingParallelRank(long seed) {
+        Random r = new Random(seed);
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 100).mapToObj( val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(r.nextInt(20)).build()
         ).collect(Collectors.toList());

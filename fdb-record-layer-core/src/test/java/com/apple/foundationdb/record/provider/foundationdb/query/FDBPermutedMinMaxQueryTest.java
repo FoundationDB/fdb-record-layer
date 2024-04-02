@@ -35,15 +35,14 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -87,7 +86,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for queries that use the {@link IndexTypes#PERMUTED_MIN} and {@link IndexTypes#PERMUTED_MAX} index types.
- * There are additional tests for those tests in {@link com.apple.foundationdb.record.provider.foundationdb.indexes.PermutedMinMaxIndexTest}.
  * These tests focus more on executing queries with a min- and max-function within it.
  */
 @Tag(Tags.RequiresFDB)
@@ -112,13 +110,13 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         final var num2Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_2");
         final var num3Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_3_indexed");
         final List<Column<? extends Value>> groupingColumns = List.of(
-                Column.of(Type.Record.Field.of(num2Value.getResultType(), Optional.of("num_value_2")), num2Value),
-                Column.of(Type.Record.Field.of(num3Value.getResultType(), Optional.of("num_value_3_indexed")), num3Value)
+                Column.of(Optional.of("num_value_2"), num2Value),
+                Column.of(Optional.of("num_value_3_indexed"), num3Value)
         );
         selectWhereBuilder
                 .addResultValue(RecordConstructorValue.ofColumns(groupingColumns))
                 .addResultValue(baseQun.getFlowedObjectValue());
-        return Quantifier.forEach(GroupExpressionRef.of(selectWhereBuilder.build().buildSelect()));
+        return Quantifier.forEach(Reference.of(selectWhereBuilder.build().buildSelect()));
     }
 
     @Nonnull
@@ -128,8 +126,9 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         var aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
         final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldRef));
         final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
-        final GroupByExpression groupByExpression = new GroupByExpression(RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)), groupingValue, selectWhere);
-        return Quantifier.forEach(GroupExpressionRef.of(groupByExpression));
+        final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)),
+                GroupByExpression::nestedResults, selectWhere);
+        return Quantifier.forEach(Reference.of(groupByExpression));
     }
 
     @Nonnull
@@ -157,7 +156,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             }
             selectHavingBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(value, resultColumn));
         }
-        return Quantifier.forEach(GroupExpressionRef.of(selectHavingBuilder.build().buildSelect()));
+        return Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -183,7 +182,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_2", "num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
             assertNotNull(result);
@@ -241,7 +240,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_3_indexed", "m"));
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, qun));
+                return Reference.of(new LogicalSortExpression(List.of(), false, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
             assertNotNull(result);
@@ -293,7 +292,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var qun = selectHaving(groupedByQun, null, List.of("m", "num_value_3_indexed"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
             assertNotNull(result);
@@ -344,7 +343,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, new ValuePredicate(aggregateValueReference, new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, qun));
+                return Reference.of(new LogicalSortExpression(List.of(), false, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
             assertNotNull(result);
@@ -403,7 +402,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, new ValuePredicate(aggregateValueReference, new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
             }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
 
             assertNotNull(result);

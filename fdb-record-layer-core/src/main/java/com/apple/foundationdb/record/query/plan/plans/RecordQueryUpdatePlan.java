@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUpdatePlan
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -114,7 +114,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 getTargetType(),
                 translateTransformationsTrie(translationMap),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap, false));
+                getComputationValue().translateCorrelations(translationMap));
     }
 
     @Nullable
@@ -128,7 +128,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
             final var value = current.getValue();
             if (value != null) {
                 Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap, false), null);
+                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
             } else {
                 final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();
@@ -145,7 +145,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
         return new RecordQueryUpdatePlan(Quantifier.physical(childRef),
                 getTargetRecordType(),
                 getTargetType(),

@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -107,7 +107,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
         return new RecordQueryMapPlan(Quantifier.physical(childRef, inner.getAlias()), resultValue);
     }
 
@@ -126,7 +126,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Override
     public RecordQueryMapPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, false);
+        final Value translatedResultValue = resultValue.translateCorrelations(translationMap);
         return new RecordQueryMapPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translatedResultValue);
     }
 

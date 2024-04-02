@@ -46,8 +46,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -87,7 +86,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     private final List<ScoreForRank> ranks;
 
     public RecordQueryScoreForRankPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<ScoreForRank> ranks) {
-        this(Quantifier.physical(GroupExpressionRef.of(plan)), ranks);
+        this(Quantifier.physical(Reference.of(plan)), ranks);
     }
 
     private RecordQueryScoreForRankPlan(@Nonnull final Quantifier.Physical inner,
@@ -194,7 +193,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
         return new RecordQueryScoreForRankPlan(Quantifier.physical(childRef), getRanks());
     }
 

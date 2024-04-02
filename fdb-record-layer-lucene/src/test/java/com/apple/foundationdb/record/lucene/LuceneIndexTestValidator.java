@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.search.LuceneOptimizedIndexSearcher;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -50,6 +49,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,15 +94,38 @@ public class LuceneIndexTestValidator {
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Tuple, Map<Tuple, Long>> expectedDocumentInformation,
+    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
                   final int repartitionCount, final String universalSearch) throws IOException {
-        boolean isGrouped = index.getRootExpression() instanceof GroupingKeyExpression;
+        validate(index, expectedDocumentInformation, repartitionCount, universalSearch, false);
+    }
+
+    /**
+     * A broad validation of the lucene index, asserting consistency, and that various operations did what they were
+     * supposed to do.
+     * <p>
+     *     This has a lot of validation that could be added, and it would be good to be able to control whether it's
+     *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
+     * </p>
+     * @param index the index to validate
+     * @param expectedDocumentInformation a map from group to primaryKey to timestamp
+     * @param repartitionCount the configured repartition count
+     * @param universalSearch a search that will return all the documents
+     * @param allowDuplicatePrimaryKeys if {@code true} this will allow multiple entries in the primary key segment
+     * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
+     * @throws IOException if there is any issue interacting with lucene
+     */
+    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
+                  final int repartitionCount, final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
         // If there is less than repartitionCount of free space in the older partition, we'll create a new partition
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
 
-        for (final Map.Entry<Tuple, Map<Tuple, Long>> entry : expectedDocumentInformation.entrySet()) {
+        Map<Tuple, Map<Tuple, Tuple>> missingDocuments = new HashMap<>();
+        expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
+            missingDocuments.put(groupingKey, new HashMap<>(groupedIds));
+        });
+        for (final Map.Entry<Tuple, Map<Tuple, Tuple>> entry : expectedDocumentInformation.entrySet()) {
             final Tuple groupingKey = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
                     "group", groupingKey,
@@ -174,11 +197,13 @@ public class LuceneIndexTestValidator {
                             universalSearch);
                     visitedCount += partitionInfo.getCount();
                     validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
-                            expectedPrimaryKeys);
+                            expectedPrimaryKeys, allowDuplicatePrimaryKeys);
+                    expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
                 }
             }
-
         }
+        missingDocuments.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        assertEquals(Map.of(), missingDocuments, "We should have found all documents in the index");
     }
 
     private List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
@@ -254,25 +279,36 @@ public class LuceneIndexTestValidator {
                                                       @Nonnull Index index,
                                                       @Nonnull Tuple groupingKey,
                                                       @Nullable Integer partitionId,
-                                                      @Nonnull Set<Tuple> expectedPrimaryKeys) throws IOException {
+                                                      @Nonnull Set<Tuple> expectedPrimaryKeys,
+                                                      final boolean allowDuplicates) throws IOException {
         final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
-        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
+        final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId)
+                .getPrimaryKeySegmentIndex();
         final String message = "Group: " + groupingKey + ", partition: " + partitionId;
-        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED))) {
+        if (Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_ENABLED)) ||
+                Boolean.parseBoolean(index.getOption(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED)) ) {
             assertNotNull(primaryKeySegmentIndex, message);
             final List<List<Object>> allEntries = primaryKeySegmentIndex.readAllEntries();
             // sorting the two lists for easier reading on failures
-            assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()),
-                    allEntries.stream()
-                            .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
-                            .sorted()
-                            .collect(Collectors.toList()),
-                    message);
+            if (allowDuplicates) {
+                assertEquals(new HashSet<>(expectedPrimaryKeys),
+                        allEntries.stream()
+                                .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
+                                .collect(Collectors.toSet()),
+                        message);
+            } else {
+                assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()),
+                        allEntries.stream()
+                                .map(entry -> Tuple.fromList(entry.subList(0, entry.size() - 2)))
+                                .sorted()
+                                .collect(Collectors.toList()),
+                        message);
+            }
             directoryManager.getIndexWriter(groupingKey, partitionId, LuceneAnalyzerWrapper.getStandardAnalyzerWrapper());
             final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
             for (final Tuple primaryKey : expectedPrimaryKeys) {
                 assertNotNull(primaryKeySegmentIndex.findDocument(directoryReader, primaryKey),
-                        message + " " + primaryKey);
+                        message + " " + primaryKey + " " + primaryKeySegmentIndex.findSegments(primaryKey));
             }
         } else {
             assertNull(primaryKeySegmentIndex, message);

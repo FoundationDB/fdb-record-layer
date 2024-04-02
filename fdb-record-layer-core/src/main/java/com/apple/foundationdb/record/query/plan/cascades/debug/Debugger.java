@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -126,7 +125,7 @@ public interface Debugger {
         withDebugger(Debugger::onSetup);
     }
 
-    static void show(@Nonnull final ExpressionRef<? extends RelationalExpression> ref) {
+    static void show(@Nonnull final Reference ref) {
         withDebugger(debugger -> debugger.onShow(ref));
     }
 
@@ -144,7 +143,7 @@ public interface Debugger {
         withDebugger(debugger -> debugger.onRegisterExpression(expression));
     }
 
-    static void registerReference(ExpressionRef<? extends RelationalExpression> reference) {
+    static void registerReference(Reference reference) {
         withDebugger(debugger -> debugger.onRegisterReference(reference));
     }
 
@@ -171,7 +170,7 @@ public interface Debugger {
 
     void onRegisterExpression(@Nonnull RelationalExpression expression);
 
-    void onRegisterReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+    void onRegisterReference(@Nonnull Reference reference);
 
     void onRegisterQuantifier(@Nonnull Quantifier quantifier);
 
@@ -181,7 +180,7 @@ public interface Debugger {
 
     void onSetup();
 
-    void onShow(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
+    void onShow(@Nonnull Reference ref);
 
     void onQuery(String queryAsString, PlanContext planContext);
 
@@ -258,7 +257,7 @@ public interface Debugger {
          * @return the root reference of the event
          */
         @Nonnull
-        GroupExpressionRef<? extends RelationalExpression> getRootReference();
+        Reference getRootReference();
 
         /**
          * Getter.
@@ -278,7 +277,7 @@ public interface Debugger {
          * @return the current reference of the event.
          */
         @Nonnull
-        ExpressionRef<? extends RelationalExpression> getCurrentGroupReference();
+        Reference getCurrentReference();
     }
 
     /**
@@ -298,7 +297,7 @@ public interface Debugger {
      */
     abstract class AbstractEventWithState implements EventWithState {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> rootReference;
+        private final Reference rootReference;
 
         @Nonnull
         private final Deque<Task> taskStack;
@@ -306,7 +305,7 @@ public interface Debugger {
         @Nonnull
         private final Location location;
 
-        protected AbstractEventWithState(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        protected AbstractEventWithState(@Nonnull final Reference rootReference,
                                          @Nonnull final Deque<Task> taskStack,
                                          @Nonnull final Location location) {
             this.rootReference = rootReference;
@@ -316,7 +315,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getRootReference() {
+        public Reference getRootReference() {
             return rootReference;
         }
 
@@ -340,7 +339,7 @@ public interface Debugger {
         @Nonnull
         private final Task task;
 
-        public ExecutingTaskEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public ExecutingTaskEvent(@Nonnull final Reference rootReference,
                                   @Nonnull final Deque<Task> taskStack,
                                   @Nonnull final Task task) {
             super(rootReference, taskStack, Location.COUNT);
@@ -370,12 +369,12 @@ public interface Debugger {
      */
     class OptimizeGroupEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
 
-        public OptimizeGroupEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public OptimizeGroupEvent(@Nonnull final Reference rootReference,
                                   @Nonnull final Deque<Task> taskStack,
                                   @Nonnull final Location location,
-                                  @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference) {
+                                  @Nonnull final Reference currentGroupReference) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
         }
@@ -394,7 +393,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
     }
@@ -404,14 +403,14 @@ public interface Debugger {
      */
     class ExploreExpressionEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
         @Nonnull
         private final RelationalExpression expression;
 
-        public ExploreExpressionEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public ExploreExpressionEvent(@Nonnull final Reference rootReference,
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
-                                      @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                                      @Nonnull final Reference currentGroupReference,
                                       @Nonnull final RelationalExpression expression) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
@@ -432,7 +431,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
 
@@ -447,12 +446,12 @@ public interface Debugger {
      */
     class ExploreGroupEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
 
-        public ExploreGroupEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public ExploreGroupEvent(@Nonnull final Reference rootReference,
                                  @Nonnull final Deque<Task> taskStack,
                                  @Nonnull final Location location,
-                                 @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference) {
+                                 @Nonnull final Reference currentGroupReference) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
         }
@@ -471,7 +470,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
     }
@@ -481,16 +480,16 @@ public interface Debugger {
      */
     class TransformEvent extends AbstractEventWithState implements EventWithCurrentGroupReference, EventWithRule {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
         @Nonnull
         private final Object bindable;
         @Nonnull
         private final CascadesRule<?> rule;
 
-        public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public TransformEvent(@Nonnull final Reference rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
-                              @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                              @Nonnull final Reference currentGroupReference,
                               @Nonnull final Object bindable,
                               @Nonnull final CascadesRule<?> rule) {
             super(rootReference, taskStack, location);
@@ -513,7 +512,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
 
@@ -534,7 +533,7 @@ public interface Debugger {
      */
     class TransformRuleCallEvent extends AbstractEventWithState implements EventWithCurrentGroupReference, EventWithRule {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
         @Nonnull
         private final Object bindable;
         @Nonnull
@@ -542,10 +541,10 @@ public interface Debugger {
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
-        public TransformRuleCallEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public TransformRuleCallEvent(@Nonnull final Reference rootReference,
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
-                                      @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                                      @Nonnull final Reference currentGroupReference,
                                       @Nonnull final Object bindable,
                                       @Nonnull final CascadesRule<?> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
@@ -570,7 +569,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
 
@@ -596,14 +595,14 @@ public interface Debugger {
      */
     class AdjustMatchEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
         @Nonnull
         private final RelationalExpression expression;
 
-        public AdjustMatchEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public AdjustMatchEvent(@Nonnull final Reference rootReference,
                                 @Nonnull final Deque<Task> taskStack,
                                 @Nonnull final Location location,
-                                @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                                @Nonnull final Reference currentGroupReference,
                                 @Nonnull final RelationalExpression expression) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
@@ -624,7 +623,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
 
@@ -639,14 +638,14 @@ public interface Debugger {
      */
     class OptimizeInputsEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
+        private final Reference currentGroupReference;
         @Nonnull
         private final RelationalExpression expression;
 
-        public OptimizeInputsEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+        public OptimizeInputsEvent(@Nonnull final Reference rootReference,
                                    @Nonnull final Deque<Task> taskStack,
                                    @Nonnull final Location location,
-                                   @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                                   @Nonnull final Reference currentGroupReference,
                                    @Nonnull final RelationalExpression expression) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
@@ -667,7 +666,7 @@ public interface Debugger {
 
         @Override
         @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
+        public Reference getCurrentReference() {
             return currentGroupReference;
         }
 

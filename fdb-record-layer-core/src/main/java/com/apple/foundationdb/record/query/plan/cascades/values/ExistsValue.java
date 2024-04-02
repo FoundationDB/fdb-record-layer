@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
@@ -161,7 +161,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
             Verify.verify(in instanceof RelationalExpression);
 
             // create an existential quantifier
-            final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of((RelationalExpression)in));
+            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.of((RelationalExpression)in));
 
             return new ExistsValue(existsQuantifier.getFlowedObjectValue());
         }

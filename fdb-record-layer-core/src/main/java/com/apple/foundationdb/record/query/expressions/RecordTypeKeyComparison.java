@@ -206,7 +206,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             if (store == null) {
                 throw Comparisons.EvaluationContextRequiredException.instance();
             }
-            return store.getRecordMetaData().getRecordType(recordTypeName).getRecordTypeKey();
+            return store.getRecordMetaData().getIndexableRecordType(recordTypeName).getRecordTypeKey();
         }
 
         @Nonnull

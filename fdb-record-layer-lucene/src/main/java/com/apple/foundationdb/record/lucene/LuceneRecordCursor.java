@@ -43,7 +43,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexNotFoundException;
 import org.apache.lucene.index.IndexReader;
@@ -119,7 +118,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     Integer partitionId;
     @Nullable
-    Long partitionTimestamp;
+    Tuple partitionKey;
     @Nonnull
     LucenePartitioner partitioner;
     @Nullable
@@ -159,11 +158,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
      * to use it in the correct partition.
      */
     private boolean dontResetSearchAfter = false;
+
     /**
-     * the timestamp of the document that we are continuing from. This is
-     * only non-null when search is sorted by the partition field.
+     * partitioning field value to search after.
      */
-    private Long searchAfterTimestamp = null;
+    private Tuple searchAfterPartitioningKey = null;
+
     /**
      * true when the search is sorted in descending order.
      */
@@ -208,15 +208,18 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.sort = sort;
         this.partitioner = partitioner;
         if (partitionInfo != null) {
-            this.partitionTimestamp = LucenePartitioner.getFrom(partitionInfo);
             this.partitionId = partitionInfo.getId();
+            this.partitionKey = LucenePartitioner.getPartitionKey(partitionInfo);
         }
         if (sort != null && partitioner.isPartitioningEnabled()) {
-            Pair<Boolean, Boolean> sortCriteria = partitioner.isSortedByPartitionField(sort);
-            sortedByPartitioningKey = sortCriteria.getLeft();
-            isReverseSort = sortCriteria.getRight();
+            LucenePartitioner.PartitionedSortContext sortCriteria = partitioner.isSortedByPartitionField(sort);
+            sortedByPartitioningKey = sortCriteria.isByPartitionField;
+            isReverseSort = sortCriteria.isReverse;
             if (sortedByPartitioningKey) {
-                storedFieldsToReturn.add(partitioner.getPartitionTimestampFieldNameInLucene());
+                storedFieldsToReturn.add(partitioner.getPartitionFieldNameInLucene());
+                if (sortCriteria.updatedSortFields != null) {
+                    sort.setSort(sortCriteria.updatedSortFields);
+                }
             }
         }
         if (continuation != null) {
@@ -228,30 +231,35 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 // from the index maintainer
 
                 // both must be either present or absent
-                if (parsed.hasPartitionId() != parsed.hasPartitionTimestamp()) {
-                    throw new RecordCoreException("Invalid continuation for Lucene index", "hasPartitionId", parsed.hasPartitionId(), "hasPartitionTimestamp", parsed.hasPartitionTimestamp());
+                if (parsed.hasPartitionId() != parsed.hasPartitionKey()) {
+                    throw new RecordCoreException("Invalid continuation for Lucene index", "hasPartitionId", parsed.hasPartitionId(), "hasPartitionKey", parsed.hasPartitionKey());
                 }
                 if (parsed.hasPartitionId()) {
                     this.partitionId = parsed.getPartitionId();
-                    this.partitionTimestamp = parsed.getPartitionTimestamp();
+                    this.partitionKey = Tuple.fromBytes(parsed.getPartitionKey().toByteArray());
                 }
                 // if we're sorted by partition field, then the ScoreDoc in the continuation
-                // must be a FieldDoc that has the partition field value... otherwise something
-                // isn't right and we bail
+                // must be a FieldDoc that has the partition field value and primary key...
+                // otherwise something isn't right and we bail
                 if (sortedByPartitioningKey) {
-                    // get the timestamp from scoreDoc
+                    // get the partitioning field from scoreDoc
+                    Object searchAfterPartitioningField = null;
+                    Object searchAfterPrimaryKeyField = null;
                     if (searchAfter instanceof FieldDoc) {
                         FieldDoc fieldDoc = (FieldDoc)searchAfter;
-                        if (fieldDoc.fields != null && fieldDoc.fields.length > 0 && fieldDoc.fields[0] instanceof Long) {
-                            searchAfterTimestamp = (Long)fieldDoc.fields[0];
+                        if (fieldDoc.fields != null && fieldDoc.fields.length > 1) {
+                            searchAfterPartitioningField = fieldDoc.fields[0];
+                            searchAfterPrimaryKeyField = fieldDoc.fields[1];
                         }
                     }
-                    if (searchAfterTimestamp == null) {
-                        throw new RecordCoreException("expecting timestamp in continuation token");
+                    if (searchAfterPartitioningField == null || searchAfterPrimaryKeyField == null) {
+                        throw new RecordCoreException("expecting partitioning field in continuation token");
                     }
+                    assert searchAfterPrimaryKeyField instanceof BytesRef;
+                    searchAfterPartitioningKey = Tuple.from(searchAfterPartitioningField).addAll(Tuple.fromBytes(((BytesRef)searchAfterPrimaryKeyField).bytes));
                 }
             } catch (Exception e) {
-                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
+                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, "exception", e);
             }
         }
         this.fields = state.index.getRootExpression().normalizeKeyForPositions();
@@ -325,26 +333,26 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         // with respect to the continuation, do that now:
         return partitioner.getPartitionMetaInfoById(Objects.requireNonNull(partitionId), groupingKey).thenCompose(partitionInfo -> {
             // the boundaries of the partition may have changed (due to re-balancing, explicit doc removal etc.)
-            long currentFrom = LucenePartitioner.getFrom(partitionInfo);
-            long currentTo = LucenePartitioner.getTo(partitionInfo);
-            partitionTimestamp = currentFrom;
+            partitionKey = LucenePartitioner.getPartitionKey(partitionInfo);
 
             final CompletableFuture<Void> getProperContinuationPartition;
 
-            // next, if the current partition's new boundary excludes the continuation's "search after" timestamp,
-            // we need to change the current partition to the one that does contain this timestamp.
-            if (searchAfterTimestamp != null && (searchAfterTimestamp < currentFrom || searchAfterTimestamp > currentTo)) {
+            // next, if the current partition's new boundary excludes the continuation's "search after" partitioning key,
+            // we need to change the current partition to the one that does contain this partitioning key.
+            if (searchAfterPartitioningKey != null &&
+                    (LucenePartitioner.isOlderThan(searchAfterPartitioningKey, partitionInfo) ||
+                             LucenePartitioner.isNewerThan(searchAfterPartitioningKey, partitionInfo))) {
 
                 // need to preserve the current "searchAfter" doc across the partition change
                 dontResetSearchAfter = true;
 
                 // get the proper partition
-                getProperContinuationPartition = partitioner.findPartitionInfo(groupingKey, searchAfterTimestamp - 1).thenCompose(properPartitionInfo -> {
+                getProperContinuationPartition = partitioner.findPartitionInfo(groupingKey, searchAfterPartitioningKey).thenCompose(properPartitionInfo -> {
                     // if a "proper" partition no longer exists (e.g. there's no more records past the current continuation point in any partition),
                     // we keep the original partition info as is and let the normal "exhausted" condition be met.
                     if (properPartitionInfo != null) {
                         partitionId = properPartitionInfo.getId();
-                        partitionTimestamp = LucenePartitioner.getFrom(properPartitionInfo);
+                        partitionKey = LucenePartitioner.getPartitionKey(properPartitionInfo);
                         // EXPERIMENTAL: reset the doc id if necessary in order to pass the Lucene check in searchAfter()
                         Objects.requireNonNull(searchAfter).doc = Math.min(searchAfter.doc, properPartitionInfo.getCount() - 1);
                     }
@@ -367,7 +375,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     private CompletableFuture<RecordCursorResult<IndexEntry>> switchToNextPartitionAndContinue(RecordCursorResult<IndexEntry> recordCursorResult) {
         if (recordCursorResult.hasNext() ||
-                partitionTimestamp == null ||
+                partitionKey == null ||
                 recordCursorResult.getNoNextReason() != SOURCE_EXHAUSTED) {
             return CompletableFuture.completedFuture(recordCursorResult);
         }
@@ -376,20 +384,25 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (sortedByPartitioningKey && !isReverseSort) {
             // if we're in a partitioning-field-ascending-sort query, get the next more recent partition
             nextPartitionFuture = partitioner.getPartitionMetaInfoById(partitionId, groupingKey)
-                    .thenCompose(curPartition -> LucenePartitioner.getNextNewerPartitionInfo(state.context, groupingKey, partitionTimestamp, state.indexSubspace));
+                    .thenCompose(curPartition -> LucenePartitioner.getNextNewerPartitionInfo(state.context, groupingKey, partitioner.getPartitionKey(curPartition), state.indexSubspace));
         } else {
             // otherwise get the next older partition
-            nextPartitionFuture = partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), partitionTimestamp - 1);
+            nextPartitionFuture = LucenePartitioner.getNextOlderPartitionInfo(
+                    state.context,
+                    Objects.requireNonNull(groupingKey),
+                    partitionKey,
+                    state.indexSubspace);
         }
 
         return nextPartitionFuture.thenCompose(nextPartition -> {
             if (nextPartition != null && nextPartition.getId() != partitionId) {
                 // reset scan params/state
                 exhausted = false;
-                this.partitionTimestamp = LucenePartitioner.getFrom(nextPartition);
+                this.partitionKey = partitioner.getPartitionKey(nextPartition);
                 this.partitionId = nextPartition.getId();
                 if (!dontResetSearchAfter) {
                     searchAfter = null;
+                    searchAfterPartitioningKey = null;
                 } else {
                     dontResetSearchAfter = false;
                 }
@@ -452,7 +465,10 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 .mapPipelined(this::buildIndexEntryFromScoreDocAsync, state.store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .mapResult(result -> {
                     if (result.hasNext() && limitManager.tryRecordScan()) {
-                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(Objects.requireNonNull(result.get()).scoreDoc, partitionId, partitionTimestamp);
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(
+                                Objects.requireNonNull(result.get()).scoreDoc,
+                                partitionId,
+                                partitionKey);
                         currentPosition++;
                         if (limitRemaining != Integer.MAX_VALUE) {
                             limitRemaining--;
@@ -461,14 +477,20 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     } else if (exhausted) {
                         nextResult = RecordCursorResult.exhausted();
                     } else if (limitRemaining <= 0) {
-                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(searchAfter, partitionId, partitionTimestamp);
+                        RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(
+                                searchAfter,
+                                partitionId,
+                                partitionKey);
                         nextResult = RecordCursorResult.withoutNextValue(continuationFromDoc, NoNextReason.RETURN_LIMIT_REACHED);
                     } else {
                         final Optional<NoNextReason> stoppedReason = limitManager.getStoppedReason();
                         if (stoppedReason.isEmpty()) {
                             throw new RecordCoreException("limit manager stopped LuceneRecordCursor but did not report a reason");
                         } else {
-                            nextResult = RecordCursorResult.withoutNextValue(LuceneCursorContinuation.fromScoreDoc(searchAfter, partitionId, partitionTimestamp), stoppedReason.get());
+                            nextResult = RecordCursorResult.withoutNextValue(LuceneCursorContinuation.fromScoreDoc(
+                                    searchAfter,
+                                    partitionId,
+                                    partitionKey), stoppedReason.get());
                         }
                     }
                     return nextResult;
@@ -517,6 +539,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     timer.increment(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY);
                 }
                 Tuple setPrimaryKey = Tuple.fromBytes(pk.bytes);
+
                 // Initialized with values that aren't really legal in a Tuple to find offset bugs.
                 List<Object> fieldValues = Lists.newArrayList(fields);
                 if (groupingKey != null) {

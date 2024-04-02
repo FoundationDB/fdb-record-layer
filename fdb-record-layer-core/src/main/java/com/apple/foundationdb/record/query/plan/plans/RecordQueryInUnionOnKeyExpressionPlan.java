@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -80,7 +80,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+    public RecordQueryInUnionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
         return withChild(Iterables.getOnlyElement(newChildren));
     }
 
@@ -97,7 +97,7 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
 
     @Nonnull
     @Override
-    public RecordQueryInUnionOnKeyExpressionPlan withChild(@Nonnull final ExpressionRef<? extends RecordQueryPlan> childRef) {
+    public RecordQueryInUnionOnKeyExpressionPlan withChild(@Nonnull final Reference childRef) {
         return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(childRef),
                 getInSources(),
                 getComparisonKeyExpression(),

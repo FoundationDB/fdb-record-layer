@@ -45,8 +45,8 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -496,10 +496,10 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(versionValue, "version"));
                 graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(recNoValue, "number"));
 
-                var select = Quantifier.forEach(GroupExpressionRef.of(graphExpansionBuilder.build().buildSelect()));
+                var select = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
 
                 AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
@@ -560,7 +560,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 innerGraphBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(versionValue, "version"));
                 innerGraphBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(recNoValue, "number"));
 
-                var innerSelect = Quantifier.forEach(GroupExpressionRef.of(innerGraphBuilder.build().buildSelect()));
+                var innerSelect = Quantifier.forEach(Reference.of(innerGraphBuilder.build().buildSelect()));
 
                 final var outerGraphBuilder = GraphExpansion.builder();
                 outerGraphBuilder.addQuantifier(innerSelect);
@@ -569,9 +569,9 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "version"));
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "number"));
-                var select = Quantifier.forEach(GroupExpressionRef.of(outerGraphBuilder.build().buildSelect()));
+                var select = Quantifier.forEach(Reference.of(outerGraphBuilder.build().buildSelect()));
 
-                return GroupExpressionRef.of(new LogicalSortExpression(List.of(), false, select));
+                return Reference.of(new LogicalSortExpression(List.of(), false, select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
