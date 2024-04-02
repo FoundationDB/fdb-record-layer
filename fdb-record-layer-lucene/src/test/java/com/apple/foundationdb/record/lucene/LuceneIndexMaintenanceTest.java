@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
+import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -136,7 +137,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                 .build();
 
         // Generate random documents
-        final Map<Tuple, Map<Tuple, Tuple>> ids = generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, random.nextInt(15) + 1);
+        final Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
+        generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, random.nextInt(15) + 1, ids);
 
         explicitMergeIndex(index, contextProps, schemaSetup);
 
@@ -144,6 +146,120 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
             schemaSetup.accept(context);
             return recordStore;
         }).validate(index, ids, repartitionCount, isSynthetic ? "child_str_value:forth" : "text_value:about");
+
+        if (isGrouped) {
+            validateDeleteWhere(isSynthetic, repartitionCount, ids, contextProps, schemaSetup, index);
+        }
+    }
+
+    static Stream<Arguments> manyDocumentsArgumentsSlow() {
+        return Stream.concat(
+                Stream.of(Arguments.of(true, true, true, 80, 2, 200, 234809),
+                // I don't know why, but this took over an hour, I'm hoping my laptop slept, but I don't see it
+                Arguments.of(false, true, false, 50, 8, 212, 3125111852333110588L)),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextBoolean(),
+                                // We want to have a high partitionHighWatermark so that the underlying lucene indexes
+                                // actually end up with many records, and so that we don't end up with a ton of partitions
+                                random.nextInt(300) + 50,
+                                random.nextInt(10) + 1,
+                                random.nextInt(200) + 100,
+                                random.nextLong())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("manyDocumentsArgumentsSlow")
+    @SuperSlow
+    void manyDocumentSlow(boolean isGrouped,
+                          boolean isSynthetic,
+                          boolean primaryKeySegmentIndexEnabled,
+                          int partitionHighWatermark,
+                          int repartitionCount,
+                          int loopCount,
+                          long seed) throws IOException {
+        manyDocument(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, partitionHighWatermark,
+                repartitionCount, loopCount, 10, seed);
+    }
+
+
+    static Stream<Arguments> manyDocumentsArguments() {
+        return Stream.concat(
+                Stream.concat(
+                        Stream.of(Arguments.of(true,  true,  true,  20, 4, 50, 3, -644766138635622644L)),
+                        TestConfigurationUtils.onlyNightly(
+                                Stream.of(
+                                        Arguments.of(true,  false, false, 21, 3, 55, 3, 9237590782644L),
+                                        Arguments.of(false, true,  true,  18, 3, 46, 3, -1089113174774589435L),
+                                        Arguments.of(false, false, false, 24, 6, 59, 3, 6223372946177329440L),
+                                        Arguments.of(true,  false, false, 27, 9, 48, 3, 2451719304283565963L)))),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(),
+                                random.nextBoolean(),
+                                random.nextBoolean(),
+                                // We want to have a high partitionHighWatermark so that the underlying lucene indexes
+                                // actually end up with many records
+                                random.nextInt(150) + 2,
+                                random.nextInt(10) + 1,
+                                random.nextInt(100) + 50,
+                                3,
+                                random.nextLong())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("manyDocumentsArguments")
+    void manyDocument(boolean isGrouped,
+                      boolean isSynthetic,
+                      boolean primaryKeySegmentIndexEnabled,
+                      int partitionHighWatermark,
+                      int repartitionCount,
+                      int loopCount,
+                      int maxTransactionsPerLoop,
+                      long seed) throws IOException {
+        Random random = new Random(seed);
+        final Map<String, String> options = Map.of(
+                LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
+                LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
+                LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+        LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
+                "isGrouped", isGrouped,
+                "isSynthetic", isSynthetic,
+                "repartitionCount", repartitionCount,
+                "options", options,
+                "seed", seed,
+                "loopCount", loopCount));
+
+        final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
+        Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaData metadata = metaDataBuilder.build();
+        Consumer<FDBRecordContext> schemaSetup = context -> createOrOpenRecordStore(context, metadata);
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, random.nextInt(1000) + repartitionCount)
+                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)random.nextInt(10) + 2) // it must be at least 2.0
+                .build();
+        final Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
+        for (int i = 0; i < loopCount; i++) {
+            LOGGER.info(KeyValueLogMessage.of("ManyDocument loop",
+                    "iteration", i,
+                    "groupCount", ids.size(),
+                    "docCount", ids.values().stream().mapToInt(Map::size).sum(),
+                    "docMinPerGroup", ids.values().stream().mapToInt(Map::size).min(),
+                    "docMaxPerGroup", ids.values().stream().mapToInt(Map::size).max()));
+            generateDocuments(isGrouped, isSynthetic, 1, random,
+                    contextProps, schemaSetup, random.nextInt(maxTransactionsPerLoop - 1) + 1, ids);
+
+            explicitMergeIndex(index, contextProps, schemaSetup);
+        }
+
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+            schemaSetup.accept(context);
+            return recordStore;
+        });
+        luceneIndexTestValidator.validate(index, ids, repartitionCount, isSynthetic ? "child_str_value:forth" : "text_value:about");
 
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, repartitionCount, ids, contextProps, schemaSetup, index);
@@ -220,7 +336,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
 
         // Generate random documents
         final int transactionCount = random.nextInt(15) + 10;
-        final Map<Tuple, Map<Tuple, Tuple>> ids = generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, transactionCount);
+        final Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
+        generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, transactionCount, ids);
 
         final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
         AtomicInteger waitCounts = new AtomicInteger();
@@ -309,11 +426,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private Map<Tuple, Map<Tuple, Tuple>> generateDocuments(final boolean isGrouped, final boolean isSynthetic,
-                                                           final int minDocumentCount, final Random random,
-                                                           final RecordLayerPropertyStorage contextProps,
-                                                           final Consumer<FDBRecordContext> schemaSetup, final int transactionCount) {
-        Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
+    private void generateDocuments(final boolean isGrouped, final boolean isSynthetic,
+                               final int minDocumentCount, final Random random,
+                               final RecordLayerPropertyStorage contextProps,
+                               final Consumer<FDBRecordContext> schemaSetup,
+                               final int transactionCount,
+                               final Map<Tuple, Map<Tuple, Tuple>> ids) {
         final long start = Instant.now().toEpochMilli();
         int i = 0;
         while (i < transactionCount ||
@@ -339,7 +457,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
             }
             i++;
         }
-        return ids;
     }
 
     @Nonnull
