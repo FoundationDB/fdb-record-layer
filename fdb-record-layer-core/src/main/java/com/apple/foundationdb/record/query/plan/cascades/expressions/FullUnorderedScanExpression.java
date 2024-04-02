@@ -48,6 +48,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -153,7 +154,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
         if (getClass() != candidateExpression.getClass()) {
@@ -161,7 +162,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         }
         // if query does not contain candidate's indexes, the query cannot be subsumed by the candidate
         if (getAccessHints().satisfies(((FullUnorderedScanExpression)candidateExpression).getAccessHints())) {
-            return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+            return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, Optional.empty());
         } else {
             return ImmutableList.of();
         }

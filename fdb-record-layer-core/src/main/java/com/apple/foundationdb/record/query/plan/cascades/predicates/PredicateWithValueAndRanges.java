@@ -39,9 +39,9 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +58,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -234,6 +235,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
+    @Nonnull
+    @Override
+    public PredicateWithValueAndRanges translateValues(@Nonnull final UnaryOperator<Value> translator) {
+        final var newValue = Verify.verifyNotNull(translator.apply(this.getValue()));
+        final var newRanges = ranges.stream().map(range -> range.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
+        return new PredicateWithValueAndRanges(newValue, newRanges);
+    }
+
     /**
      * Checks whether this predicate implies a {@code candidatePredicate}, if so, we return a {@link PredicateMapping}
      * reflecting the implication itself in addition to a context needed to effectively implement the mapping (i.e. the
@@ -287,7 +296,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.of(alias), Optional.empty()));
+                    }, Optional.of(alias), Optional.empty(),
+                            Optional.empty()));  // TODO: provide a translated predicate value here.
                 } else {
                     return Optional.empty();
                 }
@@ -302,7 +312,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.of(alias), Optional.of(captureConstraint(candidate))));
+                    }, Optional.of(alias), Optional.of(captureConstraint(candidate)),
+                            Optional.empty()));  // TODO: provide a translated predicate value here.
                 } else {
                     return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
                         // no need for compensation if range boundaries match between candidate constraint and query sargable
@@ -314,13 +325,15 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.empty(), Optional.of(captureConstraint(candidate))));
+                    }, Optional.empty(), Optional.of(captureConstraint(candidate)),
+                            Optional.empty()));  // TODO: provide a translated predicate value here.
                 }
             }
         }
 
         if (candidatePredicate.isTautology()) {
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe()));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> injectCompensationFunctionMaybe(),
+                    Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
         //
@@ -331,7 +344,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         if (semanticEquals(candidatePredicate, aliasMap)) {
             // Note that we never have to reapply the predicate as both sides are always semantically
             // equivalent.
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded(),
+                    Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
         return Optional.empty();

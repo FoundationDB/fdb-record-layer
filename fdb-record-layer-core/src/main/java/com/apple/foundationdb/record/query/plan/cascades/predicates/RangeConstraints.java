@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
@@ -51,6 +52,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -348,6 +350,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
     }
 
+    @Nonnull
+    public RangeConstraints translateValue(@Nonnull final UnaryOperator<Value> translator) {
+        final var newEvaluableRange = evaluableRange == null ? null : evaluableRange.translateValue(translator);
+        final var newDeferredRange = deferredRanges.stream().map(deferredRange -> deferredRange.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
+        return new RangeConstraints(newEvaluableRange, newDeferredRange);
+    }
+
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
@@ -572,6 +581,12 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 default:
                     throw new RecordCoreException(String.format("can not transform '%s' to range", comparison));
             }
+        }
+
+        @Nonnull
+        public CompilableRange translateValue(@Nonnull final UnaryOperator<Value> translator) {
+            final var newCompilableComparisons = compilableComparisons.stream().map(compilableComparison -> compilableComparison.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
+            return new CompilableRange(newCompilableComparisons);
         }
 
         @Nonnull

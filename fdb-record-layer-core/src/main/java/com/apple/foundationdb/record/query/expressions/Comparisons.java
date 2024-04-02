@@ -56,9 +56,10 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -69,7 +70,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -741,7 +741,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends PlanHashable, QueryHashable, Correlated<Comparison>, PlanSerializable {
+    public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -768,6 +768,12 @@ public class Comparisons {
 
         @Nonnull
         Comparison withType(@Nonnull Type newType);
+
+        @Nonnull
+        @Override
+        default Comparison withValue(@Nonnull Value value) {
+            return this;
+        }
 
         /**
          * Get the comparison value without any bindings.
@@ -833,9 +839,10 @@ public class Comparisons {
             return hashCode();
         }
 
-        @Nonnull
-        default List<Value> getValues() {
-            return ImmutableList.of();
+        @Nullable
+        @Override
+        default Value getValue() {
+            return null;
         }
 
         @Nonnull
@@ -1439,6 +1446,16 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public ValueComparison withValue(@Nonnull final Value value) {
+            if (comparandValue == value) {
+                return this;
+            }
+            return new ValueComparison(getType(), value);
+        }
+
+        @Nonnull
         public Value getComparandValue() {
             return comparandValue;
         }
@@ -1472,8 +1489,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public List<Value> getValues() {
-            return ImmutableList.of(getComparandValue());
+        public Value getValue() {
+            return getComparandValue();
         }
 
         @Override
@@ -2548,6 +2565,17 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Comparison withValue(@Nonnull final Value value) {
+            final var newInner = inner.withValue(value);
+            if (newInner == inner) {
+                return this;
+            }
+            return new MultiColumnComparison(newInner);
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             final var translatedInner = inner.translateCorrelations(translationMap);
             if (inner == translatedInner) {
@@ -2561,12 +2589,6 @@ public class Comparisons {
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return inner.getCorrelatedTo();
-        }
-
-        @Nonnull
-        @Override
-        public List<Value> getValues() {
-            return inner.getValues();
         }
 
         @Override
@@ -2760,6 +2782,17 @@ public class Comparisons {
         @Override
         public Comparison withType(@Nonnull final Type newType) {
             return from(function, originalComparison.withType(newType));
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Comparison withValue(@Nonnull final Value value) {
+            final var newComparison = originalComparison.withValue(value);
+            if (newComparison == originalComparison) {
+                return this;
+            }
+            return from(function, newComparison);
         }
 
         @Nullable

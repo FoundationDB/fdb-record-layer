@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Expan
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +59,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -158,7 +156,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * implication.
      *
      * @return {@code Optional(predicateMapping)} if {@code this} implies {@code candidatePredicate} where
-     * {@code predicateMapping} is an new instance of {@link PredicateMapping} that captures potential bindings
+     * {@code predicateMapping} is a new instance of {@link PredicateMapping} that captures potential bindings
      * and compensation for {@code candidatePredicate}
      * such that {@code candidatePredicate} to also imply {@code this}, {@code Optional.empty()} otherwise
      */
@@ -174,13 +172,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (candidatePredicate.isTautology()) {
             return Optional.of(PredicateMapping.regularMapping(this,
                     candidatePredicate,
-                    getDefaultCompensatePredicateFunction()));
+                    getDefaultCompensatePredicateFunction(),
+                    Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
         if (this.semanticEquals(candidatePredicate, aliasMap)) {
-            return Optional.of(PredicateMapping.regularMapping(this,
-                    candidatePredicate,
-                    CompensatePredicateFunction.noCompensationNeeded()));
+            return Optional.of(PredicateMapping.regularMappingWithoutCompensation(this, candidatePredicate));
         }
         return Optional.empty();
     }
@@ -364,20 +361,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @SuppressWarnings("unused")
     default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
         throw new RecordCoreException("implementor must override");
-    }
-
-    @Nonnull
-    default Optional<QueryPredicate> translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
-        return replaceLeavesMaybe(t -> {
-            if (!(t instanceof PredicateWithValue)) {
-                return this;
-            }
-            final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
-            return predicateWithValue.getValue()
-                            .replaceLeavesMaybe(translationOperator)
-                    .map(predicateWithValue::withValue)
-                    .orElse(null);
-        });
     }
 
     @Nonnull

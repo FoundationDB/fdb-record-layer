@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -44,6 +45,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
@@ -81,6 +83,18 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public ValuePredicate translateValues(@Nonnull final UnaryOperator<Value> translator) {
+        final var newValue = Verify.verifyNotNull(translator.apply(this.getValue()));
+        final var newComparison = comparison.translateValue(translator);
+        if (newValue == value && newComparison == comparison) {
+            return this;
+        }
+        return new ValuePredicate(newValue, newComparison);
+    }
+
+    @Nonnull
+    @Override
     public Value getValue() {
         return value;
     }
@@ -90,6 +104,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     public ValuePredicate withValue(@Nonnull final Value value) {
         return new ValuePredicate(value, comparison);
     }
+
 
     @Nullable
     @Override

@@ -282,7 +282,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public static Collection<MatchInfo> matchesFromMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+    public static Collection<MatchInfo> matchInfosFromMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         return partialMatchMap.values()
                 .stream()
                 .map(IdentityBiMap::unwrap)

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -194,12 +195,13 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
             return p -> {
                 final ImmutableList.Builder<Value> valuesBuilder = ImmutableList.builder();
                 if (p instanceof PredicateWithValue) {
-                    valuesBuilder.add(((PredicateWithValue)p).getValue());
+                    valuesBuilder.add(Objects.requireNonNull(((PredicateWithValue)p).getValue()));
                 }
                 if (p instanceof PredicateWithComparisons) {
                     ((PredicateWithComparisons)p).getComparisons()
                             .stream()
-                            .flatMap(comparison -> comparison.getValues().stream())
+                            .map(Comparisons.Comparison::getValue)
+                            .filter(Objects::nonNull)
                             .forEach(valuesBuilder::add);
                 }
                 return valuesBuilder.build();
@@ -349,7 +351,8 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
                                                      @Nonnull final Iterable<String> recordTypeNames) {
             final var comparisons = planWithComparisons.getComparisons();
             final var comparisonValues = comparisons.stream()
-                    .flatMap(comparison -> comparison.getValues().stream())
+                    .map(Comparisons.Comparison::getValue)
+                    .filter(Objects::nonNull)
                     .collect(ImmutableList.toImmutableList());
             final var resultValueFromPlan = planWithComparisons.getResultValue();
             final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), recordTypeNames);
