@@ -147,7 +147,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     {@code p1} does not imply {@code p2}, i.e., {@code x = 5} does not imply {@code y COMPARISONRANGE}.
      * </pre>
      * <p>
-     * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate thatA
+     * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
      * also represents a tautology.
      *
      * @param aliasMap the current alias map
@@ -156,7 +156,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * implication.
      *
      * @return {@code Optional(predicateMapping)} if {@code this} implies {@code candidatePredicate} where
-     * {@code predicateMapping} is an new instance of {@link PredicateMapping} that captures potential bindings
+     * {@code predicateMapping} is a new instance of {@link PredicateMapping} that captures potential bindings
      * and compensation for {@code candidatePredicate}
      * such that {@code candidatePredicate} to also imply {@code this}, {@code Optional.empty()} otherwise
      */

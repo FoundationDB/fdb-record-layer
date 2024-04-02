@@ -32,6 +32,12 @@ import java.util.function.UnaryOperator;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PredicateWithValue extends LeafQueryPredicate, WithValue<PredicateWithValue> {
+
+    /**
+     * Replaces the predicate {@code Value} and any {@code Value}(s) in the {@code Comparison}.
+     * @param translator The value translator.
+     * @return potentially a new instance of {@code PredicateWithValue} with translated {@code Value}(s).
+     */
     @Nonnull
     PredicateWithValue translateValues(@Nonnull UnaryOperator<Value> translator);
 }
