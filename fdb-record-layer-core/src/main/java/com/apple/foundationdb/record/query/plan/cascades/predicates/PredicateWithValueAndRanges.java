@@ -238,7 +238,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Nonnull
     @Override
     public PredicateWithValueAndRanges translateValue(@Nonnull final UnaryOperator<Value> translator) {
-        final var newValue = Verify.verifyNotNull(this.getValue().replace(translator));
+        final var newValue = Verify.verifyNotNull(translator.apply(this.getValue()));
         final var newRanges = ranges.stream().map(range -> range.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
         return new PredicateWithValueAndRanges(newValue, newRanges);
     }

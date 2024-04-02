@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -294,7 +293,7 @@ public class OrPredicate extends AndOrPredicate {
                                      (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
                                              boundParameterPrefixMap,
                                              ImmutableList.copyOf(childFunctions))))),
-                    Optional.of(this.toResidualPredicate().translateValue(value -> value.translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap))))));
+                    Optional.empty()));  // TODO: provide a translated predicate value here.
         } else {
             return Optional.of(PredicateMultiMap.PredicateMapping.regularMappingWithoutCompensation(this, candidatePredicate));
         }

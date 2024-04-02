@@ -85,7 +85,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ValuePredicate translateValue(@Nonnull final UnaryOperator<Value> translator) {
-        final var newValue = Verify.verifyNotNull(this.getValue().replace(translator));
+        final var newValue = Verify.verifyNotNull(translator.apply(this.getValue()));
         final var newComparison = comparison.translateValue(translator);
         if (newValue == value && newComparison == comparison) {
             return this;
