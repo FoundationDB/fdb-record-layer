@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Expan
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +59,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -149,7 +147,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *     {@code p1} does not imply {@code p2}, i.e., {@code x = 5} does not imply {@code y COMPARISONRANGE}.
      * </pre>
      * <p>
-     * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
+     * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate thatA
      * also represents a tautology.
      *
      * @param aliasMap the current alias map
@@ -363,11 +361,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @SuppressWarnings("unused")
     default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
         throw new RecordCoreException("implementor must override");
-    }
-
-    @Nonnull
-    default QueryPredicate translateValue(@Nonnull final UnaryOperator<Value> translator) {
-        return this; // most query predicates do not have {@code Value}.
     }
 
     @Nonnull

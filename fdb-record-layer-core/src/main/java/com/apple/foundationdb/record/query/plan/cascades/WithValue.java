@@ -1,9 +1,9 @@
 /*
- * PredicateWithValue.java
+ * WithValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,30 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.predicates;
+package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.function.UnaryOperator;
 
 /**
- * A predicate consisting of a {@link Value}.
+ * Trait for classes containing a {@code Value}.
+ * @param <T> The self type of {@code this}.
  */
-@API(API.Status.EXPERIMENTAL)
-public interface PredicateWithValue extends LeafQueryPredicate, WithValue<PredicateWithValue> {
+public interface WithValue<T extends WithValue<T>> {
+
+    @Nullable
+    Value getValue();
+
     @Nonnull
-    PredicateWithValue translateValues(@Nonnull UnaryOperator<Value> translator);
+    T withValue(@Nonnull Value value);
+
+    @Nonnull
+    default T translateValue(@Nonnull final UnaryOperator<Value> translator) {
+        final var value = Objects.requireNonNull(getValue());
+        return withValue(translator.apply(value));
+    }
 }

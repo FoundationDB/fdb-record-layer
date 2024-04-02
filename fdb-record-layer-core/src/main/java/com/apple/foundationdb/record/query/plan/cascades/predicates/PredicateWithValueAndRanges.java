@@ -39,9 +39,9 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -237,7 +237,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
-    public PredicateWithValueAndRanges translateValue(@Nonnull final UnaryOperator<Value> translator) {
+    public PredicateWithValueAndRanges translateValues(@Nonnull final UnaryOperator<Value> translator) {
         final var newValue = Verify.verifyNotNull(translator.apply(this.getValue()));
         final var newRanges = ranges.stream().map(range -> range.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
         return new PredicateWithValueAndRanges(newValue, newRanges);
