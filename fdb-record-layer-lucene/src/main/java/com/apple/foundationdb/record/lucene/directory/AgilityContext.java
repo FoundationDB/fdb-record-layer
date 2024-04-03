@@ -97,7 +97,7 @@ public interface AgilityContext {
     void flushAndClose();
 
     /**
-     * This will abort the existing agile context (if agile) and close the object future writes. The only reason to
+     * This will abort the existing agile context (if agile) and prevent future operations. The only reason to
      * call this function is after an exception, by a wrapper function.
      * to clean potential locks after a failure and close, one should use {@link #applyInRecoveryPath(Function)}
      */
@@ -227,6 +227,7 @@ public interface AgilityContext {
             // Called by accept/apply, protected with a read lock
             synchronized (createLockSync) {
                 if (currentContext == null) {
+                    ensureOpen();
                     FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                     currentContext = database.openContext(contextConfig);
                     creationTime = now();
@@ -330,18 +331,29 @@ public interface AgilityContext {
         }
 
         @Override
-        @SuppressWarnings("PMD.CloseResource") // closed in a future
+        // closed in a future
+        @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
         public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
             // Create a new, dedicated context. Apply, flush, and close it.
             FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
             final FDBRecordContext recoveryContext = database.openContext(contextConfig);
-            return function.apply(recoveryContext)
-                            .whenComplete((result, ex) -> {
-                                if (ex == null) {
-                                    recoveryContext.commit();
-                                }
-                                recoveryContext.close();
-                            });
+            boolean successful = false;
+            final CompletableFuture<R> future;
+            try {
+                future = function.apply(recoveryContext)
+                        .whenComplete((result, ex) -> {
+                            if (ex == null) {
+                                recoveryContext.commit();
+                            }
+                            recoveryContext.close();
+                        });
+                successful = true;
+            } finally {
+                if (!successful) {
+                    recoveryContext.close();
+                }
+            }
+            return future;
         }
 
         @Override
