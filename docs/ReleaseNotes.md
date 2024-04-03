@@ -20,7 +20,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Log total records scanned and time during index build  [(Issue #2629)](https://github.com/FoundationDB/fdb-record-layer/issues/2629)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** AgilityContext: prevent other threads writes after abort [(Issue #2634)](https://github.com/FoundationDB/fdb-record-layer/issues/2634)
 * **Bug fix** Typobug: LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS has duplicated property key [(Issue #2632)](https://github.com/FoundationDB/fdb-record-layer/issues/2632)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

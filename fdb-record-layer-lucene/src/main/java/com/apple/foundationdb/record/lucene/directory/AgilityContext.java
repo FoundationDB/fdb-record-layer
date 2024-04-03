@@ -63,6 +63,18 @@ public interface AgilityContext {
      */
     <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) ;
 
+
+    /**
+     * This function is similar to {@link #apply(Function)}, but should only be called in the recovery path. In
+     * Agile mode, it creates a new context for the function's apply to allow recovery, in non-Agile mode it's a
+     * no-op. This function may be called after agility context
+     * was closed.
+     * @param function a function accepting context, returning a future
+     * @return the future of the function above
+     * @param <R> future's type
+     */
+    <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) ;
+
     /**
      * `accept` should be called when a returned value is not expected. Performed under appropriate lock.
      * @param function a function that accepts context
@@ -85,11 +97,11 @@ public interface AgilityContext {
     void flushAndClose();
 
     /**
-     * This will abort the existing agile context (if agile) and reset the internal read/write locks. The only reason to
-     * call this function is after an transaction exception, by a wrapper function.
-     * The intention of this function is to allow cleanups after a failure, hence the object will not be 'closed'.
+     * This will abort the existing agile context (if agile) and prevent future operations. The only reason to
+     * call this function is after an exception, by a wrapper function.
+     * to clean potential locks after a failure and close, one should use {@link #applyInRecoveryPath(Function)}
      */
-    void abortAndReset();
+    void abortAndClose();
 
     default CompletableFuture<byte[]> get(byte[] key) {
         return apply(context -> context.ensureActive().get(key));
@@ -215,6 +227,7 @@ public interface AgilityContext {
             // Called by accept/apply, protected with a read lock
             synchronized (createLockSync) {
                 if (currentContext == null) {
+                    ensureOpen();
                     FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                     currentContext = database.openContext(contextConfig);
                     creationTime = now();
@@ -318,6 +331,32 @@ public interface AgilityContext {
         }
 
         @Override
+        // closed in a future
+        @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
+        public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
+            // Create a new, dedicated context. Apply, flush, and close it.
+            FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
+            final FDBRecordContext recoveryContext = database.openContext(contextConfig);
+            boolean successful = false;
+            final CompletableFuture<R> future;
+            try {
+                future = function.apply(recoveryContext)
+                        .whenComplete((result, ex) -> {
+                            if (ex == null) {
+                                recoveryContext.commit();
+                            }
+                            recoveryContext.close();
+                        });
+                successful = true;
+            } finally {
+                if (!successful) {
+                    recoveryContext.close();
+                }
+            }
+            return future;
+        }
+
+        @Override
         public void accept(final Consumer<FDBRecordContext> function) {
             ensureOpen();
             final long stamp = lock.readLock();
@@ -358,20 +397,22 @@ public interface AgilityContext {
         }
 
         @Override
-        public void abortAndReset() {
+        public void abortAndClose() {
             // Here: the lock status is undefined. The main goal of this function is to revive this object for post failure cleanups
             synchronized (commitLockSync) {
+                closed = true;
+                committingNow = true; // avoid future commits
+                currentWriteSize = 0;
+                if (currentContext != null) {
+                    currentContext.close();
+                    currentContext = null;
+                }
+                // release the locks, in case another thread is waiting on them
                 lock.tryUnlockWrite();
                 boolean releasedLock = lock.tryUnlockRead();
                 for (int maxTries = 20; releasedLock && maxTries > 0; maxTries--) {
                     releasedLock = lock.tryUnlockRead();
                 }
-                committingNow = false;
-                if (currentContext != null) {
-                    currentContext.close();
-                    currentContext = null;
-                }
-                currentWriteSize = 0;
             }
             logSelf("AbortAndReset agility context");
         }
@@ -392,6 +433,12 @@ public interface AgilityContext {
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             ensureOpen();
             return function.apply(callerContext);
+        }
+
+        @Override
+        public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
+            // No recovery for a single user transaction
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override
@@ -428,7 +475,7 @@ public interface AgilityContext {
         }
 
         @Override
-        public void abortAndReset() {
+        public void abortAndClose() {
             // This is a no-op as the caller context should be handled by the caller.
         }
     }

@@ -210,7 +210,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         if (ex == null) {
             agilityContext.flushAndClose();
         } else {
-            agilityContext.abortAndReset();
+            agilityContext.abortAndClose();
         }
     }
 
