@@ -73,7 +73,7 @@ public interface AgilityContext {
      * @return the future of the function above
      * @param <R> future's type
      */
-    <R> CompletableFuture<R> applyRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) ;
+    <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) ;
 
     /**
      * `accept` should be called when a returned value is not expected. Performed under appropriate lock.
@@ -99,7 +99,7 @@ public interface AgilityContext {
     /**
      * This will abort the existing agile context (if agile) and close the object future writes. The only reason to
      * call this function is after an exception, by a wrapper function.
-     * to clean potential locks after a failure and close, one should use {@link #applyRecoveryPath(Function)}
+     * to clean potential locks after a failure and close, one should use {@link #applyInRecoveryPath(Function)}
      */
     void abortAndClose();
 
@@ -330,7 +330,8 @@ public interface AgilityContext {
         }
 
         @Override
-        public <R> CompletableFuture<R> applyRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
+        @SuppressWarnings("PMD.CloseResource") // closed in a future
+        public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
             // Create a new, dedicated context. Apply, flush, and close it.
             FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
             final FDBRecordContext recoveryContext = database.openContext(contextConfig);
@@ -338,8 +339,8 @@ public interface AgilityContext {
                             .whenComplete((result, ex) -> {
                                 if (ex == null) {
                                     recoveryContext.commit();
-                                    recoveryContext.close();
                                 }
+                                recoveryContext.close();
                             });
         }
 
@@ -423,7 +424,7 @@ public interface AgilityContext {
         }
 
         @Override
-        public <R> CompletableFuture<R> applyRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
+        public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
             // No recovery for a single user transaction
             return CompletableFuture.completedFuture(null);
         }

@@ -203,7 +203,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (isRecovery) {
                 // Here: this is called in the recovery path
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
-                        agilityContext.applyRecoveryPath(fileLockFunc));
+                        agilityContext.applyInRecoveryPath(fileLockFunc));
             } else {
                 // Here: this called during directory close to ensure cleared lock -
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
