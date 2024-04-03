@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Produce a lock over {@link FDBDirectory}.
@@ -76,6 +77,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.timeWindowMilliseconds = timeWindowMilliseconds;
             logSelf("Creating Lucene File Lock");
             fileLockSet(false);
+            agilityContext.flush();
         }
 
         @Override
@@ -184,21 +186,29 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                     ));
         }
 
-        protected void fileLockClearIfLocked() {
-            // Here: this is part of a recovery path - clear the lock unconditionally if locked and matches uuid
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
-                    agilityContext.apply(aContext ->
-                            aContext.ensureActive().get(fileLockKey)
-                                    .thenAccept(val -> {
-                                        synchronized (fileLockSetLock) {
-                                            UUID existingUuid = fileLockValueToUuid(val);
-                                            if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
-                                                aContext.ensureActive().clear(fileLockKey);
-                                                logSelf("Cleared Lucene File Lock in Recovery path");
-                                            }
-                                        }
-                                    })
-                    ));
+        protected void fileLockClearIfLocked(boolean isRecovery) {
+            // clear the lock unconditionally if locked and matches uuid
+            Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
+                    aContext.ensureActive().get(fileLockKey)
+                            .thenAccept(val -> {
+                                synchronized (fileLockSetLock) {
+                                    UUID existingUuid = fileLockValueToUuid(val);
+                                    if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
+                                        aContext.ensureActive().clear(fileLockKey);
+                                        logSelf("Cleared Lucene File Lock in Recovery path");
+                                    }
+                                }
+                            });
+
+            if (isRecovery) {
+                // Here: this is called in the recovery path
+                agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
+                        agilityContext.applyRecoveryPath(fileLockFunc));
+            } else {
+                // Here: this called during directory close to ensure cleared lock -
+                agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
+                        agilityContext.apply(fileLockFunc));
+            }
         }
 
         @Override
