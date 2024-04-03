@@ -329,7 +329,9 @@ public class LucenePartitioner {
     }
 
     /**
-     * check whether the query contains a top-level predicate on the partitioning field and return it.
+     * check whether the query is predicate on the partitioning field, or is a {@link BooleanQuery} that contains
+     * a {@link org.apache.lucene.search.BooleanClause.Occur#MUST} top-level predicate on the partition field,
+     * and return it.
      *
      * @param luceneScanQuery lucene query
      * @return <code>null</code> if zero or more than one partitioning field predicate exist in the query's top-level
@@ -338,19 +340,29 @@ public class LucenePartitioner {
     @Nullable
     private LuceneComparisonQuery checkQueryForPartitionFieldPredicate(final @Nonnull LuceneScanQuery luceneScanQuery) {
         Query query = luceneScanQuery.getQuery();
-        List<LuceneComparisonQuery> partitionFieldPredicates = new ArrayList<>();
-        if (query instanceof BooleanQuery) {
+        if (isAPartitionFieldPredicate(query)) {
+            return (LuceneComparisonQuery)query;
+        } else if (query instanceof BooleanQuery) {
+            List<LuceneComparisonQuery> partitionFieldPredicates = new ArrayList<>();
             List<BooleanClause> clauses = ((BooleanQuery) query).clauses();
             // we only care about "top level" clauses, and won't descend
             for (BooleanClause clause : clauses) {
+                if (clause.getOccur() != BooleanClause.Occur.MUST) {
+                    // we only care about clauses that are not optional
+                    continue;
+                }
                 Query clauseQuery = clause.getQuery();
-                if (clauseQuery instanceof LuceneComparisonQuery &&
-                        ((LuceneComparisonQuery) clauseQuery).getFieldName().equals(partitionFieldNameInLucene)) {
+                if (isAPartitionFieldPredicate(clauseQuery)) {
                     partitionFieldPredicates.add((LuceneComparisonQuery)clauseQuery);
                 }
             }
+            return partitionFieldPredicates.size() == 1 ? partitionFieldPredicates.get(0) : null;
         }
-        return partitionFieldPredicates.size() == 1 ? partitionFieldPredicates.get(0) : null;
+        return null;
+    }
+
+    private boolean isAPartitionFieldPredicate(Query query) {
+        return query instanceof LuceneComparisonQuery && ((LuceneComparisonQuery) query).getFieldName().equals(partitionFieldNameInLucene);
     }
 
     /**
