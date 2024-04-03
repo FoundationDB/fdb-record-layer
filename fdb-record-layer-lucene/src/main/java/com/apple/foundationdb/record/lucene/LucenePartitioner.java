@@ -347,8 +347,10 @@ public class LucenePartitioner {
             List<BooleanClause> clauses = ((BooleanQuery) query).clauses();
             // we only care about "top level" clauses, and won't descend
             for (BooleanClause clause : clauses) {
-                if (clause.getOccur() != BooleanClause.Occur.MUST) {
+                if (clause.getOccur() != BooleanClause.Occur.MUST && clause.getOccur() != BooleanClause.Occur.FILTER) {
                     // we only care about clauses that are not optional
+                    // note that we don't deal with MUST_NOT clauses since it would require negating the clause for
+                    // determining the starting partition; support for this can be added in a future update.
                     continue;
                 }
                 Query clauseQuery = clause.getQuery();
