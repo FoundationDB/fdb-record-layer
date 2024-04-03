@@ -24,12 +24,14 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreInterruptedException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.io.PrintWriter;
@@ -60,6 +62,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 class FDBExceptionsTest {
+    @RegisterExtension
+    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     private static final String EXCEPTION_CAUSE_MESSAGE = "the failure cause";
     private static final String PARENT_EXCEPTION_MESSAGE = "something failed asynchronously";
 
@@ -72,9 +76,8 @@ class FDBExceptionsTest {
 
     @Test
     void loggableTimeoutException() {
-        CompletableFuture<Void> delayed = new CompletableFuture<Void>();
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        FDBDatabase database = factory.getDatabase();
+        CompletableFuture<Void> delayed = new CompletableFuture<>();
+        FDBDatabase database = dbExtension.getDatabase();
         database.setAsyncToSyncTimeout(1, TimeUnit.MILLISECONDS);
         try {
             database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed);
@@ -84,8 +87,6 @@ class FDBExceptionsTest {
             Assertions.assertEquals((long)((LoggableKeysAndValues)ex).getLogInfo().get((Object)LogMessageKeys.TIME_LIMIT.toString()), 1L);
             assertTrue(((LoggableKeysAndValues)ex).getLogInfo().containsKey(LogMessageKeys.TIME_UNIT.toString()));
             Assertions.assertEquals(((LoggableKeysAndValues)ex).getLogInfo().get((Object)LogMessageKeys.TIME_UNIT.toString()), TimeUnit.MILLISECONDS);
-        } finally {
-            factory.clear();
         }
     }
 
@@ -215,16 +216,5 @@ class FDBExceptionsTest {
     @Nonnull
     private InterruptedException createInterruptedException() {
         return new InterruptedException(EXCEPTION_CAUSE_MESSAGE);
-    }
-
-    private static class CountingCompletionException extends CompletionException {
-        private static final long serialVersionUID = 1L;
-
-        private final int count;
-
-        public CountingCompletionException(int count, @Nonnull Throwable cause) {
-            super("count: " + count, cause);
-            this.count = count;
-        }
     }
 }
