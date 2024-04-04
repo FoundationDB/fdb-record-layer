@@ -74,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -92,6 +93,7 @@ import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -118,6 +120,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -186,6 +189,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MANY_FIELDS_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -1335,6 +1339,170 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 assertEquals(totalExpectedRepartitionCallCount, actualRepartitionCallCount);
             }
         }
+    }
+
+    private LuceneScanQuery buildLuceneScanQuery(Index index,
+                                                 boolean isSynthetic,
+                                                 Comparisons.Type comparisonType,
+                                                 SortType sortType,
+                                                 long predicateComparand,
+                                                 String luceneSearch) {
+        final Sort sort;
+        if (sortType == SortType.UNSORTED) {
+            sort = null;
+        } else {
+            sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
+        }
+
+        List<LuceneQueryClause> luceneQueryClauses =
+                comparisonType == Comparisons.Type.NOT_EQUALS ?
+                List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false)
+                )
+                                                              :
+                List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
+                        new LuceneQueryFieldComparisonClause.LongQuery(
+                                LuceneQueryType.QUERY, isSynthetic ? "complex_timestamp" : "timestamp",
+                                LuceneIndexExpressions.DocumentFieldType.LONG,
+                                new Comparisons.SimpleComparison(comparisonType, predicateComparand),
+                                false,
+                                null)
+                );
+        LuceneQueryClause clause = new LuceneBooleanQuery(LuceneQueryType.QUERY, luceneQueryClauses, BooleanClause.Occur.MUST);
+
+        LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
+                Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
+                clause,
+                sort,
+                null,
+                null,
+                null);
+        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+    }
+
+    static Stream<Arguments> functionalPartitionFieldPredicateTest() {
+        return Stream.concat(
+                Stream.of( 23045978L,
+                        98432L,
+                        -439208L,
+                        -547118062778370833L,
+                        -8561053686039912077L).map(Arguments::of),
+                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void functionalPartitionFieldPredicateTest(long seed) {
+        Random random = new Random(seed);
+        boolean isSynthetic = false;
+
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(3));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
+                .build();
+        final String luceneSearch = "text:about";
+        Map<Tuple, Long> primaryKeys = new HashMap<>();
+        int docCount = 30;
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            for (int i = 0; i < docCount; i++) {
+                long timestamp = (long) random.nextInt(10) + 2; // 2 - 11
+                long docId = 1000L + i;
+                ComplexDocument cd = ComplexDocument.newBuilder()
+                        .setGroup(1)
+                        .setDocId(docId)
+                        .setIsSeen(true)
+                        .setText("A word about what I want to say")
+                        .setTimestamp(timestamp)
+                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L + i))
+                        .build();
+                final Tuple primaryKey;
+                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                primaryKeys.put(primaryKey, timestamp);
+
+                for (SortType sortType : EnumSet.allOf(SortType.class)) {
+                    for (Comparisons.Type comparisonType : List.of(Type.EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.GREATER_THAN_OR_EQUALS, Type.GREATER_THAN)) {
+                        for (long queriedValue = 1L; queriedValue <= 12L; queriedValue++) {
+                            LOGGER.debug("i={}, queriedValue={}, comparisonType={}, sortType={}", i, queriedValue, comparisonType, sortType);
+                            LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, queriedValue, luceneSearch);
+                            try (RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(index, luceneScanQuery, null, ExecuteProperties.newBuilder().setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false))) {
+
+                                Stream<Tuple> actualKeys = indexEntryCursor.asList().join()
+                                        .stream().map(IndexEntry::getPrimaryKey);
+                                List<Tuple> expectedKeys = queryLocal(primaryKeys, comparisonType, queriedValue, sortType);
+                                if (sortType == SortType.UNSORTED) {
+                                    actualKeys = actualKeys.sorted();
+                                    expectedKeys.sort(Comparator.naturalOrder());
+                                }
+                                assertEquals(expectedKeys, actualKeys.collect(Collectors.toList()),
+                                        () -> {
+                                            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+                                            return primaryKeys.entrySet().stream().sorted(Map.Entry.comparingByValue())
+                                                    .map(entry -> entry.getValue() + " " + entry.getKey())
+                                                    .collect(Collectors.joining(", ", "All data: [", "]\n")) +
+                                                    indexMaintainer.getPartitioner().getAllPartitionMetaInfo(Tuple.from(1)).join()
+                                                            .stream()
+                                                            .sorted(Comparator.comparing(partitionInfo -> Tuple.fromBytes(partitionInfo.getFrom().toByteArray())))
+                                                            .map(partitionInfo -> partitionInfo.getId() + " (" + partitionInfo.getCount() + "): [" +
+                                                                    Tuple.fromBytes(partitionInfo.getFrom().toByteArray()) + "," +
+                                                                    Tuple.fromBytes(partitionInfo.getTo().toByteArray()) + "]")
+                                                            .collect(Collectors.joining(", ", "Partitions: [", "]"));
+                                        });
+                            }
+                        }
+                    }
+                }
+            }
+            commit(context);
+        }
+    }
+
+    private List<Tuple> queryLocal(Map<Tuple, Long> dataset, Comparisons.Type comparisonType, long comparand, SortType sortType) {
+        List<Map.Entry<Tuple, Long>> hits = dataset.entrySet()
+                .stream()
+                .filter(entry -> {
+                    long value = entry.getValue();
+                    switch (comparisonType) {
+                        case EQUALS:
+                            return value == comparand;
+                        case LESS_THAN:
+                            return value < comparand;
+                        case LESS_THAN_OR_EQUALS:
+                            return value <= comparand;
+                        case GREATER_THAN:
+                            return value > comparand;
+                        case GREATER_THAN_OR_EQUALS:
+                            return value >= comparand;
+                        default:
+                            return false;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        if (sortType == SortType.ASCENDING) {
+            hits.sort((Map.Entry<Tuple, Long> a, Map.Entry<Tuple, Long> b) -> {
+                int c = a.getValue().compareTo(b.getValue());
+                if (c == 0) {
+                    return a.getKey().compareTo(b.getKey());
+                }
+                return c;
+            });
+        } else {
+            hits.sort((Map.Entry<Tuple, Long> a, Map.Entry<Tuple, Long> b) -> {
+                int c = b.getValue().compareTo(a.getValue());
+                if (c == 0) {
+                    return b.getKey().compareTo(a.getKey());
+                }
+                return c;
+            });
+        }
+        return hits.stream().map(Map.Entry::getKey).collect(Collectors.toList());
     }
 
     @Test

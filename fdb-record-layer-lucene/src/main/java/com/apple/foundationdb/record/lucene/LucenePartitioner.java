@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
@@ -887,12 +888,9 @@ public class LucenePartitioner {
         if (currentPartitionKey == null) {
             return getNewestPartition(groupingKey, context, indexSubspace);
         }
-        final Range range = new TupleRange(
-                groupingKey.add(PARTITION_META_SUBSPACE).addAll(currentPartitionKey),
-                groupingKey.add(PARTITION_META_SUBSPACE),
-                EndpointType.RANGE_EXCLUSIVE,
-                EndpointType.TREE_END).toRange(indexSubspace);
-        final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
+        final Range range = new Range(ByteArrayUtil.strinc(indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE).addAll(currentPartitionKey)).pack()),
+                ByteArrayUtil.strinc(indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).pack()));
+        final AsyncIterable<KeyValue> rangeIterable = context.ensureActive().getRange(range, 1, false, StreamingMode.WANT_ALL);
         return AsyncUtil.collect(rangeIterable, context.getExecutor())
                 .thenApply(all -> all.stream().map(LucenePartitioner::partitionInfoFromKV).findFirst().orElse(null));
     }
