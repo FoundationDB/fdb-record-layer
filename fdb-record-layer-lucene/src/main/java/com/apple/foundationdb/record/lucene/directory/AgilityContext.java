@@ -199,7 +199,7 @@ public interface AgilityContext {
             database = callerContext.getDatabase();
             this.timeQuotaMillis = timeQuotaMillis;
             this.sizeQuotaBytes = sizeQuotaBytes;
-            callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush, currentContext.getExecutor()));
+            callerContext.getOrCreateCommitCheck("AgilityContext.Agile:", name -> () -> CompletableFuture.runAsync(this::flush));
             logSelf("Starting agility context");
         }
 
