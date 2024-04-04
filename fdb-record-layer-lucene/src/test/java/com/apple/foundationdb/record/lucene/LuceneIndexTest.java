@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
+import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.IndexedType;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
@@ -138,7 +139,6 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
-import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.IndexedType;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY;
@@ -1354,21 +1354,21 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
         }
 
-        List<LuceneQueryClause> luceneQueryClauses =
-                comparisonType == Comparisons.Type.NOT_EQUALS ?
-                List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false)
-                )
-                                                              :
-                List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
-                        new LuceneQueryFieldComparisonClause.LongQuery(
-                                LuceneQueryType.QUERY, isSynthetic ? "complex_timestamp" : "timestamp",
-                                LuceneIndexExpressions.DocumentFieldType.LONG,
-                                new Comparisons.SimpleComparison(comparisonType, predicateComparand),
-                                false,
-                                null)
-                );
-        LuceneQueryClause clause = new LuceneBooleanQuery(LuceneQueryType.QUERY, luceneQueryClauses, BooleanClause.Occur.MUST);
+        final List<LuceneQueryClause> luceneQueryClauses;
 
+        if (comparisonType == Type.NOT_EQUALS) {
+            luceneQueryClauses = List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false));
+        } else {
+            luceneQueryClauses = List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
+                    new LuceneQueryFieldComparisonClause.LongQuery(
+                            LuceneQueryType.QUERY, isSynthetic ? "complex_timestamp" : "timestamp",
+                            LuceneIndexExpressions.DocumentFieldType.LONG,
+                            new Comparisons.SimpleComparison(comparisonType, predicateComparand),
+                            false,
+                            null));
+        }
+
+        LuceneQueryClause clause = new LuceneBooleanQuery(LuceneQueryType.QUERY, luceneQueryClauses, BooleanClause.Occur.MUST);
         LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
                 clause,
@@ -1486,21 +1486,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .collect(Collectors.toList());
 
         if (sortType == SortType.ASCENDING) {
-            hits.sort((Map.Entry<Tuple, Long> a, Map.Entry<Tuple, Long> b) -> {
-                int c = a.getValue().compareTo(b.getValue());
-                if (c == 0) {
-                    return a.getKey().compareTo(b.getKey());
-                }
-                return c;
-            });
+            hits.sort(Comparator.comparing(Map.Entry<Tuple, Long>::getValue).thenComparing(Map.Entry::getKey));
         } else {
-            hits.sort((Map.Entry<Tuple, Long> a, Map.Entry<Tuple, Long> b) -> {
-                int c = b.getValue().compareTo(a.getValue());
-                if (c == 0) {
-                    return b.getKey().compareTo(a.getKey());
-                }
-                return c;
-            });
+            hits.sort(Comparator.comparing(Map.Entry<Tuple, Long>::getValue).thenComparing(Map.Entry::getKey).reversed());
         }
         return hits.stream().map(Map.Entry::getKey).collect(Collectors.toList());
     }
@@ -4372,7 +4360,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static final List<String> spellcheckWords = List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
+    private static final List<String> spellcheckWords = java.util.List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
