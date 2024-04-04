@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
@@ -47,10 +48,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -58,6 +59,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for AgilityContext.
@@ -308,7 +310,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 byte[] val = Tuple.from(i, RobertFrost, 0).pack();
                 switch (method) {
                     case Set:
-                        Assertions.assertThrows(FailException.class, () ->
+                        assertThrows(FailException.class, () ->
                                 agilityContext.set(unwritableKey, val)
                         );
                         break;
@@ -434,6 +436,39 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     agilityContext.flush();
                 }
             });
+        }
+    }
+
+    @Test
+    void testAgilityContextRecoveryPath() {
+        AtomicInteger refInt = new AtomicInteger(0);
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = getAgilityContext(context, true);
+            final Subspace subspace = path.toSubspace(context);
+            byte[] key = subspace.pack(Tuple.from(2023, 3));
+            byte[] val = Tuple.from(800, "Green eggs and ham", 0).pack();
+            agilityContext.set(key, val);
+            agilityContext.abortAndClose();
+            IntStream range = IntStream.rangeClosed(1, 10);
+            range.parallel().forEach(i -> {
+                if (i == 7) {
+                    agilityContext.applyInRecoveryPath(aContext -> {
+                        Assertions.assertNotNull(aContext);
+                        refInt.addAndGet(i);
+                        return CompletableFuture.completedFuture(null);
+                    }).join();
+                } else {
+                    try {
+                        agilityContext.apply(aContext -> {
+                            refInt.set(i);
+                            return CompletableFuture.completedFuture(null);
+                        }).join();
+                    } catch (RecordCoreException ex) {
+                        assertTrue(ex.getMessage().contains("Agile context is already closed"));
+                    }
+                }
+            });
+            assertEquals(7, refInt.get());
         }
     }
 
