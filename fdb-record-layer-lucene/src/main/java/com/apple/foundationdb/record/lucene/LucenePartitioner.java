@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -63,6 +65,9 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.slf4j.Logger;
@@ -71,6 +76,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -82,8 +88,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.Waits.WAIT_LOAD_LUCENE_PARTITION_METADATA;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.GREATER_THAN;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.GREATER_THAN_OR_EQUALS;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.LESS_THAN;
+import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.LESS_THAN_OR_EQUALS;
 
 /**
  * Manage partitioning info for a <b>logical</b>, partitioned lucene index, in which each partition is a separate physical lucene index.
@@ -91,6 +99,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer.
 @API(API.Status.EXPERIMENTAL)
 public class LucenePartitioner {
 
+    private static final FDBStoreTimer.Waits WAIT_LOAD_LUCENE_PARTITION_METADATA = FDBStoreTimer.Waits.WAIT_LOAD_LUCENE_PARTITION_METADATA;
     private static final Logger LOGGER = LoggerFactory.getLogger(LucenePartitioner.class);
     private static final int DEFAULT_PARTITION_HIGH_WATERMARK = 400_000;
     private static final ConcurrentHashMap<String, KeyExpression> partitioningKeyExpressionCache = new ConcurrentHashMap<>();
@@ -137,7 +146,7 @@ public class LucenePartitioner {
             // nameComponents.length >= 1
             if (nameComponents.length == 1) {
                 // no nesting
-                return field(nameComponents[0]);
+                return Key.Expressions.field(nameComponents[0]);
             }
             // nameComponents.length >= 2
             List<KeyExpression> fields = Arrays.stream(nameComponents).map(Key.Expressions::field).collect(Collectors.toList());
@@ -168,27 +177,199 @@ public class LucenePartitioner {
 
     /**
      * return the partition ID on which to run a query, given a grouping key.
-     * the most recent partition is returned, unless the query is sorted by the
-     * partitioning field in ascending order, in which case the oldest partition
-     * is returned.
+     *
+     * If no partitioning field predicate can be used to determine a particular
+     * starting partition, he most recent partition is returned, unless the query
+     * is sorted by the partitioning field in ascending order, in which case the
+     * oldest partition is returned.
+     *
+     * If the query contains a top level partitioning field predicate in conjunction
+     * with the rest of the predicates, and the predicate can be used to determine
+     * a specific starting partition, that partition will be computed and returned.
      *
      * @param groupKey group key
-     * @param sort sort
+     * @param luceneScanQuery query
      * @return partition, or <code>null</code> if partitioning isn't enabled or no partitioning metadata exist
      */
     @Nullable
-    public LucenePartitionInfoProto.LucenePartitionInfo selectQueryPartition(@Nonnull Tuple groupKey, @Nullable Sort sort) {
+    public LucenePartitionInfoProto.LucenePartitionInfo selectQueryPartition(@Nonnull Tuple groupKey, @Nullable LuceneScanQuery luceneScanQuery) {
         if (!isPartitioningEnabled()) {
             return null;
         }
 
-        if (sort != null) {
-            PartitionedSortContext sortCriteria = isSortedByPartitionField(sort);
-            if (sortCriteria.isByPartitionField && !sortCriteria.isReverse) { // by partitioning field, and ascending
+        if (luceneScanQuery != null) {
+            final PartitionedSortContext sortCriteria = luceneScanQuery.getSort() == null ? null : isSortedByPartitionField(luceneScanQuery.getSort());
+            final LuceneComparisonQuery partitionFieldPredicate = checkQueryForPartitionFieldPredicate(luceneScanQuery);
+            final boolean isAscending = sortCriteria != null && sortCriteria.isByPartitionField && !sortCriteria.isReverse;
+            final Comparisons.Type comparisonType = partitionFieldPredicate == null ? null : partitionFieldPredicate.getComparisonType();
+
+            // no partitioning field predicate, and ascending
+            if (comparisonType == null && isAscending) {
                 return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getOldestPartition(groupKey));
             }
+
+            // return oldest partition, unless the requested field predicate is even older: in that case return
+            // the newest (which guarantees no matches, and the cursor won't continue on to other partitions)
+            if ((comparisonType == LESS_THAN || comparisonType == LESS_THAN_OR_EQUALS) && isAscending) {
+                LucenePartitionInfoProto.LucenePartitionInfo oldest = state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getOldestPartition(groupKey));
+                if (isPrefixOlderThanPartition(Tuple.from(partitionFieldPredicate.getComparand()), Objects.requireNonNull(oldest))) {
+                    return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey, state.context, state.indexSubspace));
+                }
+                return oldest;
+            }
+
+            // return newest partition, unless the requested field predicate is even newer: in that case return
+            // the oldest (which guarantees no matches, and the cursor won't continue on to other partitions)
+            if ((comparisonType == GREATER_THAN || comparisonType == GREATER_THAN_OR_EQUALS) && !isAscending) {
+                LucenePartitionInfoProto.LucenePartitionInfo newest = state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey, state.context, state.indexSubspace));
+                if (isNewerThan(Tuple.from(partitionFieldPredicate.getComparand()), Objects.requireNonNull(newest))) {
+                    return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getOldestPartition(groupKey));
+                }
+                return newest;
+            }
+
+            // return comparand's "starting" partition
+            if (comparisonType == Comparisons.Type.EQUALS ||
+                    ((comparisonType == GREATER_THAN || comparisonType == GREATER_THAN_OR_EQUALS)) ||
+                    (comparisonType == LESS_THAN || comparisonType == LESS_THAN_OR_EQUALS)) {
+                return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getStartingPartition(groupKey, Tuple.from(partitionFieldPredicate.getComparand()), isAscending, comparisonType));
+            }
         }
+
+        // default, fall-through
         return state.context.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, getNewestPartition(groupKey, state.context, state.indexSubspace));
+    }
+
+    private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getStartingPartition(Tuple groupingKey,
+                                                                                                 Tuple partitionField,
+                                                                                                 boolean isAscending,
+                                                                                                 Comparisons.Type comparisonType) {
+        // we're here either because:
+        //  (EQUALS) or
+        //  (LESS_THAN OR LESS_THAN_OR_EQUALS) AND DESCENDING or
+        //  (GREATER_THAN_OR_EQUALS OR GREATER_THAN) AND ASCENDING
+        if ((comparisonType == GREATER_THAN || comparisonType == GREATER_THAN_OR_EQUALS) && !isAscending ||
+                (comparisonType == LESS_THAN || comparisonType == LESS_THAN_OR_EQUALS) && isAscending) {
+            throw new RecordCoreException("Internal, unexpected comparison type and sort order combination");
+        }
+
+        final Range range;
+        final int limit;
+        final boolean reverse;
+        switch (comparisonType) {
+            case GREATER_THAN_OR_EQUALS:
+                range = new Range(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE).addAll(partitionField)).pack(),
+                        ByteArrayUtil.strinc(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).pack()));
+                limit = 1;
+                reverse = false;
+                break;
+            case GREATER_THAN:
+                range = new Range(ByteArrayUtil.strinc(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE).addAll(partitionField)).pack()),
+                        ByteArrayUtil.strinc(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).pack()));
+                reverse = false;
+                limit = 1;
+                break;
+            case LESS_THAN_OR_EQUALS:
+                range = new Range(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).pack(),
+                        ByteArrayUtil.strinc(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE).addAll(partitionField)).pack()));
+                limit = 1;
+                reverse = true;
+                break;
+            case LESS_THAN:
+            case EQUALS:
+                range = new Range(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE)).pack(),
+                        ByteArrayUtil.strinc(state.indexSubspace.subspace(groupingKey.add(PARTITION_META_SUBSPACE).addAll(partitionField)).pack()));
+                limit = ReadTransaction.ROW_LIMIT_UNLIMITED;
+                reverse = true;
+                break;
+            default:
+                throw new RecordCoreException("Unsupported comparison type", comparisonType);
+        }
+
+        final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, limit, reverse, StreamingMode.WANT_ALL);
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor())
+                .thenCompose(targetPartitions -> {
+                    if (targetPartitions.isEmpty()) {
+                        if (comparisonType == LESS_THAN || comparisonType == LESS_THAN_OR_EQUALS || (comparisonType == Comparisons.Type.EQUALS && !isAscending)) {
+                            return getOldestPartition(groupingKey);
+                        } else {
+                            return getNewestPartition(groupingKey, state.context, state.indexSubspace);
+                        }
+                    }
+                    // deserialize
+                    List<LucenePartitionInfoProto.LucenePartitionInfo> decodedPartitions = targetPartitions
+                            .stream()
+                            .map(LucenePartitioner::partitionInfoFromKV)
+                            .collect(Collectors.toList());
+
+                    LucenePartitionInfoProto.LucenePartitionInfo startingPartition = null;
+                    if (comparisonType == GREATER_THAN || comparisonType == GREATER_THAN_OR_EQUALS) {
+                        // check if the next older partition has some values that may satisfy the predicate
+                        return getNextOlderPartitionInfo(state.context, groupingKey, getPartitionKey(decodedPartitions.get(0)), state.indexSubspace).thenApply(nextOlderPartition -> {
+                            if (nextOlderPartition == null || getToTuple(nextOlderPartition).compareTo(partitionField) <= 0) {
+                                return decodedPartitions.get(0);
+                            } else {
+                                return nextOlderPartition;
+                            }
+                        });
+                    } else if (comparisonType == LESS_THAN_OR_EQUALS) {
+                        startingPartition = decodedPartitions.get(0);
+                    } else if (comparisonType == LESS_THAN) {
+                        for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : decodedPartitions) {
+                            if (getPartitionKey(partitionInfo).compareTo(partitionField) < 0) {
+                                startingPartition = partitionInfo;
+                                break;
+                            }
+                        }
+                        if (startingPartition == null) {
+                            startingPartition = decodedPartitions.get(decodedPartitions.size() - 1);
+                        }
+                    } else { // comparisonType == EQUALS
+                        startingPartition = decodedPartitions.get(0);
+                        if (isAscending) {
+                            startingPartition = null;
+                            for (LucenePartitionInfoProto.LucenePartitionInfo partitionInfo : decodedPartitions) {
+                                if (getPartitionKey(partitionInfo).compareTo(partitionField) < 0) {
+                                    startingPartition = partitionInfo;
+                                    break;
+                                }
+                            }
+                            if (startingPartition == null) {
+                                startingPartition = decodedPartitions.get(decodedPartitions.size() - 1);
+                            }
+                        } else {
+                            if (isNewerThan(partitionField, decodedPartitions.get(0))) {
+                                startingPartition = decodedPartitions.get(decodedPartitions.size() - 1);
+                            }
+                        }
+                    }
+                    return CompletableFuture.completedFuture(startingPartition);
+                });
+    }
+
+    /**
+     * check whether the query contains a top-level predicate on the partitioning field and return it.
+     *
+     * @param luceneScanQuery lucene query
+     * @return <code>null</code> if zero or more than one partitioning field predicate exist in the query's top-level
+     * clauses, otherwise the predicate is returned
+     */
+    @Nullable
+    private LuceneComparisonQuery checkQueryForPartitionFieldPredicate(final @Nonnull LuceneScanQuery luceneScanQuery) {
+        Query query = luceneScanQuery.getQuery();
+        List<LuceneComparisonQuery> partitionFieldPredicates = new ArrayList<>();
+        if (query instanceof BooleanQuery) {
+            List<BooleanClause> clauses = ((BooleanQuery) query).clauses();
+            // we only care about "top level" clauses, and won't descend
+            for (BooleanClause clause : clauses) {
+                Query clauseQuery = clause.getQuery();
+                if (clauseQuery instanceof LuceneComparisonQuery &&
+                        ((LuceneComparisonQuery) clauseQuery).getFieldName().equals(partitionFieldNameInLucene)) {
+                    partitionFieldPredicates.add((LuceneComparisonQuery)clauseQuery);
+                }
+            }
+        }
+        return partitionFieldPredicates.size() == 1 ? partitionFieldPredicates.get(0) : null;
     }
 
     /**
@@ -933,6 +1114,10 @@ public class LucenePartitioner {
         return key.compareTo(Tuple.fromBytes(partitionInfo.getFrom().toByteArray())) < 0;
     }
 
+    public static boolean isPrefixOlderThanPartition(@Nonnull final Tuple prefix, @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+        return getPartitionKey(partitionInfo).compareTo(Tuple.fromBytes(ByteArrayUtil.strinc(prefix.pack()))) >= 0;
+    }
+
     /**
      * convenience function that evaluates whether a given partitioning key tuple is "newer" than the
      * given partitioning metadata.
@@ -954,6 +1139,17 @@ public class LucenePartitioner {
     @Nonnull
     public static Tuple getPartitionKey(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
         return Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
+    }
+
+    /**
+     * convenience function that returns the <code>to</code> value of a given partition metadata object.
+     *
+     * @param partitionInfo partition metadata
+     * @return to tuple
+     */
+    @Nonnull
+    public static Tuple getToTuple(@Nonnull final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+        return Tuple.fromBytes(partitionInfo.getTo().toByteArray());
     }
 
     /**
