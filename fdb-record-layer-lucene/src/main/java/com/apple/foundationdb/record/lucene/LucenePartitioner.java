@@ -461,7 +461,7 @@ public class LucenePartitioner {
             } else {
                 return CompletableFuture.completedFuture(partitionInfoFromKV(targetPartition.get(0)));
             }
-        });
+        }, state.context.getExecutor());
     }
 
     /**
