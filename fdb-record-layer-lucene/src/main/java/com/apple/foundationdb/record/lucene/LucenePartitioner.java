@@ -446,7 +446,7 @@ public class LucenePartitioner {
 
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
 
-        return AsyncUtil.collect(rangeIterable, state.context.getExecutor()).thenComposeAsync(targetPartition -> {
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor()).thenCompose(targetPartition -> {
             if (targetPartition.isEmpty()) {
                 return getOldestPartition(groupingKey).thenApply(oldestPartition -> {
                     if (oldestPartition == null) {
