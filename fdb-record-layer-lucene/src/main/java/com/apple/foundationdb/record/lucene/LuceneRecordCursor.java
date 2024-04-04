@@ -315,7 +315,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                                     .addLogInfo(LogMessageKeys.QUERY, query);
                         }
                         return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
-                    }, state.context.getExecutor()).thenCompose(Function.identity());
+                    }, executor).thenCompose(Function.identity());
                 }
                 return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
             });

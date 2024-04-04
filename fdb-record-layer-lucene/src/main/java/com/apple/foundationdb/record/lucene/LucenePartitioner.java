@@ -445,7 +445,7 @@ public class LucenePartitioner {
 
         final AsyncIterable<KeyValue> rangeIterable = state.context.ensureActive().getRange(range, 1, true, StreamingMode.WANT_ALL);
 
-        return AsyncUtil.collect(rangeIterable, state.context.getExecutor()).thenComposeAsync(targetPartition -> {
+        return AsyncUtil.collect(rangeIterable, state.context.getExecutor()).thenCompose(targetPartition -> {
             if (targetPartition.isEmpty()) {
                 return getOldestPartition(groupingKey).thenApply(oldestPartition -> {
                     if (oldestPartition == null) {
@@ -461,7 +461,7 @@ public class LucenePartitioner {
             } else {
                 return CompletableFuture.completedFuture(partitionInfoFromKV(targetPartition.get(0)));
             }
-        }, state.context.getExecutor());
+        });
     }
 
     /**
