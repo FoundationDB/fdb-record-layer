@@ -282,6 +282,7 @@ public interface AgilityContext {
                         currentContext.commit();
                         currentContext.close();
                     } catch (RuntimeException ex) {
+                        closed = true;
                         reportFdbException(ex);
                         throw ex;
                     } finally {
