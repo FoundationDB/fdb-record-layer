@@ -1573,7 +1573,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime0 = Map.of(
                     Type.GREATER_THAN, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
                     Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
-                    Type.LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
                     Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1),
                     Type.EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1));
             startingPartitionExpectation.put(time0, expectationsForTime0);
@@ -1617,20 +1617,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTimeTooOld = Map.of(
                     Type.GREATER_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
                     Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
-                    Type.LESS_THAN, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
-                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
-                    Type.EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0));
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1));
             startingPartitionExpectation.put(timeTooOld, expectationsForTimeTooOld);
 
             // =====================================
             // Expectations for timeTooNew
             // =====================================
             Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTimeTooNew = Map.of(
-                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
-                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0),
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
                     Type.LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
                     Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
-                    Type.EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 0, SortType.UNSORTED, 0));
+                    Type.EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1));
             startingPartitionExpectation.put(timeTooNew, expectationsForTimeTooNew);
 
             // check all combinations against expectations
