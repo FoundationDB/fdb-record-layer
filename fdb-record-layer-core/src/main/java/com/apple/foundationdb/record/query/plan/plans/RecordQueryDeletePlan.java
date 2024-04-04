@@ -101,7 +101,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         if (executeProperties.isDryRun()) {
             return RecordCursor.flatMapPipelined(
-                    outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
+                    outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties),
                     (outerQueryResult, innerContinuation) ->
                             RecordCursor.fromFuture(store.dryRunDeleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
                                     .filter(isDeleted -> isDeleted)
@@ -109,7 +109,7 @@ public class RecordQueryDeletePlan implements RecordQueryPlanWithChild, PlannerG
                     continuation, store.getPipelineSize(PipelineOperation.DELETE));
         } else {
             return RecordCursor.flatMapPipelined(
-                    outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
+                    outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties),
                     (outerQueryResult, innerContinuation) ->
                             RecordCursor.fromFuture(store.deleteRecordAsync(Verify.verifyNotNull(outerQueryResult.getPrimaryKey())))
                                     .filter(isDeleted -> isDeleted)
