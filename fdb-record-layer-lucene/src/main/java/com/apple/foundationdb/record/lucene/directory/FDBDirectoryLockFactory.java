@@ -75,9 +75,10 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
             this.timeWindowMilliseconds = timeWindowMilliseconds;
-            logSelf("Creating Lucene File Lock");
+            logSelf("Attempting to create Lucene File Lock");
             fileLockSet(false);
             agilityContext.flush();
+            logSelf("Successfully created lucene file lock");
         }
 
         @Override

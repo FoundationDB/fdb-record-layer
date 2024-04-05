@@ -16,7 +16,7 @@ Support for the Protobuf 2 runtime has been removed as of this version. All arti
 ### NEXT_RELEASE
 
 * **Bug fix** Fixe Unbalanced log info exception [(Issue #2392)](https://github.com/FoundationDB/fdb-record-layer/issues/2392)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Improve logging for Lucene file locks [(Issue #2645)](https://github.com/FoundationDB/fdb-record-layer/issues/2645)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
