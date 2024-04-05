@@ -819,12 +819,12 @@ The Guava dependency version has been updated to 31.1. Projects may need to chec
 ### Features
 
 This version of the Record Layer allows the FDB API version to be configured through the `FDBDatabaseFactory`. This means that while this version allows the client to be configured to use 7.1 features, it also supports connecting to 6.3 FDB clusters if the API version is set appropriately. Note that setting the API version does restrict the set of potential FDB server versions that can be connected to, so this configuration change should only be made if the FDB server has already been updated.
- 
-New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature out is: 
+
+New index state "READABLE_UNIQUE_PENDING" - the proper way to roll this feature out is:
 1. The adopter should upgrade to the new Record Layer version and deploy the version everywhere.
 2. The format version should be set READABLE_UNIQUE_PENDING_FORMAT_VERSION.
-3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds. 
-An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.  
+3. Only after all the possible clients are upgraded to support the new state, the adopter may set the allowPendingState on the indexing policy of new index builds.
+   An index may be in this new state if it is fully built, the unique flag is set, and duplications were found during online indexing. From the code point of view, it is defined as scannable but not readable.
 
 
 ### Breaking Changes
@@ -1061,7 +1061,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 ### 3.1.238.0
 
 * **Feature** Support custom additional synonyms. This introduces a new SynonymMapRegistry.
-New synonym maps should implement `SynonymMapConfig`. See example `EnglishSynonymMap`.
+  New synonym maps should implement `SynonymMapConfig`. See example `EnglishSynonymMap`.
 
 ### 3.1.237.0
 
@@ -1083,10 +1083,10 @@ New synonym maps should implement `SynonymMapConfig`. See example `EnglishSynony
 
 * **Feature** Expose IndexQueryabilityFilter for Aggregate planning [(Issue #1520)](https://github.com/FoundationDB/fdb-record-layer/issues/1520)
 * **Breaking change** As part of [(Issue #1520)](https://github.com/FoundationDB/fdb-record-layer/issues/1520) implementers
-of `FDBRecordStoreBase` need to implement a new overload of `getSnapshotRecordCountForRecordType` and `evaluateAggregateFunction`
-that takes an `IndexQueryabilityFilter`. In addition some methods on `IndexFunctionHelper` and `ComposedBitmapIndexAggregate`
-now take an `IndexQueryabilityFilter`; to preserve backwards compatibility, if all indexes are valid,
-`IndexQueryabilityFilter.TRUE` can be used.
+  of `FDBRecordStoreBase` need to implement a new overload of `getSnapshotRecordCountForRecordType` and `evaluateAggregateFunction`
+  that takes an `IndexQueryabilityFilter`. In addition some methods on `IndexFunctionHelper` and `ComposedBitmapIndexAggregate`
+  now take an `IndexQueryabilityFilter`; to preserve backwards compatibility, if all indexes are valid,
+  `IndexQueryabilityFilter.TRUE` can be used.
 
 ### 3.1.231.0
 
@@ -1177,7 +1177,7 @@ Another, smaller change that has been made is that by default, new indexes added
 ### 3.0.210.0
 
 * **Bug fix** relax conditions enforced in ImplementInUnionRule [(Issue #1369)](https://github.com/FoundationDB/fdb-record-layer/issues/1369)
-*OnlineIndexScrubberTest.testScrubberLimits - reduce number of records [(Issue #1363)](https://github.com/FoundationDB/fdb-record-layer/issues/1363)
+  *OnlineIndexScrubberTest.testScrubberLimits - reduce number of records [(Issue #1363)](https://github.com/FoundationDB/fdb-record-layer/issues/1363)
 * OnlineIndexScrubber: clear ranges when exhausted [(Issue #1367)](https://github.com/FoundationDB/fdb-record-layer/issues/1367)
 * **Feature** Prototype non-index sorting [(Issue #1161)](https://github.com/FoundationDB/fdb-record-layer/issues/1161)
 
@@ -1559,7 +1559,7 @@ This version of the Record Layer requires a FoundationDB server version of at le
 
 Constructors of the `RecordQueryUnionPlan` and `RecordQueryIntersectionPlan` have been marked as deprecated in favor of static initializers. This will allow for more flexibility as work on the new planner develops.
 
-### Newly Deprecated 
+### Newly Deprecated
 
 The non-static `RecordCursor::flatMapPipelined()` method has been deprecated because it is easy to mis-use (by mistaken analogy to the `mapPipelined()` method) and cannot be used with continuations. See [Issue #665](https://github.com/FoundationDB/fdb-record-layer/issues/665) for further explanation.
 
