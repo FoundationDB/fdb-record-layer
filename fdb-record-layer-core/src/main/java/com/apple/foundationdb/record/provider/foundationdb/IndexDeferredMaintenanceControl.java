@@ -47,7 +47,7 @@ public class IndexDeferredMaintenanceControl {
      */
     public enum LastStep {
         NONE,
-        REBALANCE,
+        REPARTITION,
         MERGE,
     }
 
@@ -187,11 +187,11 @@ public class IndexDeferredMaintenanceControl {
     }
 
     /**
-     * Max number of documents to move during partitions re-balancing (per partition).
+     * Max number of documents to move during repartitioning (per partition).
      * Values:
      * Positive num: use this count
      * Zero: use default count, and set it in this controller
-     * Negative num : skip partitions re-balancing
+     * Negative num : skip repartitioning
      * @return number of documents to move
      */
     public int getRepartitionDocumentCount() {
@@ -199,7 +199,7 @@ public class IndexDeferredMaintenanceControl {
     }
 
     /**
-     * Max number of documents to move during partitions re-balancing (per partition).
+     * Max number of documents to move during repartitioning (per partition).
      * @param repartitionDocumentCount number of documents to move
      */
     public void setRepartitionDocumentCount(final int repartitionDocumentCount) {

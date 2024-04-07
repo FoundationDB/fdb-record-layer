@@ -103,6 +103,8 @@ public interface AgilityContext {
      */
     void abortAndClose();
 
+    boolean isClosed();
+
     default CompletableFuture<byte[]> get(byte[] key) {
         return apply(context -> context.ensureActive().get(key));
     }
@@ -205,7 +207,7 @@ public interface AgilityContext {
 
         private void logSelf(final String staticMessage) {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of(staticMessage,
+                LOGGER.debug(KeyValueLogMessage.of("AgilityContext: " + staticMessage,
                         LogMessageKeys.TIME_LIMIT_MILLIS, this.timeQuotaMillis,
                         LogMessageKeys.LIMIT, this.sizeQuotaBytes,
                         // Log the identity hash code, because any two Agiles will be different.
@@ -272,7 +274,7 @@ public interface AgilityContext {
         public void commitNow() {
             // This function is called:
             // 1. when a time/size quota is reached.
-            // 2. during caller's close or callerContext commit - the earlier of the two is the effective one.
+            // 2. during caller's close or callerContext commit - the earlier of the two is the effective one. Harmless if already closed.
             synchronized (commitLockSync) {
                 if (currentContext != null) {
                     committingNow = true;
@@ -417,6 +419,11 @@ public interface AgilityContext {
             }
             logSelf("AbortAndReset agility context");
         }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
+        }
     }
 
     /**
@@ -477,7 +484,13 @@ public interface AgilityContext {
 
         @Override
         public void abortAndClose() {
-            // This is a no-op as the caller context should be handled by the caller.
+            // Nothing is aborted because the caller context should be handled by the caller.
+            closed = true;
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
         }
     }
 

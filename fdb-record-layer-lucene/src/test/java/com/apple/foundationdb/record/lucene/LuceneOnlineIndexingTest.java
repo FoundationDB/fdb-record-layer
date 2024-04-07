@@ -938,7 +938,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         @Override
         public CompletableFuture<Void> mergeIndex() {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REPARTITION);
             final int documentCount = mergeControl.getRepartitionDocumentCount();
             if (documentCount <= 0) {
                 mergeControl.setRepartitionDocumentCount(16);
@@ -1006,7 +1006,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
             final int documentCount = mergeControl.getRepartitionDocumentCount();
             if (isSecondPass) {
-                mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+                mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REPARTITION);
                 assertEquals(0, documentCount);
                 gotSecondChance = true;
                 return AsyncUtil.DONE;
@@ -1016,7 +1016,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                 mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
                 return AsyncUtil.DONE;
             }
-            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+            mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REPARTITION);
             if (documentCount <= 0) {
                 mergeControl.setRepartitionDocumentCount(16);
                 throw new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code());

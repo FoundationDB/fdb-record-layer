@@ -908,9 +908,9 @@ public class FDBDirectory extends Directory  {
         return lock;
     }
 
-    private void clearLockIfLocked(boolean isRecovery) {
+    private void clearLockIfLocked() {
         if (lastLock != null) {
-            lastLock.fileLockClearIfLocked(isRecovery);
+            lastLock.fileLockClearIfLocked();
         }
     }
 
@@ -920,12 +920,12 @@ public class FDBDirectory extends Directory  {
     @Override
     public void close() {
         try {
-            clearLockIfLocked(false);
+            clearLockIfLocked();
             agilityContext.flush();
         } catch (RuntimeException ex) {
             // Here: got exception, it is important to clear the file lock, or it will prevent retry-recovery
             agilityContext.abortAndClose();
-            clearLockIfLocked(true);
+            clearLockIfLocked(); // after closing, this clear will be performed in a recovery path
             throw ex;
         }
         if (LOGGER.isDebugEnabled()) {
