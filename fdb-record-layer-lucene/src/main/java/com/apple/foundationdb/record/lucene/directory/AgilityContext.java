@@ -274,7 +274,8 @@ public interface AgilityContext {
         public void commitNow() {
             // This function is called:
             // 1. when a time/size quota is reached.
-            // 2. during caller's close or callerContext commit - the earlier of the two is the effective one. Harmless if already closed.
+            // 2. during caller's close or callerContext commit - the earlier of the two is the effective one. Calling commitNow
+            //    is harmless if the object is already closed.
             synchronized (commitLockSync) {
                 if (currentContext != null) {
                     committingNow = true;

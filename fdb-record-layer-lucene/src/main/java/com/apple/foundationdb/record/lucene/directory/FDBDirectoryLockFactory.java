@@ -159,14 +159,14 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (existingTimeStamp > (nowMillis - timeWindowMilliseconds) &&
                     existingTimeStamp < (nowMillis + timeWindowMilliseconds)) {
                 // Here: this lock is valid
-                throw new RecordCoreException("FileLock: Lock failed: already locked")
+                throw new RecordCoreException("FileLock: Lock failed: already locked by another entity")
                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                 LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                                 LuceneLogMessageKeys.LOCK_DIRECTORY, this);
             }
             // Here: this lock is either too old, or in the future. Steal it
             if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn(KeyValueLogMessage.of("FileLock: Found old lock, discard it",
+                LOGGER.warn(KeyValueLogMessage.of("FileLock: discarded an existing old lock",
                         LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                         LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                         LuceneLogMessageKeys.LOCK_DIRECTORY, this));
@@ -190,6 +190,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
         protected void fileLockClearIfLocked() {
             if (closed) {
+                // Here: the lock was already cleared and closed.
                 return;
             }
             // clear the lock unconditionally if locked and matches uuid
@@ -206,7 +207,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                             });
 
             if (agilityContext.isClosed()) {
-                // Here: this is considered a recovery path, unlock is allowed to bypass closed context.
+                // Here: this is considered to be a recovery path, may bypass closed context.
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.applyInRecoveryPath(fileLockFunc));
             } else {
@@ -214,6 +215,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
+            closed = true;
         }
 
         @Override
