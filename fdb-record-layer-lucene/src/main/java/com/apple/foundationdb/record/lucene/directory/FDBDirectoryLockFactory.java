@@ -84,6 +84,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         @Override
         public void close() {
             fileLockClear();
+            flushAndClose();
+        }
+
+        private void flushAndClose() {
+            // always flush before declaring this object as closed. Else agilityContext may fail to commit, while this lock may skip retry
+            agilityContext.flush();
             closed = true;
         }
 
@@ -193,6 +199,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 // Here: the lock was already cleared and closed.
                 return;
             }
+            // Here: the lock was not cleared in the regular path while the wrapping resource is being closed -
             // clear the lock unconditionally if locked and matches uuid
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
@@ -215,7 +222,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
-            closed = true;
+            flushAndClose();
         }
 
         @Override
