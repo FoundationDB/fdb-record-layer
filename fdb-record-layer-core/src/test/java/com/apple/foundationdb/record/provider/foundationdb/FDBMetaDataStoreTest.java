@@ -103,7 +103,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBMetaDataStoreTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
@@ -464,7 +464,7 @@ public class FDBMetaDataStoreTest {
 
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            metaDataStore.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
+            metaDataStore.addUniversalIndex(FDBRecordStoreTestBase.globalCountIndex());
             metaDataStore.addMultiTypeIndex(Arrays.asList("MultiRecordOne", "MultiRecordTwo", "MultiRecordThree"),
                     new Index("all$elements", Key.Expressions.field("element", KeyExpression.FanType.Concatenate),
                             Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));

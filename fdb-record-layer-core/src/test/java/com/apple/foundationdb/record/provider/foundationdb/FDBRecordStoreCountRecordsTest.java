@@ -219,7 +219,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     private void recountAndClearRecords(boolean useIndex) throws Exception {
         final CountMetaDataHook countMetaDataHook = new CountMetaDataHook();
-        countMetaDataHook.baseHook = metaData -> metaData.removeIndex(COUNT_INDEX.getName());
+        countMetaDataHook.baseHook = metaData -> metaData.removeIndex(globalCountIndex().getName());
 
         final int startingPoint = 7890;
         final int value1 = 12345;
@@ -344,7 +344,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
     public void addCountIndex() throws Exception {
-        RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX.getName());
+        RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX_NAME);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, removeCountHook);
@@ -394,7 +394,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     @Test
     @SuppressWarnings("deprecation")
     public void addCountKey() throws Exception {
-        RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX.getName());
+        RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX_NAME);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, removeCountHook);
@@ -675,7 +675,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     private static RecordMetaDataHook countUpdatesKeyHook(KeyExpression key, int indexVersion) {
         return md -> {
-            md.removeIndex(COUNT_UPDATES_INDEX.getName());
+            md.removeIndex(COUNT_UPDATES_INDEX_NAME);
             Index index = new Index("record_update_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT_UPDATES);
             index.setLastModifiedVersion(indexVersion);
             md.addUniversalIndex(index);
@@ -686,7 +686,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     private static RecordMetaDataHook countKeyHook(KeyExpression key, boolean useIndex, int indexVersion) {
         if (useIndex) {
             return md -> {
-                md.removeIndex(COUNT_INDEX.getName());
+                md.removeIndex(COUNT_INDEX_NAME);
                 Index index = new Index("record_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT);
                 index.setLastModifiedVersion(indexVersion);
                 md.addUniversalIndex(index);

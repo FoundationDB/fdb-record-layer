@@ -72,7 +72,7 @@ import java.util.function.Function;
 public class FDBRecordStorePerformanceTest {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStorePerformanceTest.class);
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     static class DatabaseParameters {
         public Object[] path = {"record-test", "performance", "recordStore"};
@@ -162,7 +162,7 @@ public class FDBRecordStorePerformanceTest {
     }
 
     public void createMetaData() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(databaseParameters.pathCache);
         fdb = factory.getDatabase();
 

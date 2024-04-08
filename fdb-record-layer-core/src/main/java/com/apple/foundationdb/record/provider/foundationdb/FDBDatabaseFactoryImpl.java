@@ -28,6 +28,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,6 +93,16 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
      */
     @Nonnull
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+
+    @API(API.Status.INTERNAL)
+    @VisibleForTesting
+    public static FDBDatabaseFactoryImpl testInstance(@Nonnull FDB initedFDB, @Nonnull APIVersion apiVersion) {
+        final FDBDatabaseFactoryImpl impl = new FDBDatabaseFactoryImpl();
+        impl.fdb = initedFDB;
+        impl.apiVersion = apiVersion;
+        impl.inited = true;
+        return impl;
+    }
 
     @Nonnull
     public static FDBDatabaseFactoryImpl instance() {

@@ -60,9 +60,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class ConcatCursorTest {
 
     @RegisterExtension
-    static FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
-    TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     FDBDatabase fdb;
     FDBRecordContext context;
     private Subspace subspace;

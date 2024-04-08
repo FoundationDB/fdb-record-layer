@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public abstract class ResolverMappingReplicatorTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
@@ -73,7 +73,7 @@ public abstract class ResolverMappingReplicatorTest {
 
     @BeforeEach
     public void setupBase() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(100);
         database = dbExtension.getDatabase();
         database.clearCaches();
@@ -237,7 +237,7 @@ public abstract class ResolverMappingReplicatorTest {
     @Test
     public void testCopyInSameDatabase() {
         ResolverMappingReplicator replicator = new ResolverMappingReplicator(primary, 10);
-        FDBDatabase differentDB = new FDBDatabase(FDBDatabaseFactory.instance(), null);
+        FDBDatabase differentDB = new FDBDatabase(dbExtension.getDatabaseFactory(), null);
 
         KeySpacePath path = basePath.add("to").add("replica");
         try (FDBRecordContext context = differentDB.openContext()) {

@@ -34,6 +34,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -58,6 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RangeSet}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class RangeSetTest {
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
@@ -116,7 +119,7 @@ public class RangeSetTest {
     }
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         db = dbExtension.getDatabase();
         rsSubspace = rsSubspaceExtension.getSubspace();
         rs = new RangeSet(rsSubspace);

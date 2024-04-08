@@ -48,7 +48,6 @@ import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +70,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class FDBDatabaseRunnerTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
@@ -371,48 +370,40 @@ public class FDBDatabaseRunnerTest {
      */
     @Test
     public void runWithWeakReadSemantics() {
-        final boolean tracksReadVersions = database.isTrackLastSeenVersionOnRead();
-        final boolean tracksCommitVersions = database.isTrackLastSeenVersionOnCommit();
-        try {
-            database.setTrackLastSeenVersionOnRead(true);
-            database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
+        database.setTrackLastSeenVersionOnRead(true);
+        database.setTrackLastSeenVersionOnCommit(false); // disable commit tracking so that the stale read version is definitely the version remembered
 
-            final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
+        final byte[] key = Tuple.from(UUID.randomUUID()).pack(); // not actually modified, so value doesn't matter
 
-            // Commit something and cache just the read version
-            long firstReadVersion;
-            try (FDBDatabaseRunner runner = database.newRunner()) {
-                firstReadVersion = runner.run(context -> {
-                    context.ensureActive().addWriteConflictKey(key);
-                    return context.getReadVersion();
-                });
-            }
+        // Commit something and cache just the read version
+        long firstReadVersion;
+        try (FDBDatabaseRunner runner = database.newRunner()) {
+            firstReadVersion = runner.run(context -> {
+                context.ensureActive().addWriteConflictKey(key);
+                return context.getReadVersion();
+            });
+        }
 
-            // Begin a runner that then uses that cached read version but also conflicts with that transaction
-            try (FDBDatabaseRunner runner = database.newRunner()) {
-                FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(firstReadVersion, Long.MAX_VALUE, true);
-                runner.setWeakReadSemantics(weakReadSemantics);
-                runner.setMaxAttempts(3); // just so that if it loops more than twice, the test terminates faster
+        // Begin a runner that then uses that cached read version but also conflicts with that transaction
+        try (FDBDatabaseRunner runner = database.newRunner()) {
+            FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(firstReadVersion, Long.MAX_VALUE, true);
+            runner.setWeakReadSemantics(weakReadSemantics);
+            runner.setMaxAttempts(3); // just so that if it loops more than twice, the test terminates faster
 
-                final AtomicInteger attempts = new AtomicInteger(0);
-                runner.run(context -> {
-                    int attempt = attempts.getAndIncrement();
-                    if (attempt == 0) {
-                        assertEquals(firstReadVersion, context.getReadVersion(), "read version should have used cached version");
-                    } else {
-                        assertThat("read version should be updated on retry", context.getReadVersion(), greaterThan(firstReadVersion));
-                    }
-                    context.ensureActive().addReadConflictKey(key); // will cause conflict the first attempt
-                    context.ensureActive().addWriteConflictKey(key);
+            final AtomicInteger attempts = new AtomicInteger(0);
+            runner.run(context -> {
+                int attempt = attempts.getAndIncrement();
+                if (attempt == 0) {
+                    assertEquals(firstReadVersion, context.getReadVersion(), "read version should have used cached version");
+                } else {
+                    assertThat("read version should be updated on retry", context.getReadVersion(), greaterThan(firstReadVersion));
+                }
+                context.ensureActive().addReadConflictKey(key); // will cause conflict the first attempt
+                context.ensureActive().addWriteConflictKey(key);
 
-                    return null;
-                });
-                assertEquals(2, attempts.get());
-            }
-
-        } finally {
-            database.setTrackLastSeenVersionOnRead(tracksReadVersions);
-            database.setTrackLastSeenVersionOnCommit(tracksCommitVersions);
+                return null;
+            });
+            assertEquals(2, attempts.get());
         }
     }
 
@@ -474,63 +465,58 @@ public class FDBDatabaseRunnerTest {
 
     @Test
     void testRestoreMdc() {
-        Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
-        try {
-            ThreadContext.clearAll();
-            ThreadContext.put("outer", "Echidna");
-            final Map<String, String> outer = ThreadContext.getContext();
-            final ImmutableMap<String, String> restored = ImmutableMap.of("restored", "Platypus");
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        ThreadContext.clearAll();
+        ThreadContext.put("outer", "Echidna");
+        final Map<String, String> outer = ThreadContext.getContext();
+        final ImmutableMap<String, String> restored = ImmutableMap.of("restored", "Platypus");
 
-            FDBDatabaseFactory.instance().setExecutor(new ContextRestoringExecutor(
-                    new ForkJoinPool(2), ImmutableMap.of("executor", "Water Bear")));
-            AtomicInteger attempts = new AtomicInteger(0);
-            final FDBDatabaseRunner runner = database.newRunner(FDBRecordContextConfig.newBuilder().setMdcContext(restored));
-            List<Map<String, String>> threadContexts = new Vector<>();
-            Consumer<String> saveThreadContext =
-                    name -> threadContexts.add(threadContextPlus(name, attempts.get(), ThreadContext.getContext()));
-            final String runnerRunAsyncName = "runner runAsync";
-            final String supplyAsyncName = "supplyAsync";
-            final String handleName = "handle";
+        factory.setExecutor(new ContextRestoringExecutor(
+                new ForkJoinPool(2), ImmutableMap.of("executor", "Water Bear")));
+        AtomicInteger attempts = new AtomicInteger(0);
+        final FDBDatabaseRunner runner = database.newRunner(FDBRecordContextConfig.newBuilder().setMdcContext(restored));
+        List<Map<String, String>> threadContexts = new Vector<>();
+        Consumer<String> saveThreadContext =
+                name -> threadContexts.add(threadContextPlus(name, attempts.get(), ThreadContext.getContext()));
+        final String runnerRunAsyncName = "runner runAsync";
+        final String supplyAsyncName = "supplyAsync";
+        final String handleName = "handle";
 
-            // Delay starting the future until all callbacks have been set up so that the handle lambda
-            // runs in the context-restoring executor.
-            CompletableFuture<Void> signal = new CompletableFuture<>();
-            CompletableFuture<?> task = runner.runAsync(recordContext -> {
-                saveThreadContext.accept(runnerRunAsyncName);
-                return signal.thenCompose(vignore -> CompletableFuture.supplyAsync(() -> {
-                    saveThreadContext.accept(supplyAsyncName);
-                    if (attempts.getAndIncrement() == 0) {
-                        throw new RecordCoreRetriableTransactionException("Retriable and lessener",
-                                retriableError());
-                    } else {
-                        return null;
-                    }
-                }, recordContext.getExecutor()));
-            }).handle((result, exception) -> {
-                saveThreadContext.accept(handleName);
-                return exception;
+        // Delay starting the future until all callbacks have been set up so that the handle lambda
+        // runs in the context-restoring executor.
+        CompletableFuture<Void> signal = new CompletableFuture<>();
+        CompletableFuture<?> task = runner.runAsync(recordContext -> {
+            saveThreadContext.accept(runnerRunAsyncName);
+            return signal.thenCompose(vignore -> CompletableFuture.supplyAsync(() -> {
+                saveThreadContext.accept(supplyAsyncName);
+                if (attempts.getAndIncrement() == 0) {
+                    throw new RecordCoreRetriableTransactionException("Retriable and lessener",
+                            retriableError());
+                } else {
+                    return null;
+                }
+            }, recordContext.getExecutor()));
+        }).handle((result, exception) -> {
+            saveThreadContext.accept(handleName);
+            return exception;
 
-            });
-            signal.complete(null);
-            assertNull(task.join());
-            List<Map<String, String>> expected = ImmutableList.of(
-                    // first attempt:
-                    // it is known behavior that the first will be run in the current context
-                    threadContextPlus(runnerRunAsyncName, 0, outer),
-                    threadContextPlus(supplyAsyncName, 0, restored),
-                    // second attempt
-                    // the code that creates the future, should now have the correct MDC
-                    threadContextPlus(runnerRunAsyncName, 1, restored),
-                    threadContextPlus(supplyAsyncName, 1, restored),
-                    // handle
-                    // this should also have the correct MDC
-                    threadContextPlus(handleName, 2, restored));
-            assertEquals(expected, threadContexts);
-            assertEquals(outer, ThreadContext.getContext());
-        } finally {
-            FDBDatabaseFactory.instance().setExecutor(oldExecutor);
-        }
-
+        });
+        signal.complete(null);
+        assertNull(task.join());
+        List<Map<String, String>> expected = ImmutableList.of(
+                // first attempt:
+                // it is known behavior that the first will be run in the current context
+                threadContextPlus(runnerRunAsyncName, 0, outer),
+                threadContextPlus(supplyAsyncName, 0, restored),
+                // second attempt
+                // the code that creates the future, should now have the correct MDC
+                threadContextPlus(runnerRunAsyncName, 1, restored),
+                threadContextPlus(supplyAsyncName, 1, restored),
+                // handle
+                // this should also have the correct MDC
+                threadContextPlus(handleName, 2, restored));
+        assertEquals(expected, threadContexts);
+        assertEquals(outer, ThreadContext.getContext());
     }
 
     private Map<String, String> threadContextPlus(String name, final int attempt, final Map<String, String> threadContext) {

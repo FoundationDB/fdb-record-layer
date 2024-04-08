@@ -112,7 +112,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Tag(Tags.RequiresFDB)
 public abstract class LocatableResolverTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @RegisterExtension
     protected final TestingResolverFactory resolverFactory;
@@ -219,11 +219,10 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testDirectoryCache() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
 
         FDBStoreTimer timer = new FDBStoreTimer();
-
 
         FDBDatabase fdb = factory.getDatabase();
         fdb.close(); // Make sure cache is fresh.
@@ -247,7 +246,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testDirectoryCacheWithUncommittedContext() {
-        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase();
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -301,7 +300,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testCachesWinnerOfConflict() {
-        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase();
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -351,7 +350,7 @@ public abstract class LocatableResolverTest {
      */
     @Test
     void testDoesNotCacheValueReadFromReadYourWritesCache() {
-        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase();
         fdb.clearCaches();
 
         final String key = "hello " + UUID.randomUUID();
@@ -393,7 +392,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testResolveUseCacheCommits() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
 
         FDBStoreTimer timer = new FDBStoreTimer();
@@ -436,7 +435,7 @@ public abstract class LocatableResolverTest {
         Long baseline = database.getDirectoryCacheStats().hitCount();
         Long reverseCacheBaseline = database.getReverseDirectoryInMemoryCache().stats().hitCount();
         database.close();
-        database = FDBDatabaseFactory.instance().getDatabase();
+        database = dbExtension.getDatabase();
         try (FDBRecordContext context = database.openContext()) {
             for (Map.Entry<String, Long> entry : mappings.entrySet()) {
                 Long value = globalScope.resolve(context.getTimer(), entry.getKey()).join();
@@ -715,8 +714,9 @@ public abstract class LocatableResolverTest {
                     timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(0));
         }
 
-        FDBDatabaseFactory.instance().clear();
-        FDBDatabase newDatabase = FDBDatabaseFactory.instance().getDatabase();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        factory.clear();
+        FDBDatabase newDatabase = factory.getDatabase();
         FDBStoreTimer timer2 = new FDBStoreTimer();
         try (FDBRecordContext context = newDatabase.openContext(null, timer2)) {
             globalScope.resolve(context.getTimer(), "something").join();
@@ -930,7 +930,7 @@ public abstract class LocatableResolverTest {
 
     @Test
     void testVersionIncrementInvalidatesCache() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
         final FDBStoreTimer timer = new FDBStoreTimer();
         FDBDatabase fdb = factory.getDatabase();

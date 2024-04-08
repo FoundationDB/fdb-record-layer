@@ -49,6 +49,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -77,6 +78,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests to make sure that caching {@link FDBRecordStoreStateCacheEntry} objects work.
  */
 @Tag(Tags.RequiresFDB)
+@Isolated // Needs to be run in isolation because test key space path management can adjust the meta-data version
 public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     @Nonnull
     private static final ReadVersionRecordStoreStateCacheFactory readVersionCacheFactory = ReadVersionRecordStoreStateCacheFactory.newInstance();
@@ -1247,7 +1249,8 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "useWithDifferentDatabase (factory = {0})")
     @MethodSource("factorySource")
     public void useWithDifferentDatabase(FDBRecordStoreStateCacheFactory storeStateCacheFactory) throws Exception {
-        FDBRecordStoreStateCacheFactory currentCacheFactory = FDBDatabaseFactory.instance().getStoreStateCacheFactory();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        FDBRecordStoreStateCacheFactory currentCacheFactory = factory.getStoreStateCacheFactory();
         try {
             String clusterFile = FakeClusterFileUtil.createFakeClusterFile("record_store_cache_");
             FDBDatabaseFactory.instance().setStoreStateCacheFactory(readVersionCacheFactory);
@@ -1268,7 +1271,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             assertThat(ex.getMessage(), containsString("record store state cache used with different database"));
             assertSame(originalCache, fdb.getStoreStateCache());
         } finally {
-            FDBDatabaseFactory.instance().setStoreStateCacheFactory(currentCacheFactory);
+            factory.setStoreStateCacheFactory(currentCacheFactory);
         }
     }
 

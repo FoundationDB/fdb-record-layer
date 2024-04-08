@@ -872,7 +872,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
 
         // Test call getVersionChanged after opening a store with metadata update
-        metadata.addUniversalIndex(COUNT_INDEX);
+        metadata.addUniversalIndex(globalCountIndex());
         final int secondVersion = metadata.getVersion();
         assertThat(secondVersion, greaterThan(firstVersion));
         try (FDBRecordContext context = fdb.openContext()) {

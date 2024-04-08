@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
@@ -29,7 +28,6 @@ import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 
 import java.io.IOException;
@@ -55,15 +53,6 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     private static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     public LuceneOptimizedStoredFieldsFormatTest() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.getDatabase();
-    }
-
-    @BeforeClass
-    public static void beforeClass() throws Exception {
-        // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
-        // but that class is JUnit4
-        dbExtension.beforeAll(null);
     }
 
     @Override
@@ -84,6 +73,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     public void setUp() throws Exception {
         super.setUp();
         TestingCodec.reset();
+        // We have to manually call the extension call backs because this is a JUnit4 class
         dbExtension.beforeEach(null);
         TestFDBDirectory.reset();
     }

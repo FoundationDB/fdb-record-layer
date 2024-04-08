@@ -66,8 +66,6 @@ import com.apple.test.Tags;
 import com.google.common.primitives.Longs;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -97,40 +95,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class LeaderboardIndexTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private FDBDatabase fdb;
     KeySpacePath path;
     FDBStoreTimer metrics;
-    private static int oldMaxAttempts;
     private static final int TEST_MAX_ATTEMPTS = 100;
-    private static long oldMaxDelay;
     private static final long TEST_MAX_DELAY = 10L;
-
-    private static final boolean TRACE = false;
-
-    @BeforeAll
-    public static void initializeRetryPolicy() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        if (TRACE) {
-            factory.setTrace("/tmp", "LeaderboardIndexTest");
-        }
-        oldMaxAttempts = factory.getMaxAttempts();
-        factory.setMaxAttempts(TEST_MAX_ATTEMPTS);
-        oldMaxDelay = factory.getMaxDelayMillis();
-        factory.setMaxDelayMillis(TEST_MAX_DELAY);
-    }
-
-    @AfterAll
-    public static void resetRetryPolicy() {
-        FDBDatabaseFactory.instance().setMaxAttempts(oldMaxAttempts);
-        FDBDatabaseFactory.instance().setMaxDelayMillis(oldMaxDelay);
-    }
 
     @BeforeEach
     void setUp() {
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        factory.setMaxAttempts(TEST_MAX_ATTEMPTS);
+        factory.setMaxDelayMillis(TEST_MAX_DELAY);
+
         fdb = dbExtension.getDatabase();
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         metrics = new FDBStoreTimer();
@@ -1263,14 +1243,14 @@ public class LeaderboardIndexTest {
         }
 
         FDBRecordContext context1 = openContext();
-        if (TRACE) {
+        if (FDBDatabaseExtension.TRACE) {
             context1.ensureActive().options().setDebugTransactionIdentifier("tr1");
             context1.ensureActive().options().setLogTransaction();
         }
         Leaderboards leaderboards1 = new FlatLeaderboards();
         leaderboards1.recordStore = leaderboards.recordStore.asBuilder().setContext(context1).build();
         FDBRecordContext context2 = openContext();
-        if (TRACE) {
+        if (FDBDatabaseExtension.TRACE) {
             context2.ensureActive().options().setDebugTransactionIdentifier("tr2");
             context2.ensureActive().options().setLogTransaction();
         }

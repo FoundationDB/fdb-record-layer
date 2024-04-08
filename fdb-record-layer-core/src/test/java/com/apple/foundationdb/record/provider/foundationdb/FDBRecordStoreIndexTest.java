@@ -81,6 +81,8 @@ import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
@@ -133,6 +135,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for indexes in {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreIndexTest.class);
 
@@ -2026,11 +2029,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             if (withCount) {
-                builder.addUniversalIndex(COUNT_INDEX);
+                builder.addUniversalIndex(globalCountIndex());
             }
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path)
                     .setUserVersionChecker(alwaysEnabled).createOrOpen();
-            assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX.getName()));
+            assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX_NAME));
             TestNoIndexesProto.MySimpleRecord recordA = TestNoIndexesProto.MySimpleRecord.newBuilder()
                     .setNumValue(3).setStrValue("boo").build();
             recordStore.saveRecord(recordA);
@@ -2044,7 +2047,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             if (withCount) {
-                builder.addUniversalIndex(COUNT_INDEX);
+                builder.addUniversalIndex(globalCountIndex());
             }
             builder.addIndex(recordType, originalIndex);
 
@@ -2058,7 +2061,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             if (withCount) {
-                builder.addUniversalIndex(COUNT_INDEX);
+                builder.addUniversalIndex(globalCountIndex());
             }
             builder.addIndex(recordType, originalIndex);
             builder.removeIndex(originalIndex.getName());
@@ -2177,14 +2180,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         };
 
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
-        metaData.addUniversalIndex(COUNT_INDEX);
+        metaData.addUniversalIndex(globalCountIndex());
 
         final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                 .setUserVersionChecker(selectiveEnable).setMetaDataProvider(metaData);
 
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).setKeySpacePath(path).create(); // builds count index
-            assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX.getName()));
+            assertTrue(recordStore.getRecordStoreState().isReadable(COUNT_INDEX_NAME));
             TestNoIndexesProto.MySimpleRecord recordA = TestNoIndexesProto.MySimpleRecord.newBuilder()
                     .setNumValue(3).setStrValue("boo").build();
             recordStore.saveRecord(recordA);
@@ -2707,7 +2710,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("deprecation")
     public void testBoundaryPrimaryKeysImpl() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
         factory.clear();
         FDBDatabase database = factory.getDatabase();
@@ -2788,9 +2791,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @SuppressWarnings("deprecation")
     public void testNoBoundaryPrimaryKeysImpl() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
-        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase database = factory.getDatabase();
 
         final String indexName = "MySimpleRecord$num_value_unique";
         try (FDBRecordContext context = database.openContext()) {
@@ -2884,7 +2887,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     public void testMockedLocalityUtilImpl() {
-        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
 
         try (FDBRecordContext context = database.openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
@@ -2920,11 +2923,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void runLocalityTest(Runnable test) {
-        final FDBLocalityProvider origProvider = FDBDatabaseFactory.instance().getLocalityProvider();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        final FDBLocalityProvider origProvider = factory.getLocalityProvider();
         try {
             test.run();
         } finally {
-            FDBDatabaseFactory.instance().setLocalityProvider(origProvider);
+            factory.setLocalityProvider(origProvider);
         }
     }
 }

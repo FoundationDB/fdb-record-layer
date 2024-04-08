@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -668,7 +667,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest
     void containsNullScore() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             recordStore.deleteAllRecords(); // Undo loadRecords().
@@ -750,7 +749,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest
     void writeOnlyRankQuery() {
         assertThrows(RecordCoreException.class, () -> {
-            fdb = FDBDatabaseFactory.instance().getDatabase();
+            fdb = dbExtension.getDatabase();
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
                 recordStore.markIndexWriteOnly("rank_by_gender").join();
@@ -781,7 +780,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     @Test
     void writeOnlyLookup() {
         assertThrows(RecordCoreException.class, () -> {
-            fdb = FDBDatabaseFactory.instance().getDatabase();
+            fdb = dbExtension.getDatabase();
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context);
                 recordStore.markIndexWriteOnly("rank_by_gender").join();
@@ -802,7 +801,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest
     void nestedRankQuery() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             recordStore.deleteAllRecords(); // Undo loadRecords().
@@ -883,7 +882,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     
     @DualPlannerTest
     void repeatedRankQuerySimple() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             recordStore.deleteAllRecords(); // Undo loadRecords().
@@ -979,7 +978,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void repeatedRankQuery() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             recordStore.deleteAllRecords(); // Undo loadRecords().
@@ -1135,7 +1134,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     private void repeatedRank(List<TestRecordsRankProto.RepeatedRankedRecord> records) throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             recordStore.deleteAllRecords(); // Undo loadRecords().
@@ -1570,7 +1569,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         assertThrows(RecordIndexUniquenessViolation.class, () -> {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, md -> {
-                    md.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
+                    md.addUniversalIndex(FDBRecordStoreTestBase.globalCountIndex());
                     md.removeIndex("rank_by_gender");
                     md.addIndex("BasicRankedRecord",
                             new Index("unique_rank_by_gender", field("score").groupBy(field("gender")), EmptyKeyExpression.EMPTY,
@@ -1597,7 +1596,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, md -> {
-                md.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
+                md.addUniversalIndex(FDBRecordStoreTestBase.globalCountIndex());
                 md.removeIndex("rank_by_gender");
                 md.addIndex("BasicRankedRecord",
                         new Index("unique_rank_by_gender", field("score").groupBy(field("gender")), EmptyKeyExpression.EMPTY,
@@ -1859,7 +1858,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     @Test
     @Tag(Tags.Slow)
     public void testForRankUpdateTimingError() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
 
         // The NPE happens every so often, so I'm doing it 20 times as that seems to be "enough".
         for (int i = 0; i < 20; i++) {

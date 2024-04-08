@@ -55,7 +55,7 @@ import static org.hamcrest.Matchers.not;
 @Tag(Tags.RequiresFDB)
 public class ResolverMappingDigestTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private FDBDatabase database;
@@ -64,7 +64,7 @@ public class ResolverMappingDigestTest {
 
     @BeforeEach
     public void setup() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(100);
         database = dbExtension.getDatabase();
         basePath = pathManager.createPath(TestKeySpace.RESOLVER_MAPPING_REPLICATOR);

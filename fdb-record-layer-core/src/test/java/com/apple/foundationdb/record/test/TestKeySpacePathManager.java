@@ -24,9 +24,12 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
@@ -96,16 +99,22 @@ public class TestKeySpacePathManager implements AutoCloseable {
     public void close() {
         if (!closed) {
             if (!paths.isEmpty()) {
-                db.run(context -> {
-                    for (KeySpacePath path : paths) {
-                        if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug(KeyValueLogMessage.of("deleting test key space path",
-                                    LogMessageKeys.KEY_SPACE_PATH, path.toString(path.toTuple(context))));
+                final FDBRecordContextConfig.Builder config = FDBRecordContextConfig.newBuilder()
+                        .setTransactionId("pathManager_" + UUID.randomUUID())
+                        .setLogTransaction(true)
+                        .setMdcContext(MDC.getCopyOfContextMap());
+                try (FDBDatabaseRunner runner = db.newRunner(config)) {
+                    runner.run(context -> {
+                        for (KeySpacePath path : paths) {
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug(KeyValueLogMessage.of("deleting test key space path",
+                                        LogMessageKeys.KEY_SPACE_PATH, path.toString(path.toTuple(context))));
+                            }
+                            path.deleteAllData(context);
                         }
-                        path.deleteAllData(context);
-                    }
-                    return null;
-                });
+                        return null;
+                    });
+                }
             }
             closed = true;
         }

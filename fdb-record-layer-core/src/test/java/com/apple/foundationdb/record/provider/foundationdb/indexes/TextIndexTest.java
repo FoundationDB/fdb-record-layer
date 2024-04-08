@@ -3221,8 +3221,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
         long startTime = System.nanoTime();
 
-        int oldMaxAttempts = FDBDatabaseFactory.instance().getMaxAttempts();
-        FDBDatabaseFactory.instance().setMaxAttempts(Integer.MAX_VALUE);
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        int oldMaxAttempts = factory.getMaxAttempts();
+        factory.setMaxAttempts(Integer.MAX_VALUE);
 
         try {
             CompletableFuture<?>[] workerFutures = new CompletableFuture<?>[10];
@@ -3264,7 +3265,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             LOGGER.info("performed 1000 parallel insertions in {} seconds.", (endTime - startTime) * 1e-9);
             printUsage();
         } finally {
-            FDBDatabaseFactory.instance().setMaxAttempts(oldMaxAttempts);
+            factory.setMaxAttempts(oldMaxAttempts);
         }
     }
 }

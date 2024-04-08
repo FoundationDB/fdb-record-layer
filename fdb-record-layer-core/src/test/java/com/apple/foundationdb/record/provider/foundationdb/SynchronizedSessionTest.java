@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public abstract class SynchronizedSessionTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronizedSessionTest.class);
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 

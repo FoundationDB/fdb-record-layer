@@ -82,7 +82,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class FDBReverseDirectoryCacheTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     private static final Logger logger = LoggerFactory.getLogger(FDBReverseDirectoryCacheTest.class);
 
@@ -93,7 +93,7 @@ public class FDBReverseDirectoryCacheTest {
 
     @BeforeEach
     public void getFDB() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(100);
         long seed = System.currentTimeMillis();
         System.out.println("Seed " + seed);
@@ -390,7 +390,7 @@ public class FDBReverseDirectoryCacheTest {
         // this is to simulate multiple VMs
         final int parallelism = 20;
         testParallelReverseDirectoryCache(parallelism, true,
-                () -> new FDBDatabase(FDBDatabaseFactory.instance(), null));
+                () -> new FDBDatabase(dbExtension.getDatabaseFactory(), null));
     }
 
     @Test
@@ -407,7 +407,7 @@ public class FDBReverseDirectoryCacheTest {
         // this is to simulate multiple VMs
         final int parallelism = 20;
         testParallelReverseDirectoryCache(parallelism, false,
-                () -> new FDBDatabase(FDBDatabaseFactory.instance(), null));
+                dbExtension::getDatabase);
     }
 
     private void testParallelReverseDirectoryCache(int parallelism, boolean preInitReverseDirectoryCache,
@@ -448,10 +448,12 @@ public class FDBReverseDirectoryCacheTest {
             commit(ctx);
         }
 
-        // Force the creation of a new FDB instance
-        FDBDatabaseFactory.instance().clear();
 
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+
+        // Force the creation of a new FDB instance
+        factory.clear();
+
         // we are running a bunch of code in a supplyAsync method, so the blocking detection will catch that and complain
         // we could rework the code to either not use CompletableFuture.supplyAsync, or remove the asyncToSync in the
         // parallelCode, but that's a bit more work.
@@ -459,7 +461,7 @@ public class FDBReverseDirectoryCacheTest {
         try {
             factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.DISABLED);
             // Get a fresh new one
-            fdb = FDBDatabaseFactory.instance().getDatabase();
+            fdb = factory.getDatabase();
 
             final Executor executor = new ForkJoinPool(parallelism + 1);
             final Semaphore lock = new Semaphore(parallelism);
@@ -585,11 +587,13 @@ public class FDBReverseDirectoryCacheTest {
             commit(ctx);
         }
 
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+
         // Force the creation of a new FDB instance
-        FDBDatabaseFactory.instance().clear();
+        factory.clear();
 
         // Get a fresh new one
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = factory.getDatabase();
         cache = fdb.getReverseDirectoryCache();
 
         // In the hopes to ensure that re-creating the entries that we previously created

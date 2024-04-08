@@ -230,12 +230,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         this.dirtyStoreState = false;
     }
 
-    @Nonnull
     /**
      * Get the {@link FDBRecordContextConfig} used to open this context.
      * @return the config
      * @see FDBDatabase#openContext(FDBRecordContextConfig)
      */
+    @Nonnull
     public FDBRecordContextConfig getConfig() {
         return config;
     }

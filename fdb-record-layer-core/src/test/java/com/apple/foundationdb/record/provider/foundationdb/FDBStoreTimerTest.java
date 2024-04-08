@@ -73,9 +73,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBStoreTimerTest {
     @RegisterExtension
-    static FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
-    TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     FDBDatabase fdb;
     KeySpacePath path;
     FDBRecordContext context;
@@ -408,8 +408,9 @@ public class FDBStoreTimerTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final Tuple t = Tuple.from(1L);
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         try {
-            FDBDatabaseFactory.instance().setTransactionListener(listener);
+            factory.setTransactionListener(listener);
             for (int i = 0; i < 3; i++) {
                 try (FDBRecordContext context = fdb.openContext(null, timer)) {
                     Transaction tr = context.ensureActive();
@@ -434,7 +435,7 @@ public class FDBStoreTimerTest {
             assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), equalTo(listener.commits));
             assertThat(listener.closes, equalTo(3));
         } finally {
-            FDBDatabaseFactory.instance().setTransactionListener(null);
+            factory.setTransactionListener(null);
         }
     }
 

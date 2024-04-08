@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 @Tag(Tags.RequiresFDB)
 public class TupleTypeUtilTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @BeforeEach
     void ensureInit() {

@@ -60,6 +60,8 @@ import com.google.common.base.Strings;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -89,6 +91,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for scan limits in {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreScanLimitTest.class);

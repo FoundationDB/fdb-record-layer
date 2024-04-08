@@ -68,7 +68,7 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
         resolvers.clear();
         knownBadEntries.clear();
 
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(100);
         factory.clear();
         database = dbExtension.getDatabase();

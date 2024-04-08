@@ -809,11 +809,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
-        final Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        final Executor oldExecutor = factory.getExecutor();
         final ExecutorService oldExecutorService = executorService;
         try {
             // limit the FJP size to try and force the # segments to exceed the # threads
-            FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
+            factory.setExecutor(new ForkJoinPool(PARALLELISM,
                     ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                     null, false));
             CountingThreadFactory threadFactory = new CountingThreadFactory();
@@ -851,7 +852,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             }
         } finally {
             // Restore the old executor so as not to disrupt other tests
-            FDBDatabaseFactory.instance().setExecutor(oldExecutor);
+            factory.setExecutor(oldExecutor);
             executorService = oldExecutorService;
         }
     }
@@ -1311,15 +1312,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         // Since the test tries to create many segments (each one opens in its own thread), we need to use random data
         // (random words) rather than using random English words from a canned text. With English text, Lucene compression
         // reduces the size of the segment such that we need many more records to create the required number of segments
-        final Executor oldExecutor = FDBDatabaseFactory.instance().getExecutor();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        final Executor oldExecutor = factory.getExecutor();
         final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout =
-                FDBDatabaseFactory.instance().getDatabase().getAsyncToSyncTimeout();
+                factory.getDatabase().getAsyncToSyncTimeout();
         try {
             // limit the FJP size to try and force the # segments to exceed the # threads
-            FDBDatabaseFactory.instance().setExecutor(new ForkJoinPool(PARALLELISM,
+            factory.setExecutor(new ForkJoinPool(PARALLELISM,
                     ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                     null, false));
-            FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout(event -> {
+            factory.getDatabase().setAsyncToSyncTimeout(event -> {
                 // Make AsyncToSync calls timeout after one second, otherwise a deadlock would just result in the test taking forever
                 return new ImmutablePair<>(1L, TimeUnit.SECONDS);
             });
@@ -1346,8 +1348,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             }
         } finally {
             // Restore the old executor so as not to disrupt other tests
-            FDBDatabaseFactory.instance().setExecutor(oldExecutor);
-            FDBDatabaseFactory.instance().getDatabase().setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
+            factory.setExecutor(oldExecutor);
+            factory.getDatabase().setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
         }
     }
 }

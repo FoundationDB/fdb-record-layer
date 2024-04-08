@@ -81,9 +81,7 @@ public final class BaseIndexFileFormatTestCaseUtils {
     }
 
     public static void beforeClass() {
-        // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
-        // but that class is JUnit4
-        dbExtension.beforeAll(null);
+        // We have to manually call the extension because this is a JUnit4 class
         dbExtension.beforeEach(null);
     }
 

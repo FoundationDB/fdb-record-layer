@@ -123,7 +123,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 

@@ -26,6 +26,7 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -35,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -45,7 +48,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
@@ -54,15 +56,14 @@ import java.util.stream.Stream;
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
+@Execution(ExecutionMode.CONCURRENT)
 public class RTreeModificationTest {
     private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
-    private static final boolean TRACE = false;
-
     private static final int NUM_TEST_RUNS = 5;
     private static final int NUM_SAMPLES = 10_000;
 
     @RegisterExtension
-    static final TestDatabaseExtension dbExtension = new TestDatabaseExtension(TRACE);
+    static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
     @RegisterExtension
     TestSubspaceExtension rtSubspace = new TestSubspaceExtension(dbExtension);
     @RegisterExtension
@@ -81,7 +82,7 @@ public class RTreeModificationTest {
         final RTreeScanTest.OnWriteCounters onWriteCounters = new RTreeScanTest.OnWriteCounters();
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
 
-        final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), ForkJoinPool.commonPool(), config,
+        final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, onWriteCounters,
                 onReadCounters);
         final long startTs = System.nanoTime();
@@ -139,7 +140,7 @@ public class RTreeModificationTest {
     @MethodSource("numSamplesAndNumDeletes")
     public void testRandomDeletes(@Nonnull final RTree.Config config, final long seed, final int numSamples, final int numDeletes) {
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
-        final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), ForkJoinPool.commonPool(), config,
+        final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         final Item[] items = randomInserts(db, rTree, seed, numSamples);
@@ -201,7 +202,7 @@ public class RTreeModificationTest {
             }
         };
 
-        final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), ForkJoinPool.commonPool(),
+        final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), TestExecutors.defaultThreadPool(),
                 new RTree.ConfigBuilder().build(),
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadListener);

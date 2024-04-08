@@ -28,6 +28,8 @@ import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Test extension to use to get a connection to an FDB {@link Database}. This handles setting up the FDB
@@ -48,16 +50,14 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     private static final int MIN_API_VERSION = 630;
     private static final int MAX_API_VERSION = 710;
     private static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
+    private static final boolean TRACE = false;
 
-    private final boolean trace;
+    @Nullable
+    private static volatile FDB fdb;
+
     private Database db;
 
     public TestDatabaseExtension() {
-        this(false);
-    }
-
-    public TestDatabaseExtension(boolean trace) {
-        this.trace = trace;
     }
 
     public static int getAPIVersion() {
@@ -69,17 +69,28 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
         return apiVersion;
     }
 
+    @Nonnull
+    private static FDB getFDB() {
+        if (fdb == null) {
+            synchronized (TestDatabaseExtension.class) {
+                if (fdb == null) {
+                    FDB inst = FDB.selectAPIVersion(getAPIVersion());
+                    if (TRACE) {
+                        NetworkOptions options = inst.options();
+                        options.setTraceEnable("/tmp");
+                        options.setTraceLogGroup("fdb_extensions_tests");
+                    }
+                    inst.setUnclosedWarning(true);
+                    fdb = inst;
+                }
+            }
+        }
+        return Objects.requireNonNull(fdb);
+    }
+
     @Override
     public void beforeAll(final ExtensionContext extensionContext) {
-        if (!FDB.isAPIVersionSelected()) {
-            FDB fdb = FDB.selectAPIVersion(getAPIVersion());
-            if (trace) {
-                NetworkOptions options = fdb.options();
-                options.setTraceEnable("/tmp");
-                options.setTraceLogGroup("fdb_extensions_tests");
-            }
-            fdb.setUnclosedWarning(true);
-        }
+        getFDB();
     }
 
     @Nonnull

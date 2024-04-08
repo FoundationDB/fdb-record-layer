@@ -27,6 +27,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
 import java.io.BufferedReader;
@@ -43,9 +45,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Test class for {@link FDBSystemOperations}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBSystemOperationsTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     private FDBDatabase fdb;
     private FDBStoreTimer timer;
 
@@ -62,14 +65,14 @@ public class FDBSystemOperationsTest {
     }
 
     @Test
-    public void primaryDatacenter() {
+    void primaryDatacenter() {
         // Because we don't know what the data-center was set to run the test, the best this test
         // can do is validate that this doesn't throw an error.
         run(FDBSystemOperations::getPrimaryDatacenter);
     }
 
     @Test
-    public void clusterFilePath() {
+    void clusterFilePath() {
         String clusterFilePath = run(FDBSystemOperations::getClusterFilePath);
         assertNotNull(clusterFilePath);
 
@@ -81,9 +84,9 @@ public class FDBSystemOperationsTest {
     }
 
     @Test
-    public void fakeClusterFilePath() throws IOException {
+    void fakeClusterFilePath() throws IOException {
         String fakeClusterFilePath = FakeClusterFileUtil.createFakeClusterFile("readClusterFilePath");
-        final FDBDatabase fakeDatabase = FDBDatabaseFactory.instance().getDatabase(fakeClusterFilePath);
+        final FDBDatabase fakeDatabase = dbExtension.getDatabaseFactory().getDatabase(fakeClusterFilePath);
         final String readClusterFilePath;
         try (FDBDatabaseRunner runner = fakeDatabase.newRunner()) {
             readClusterFilePath = FDBSystemOperations.getClusterFilePath(runner);
@@ -92,20 +95,20 @@ public class FDBSystemOperationsTest {
     }
 
     @Test
-    public void clusterConnectionString() {
+    void clusterConnectionString() {
         String connectionString = run(FDBSystemOperations::getConnectionString);
         assertNotNull(connectionString);
     }
 
     @Test
-    public void fakeClusterConnectionString() throws IOException {
+    void fakeClusterConnectionString() throws IOException {
         final String fakeClusterFilePath = FakeClusterFileUtil.createFakeClusterFile("readConnectionString");
         String fakeConnectionString;
         try (BufferedReader reader = new BufferedReader(new FileReader(fakeClusterFilePath))) {
             fakeConnectionString = reader.readLine();
         }
 
-        final FDBDatabase fakeDatabase = FDBDatabaseFactory.instance().getDatabase(fakeClusterFilePath);
+        final FDBDatabase fakeDatabase = dbExtension.getDatabaseFactory().getDatabase(fakeClusterFilePath);
         String readConnectionString;
         try (FDBDatabaseRunner runner = fakeDatabase.newRunner()) {
             readConnectionString = FDBSystemOperations.getConnectionString(runner);

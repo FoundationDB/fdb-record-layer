@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.util.LoggableException;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -143,7 +143,7 @@ public class FallbackCursorTest {
         private boolean closed = false;
 
         public FailingCursor(int numOfElementsBeforeFailure) {
-            executor = ForkJoinPool.commonPool();
+            executor = TestExecutors.defaultThreadPool();
             list = listOfLength(numOfElementsBeforeFailure);
         }
 

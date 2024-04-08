@@ -20,13 +20,14 @@
 
 package com.apple.foundationdb.record.test;
 
+import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
 import com.apple.foundationdb.record.provider.foundationdb.BlockingInAsyncDetection;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
+import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
@@ -34,6 +35,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
+import java.util.concurrent.Executor;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Extension that allows the user to specify the database. It ensures that FDB has been properly initialized
@@ -46,17 +51,25 @@ import javax.annotation.Nullable;
  *     static final FDBDatabaseExtension = new FDBDatabaseExtension();
  * }</pre>
  */
-public class FDBDatabaseExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback {
+public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseExtension.class);
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
+    public static final boolean TRACE = false;
+    @Nullable
+    private static volatile FDB fdb;
+    @Nullable
+    private FDBDatabaseFactory databaseFactory;
     @Nullable
     private FDBDatabase db;
 
     public FDBDatabaseExtension() {
     }
 
-    public APIVersion getAPIVersion() {
+    @Nonnull
+    private static final Executor threadPoolExecutor = TestExecutors.newThreadPool("fdb-record-layer-test");
+
+    public static APIVersion getAPIVersion() {
         String apiVersionStr = System.getProperty(API_VERSION_PROPERTY);
         if (apiVersionStr == null) {
             return APIVersion.getDefault();
@@ -64,13 +77,27 @@ public class FDBDatabaseExtension implements BeforeAllCallback, BeforeEachCallba
         return APIVersion.fromVersionNumber(Integer.parseInt(apiVersionStr));
     }
 
-    public void initFDB() {
-        FDBDatabaseFactoryImpl factory = FDBDatabaseFactory.instance();
-        factory.setAPIVersion(getAPIVersion());
-        factory.setUnclosedWarning(true);
+    @Nonnull
+    private static FDB getInitedFDB() {
+        if (fdb == null) {
+            synchronized (FDBDatabaseExtension.class) {
+                if (fdb == null) {
+                    FDBDatabaseFactory baseFactory = FDBDatabaseFactory.instance();
+                    if (TRACE) {
+                        baseFactory.setTrace(".", "fdb_record_layer_test");
+                    }
+                    baseFactory.setAPIVersion(getAPIVersion());
+                    baseFactory.setUnclosedWarning(true);
+                    FDBDatabase unused = baseFactory.getDatabase();
+                    unused.close();
+                    fdb = FDB.instance();
+                }
+            }
+        }
+        return Objects.requireNonNull(fdb);
     }
 
-    public void setupBlockingInAsyncDetection() {
+    public void setupBlockingInAsyncDetection(@Nonnull FDBDatabaseFactory factory) {
         final String str = System.getProperty(BLOCKING_IN_ASYNC_PROPERTY);
         if (str != null) {
             final BlockingInAsyncDetection detection;
@@ -80,32 +107,37 @@ public class FDBDatabaseExtension implements BeforeAllCallback, BeforeEachCallba
                 LOGGER.error("Illegal value provided for " + BLOCKING_IN_ASYNC_PROPERTY + ": " + str);
                 return;
             }
-            FDBDatabaseFactory.instance().setBlockingInAsyncDetection(detection);
+            factory.setBlockingInAsyncDetection(detection);
             if (detection != BlockingInAsyncDetection.DISABLED) {
                 LOGGER.info("Blocking-in-async is " + detection);
             }
         }
     }
 
-    @Override
-    public void beforeAll(final ExtensionContext extensionContext) {
-        setupBlockingInAsyncDetection();
-        initFDB();
+    @Nonnull
+    public FDBDatabaseFactory getDatabaseFactory() {
+        if (databaseFactory == null) {
+            // Create a new one to avoid polluting the caches or global state stored in the factory
+            databaseFactory = FDBDatabaseFactoryImpl.testInstance(getInitedFDB(), getAPIVersion());
+            if (TRACE) {
+                databaseFactory.setTransactionIsTracedSupplier(() -> true);
+            }
+            setupBlockingInAsyncDetection(databaseFactory);
+            databaseFactory.setExecutor(threadPoolExecutor);
+        }
+        return databaseFactory;
     }
 
     @Override
     public void beforeEach(final ExtensionContext extensionContext) {
-        if (db != null) {
-            db.close();
-            db = null;
-        }
-        FDBDatabaseFactory.instance().clear();
+        // Ensure that FDB is initialized before the test begins
+        getDatabaseFactory();
     }
 
     @Nonnull
     public FDBDatabase getDatabase() {
         if (db == null) {
-            db = FDBDatabaseFactory.instance().getDatabase();
+            db = getDatabaseFactory().getDatabase();
         }
         return db;
     }
@@ -113,8 +145,12 @@ public class FDBDatabaseExtension implements BeforeAllCallback, BeforeEachCallba
     @Override
     public void afterEach(final ExtensionContext extensionContext) {
         if (db != null) {
+            // Validate that the test closes all of the transactions that it opens
+            int count = db.warnAndCloseOldTrackedOpenContexts(0);
+            assertEquals(0, count, "should not have left any contexts open");
             db.close();
             db = null;
         }
+        getDatabaseFactory().clear();
     }
 }

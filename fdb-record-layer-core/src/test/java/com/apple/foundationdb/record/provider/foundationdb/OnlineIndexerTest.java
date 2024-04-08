@@ -37,8 +37,6 @@ import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -61,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public abstract class OnlineIndexerTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
@@ -72,29 +70,6 @@ public abstract class OnlineIndexerTest {
     FDBRecordStore recordStore;
     private IndexMaintenanceFilter indexMaintenanceFilter;
     int formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
-
-    private static long oldMaxDelayMillis;
-    private static long oldInitialDelayMillis;
-    private static int oldMaxAttempts;
-
-    @BeforeAll
-    public static void setUpForClass() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        oldInitialDelayMillis = factory.getInitialDelayMillis();
-        factory.setInitialDelayMillis(2L);
-        oldMaxDelayMillis = factory.getMaxDelayMillis();
-        factory.setMaxDelayMillis(4L);
-        oldMaxAttempts = factory.getMaxAttempts();
-        factory.setMaxAttempts(100);
-    }
-
-    @AfterAll
-    public static void tearDownForClass() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setMaxDelayMillis(oldMaxDelayMillis);
-        factory.setInitialDelayMillis(oldInitialDelayMillis);
-        factory.setMaxAttempts(oldMaxAttempts);
-    }
 
     public void setIndexMaintenanceFilter(@Nullable IndexMaintenanceFilter indexMaintenanceFilter) {
         this.indexMaintenanceFilter = indexMaintenanceFilter;
@@ -111,6 +86,11 @@ public abstract class OnlineIndexerTest {
 
     @BeforeEach
     public void setUp() {
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        factory.setInitialDelayMillis(2L);
+        factory.setMaxDelayMillis(4L);
+        factory.setMaxAttempts(100);
+
         fdb = dbExtension.getDatabase();
         fdb.setAsyncToSyncTimeout(5, TimeUnit.MINUTES);
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);

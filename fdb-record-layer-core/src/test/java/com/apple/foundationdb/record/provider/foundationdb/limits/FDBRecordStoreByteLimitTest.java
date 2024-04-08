@@ -53,6 +53,8 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -88,6 +90,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for the byte scan limit on query execution.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
     private static final StoreTimerByteCounter byteCounter = new StoreTimerByteCounter();
 

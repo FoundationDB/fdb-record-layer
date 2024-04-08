@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Tag(Tags.RequiresFDB)
 class BlockingInAsyncDetectionTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @BeforeEach
     void ensureInit() {
@@ -55,12 +55,12 @@ class BlockingInAsyncDetectionTest {
         // this should be the default
         assertEquals(
                 BlockingInAsyncDetection.IGNORE_COMPLETE_EXCEPTION_BLOCKING,
-                FDBDatabaseFactory.instance().getBlockingInAsyncDetectionSupplier().get());
+                dbExtension.getDatabaseFactory().getBlockingInAsyncDetectionSupplier().get());
     }
 
     @Test
     void testBlockingInAsyncException() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_EXCEPTION_BLOCKING);
 
         // Make sure that we aren't holding on to previously created databases
@@ -73,7 +73,7 @@ class BlockingInAsyncDetectionTest {
 
     @Test
     void testBlockingInAsyncWarning() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING);
         factory.clear();
 
@@ -87,7 +87,7 @@ class BlockingInAsyncDetectionTest {
 
     @Test
     void testCompletedBlockingInAsyncWarning() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
 
@@ -99,8 +99,8 @@ class BlockingInAsyncDetectionTest {
     }
 
     @Test
-    void testBlockingCreatingAsyncDetection() throws Exception {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+    void testBlockingCreatingAsyncDetection() {
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
 
@@ -111,7 +111,7 @@ class BlockingInAsyncDetectionTest {
 
     @Test
     void testCompletedBlockingCreatingAsyncDetection() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(BlockingInAsyncDetection.WARN_COMPLETE_EXCEPTION_BLOCKING);
         factory.clear();
 

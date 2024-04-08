@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import javax.annotation.Nonnull;
 import java.io.Closeable;
@@ -46,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+@Isolated // To avoid contention on the thread pool with other tests running in parallel
 class LazyCloseableTest {
 
     @Test

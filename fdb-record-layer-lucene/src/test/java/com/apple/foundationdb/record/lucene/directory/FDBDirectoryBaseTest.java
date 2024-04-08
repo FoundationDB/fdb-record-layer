@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -43,7 +44,7 @@ import java.util.Random;
  */
 public abstract class FDBDirectoryBaseTest {
     @RegisterExtension
-    static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     protected FDBDatabase fdb;
@@ -61,6 +62,11 @@ public abstract class FDBDirectoryBaseTest {
         FDBRecordContext context = fdb.openContext(getContextConfig());
         subspace = fdb.run(path::toSubspace);
         directory = new FDBDirectory(subspace, context, null);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        directory.getCallerContext().close();
     }
 
     private FDBRecordContextConfig getContextConfig() {

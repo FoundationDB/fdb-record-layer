@@ -27,6 +27,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.test.TestDatabaseExtension;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -35,12 +36,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -54,6 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RankedSet}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class RankedSetTest {
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
@@ -288,7 +291,7 @@ public class RankedSetTest {
     //
 
     private RankedSet newRankedSet() {
-        RankedSet result = new RankedSet(rsSubspace, ForkJoinPool.commonPool(), config);
+        RankedSet result = new RankedSet(rsSubspace, TestExecutors.defaultThreadPool(), config);
         result.init(db).join();
         return result;
     }
