@@ -191,20 +191,23 @@ public class IndexingScrubDangling extends IndexingBase {
         final IndexingCommon.IndexContext indexContext = common.getIndexContext();
         final IndexEntry indexEntry = indexEntryResult.get();
         if (indexContext.isSynthetic) {
-            return store.loadSyntheticRecord(indexEntry.getPrimaryKey()).thenApply(syntheticRecord -> {
-                if (syntheticRecord.getConstituents().isEmpty()) {
-                    // None of the constituents of this synthetic type are present, so it must be dangling
-                    List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
-                    SyntheticRecordType<?> syntheticRecordType = store.getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(indexEntry.getPrimaryKey().get(0));
-                    for (int i = 0; i < syntheticRecordType.getConstituents().size(); i++) {
-                        if (!(syntheticRecordType.getConstituents().get(i).getRecordType() instanceof NestedRecordType) && indexEntry.getPrimaryKey().get(i + 1) != null) {
-                            primaryKeysForConflict.add(indexEntry.getPrimaryKey().getNestedTuple(i + 1));
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN)
+                    .handle((syntheticRecord, ex) -> {
+                        // The null hypothesis is that it is not dangling.
+                        final boolean isDangling = (syntheticRecord == null || syntheticRecord.getConstituents().isEmpty());
+                        if (isDangling) {
+                            // Not all of the constituents of this synthetic type are present, so it must be dangling
+                            List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
+                            SyntheticRecordType<?> syntheticRecordType = store.getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(indexEntry.getPrimaryKey().get(0));
+                            for (int i = 0; i < syntheticRecordType.getConstituents().size(); i++) {
+                                if (!(syntheticRecordType.getConstituents().get(i).getRecordType() instanceof NestedRecordType) && indexEntry.getPrimaryKey().get(i + 1) != null) {
+                                    primaryKeysForConflict.add(indexEntry.getPrimaryKey().getNestedTuple(i + 1));
+                                }
+                            }
+                            scrubDanglingEntry(store, indexEntry, primaryKeysForConflict);
                         }
-                    }
-                    scrubDanglingEntry(store, indexEntry, primaryKeysForConflict);
-                }
-                return null;
-            });
+                        return null;
+                    });
         } else {
             return store.loadIndexEntryRecord(indexEntry, IndexOrphanBehavior.RETURN).thenApply(indexedRecord -> {
                 if (!indexedRecord.hasStoredRecord()) {
@@ -232,7 +235,7 @@ public class IndexingScrubDangling extends IndexingBase {
         }
         if (scrubbingPolicy.allowRepair()) {
             // remove this index entry
-            // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
+            // There is no record that can be added to the conflict list. Adding the index entries.
             for (Tuple primaryKey : conflictPrimaryKeys) {
                 store.addRecordReadConflict(primaryKey);
             }
