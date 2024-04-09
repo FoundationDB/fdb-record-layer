@@ -230,7 +230,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches("(.*Scan.*RESTAURANTCOMPLEXRECORD|.*Index.* <,>).*REST_NO GREATER_THAN promote\\(@0 as LONG\\).*");
+                    assertThat(plan).matches("(.*Scan.*RESTAURANTCOMPLEXRECORD|.*Index.* <,>).*REST_NO GREATER_THAN promote\\(@c8 as LONG\\).*");
                 }
             }
         }
@@ -243,7 +243,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord USE INDEX (record_name_idx) WHERE rest_no > 10")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*RECORD_NAME_IDX.*REST_NO GREATER_THAN promote\\(@0 as LONG\\).*");
+                    assertThat(plan).matches(".*Fetch.*Covering.*Index.*RECORD_NAME_IDX.*REST_NO GREATER_THAN promote\\(@c13 as LONG\\).*");
                 }
             }
         }
@@ -256,7 +256,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
                     resultSet.next();
                     String plan = resultSet.getString(1);
-                    assertThat(plan).matches(".*Index.*MV1.*\\[\\[GREATER_THAN_OR_EQUALS promote\\(@0 as LONG\\)\\]\\].*");
+                    assertThat(plan).matches(".*Index.*MV1.*\\[\\[GREATER_THAN_OR_EQUALS promote\\(@c24 as LONG\\)\\]\\].*");
                 }
             }
         }

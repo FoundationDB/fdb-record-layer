@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
@@ -48,13 +49,13 @@ import org.antlr.v4.runtime.tree.RuleNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -162,7 +163,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Override
     public Void visitChildren(RuleNode node) {
         if (literalNodes.containsKey(node.getClass())) {
-            processLiteral(literalNodes.get(node.getClass()).apply((ParserRuleContext) node));
+            final var ruleContext = (ParserRuleContext) node;
+            processQueryLiteral(literalNodes.get(node.getClass()).apply(ruleContext), ruleContext.getStart().getTokenIndex());
             return null;
         }
         if (allowTokenAddition) {
@@ -340,7 +342,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             Assert.notNullUnchecked(continuation, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
             Assert.thatUnchecked(continuation.length != 0, "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
             context.setContinuation(continuation);
-            processLiteral(continuation);
+            processQueryLiteral(continuation, ctx.getStart().getTokenIndex());
         } else {
             final var continuation = visit(ctx.preparedStatementParameter());
             Assert.thatUnchecked(continuation instanceof byte[]);
@@ -379,37 +381,52 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
+            final int currentUnnamedParameterIndex = preparedStatementParameters.getCurrentParameterIndex();
             param = preparedStatementParameters.getNextParameter();
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;
             }
-            processLiteral(param);
+            processUnnamedParameter(param,  currentUnnamedParameterIndex, ctx.getStart().getTokenIndex());
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = true;
+            }
+
+            if (param instanceof Array) {
+                allowTokenAddition = false;
+                processArrayParameter((Array) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
+                allowTokenAddition = true;
+            } else if (param instanceof Struct) {
+                allowTokenAddition = false;
+                processStructParameter((Struct) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
+                allowTokenAddition = true;
             }
         } else {
             // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
             // if we use '?' ubiquitously.
             // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
             //      select * from t1 where col1 = ?P2 and col2 = ?P1
-            param = preparedStatementParameters.getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
+            final var namedParameterContext = ctx.NAMED_PARAMETER();
+            final var parameterName = namedParameterContext.getText().substring(1);
+            param = preparedStatementParameters.getNamedParameter(parameterName);
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;
             }
-            processLiteral(param, ctx.NAMED_PARAMETER().getText());
+            processNamedParameter(param, parameterName, namedParameterContext.getSymbol().getTokenIndex());
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = true;
             }
+
+            if (param instanceof Array) {
+                allowTokenAddition = false;
+                processArrayParameter((Array) param, null, parameterName, ctx.getStart().getTokenIndex());
+                allowTokenAddition = true;
+            } else if (param instanceof Struct) {
+                allowTokenAddition = false;
+                processStructParameter((Struct) param, null, parameterName, ctx.getStart().getTokenIndex());
+                allowTokenAddition = true;
+            }
         }
-        if (param instanceof Array) {
-            allowTokenAddition = false;
-            processArrayParameter((Array) param);
-            allowTokenAddition = true;
-        } else if (param instanceof Struct) {
-            allowTokenAddition = false;
-            processStructParameter((Struct) param);
-            allowTokenAddition = true;
-        }
+
         return param;
     }
 
@@ -431,7 +448,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 for (int i = 0; i < ctx.inList().expressions().expression().size(); i++) {
                     visit(ctx.inList().expressions().expression(i));
                 }
-                context.finishArrayLiteral();
+                context.finishArrayLiteral(null, null, ctx.inList().getStart().getTokenIndex());
                 allowTokenAddition = true;
                 sqlCanonicalizer.append("] ");
             } else {
@@ -449,48 +466,76 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return null;
     }
 
-    private void processArrayParameter(Array param) {
+    @Override
+    public Object visitExecuteContinuationStatement(final RelationalParser.ExecuteContinuationStatementContext ctx) {
+        queryCachingFlags.add(Result.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
+        queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        if (ctx.limitClause() != null) {
+            ctx.limitClause().accept(this);
+        }
+        return ctx.packageBytes.accept(this);
+    }
+
+    private void processArrayParameter(@Nonnull final Array param, @Nullable Integer unnamedParameterIndex,
+                                       @Nullable String parameterName, final int tokenIndex) {
         try {
             context.startArrayLiteral();
             try (ResultSet rs = param.getResultSet()) {
+                int i = 0;
                 while (rs.next()) {
-                    processLiteral(rs.getObject(1));
+                    processQueryLiteral(rs.getObject(1), i);
+                    i++;
                 }
             }
-            context.finishArrayLiteral();
+            context.finishArrayLiteral(unnamedParameterIndex, parameterName, tokenIndex);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void processStructParameter(Struct param) {
+    private void processStructParameter(@Nonnull final Struct param, @Nullable Integer unnamedParameterIndex,
+                                        @Nullable String parameterName, final int tokenIndex) {
         try {
             context.startStructLiteral();
-            Arrays.stream(param.getAttributes()).forEach(o -> {
+            Object[] attributes = param.getAttributes();
+            for (int i = 0; i < attributes.length; i++) {
+                final Object o = attributes[i];
                 if (o instanceof Array) {
-                    processArrayParameter((Array) o);
+                    processArrayParameter((Array) o, unnamedParameterIndex, parameterName, i);
                 } else if (o instanceof Struct) {
-                    processStructParameter((Struct) o);
+                    processStructParameter((Struct) o, unnamedParameterIndex, parameterName, i);
                 } else {
-                    processLiteral(o);
+                    processQueryLiteral(o, i);
                 }
-            });
+            }
             final var resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
-            context.finishStructLiteral(resolvedType);
+            context.finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void processLiteral(@Nonnull final Object literal) {
-        processLiteral(literal, "?");
+    private void processQueryLiteral(@Nonnull final Object literal, final int tokenIndex) {
+        processLiteral(literal, tokenIndex, null, null);
     }
 
-    private void processLiteral(@Nonnull final Object literal, @Nonnull final String canonicalName) {
+    private void processUnnamedParameter(@Nonnull final Object literal, final int unnamedParameterIndex,
+                                         final int tokenIndex) {
+        processLiteral(literal, tokenIndex, unnamedParameterIndex, null);
+    }
+
+    private void processNamedParameter(@Nonnull final Object literal, @Nonnull final String parameterName,
+                                       final int tokenIndex) {
+        processLiteral(literal, tokenIndex, null, parameterName);
+    }
+
+    private void processLiteral(@Nonnull final Object literal, final int tokenIndex,
+                                @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName) {
         if (allowLiteralAddition) {
-            context.addLiteral(literal);
+            context.addLiteral(new QueryExecutionParameters.OrderedLiteral(Type.any(), literal, unnamedParameterIndex, parameterName, tokenIndex));
         }
         if (allowTokenAddition) {
+            final String canonicalName = parameterName == null ? "?" : "?" + parameterName;
             sqlCanonicalizer.append(canonicalName).append(" ");
             parameterHash.putInt(Objects.hash(canonicalName, literal));
         }
@@ -556,6 +601,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             IS_DQL_STATEMENT,
             IS_UTILITY_STATEMENT,
             IS_ADMIN_STATEMENT,
+            IS_EXECUTE_CONTINUATION_STATEMENT,
             /**
              * user explicitly wants to avoid using plan cache with this query via {@code NOCACHE} option.
              */

@@ -85,13 +85,13 @@ test_block:
       - result: []
     -
       - query: select col1 from t1 where col1 > 55 and col1 < 100
-      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
+      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@c8 as INT) && LESS_THAN promote(@c12 as INT)]]"
     -
       - query: select col1 from t1 where col1 > 55 and col1 < 199
-      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
+      - explainContains: "map(Covering(Index(I1 [[GREATER_THAN promote(@c8 as INT) && LESS_THAN promote(@c12 as INT)]]"
     -
       - query: select col1 from t1 where col1 > 50 and col1 < 350
-      - explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@0 as INT) && LESS_THAN promote(@1 as INT)]]"
+      - explainContains: "map(Covering(Index(I2 [[GREATER_THAN promote(@c8 as INT) && LESS_THAN promote(@c12 as INT)]]"
 ---
 setup:
   connect: "jdbc:embed:/FRL/SPARSE_YAML?schema=TEST"

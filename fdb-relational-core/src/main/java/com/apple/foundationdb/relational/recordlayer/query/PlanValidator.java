@@ -20,20 +20,25 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @SuppressWarnings("PMD.MissingSerialVersionUID")
 public final class PlanValidator {
@@ -41,19 +46,40 @@ public final class PlanValidator {
     private PlanValidator() {
     }
 
-    public static void validate(@Nonnull final MetricCollector metricCollector, @Nonnull final RecordQueryPlan plan,
-                                @Nonnull final QueryExecutionParameters context,
-                                @Nonnull final PlanHashMode currentPlanHashMode,
-                                @Nonnull final List<PlanHashMode> validPlanHashModes) throws RelationalException {
-        try {
-            // TODO: Parsing the continuation here is a bit of a waste as it also being parsed elsewhere
-            ContinuationImpl continuation = ContinuationImpl.parseContinuation(context.getContinuation());
-            if (!validateBindingHash(context, continuation)) {
+    public static PlanHashMode validateSerializedPlanSerializationMode(@Nonnull final CompiledStatement compiledStatement,
+                                                                       @Nonnull final Set<PlanHashable.PlanHashMode> validPlanHashModes) throws RelationalException {
+        final PlanHashable.PlanHashMode planSerializationMode =
+                PlanHashable.PlanHashMode.valueOf(compiledStatement.getPlanSerializationMode());
+        if (!validPlanHashModes.contains(planSerializationMode)) {
+            throw new PlanValidationException("Plan provided by continuation cannot be continued due to an incompatible environment");
+        }
+        return planSerializationMode;
+    }
+
+    public static <M extends Message> void validateContinuationConstraint(@Nonnull final FDBRecordStoreBase<M> fdbRecordStore,
+                                                                          @Nonnull final QueryPlanConstraint continuationPlanConstraint) throws RelationalException {
+        final Boolean isValid =
+                continuationPlanConstraint.getPredicate()
+                        .eval(fdbRecordStore, EvaluationContext.EMPTY);
+        if (isValid == null || !isValid) {
+            throw new PlanValidationException("Plan provided by continuation cannot be continued due to an incompatible environment");
+        }
+    }
+
+    public static void validateHashes(@Nonnull final ContinuationImpl parsedContinuation,
+                                      @Nonnull final MetricCollector metricCollector,
+                                      @Nonnull final RecordQueryPlan plan,
+                                      @Nonnull final QueryExecutionParameters context,
+                                      @Nonnull final PlanHashMode currentPlanHashMode,
+                                      @Nonnull final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
+        // Nothing needs to be validated if this continuation is at the beginning
+        if (!parsedContinuation.atBeginning()) {
+            if (!validateBindingHash(context, parsedContinuation)) {
                 metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                 throw new PlanValidationException("Continuation binding does not match query");
             }
             final var resolvedPlanHashMode =
-                    resolveValidPlanHashMode(plan, continuation, currentPlanHashMode, validPlanHashModes);
+                    resolveValidPlanHashMode(plan, parsedContinuation, currentPlanHashMode, validPlanHashModes);
             if (resolvedPlanHashMode == null) {
                 metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                 throw new PlanValidationException("Continuation plan does not match query");
@@ -61,20 +87,13 @@ public final class PlanValidator {
             if (resolvedPlanHashMode != currentPlanHashMode) {
                 metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL);
             }
-        } catch (InvalidProtocolBufferException e) {
-            metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
-            throw new RelationalException("Continuation cannot be parsed", ErrorCode.INVALID_CONTINUATION, e);
+
+            metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED);
         }
-        metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED);
     }
 
     private static boolean validateBindingHash(QueryExecutionParameters parameters, ContinuationImpl continuation) {
-        if (continuation.atBeginning()) {
-            // No continuation provided - nothing to validate against
-            return true;
-        } else {
-            return Objects.equals(parameters.getParameterHash(), continuation.getBindingHash());
-        }
+        return Objects.equals(parameters.getParameterHash(), continuation.getBindingHash());
     }
 
     /**
@@ -92,19 +111,18 @@ public final class PlanValidator {
     private static PlanHashMode resolveValidPlanHashMode(@Nonnull final RecordQueryPlan plan,
                                                          @Nonnull final ContinuationImpl continuation,
                                                          @Nonnull final PlanHashMode currentPlanHashMode,
-                                                         @Nonnull final List<PlanHashMode> validPlanHashModes) {
-        if (continuation.atBeginning()) {
-            // No continuation provided - nothing to validate against
+                                                         @Nonnull final Set<PlanHashMode> validPlanHashModes) {
+        if (Objects.equals(plan.planHash(currentPlanHashMode), continuation.getPlanHash())) {
             return currentPlanHashMode;
-        } else {
-            // loop through the valid modes assuming that the most likely mode comes first
-            for (final var validPlanHashMode : validPlanHashModes) {
-                if (Objects.equals(plan.planHash(validPlanHashMode), continuation.getPlanHash())) {
-                    return validPlanHashMode;
-                }
-            }
-            return null;
         }
+
+        for (final var validPlanHashMode : validPlanHashModes) {
+            if (validPlanHashMode != currentPlanHashMode &&
+                    Objects.equals(plan.planHash(validPlanHashMode), continuation.getPlanHash())) {
+                return validPlanHashMode;
+            }
+        }
+        return null;
     }
 
     public static class PlanValidationException extends RelationalException {

@@ -39,14 +39,14 @@ public interface Continuation {
      * @return the cursor state (if exists)
      */
     @Nullable
-    byte[] getUnderlyingBytes();
+    byte[] getExecutionState();
 
     default boolean atBeginning() {
-        return getUnderlyingBytes() == null;
+        return getExecutionState() == null;
     }
 
     default boolean atEnd() {
-        byte[] bytes = getUnderlyingBytes();
+        byte[] bytes = getExecutionState();
         return bytes != null && bytes.length == 0;
     }
 }

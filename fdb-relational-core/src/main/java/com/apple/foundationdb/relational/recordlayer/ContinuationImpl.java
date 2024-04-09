@@ -24,7 +24,8 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
+import com.apple.foundationdb.relational.continuation.CompiledStatement;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 
 import com.google.common.primitives.Ints;
 import com.google.protobuf.ByteString;
@@ -48,7 +49,7 @@ public final class ContinuationImpl implements Continuation {
     private ContinuationImpl(@Nullable byte[] continuationBytes) {
         ContinuationProto.Builder builder = ContinuationProto.newBuilder().setVersion(CURRENT_VERSION);
         if (continuationBytes != null) {
-            builder.setUnderlyingBytes(ByteString.copyFrom(continuationBytes));
+            builder.setExecutionState(ByteString.copyFrom(continuationBytes));
         }
         proto = builder.build();
     }
@@ -68,12 +69,16 @@ public final class ContinuationImpl implements Continuation {
 
     @Nullable
     @Override
-    public byte[] getUnderlyingBytes() {
-        if (!proto.hasUnderlyingBytes()) {
+    public byte[] getExecutionState() {
+        if (!proto.hasExecutionState()) {
             return null;
         } else {
-            return proto.getUnderlyingBytes().toByteArray();
+            return proto.getExecutionState().toByteArray();
         }
+    }
+
+    public boolean hasCompiledStatement() {
+        return proto.hasCompiledStatement();
     }
 
     /**
@@ -104,6 +109,19 @@ public final class ContinuationImpl implements Continuation {
     public Integer getPlanHash() {
         if (proto.hasPlanHash()) {
             return proto.getPlanHash();
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Return the compiled statement proto if a package is contained inside the continuation.
+     * @return the {@link CompiledStatement}.
+     */
+    @Nullable
+    public CompiledStatement getCompiledStatement() {
+        if (proto.hasCompiledStatement()) {
+            return proto.getCompiledStatement();
         } else {
             return null;
         }

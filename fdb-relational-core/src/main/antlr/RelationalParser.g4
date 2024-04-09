@@ -69,6 +69,7 @@ administrationStatement
     | showStatement 
     | killStatement
     | resetStatement
+    | executeContinuationStatement
     ;
 
 utilityStatement
@@ -175,7 +176,7 @@ deleteStatement
     : DELETE
       FROM tableName
       (WHERE expression)?
-      orderByClause? (LIMIT limitClause)?
+      orderByClause? limitClause?
       (RETURNING selectElements)?
       queryOptions?
     ;
@@ -451,6 +452,11 @@ killStatement
 
 resetStatement
     : RESET QUERY CACHE
+    ;
+
+executeContinuationStatement
+    : EXECUTE CONTINUATION packageBytes=continuationAtom
+      limitClause?
     ;
 
 // details

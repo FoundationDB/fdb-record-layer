@@ -27,13 +27,23 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.TreeMultiset;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.LinkedList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Stack;
+import java.util.function.Supplier;
 
 public interface QueryExecutionParameters {
 
@@ -55,75 +65,140 @@ public interface QueryExecutionParameters {
     @Nonnull
     PreparedStatementParameters getPreparedStatementParameters();
 
+    @Nonnull
+    Literals getLiterals();
+
     boolean isForExplain(); // todo (yhatem) remove.
 
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();
 
+    class Literals {
+        @Nonnull
+        private final List<OrderedLiteral> orderedLiterals;
+
+        @Nonnull
+        private final Supplier<Map<String, Object>> asMapSupplier;
+
+        public Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
+            this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
+            this.asMapSupplier = Suppliers.memoize(() ->
+                    this.orderedLiterals
+                            .stream()
+                            .filter(orderedLiteral -> orderedLiteral.getLiteralObject() != null)
+                            .collect(ImmutableMap.toImmutableMap(OrderedLiteral::getConstantId,
+                                    OrderedLiteral::getLiteralObject)));
+        }
+
+        @Nonnull
+        public List<OrderedLiteral> getOrderedLiterals() {
+            return orderedLiterals;
+        }
+
+        public boolean isEmpty() {
+            return orderedLiterals.isEmpty();
+        }
+
+        public Map<String, Object> asMap() {
+            return asMapSupplier.get();
+        }
+    }
+
     class LiteralsBuilder {
+        @Nonnull
+        private final Multiset<OrderedLiteral> literals;
 
         @Nonnull
-        private final List<Object> literals;
-
-        @Nonnull
-        private final Stack<List<Object>> current;
+        private final Stack<Multiset<OrderedLiteral>> current;
 
         private int arrayLiteralScopeCount;
         private int structLiteralScopeCount;
 
         private LiteralsBuilder() {
-            this.literals = new LinkedList<>();
+            this.literals = TreeMultiset.create(OrderedLiteral.COMPARATOR);
             current = new Stack<>();
             current.push(this.literals);
         }
 
-        int addLiteral(@Nullable Object literal) {
-            if (literal instanceof byte[]) {
-                current.peek().add(ByteString.copyFrom(((byte[]) literal)));
+        void addLiteral(@Nonnull final OrderedLiteral orderedLiteral) {
+            if (orderedLiteral.getLiteralObject() instanceof byte[]) {
+                current.peek()
+                        .add(new OrderedLiteral(orderedLiteral.getType(),
+                                ByteString.copyFrom(((byte[]) orderedLiteral.getLiteralObject())),
+                                orderedLiteral.getUnnamedParameterIndex(), orderedLiteral.getParameterName(),
+                                orderedLiteral.getTokenIndex()));
             } else {
-                current.peek().add(literal);
+                Verify.verify(!current.peek().contains(orderedLiteral));
+                current.peek().add(orderedLiteral);
             }
-            return current.peek().size() - 1;
         }
 
-        int startArrayLiteral() {
+        void startArrayLiteral() {
             arrayLiteralScopeCount++;
-            return startComplexLiteral();
+            startComplexLiteral();
         }
 
-        int startStructLiteral() {
+        void startStructLiteral() {
             structLiteralScopeCount++;
-            return startComplexLiteral();
+            startComplexLiteral();
         }
 
-        private int startComplexLiteral() {
-            final var index = current.peek().size();
-            current.push(new LinkedList<>());
-            return index;
+        private void startComplexLiteral() {
+            current.push(TreeMultiset.create(OrderedLiteral.COMPARATOR));
         }
 
-        void finishArrayLiteral() {
+        void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
+                                @Nullable final String parameterName,
+                                final boolean shouldProcessLiterals,
+                                final int tokenIndex) {
             Assert.thatUnchecked(!current.empty());
             Assert.thatUnchecked(arrayLiteralScopeCount > 0);
-            final var array = current.pop();
-            current.peek().add(array);
+            final var nestedArrayLiterals = current.pop();
+            // coalesce the array elements
+            final var arrayElements = Lists.newArrayListWithExpectedSize(nestedArrayLiterals.size());
+            Type elementType = null;
+            for (final OrderedLiteral nestedArrayLiteral : nestedArrayLiterals) {
+                final var currentElementType = nestedArrayLiteral.getType();
+                if (elementType != null) {
+                    Verify.verify(currentElementType.equals(elementType));
+                } else {
+                    elementType = currentElementType;
+                }
+                arrayElements.add(nestedArrayLiteral.getLiteralObject());
+            }
+            final var orderedLiteral = new OrderedLiteral(new Type.Array(elementType), arrayElements, unnamedParameterIndex,
+                    parameterName, tokenIndex);
+            if (shouldProcessLiterals) {
+                Verify.verify(!current.peek().contains(orderedLiteral));
+                current.peek().add(orderedLiteral);
+            }
             arrayLiteralScopeCount--;
         }
 
-        void finishStructLiteral(@Nonnull Type.Record type) {
+        void finishStructLiteral(@Nonnull final Type.Record type,
+                                 @Nullable final Integer unnamedParameterIndex,
+                                 @Nullable final String parameterName,
+                                 final int tokenIndex) {
             Assert.thatUnchecked(!current.empty());
             Assert.thatUnchecked(structLiteralScopeCount > 0);
-            final var array = current.pop();
+            final var fields = current.pop();
             // TODO: Consider creating the TypeRepository in the beginning and reusing throughout the lifetime of the builder.
             final var builder = TypeRepository.newBuilder();
             type.defineProtoType(builder);
-            final var messageBuilder = builder.build().newMessageBuilder(type);
+            final var messageBuilder = Objects.requireNonNull(builder.build().newMessageBuilder(type));
             final var fieldDescriptors = messageBuilder.getDescriptorForType().getFields();
-            for (int i = 0; i < array.size(); i++) {
-                final var value = array.get(i);
-                messageBuilder.setField(fieldDescriptors.get(i), value);
+            int i = 0;
+            for (final OrderedLiteral fieldOrderedLiteral : fields) {
+                final var fieldValue = fieldOrderedLiteral.getLiteralObject();
+                if (fieldValue != null) {
+                    messageBuilder.setField(fieldDescriptors.get(i), fieldValue);
+                }
+                i++;
             }
-            current.peek().add(messageBuilder.build());
+            Verify.verify(tokenIndex >= 0);
+
+            current.peek().add(new OrderedLiteral(type, messageBuilder.build(), unnamedParameterIndex, parameterName,
+                    tokenIndex));
             structLiteralScopeCount--;
         }
 
@@ -132,8 +207,8 @@ public interface QueryExecutionParameters {
         }
 
         @Nonnull
-        public List<Object> getLiterals() {
-            return literals;
+        public Literals build() {
+            return new Literals(literals.stream().collect(ImmutableList.toImmutableList()));
         }
 
         public boolean isEmpty() {
@@ -143,6 +218,125 @@ public interface QueryExecutionParameters {
         @Nonnull
         public static LiteralsBuilder newBuilder() {
             return new LiteralsBuilder();
+        }
+    }
+
+    class OrderedLiteral {
+        private static final Comparator<OrderedLiteral> COMPARATOR = Comparator.comparing(OrderedLiteral::getTokenIndex);
+
+        @Nonnull
+        private final Type type;
+        @Nullable
+        private final Object literalObject;
+
+        @Nullable
+        private final Integer unnamedParameterIndex;
+        @Nullable
+        private final String parameterName;
+
+        /**
+         * Token position of literal in query.
+         */
+        private final int tokenIndex;
+
+        public OrderedLiteral(@Nonnull final Type type, @Nullable final Object literalObject,
+                              @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
+                              final int tokenIndex) {
+            Verify.verify(unnamedParameterIndex == null || parameterName == null);
+            this.type = type;
+            this.literalObject = literalObject;
+            this.unnamedParameterIndex = unnamedParameterIndex;
+            this.parameterName = parameterName;
+            this.tokenIndex = tokenIndex;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
+        }
+
+        @Nullable
+        public Object getLiteralObject() {
+            return literalObject;
+        }
+
+        @Nullable
+        public Integer getUnnamedParameterIndex() {
+            return unnamedParameterIndex;
+        }
+
+        @Nullable
+        public String getParameterName() {
+            return parameterName;
+        }
+
+        public int getTokenIndex() {
+            return tokenIndex;
+        }
+
+        @Nonnull
+        public String getConstantId() {
+            return constantId(tokenIndex);
+        }
+
+        public boolean isQueryLiteral() {
+            return unnamedParameterIndex == null && parameterName == null;
+        }
+
+        public boolean isUnnamedParameter() {
+            return unnamedParameterIndex != null;
+        }
+
+        public boolean isNamedParameter() {
+            return parameterName != null;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof OrderedLiteral)) {
+                return false;
+            }
+            final OrderedLiteral that = (OrderedLiteral) o;
+            return tokenIndex == that.tokenIndex;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tokenIndex);
+        }
+
+        @Override
+        public String toString() {
+            return parameterName != null
+                   ? "?" + parameterName
+                   : (unnamedParameterIndex != null
+                      ? "?" + unnamedParameterIndex : "∅") + ":" +
+                     literalObject + "@" + tokenIndex;
+        }
+
+        @Nonnull
+        public static OrderedLiteral forQueryLiteral(@Nonnull final Type type, @Nullable final Object literalObject, final int tokenIndex) {
+            return new OrderedLiteral(type, literalObject, null, null, tokenIndex);
+        }
+
+        @Nonnull
+        public static OrderedLiteral forUnnamedParameter(@Nonnull final Type type, @Nullable final Object literalObject,
+                                                         final int unnamedParameterIndex, final int tokenIndex) {
+            return new OrderedLiteral(type, literalObject, unnamedParameterIndex, null, tokenIndex);
+        }
+
+        @Nonnull
+        public static OrderedLiteral forNamedParameter(@Nonnull final Type type, @Nullable final Object literalObject,
+                                                       @Nonnull final String parameterName, final int tokenIndex) {
+            return new OrderedLiteral(type, literalObject, null, parameterName, tokenIndex);
+        }
+
+        @Nonnull
+        public static String constantId(final int tokenIndex) {
+            return "c" + tokenIndex;
         }
     }
 }

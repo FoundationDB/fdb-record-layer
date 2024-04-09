@@ -27,14 +27,23 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.RowArray;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
@@ -43,15 +52,23 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.base.Verify;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.Array;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Struct;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 
 /**
  * Context keeping state related to plan generation.
@@ -102,24 +119,29 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         this.planHashMode = planHashMode;
     }
 
-    public int startArrayLiteral() {
-        return literals.startArrayLiteral();
+    public void startArrayLiteral() {
+        literals.startArrayLiteral();
     }
 
-    public void finishArrayLiteral() {
-        literals.finishArrayLiteral();
+    public void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
+                                   @Nullable final String parameterName,
+                                   final int tokenIndex) {
+        literals.finishArrayLiteral(unnamedParameterIndex, parameterName, shouldProcessLiteral, tokenIndex);
     }
 
-    public int startStructLiteral() {
-        return literals.startStructLiteral();
+    public void startStructLiteral() {
+        literals.startStructLiteral();
     }
 
-    public void finishStructLiteral(Type.Record type) {
-        literals.finishStructLiteral(type);
+    public void finishStructLiteral(@Nonnull final Type.Record type,
+                                    @Nullable final Integer unnamedParameterIndex,
+                                    @Nullable final String parameterName,
+                                    final int tokenIndex) {
+        literals.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
     }
 
-    public int addStrippedLiteral(@Nullable final Object literal) {
-        return literals.addLiteral(literal);
+    public void addStrippedLiteralOrParameter(@Nonnull final OrderedLiteral orderedLiteral) {
+        literals.addLiteral(orderedLiteral);
     }
 
     public void addLiteralReference(@Nonnull final ConstantObjectValue constantObjectValue) {
@@ -129,8 +151,9 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     }
 
     @Nonnull
-    private List<Object> getLiterals() {
-        return literals.getLiterals();
+    @Override
+    public Literals getLiterals() {
+        return literals.build();
     }
 
     @Override
@@ -240,7 +263,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
             return EvaluationContext.forTypeRepository(typeRepository);
         }
         final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), getLiterals());
+        builder.setConstant(Quantifier.constant(), getLiterals().asMap());
         return builder.build(typeRepository);
     }
 
@@ -266,6 +289,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         return parameterHash;
     }
 
+    // TODO why is there a builder but then we also keep the built class mutable
     public void setParameterHash(int parameterHash) {
         this.parameterHash = parameterHash;
     }
@@ -325,6 +349,128 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         @Nullable final T result = supplier.get();
         setShouldProcessLiteral(true);
         return result;
+    }
+
+    @Nonnull
+    public Value processQueryLiteral(@Nonnull Type type, @Nullable final Object literal,
+                                     final int tokenIndex) {
+        return processQueryLiteralOrParameter(type, literal, null, null, tokenIndex);
+    }
+
+    @Nonnull
+    public Value processQueryLiteralOrParameter(@Nonnull Type type, @Nullable final Object literal,
+                                                @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
+                                                final int tokenIndex) {
+        final var literalValue = new LiteralValue<>(literal);
+        if (!shouldProcessLiteral()) {
+            return literalValue;
+        } else {
+            final var orderedLiteral = new OrderedLiteral(type, literal, unnamedParameterIndex, parameterName, tokenIndex);
+            addStrippedLiteralOrParameter(orderedLiteral);
+            final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(),
+                    literalValue.getResultType());
+            addLiteralReference(result);
+            return result;
+        }
+    }
+
+    @Nonnull
+    public ConstantObjectValue processComplexLiteral(@Nonnull final String constantId, @Nonnull final Type type) {
+        final var result = ConstantObjectValue.of(Quantifier.constant(), constantId, type);
+        if (shouldProcessLiteral()) {
+            addLiteralReference(result);
+        }
+        return result;
+    }
+
+    public ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull final Array param,
+                                                                      @Nullable final Type.Array type,
+                                                                      @Nullable final Integer unnamedParameterIndex,
+                                                                      @Nullable final String parameterName,
+                                                                      final int tokenIndex) {
+        Type.Array resolvedType = type;
+        startArrayLiteral();
+        final var arrayElements = new ArrayList<>();
+        try {
+            if (type == null) {
+                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RowArray) param).getMetaData(), false);
+            }
+            try (ResultSet rs = param.getResultSet()) {
+                while (rs.next()) {
+                    arrayElements.add(rs.getObject(1));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
+        if (!arrayElements.isEmpty()) {
+            Assert.thatUnchecked(resolvedType.equals(LiteralsUtils.resolveArrayTypeFromObjectsList(arrayElements)),
+                    "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
+        }
+        for (int i = 0; i < arrayElements.size(); i++) {
+            final Object o = arrayElements.get(i);
+            processPreparedStatementParameter(o, resolvedType.getElementType(), unnamedParameterIndex, parameterName, i);
+        }
+        finishArrayLiteral(unnamedParameterIndex, parameterName, tokenIndex);
+        return processComplexLiteral(OrderedLiteral.constantId(tokenIndex), resolvedType);
+    }
+
+    public Value processPreparedStatementStructParameter(@Nonnull final Struct param,
+                                                         final Type.Record type,
+                                                         @Nullable final Integer unnamedParameterIndex,
+                                                         @Nullable final String parameterName,
+                                                         final int tokenIndex) {
+        Type.Record resolvedType = type;
+        startStructLiteral();
+        Object[] attributes;
+        try {
+            if (type == null) {
+                resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
+            }
+            attributes = param.getAttributes();
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
+        Assert.thatUnchecked(resolvedType.getFields().size() == attributes.length);
+        for (int i = 0; i < attributes.length; i++) {
+            processPreparedStatementParameter(attributes[i], resolvedType.getFields().get(i).getFieldType(),
+                    unnamedParameterIndex, parameterName, i);
+        }
+        finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
+        return processComplexLiteral(OrderedLiteral.constantId(tokenIndex), resolvedType);
+    }
+
+    public Value processPreparedStatementParameter(@Nonnull final Object param,
+                                                   final Type type,
+                                                   @Nullable final Integer unnamedParameterIndex,
+                                                   @Nullable final String parameterName,
+                                                   final int tokenIndex) {
+        if (param instanceof Array) {
+            Assert.thatUnchecked(type == null || type.isArray(), "Array type field required as prepared statement parameter", DATATYPE_MISMATCH);
+            return processPreparedStatementArrayParameter((Array) param, (Type.Array) type, unnamedParameterIndex, parameterName, tokenIndex);
+        } else if (param instanceof Struct) {
+            Assert.thatUnchecked(type == null || type.isRecord(), "Required type field required as prepared statement parameter", DATATYPE_MISMATCH);
+            return processPreparedStatementStructParameter((Struct) param, (Type.Record) type, unnamedParameterIndex, parameterName, tokenIndex);
+        } else if (param instanceof byte[]) {
+            return processQueryLiteralOrParameter(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap((byte[]) param),
+                    unnamedParameterIndex, parameterName, tokenIndex);
+        } else {
+            return processQueryLiteralOrParameter(type == null ? Type.any() : type, param, unnamedParameterIndex, parameterName, tokenIndex);
+        }
+    }
+
+    @Nonnull
+    public QueryPredicate toQueryPredicate(@Nonnull final BooleanValue value,
+                                           @Nonnull CorrelationIdentifier innermostAlias) {
+        if (hasDdlAncestor()) {
+            final var result = value.toQueryPredicate(ParserUtils.EMPTY_TYPE_REPOSITORY, innermostAlias);
+            Assert.thatUnchecked(result.isPresent());
+            return result.get();
+        } else {
+            final var result = value.toQueryPredicate(null, innermostAlias);
+            Assert.thatUnchecked(result.isPresent());
+            return result.get();
+        }
     }
 
     public static final class Builder {

@@ -47,7 +47,7 @@ public class DirectAccessApiProtobufFactory {
      * its insertNestedFields test. Presumes an already registered embedded jdbc driver.
      */
     public static Message createAnthonyBourdainReviewer(URI databasePath, String schemaName) throws Exception {
-        Message message = null;
+        Message message;
         try (var conn =
                  Relational.connect(URI.create("jdbc:embed://" + databasePath.getPath()), Options.NONE)) {
             conn.setSchema(schemaName);
@@ -75,7 +75,7 @@ public class DirectAccessApiProtobufFactory {
      * its insertMultipleTablesDontMix test. Presumes an already registered embedded jdbc driver.
      */
     public static Message createIsabelHawthornReviewer(URI databasePath, String schemaName) throws SQLException {
-        Message message = null;
+        Message message;
         try (var conn =
                      Relational.connect(URI.create("jdbc:embed://" + databasePath.getPath()), Options.NONE)) {
             conn.setSchema(schemaName);

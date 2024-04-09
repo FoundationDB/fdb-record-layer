@@ -269,7 +269,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getExecutionState(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor();
         return new RecordLayerResultSet(getMetaData(d), RecordLayerIterator.create(cursor, this::transformDatabaseInfo), null /* caller is responsible for managing tx state */);
     }
@@ -279,7 +279,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getExecutionState(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
         return new RecordLayerResultSet(getMetaData(schemaDesc),
                 RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
@@ -290,7 +290,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath());
-        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
+        RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE), continuation.getExecutionState(), ScanProperties.FORWARD_SCAN);
         Descriptors.Descriptor schemaDesc = recordStore.getRecordMetaData().getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor();
         return new RecordLayerResultSet(getMetaData(schemaDesc), RecordLayerIterator.create(cursor, this::transformSchema), null /* caller is responsible for managing tx state */);
     }
@@ -367,7 +367,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
         try (RecordCursor<FDBStoredRecord<Message>> cursor =
                 recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
-                                EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getUnderlyingBytes(),
+                                EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getExecutionState(),
                         ScanProperties.FORWARD_SCAN);) {
             RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
             do {

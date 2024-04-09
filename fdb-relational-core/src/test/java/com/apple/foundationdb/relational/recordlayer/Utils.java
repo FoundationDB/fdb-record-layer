@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.apple.foundationdb.relational.util.Environment;
+
 import com.google.protobuf.Message;
 
 import java.sql.SQLException;

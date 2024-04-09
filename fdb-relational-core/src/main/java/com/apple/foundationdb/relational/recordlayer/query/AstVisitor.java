@@ -335,6 +335,9 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             // add aggregations (make a list of individual aggregations for the Agg expression) and other (group by and having) columns.
             selectElements.accept(this);
             if (havingClauseContext != null) {
+                // TODO This is weird! Why accept the havingClause here and further down. If we don't do literal
+                //      processing the having-predicate refer to proper literals, we actually will use actual literals
+                //      in the plan which is unwarranted.
                 context.withDisabledLiteralProcessing(() -> havingClauseContext.accept(this));
             }
             if (orderByClause != null) {
@@ -349,8 +352,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             aggregateValues.forEach(ParserUtils::verifyAggregateValue);
             final var aggregationValue = RecordConstructorValue.ofColumns(aggregateValues.stream().map(Column::unnamedOf).collect(Collectors.toList()));
             final var groupByExpression = new GroupByExpression(groupByClause == null ?
-                    null :
-                    FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0),
+                            null :
+                            FieldValue.ofOrdinalNumber(underlyingSelectQun.getFlowedObjectValue(), 0),
                     aggregationValue, GroupByExpression::nestedResults, underlyingSelectQun);
             groupByExpressionType = groupByExpression.getResultValue().getResultType();
             final var groupByScope = scopes.pop();
@@ -583,7 +586,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(predicate instanceof BooleanValue, String.format("unexpected predicate of type %s", predicate.getClass().getSimpleName()));
             final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
-            final var result = LiteralsUtils.toQueryPredicate((BooleanValue) predicate, aliases.stream().findFirst().get(), context);
+            final var result = context.toQueryPredicate((BooleanValue) predicate, aliases.stream().findFirst().get());
             scopes.getCurrentScope().setPredicate(result);
         }
         return null;
@@ -608,7 +611,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(predicateValue instanceof BooleanValue, String.format("unexpected predicate of type %s", predicateValue.getClass().getSimpleName()));
             final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
-            final var predicate = LiteralsUtils.toQueryPredicate((BooleanValue) predicateValue, aliases.stream().findFirst().get(), context);
+            final var predicate = context.toQueryPredicate((BooleanValue) predicateValue, aliases.stream().findFirst().get());
             scopes.getCurrentScope().setPredicate(predicate);
         }
         return null;
@@ -789,7 +792,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.thatUnchecked(escapeChar.length() == 1);
         }
         final var pattern = Assert.notNullUnchecked(ParserUtils.normalizeString(ctx.pattern.getText(), caseSensitive));
-        final var patternValueBinding = LiteralsUtils.processLiteral(pattern, context);
+        final var patternValueBinding = context.processQueryLiteral(Type.primitiveType(Type.TypeCode.STRING), pattern, ctx.pattern.getTokenIndex());
         final var likeFn = new LikeOperatorValue.LikeFn();
         final var patternFn = new PatternForLikeValue.PatternForLikeFn();
         var result = (Value) ParserUtils.encapsulate(likeFn,
@@ -815,12 +818,14 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             typedList = (Typed) visit(ctx.inList().preparedStatementParameter());
         } else {
             if (context.shouldProcessLiteral() && ParserUtils.isConstant(ctx.inList().expressions())) {
-                final int index = context.startArrayLiteral();
+                context.startArrayLiteral();
                 final List<Value> values = new ArrayList<>();
                 ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
-                context.finishArrayLiteral();
+                final var tokenIndex = ctx.inList().getStart().getTokenIndex();
+                context.finishArrayLiteral(null, null, tokenIndex);
                 ParserUtils.validateInValuesList(values);
-                typedList = LiteralsUtils.processComplexLiteral(index, LiteralsUtils.resolveArrayTypeFromValues(values), context);
+                typedList = context.processComplexLiteral(QueryExecutionParameters.OrderedLiteral.constantId(tokenIndex),
+                        LiteralsUtils.resolveArrayTypeFromValues(values));
             } else {
                 final List<Value> values = new ArrayList<>();
                 ctx.inList().expressions().expression().forEach(exp -> values.add((Value) visit(exp)));
@@ -848,12 +853,20 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Typed visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
+        final var preparedStatementParameters = context.getPreparedStatementParameters();
         if (ctx.QUESTION() != null) {
-            param = context.getPreparedStatementParameters().getNextParameter();
+            final int currentUnnamedParameterIndex = preparedStatementParameters.getCurrentParameterIndex();
+            param = preparedStatementParameters.getNextParameter();
+            //TODO type should probably be Type.any() instead of null
+            return context.processPreparedStatementParameter(param, null, currentUnnamedParameterIndex,
+                    null, ctx.getStart().getTokenIndex());
         } else {
-            param = context.getPreparedStatementParameters().getNamedParameter(ctx.NAMED_PARAMETER().getText().substring(1));
+            final String parameterName = ctx.NAMED_PARAMETER().getText().substring(1);
+            param = preparedStatementParameters.getNamedParameter(parameterName);
+            //TODO type should probably be Type.any() instead of null
+            return context.processPreparedStatementParameter(param, null, null, parameterName,
+                    ctx.getStart().getTokenIndex());
         }
-        return LiteralsUtils.processPreparedStatementParameter(param, null, context);
     }
 
     @Override
@@ -1140,10 +1153,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Value visitBooleanLiteral(RelationalParser.BooleanLiteralContext ctx) {
         if (ctx.FALSE() != null) {
-            return LiteralsUtils.processLiteral(Boolean.FALSE, context);
+            return context.processQueryLiteral(Type.primitiveType(Type.TypeCode.BOOLEAN), Boolean.FALSE,
+                    ctx.FALSE().getSymbol().getTokenIndex());
         } else {
             Assert.notNullUnchecked(ctx.TRUE(), String.format("unexpected boolean value %s", ctx.getText()));
-            return LiteralsUtils.processLiteral(Boolean.TRUE, context);
+            return context.processQueryLiteral(Type.primitiveType(Type.TypeCode.BOOLEAN), Boolean.TRUE,
+                    ctx.TRUE().getSymbol().getTokenIndex());
         }
     }
 
@@ -1156,7 +1171,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             literal = ctx.BASE64_LITERAL().getText();
         }
         final byte[] byteArray = ParserUtils.parseBytes(literal);
-        return LiteralsUtils.processLiteral(ZeroCopyByteString.wrap(byteArray), context);
+        return context.processQueryLiteral(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap(byteArray),
+                ctx.getStart().getTokenIndex());
     }
 
     @Override
@@ -1164,17 +1180,23 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.COLLATE(), UNSUPPORTED_QUERY);
-        return LiteralsUtils.processLiteral(ParserUtils.normalizeString(ctx.getText(), caseSensitive), context);
+        return context.processQueryLiteral(Type.primitiveType(Type.TypeCode.STRING),
+                ParserUtils.normalizeString(ctx.getText(), caseSensitive),
+                ctx.getStart().getTokenIndex());
     }
 
     @Override
     public Value visitDecimalLiteral(RelationalParser.DecimalLiteralContext ctx) {
-        return LiteralsUtils.processLiteral(ParserUtils.parseDecimal(ctx.getText()), context);
+        final var literal = ParserUtils.parseDecimal(ctx.getText());
+        final var type = Type.fromObject(literal);
+        return context.processQueryLiteral(type, literal, ctx.getStart().getTokenIndex());
     }
 
     @Override
     public Value visitNegativeDecimalConstant(RelationalParser.NegativeDecimalConstantContext ctx) {
-        return LiteralsUtils.processLiteral(ParserUtils.parseDecimal(ctx.getText()), context);
+        final var literal = ParserUtils.parseDecimal(ctx.getText());
+        final var type = Type.fromObject(literal);
+        return context.processQueryLiteral(type, literal, ctx.getStart().getTokenIndex());
     }
 
     @Override
@@ -1629,7 +1651,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                             .map(Quantifier::getAlias)
                             .findFirst();
             Assert.thatUnchecked(innermostAliasOptional.isPresent());
-            final var predicate = LiteralsUtils.toQueryPredicate((BooleanValue) booleanValue, innermostAliasOptional.get(), context);
+            final var predicate = context.toQueryPredicate((BooleanValue) booleanValue, innermostAliasOptional.get());
             updateScope.setPredicate(predicate);
         }
 
@@ -1716,7 +1738,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                             .map(Quantifier::getAlias)
                             .findFirst();
             Assert.thatUnchecked(innermostAliasOptional.isPresent());
-            final var predicate = LiteralsUtils.toQueryPredicate((BooleanValue) booleanValue, innermostAliasOptional.get(), context);
+            final var predicate = context.toQueryPredicate((BooleanValue) booleanValue, innermostAliasOptional.get());
             updateScope.setPredicate(predicate);
         }
 
@@ -1776,6 +1798,11 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public QueryPlan visitShowSchemaTemplatesStatement(RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
         return QueryPlan.MetadataQueryPlan.of(ddlQueryFactory.getListSchemaTemplatesQueryAction());
+    }
+
+    @Override
+    public Object visitExecuteContinuationStatement(final RelationalParser.ExecuteContinuationStatementContext ctx) {
+        throw Assert.failUnchecked("execute package should not be handled here");
     }
 
     /////// utility statements /////////////////////

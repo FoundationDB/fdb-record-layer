@@ -49,6 +49,10 @@ public final class PreparedStatementParameters {
         this.namedParameters = namedParameters;
     }
 
+    public int getCurrentParameterIndex() {
+        return nextParam;
+    }
+
     public Object getNextParameter() {
         Assert.thatUnchecked(parameters != null && parameters.containsKey(nextParam),
                 "No value found for parameter " + nextParam,

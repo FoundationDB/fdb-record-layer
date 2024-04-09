@@ -61,7 +61,7 @@ public class QueryExecutor {
         final FDBRecordStoreBase<Message> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
         final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                 evaluationContext,
-                continuation == null ? null : continuation.getUnderlyingBytes(), executeProperties);
+                continuation == null ? null : continuation.getExecutionState(), executeProperties);
 
         return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
     }

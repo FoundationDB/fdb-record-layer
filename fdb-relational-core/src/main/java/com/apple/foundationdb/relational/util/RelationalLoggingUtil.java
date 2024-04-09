@@ -38,7 +38,7 @@ public class RelationalLoggingUtil {
         message.addKeyAndValue("totalPlanTimeMicros", totalTime);
         if (plan != null) {
             if (plan instanceof QueryPlan.PhysicalQueryPlan) {
-                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash();
+                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash(QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options));
                 message.addKeyAndValue("planHash", planHash);
             }
             message.addKeyAndValue("plan", plan.explain());

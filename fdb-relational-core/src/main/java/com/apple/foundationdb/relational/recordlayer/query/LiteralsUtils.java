@@ -20,92 +20,39 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.continuation.LiteralObject;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.collect.Lists;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Array;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Struct;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.CANNOT_CONVERT_TYPE;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
 
-public class LiteralsUtils {
-
-    @Nonnull
-    public static Value processLiteral(@Nullable final Object literal,
-                                       @Nonnull final PlanGenerationContext context) {
-        final var literalValue = new LiteralValue<>(literal);
-        if (!context.shouldProcessLiteral()) {
-            return literalValue;
-        } else {
-            final var literalIndex = context.addStrippedLiteral(literal);
-            final var result = ConstantObjectValue.of(Quantifier.constant(), literalIndex, literalValue.getResultType());
-            context.addLiteralReference(result);
-            return result;
-        }
+public final class LiteralsUtils {
+    private LiteralsUtils() {
+        // prevent instantiation
     }
 
     @Nonnull
-    public static ConstantObjectValue processComplexLiteral(int index,
-                                                          Type type,
-                                                          @Nonnull final PlanGenerationContext context) {
-        final var result = ConstantObjectValue.of(Quantifier.constant(), index, type);
-        if (context.shouldProcessLiteral()) {
-            context.addLiteralReference(result);
-        }
-        return result;
-    }
-
-    public static ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull final Array param,
-                                                                             Type.Array type,
-                                                                             @Nonnull final PlanGenerationContext context) {
-        Type.Array resolvedType = type;
-        final int index = context.startArrayLiteral();
-        final var arrayElements = new ArrayList<>();
-        try {
-            if (type == null) {
-                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RowArray) param).getMetaData(), false);
-            }
-            try (ResultSet rs = param.getResultSet()) {
-                while (rs.next()) {
-                    arrayElements.add(rs.getObject(1));
-                }
-            }
-        } catch (SQLException e) {
-            throw new RelationalException(e).toUncheckedWrappedException();
-        }
-        if (!arrayElements.isEmpty()) {
-            Assert.thatUnchecked(resolvedType.equals(resolveArrayTypeFromObjectsList(arrayElements)),
-                    "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
-        }
-        for (final Object o : arrayElements) {
-            processPreparedStatementParameter(o, resolvedType.getElementType(), context);
-        }
-        context.finishArrayLiteral();
-        return LiteralsUtils.processComplexLiteral(index, resolvedType, context);
-    }
-
-    private static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
+    public static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
         return resolveArrayTypeFromElementTypes(
                 objects.stream().map(o -> {
                     if (o instanceof byte[]) {
@@ -136,56 +83,54 @@ public class LiteralsUtils {
         return new Type.Array(elementType);
     }
 
-    public static Value processPreparedStatementStructParameter(@Nonnull final Struct param,
-                                                               final Type.Record type,
-                                                               @Nonnull final PlanGenerationContext context) {
-        Type.Record resolvedType = type;
-        final var index = context.startStructLiteral();
-        Object[] attributes;
-        try {
-            if (type == null) {
-                resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
-            }
-            attributes = param.getAttributes();
-        } catch (SQLException e) {
-            throw new RelationalException(e).toUncheckedWrappedException();
-        }
-        Assert.thatUnchecked(resolvedType.getFields().size() == attributes.length);
-        for (int i = 0; i < attributes.length; i++) {
-            processPreparedStatementParameter(attributes[i], resolvedType.getFields().get(i).getFieldType(), context);
-        }
-        context.finishStructLiteral(resolvedType);
-        return processComplexLiteral(index, resolvedType, context);
-    }
-
-    public static Value processPreparedStatementParameter(@Nonnull final Object param,
-                                                          final Type type,
-                                                          @Nonnull final PlanGenerationContext context) {
-        if (param instanceof Array) {
-            Assert.thatUnchecked(type == null || type.isArray(), "Array type field required as prepared statement parameter", DATATYPE_MISMATCH);
-            return LiteralsUtils.processPreparedStatementArrayParameter((Array) param, (Type.Array) type, context);
-        } else if (param instanceof Struct) {
-            Assert.thatUnchecked(type == null || type.isRecord(), "Required type field required as prepared statement parameter", DATATYPE_MISMATCH);
-            return LiteralsUtils.processPreparedStatementStructParameter((Struct) param, (Type.Record) type, context);
-        } else if (param instanceof byte[]) {
-            return LiteralsUtils.processLiteral(ZeroCopyByteString.wrap((byte[]) param), context);
-        } else {
-            return LiteralsUtils.processLiteral(param, context);
-        }
-    }
-
     @Nonnull
-    public static QueryPredicate toQueryPredicate(@Nonnull final BooleanValue value,
-                                                  @Nonnull CorrelationIdentifier innermostAlias,
-                                                  @Nonnull final PlanGenerationContext context) {
-        if (context.hasDdlAncestor()) {
-            final var result = value.toQueryPredicate(ParserUtils.EMPTY_TYPE_REPOSITORY, innermostAlias);
-            Assert.thatUnchecked(result.isPresent());
-            return result.get();
-        } else {
-            final var result = value.toQueryPredicate(null, innermostAlias);
-            Assert.thatUnchecked(result.isPresent());
-            return result.get();
+    public static LiteralObject objectToliteralObjectProto(@Nonnull final Type type, @Nullable final Object object) {
+        final var builder = LiteralObject.newBuilder();
+        if (object == null) {
+            return builder.build();
         }
+        if (type.isRecord()) {
+            final var message = (Message) object;
+            builder.setRecordObject(message.toByteString());
+        } else if (type.isArray()) {
+            final var elementType = Objects.requireNonNull(((Type.Array) type).getElementType());
+            final var array = (List<?>) object;
+            final var arrayBuilder = LiteralObject.Array.newBuilder();
+            for (final Object element : array) {
+                arrayBuilder.addElementObjects(objectToliteralObjectProto(elementType, element));
+            }
+            builder.setArrayObject(arrayBuilder.build());
+        } else {
+            // scalar
+            builder.setScalarObject(PlanSerialization.valueObjectToProto(object));
+        }
+        return builder.build();
+    }
+
+    @Nullable
+    public static Object objectFromLiteralObjectProto(@Nonnull final TypeRepository typeRepository,
+                                                      @Nonnull final Type type,
+                                                      @Nonnull final LiteralObject literalObject) {
+        if (literalObject.hasScalarObject()) {
+            return PlanSerialization.protoToValueObject(literalObject.getScalarObject());
+        }
+        if (literalObject.hasRecordObject()) {
+            final var typeDescriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(type));
+            try {
+                return DynamicMessage.parseFrom(typeDescriptor, literalObject.getRecordObject());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RelationalException("unable to parse object", INTERNAL_ERROR, e).toUncheckedWrappedException();
+            }
+        }
+        if (literalObject.hasArrayObject()) {
+            final var arrayObject = literalObject.getArrayObject();
+            final var elementType = Objects.requireNonNull(((Type.Array) type).getElementType());
+            final var array = Lists.newArrayListWithExpectedSize(arrayObject.getElementObjectsCount());
+            for (int i = 0; i < arrayObject.getElementObjectsCount(); i++) {
+                array.add(objectFromLiteralObjectProto(typeRepository, elementType, arrayObject.getElementObjects(i)));
+            }
+            return array;
+        }
+        return null;
     }
 }

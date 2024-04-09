@@ -34,9 +34,10 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionParameters.OrderedLiteral.constantId;
 
 /**
  * This contains a set of tests the verify equality semantics which is necessary for secondary cache load, lookup,
@@ -48,19 +49,23 @@ public class PhysicalPlanEquivalenceTests {
     private static final TypeRepository EMPTY_TYPE_REPO = TypeRepository.empty();
 
     @Nonnull
-    private static final QueryPredicate lt00 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
+    private static final QueryPredicate lt00 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
+                    constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
     @Nonnull
-    private static final QueryPredicate gt400 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
+    private static final QueryPredicate gt400 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
+                    constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 400));
 
     @Nonnull
-    private static final QueryPredicate lt100Dup = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
+    private static final QueryPredicate lt100Dup = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
+                    constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
     @Nonnull
-    private static final QueryPredicate lt400 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
+    private static final QueryPredicate lt400 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
+                    constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 400));
 
     @Nonnull
@@ -79,13 +84,16 @@ public class PhysicalPlanEquivalenceTests {
     private static final QueryPlanConstraint lt400Constraint = QueryPlanConstraint.ofPredicate(lt400);
 
     @Nonnull
-    private static final EvaluationContext ec80 = EvaluationContext.newBuilder().setConstant(Quantifier.constant(), List.of(80)).build(EMPTY_TYPE_REPO);
+    private static final EvaluationContext ec80 = EvaluationContext.newBuilder()
+            .setConstant(Quantifier.constant(), Map.of(constantId(0), 80)).build(EMPTY_TYPE_REPO);
 
     @Nonnull
-    private static final EvaluationContext ec120 = EvaluationContext.newBuilder().setConstant(Quantifier.constant(), List.of(120)).build(EMPTY_TYPE_REPO);
+    private static final EvaluationContext ec120 = EvaluationContext.newBuilder()
+            .setConstant(Quantifier.constant(), Map.of(constantId(0), 120)).build(EMPTY_TYPE_REPO);
 
     @Nonnull
-    private static final EvaluationContext ec120Dup = EvaluationContext.newBuilder().setConstant(Quantifier.constant(), List.of(120)).build(EMPTY_TYPE_REPO);
+    private static final EvaluationContext ec120Dup = EvaluationContext.newBuilder()
+            .setConstant(Quantifier.constant(), Map.of(constantId(0), 120)).build(EMPTY_TYPE_REPO);
 
     @Test
     void equalityOfPPEWithMatchingConstraintsWorks() {

@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -87,6 +87,33 @@ public class QueryWithContinuationTest {
                 ps.setBytes("continuation", continuation.serialize());
                 continuation = assertResult(ps, 14L);
                 assertContinuation(continuation, false, true);
+            }
+        }
+    }
+
+    @Test
+    void preparedStatementWithExecuteContinuation() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            Continuation continuation;
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                try (var statement = connection.prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                    continuation = assertResult(statement, 10L, 11L);
+                    assertContinuation(continuation, false, false);
+                }
+            }
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation LIMIT 2")) {
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 12L, 13L);
+                    assertContinuation(continuation, false, false);
+
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 14L);
+                    assertContinuation(continuation, false, true);
+                }
             }
         }
     }
@@ -249,7 +276,7 @@ public class QueryWithContinuationTest {
             }
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE REST_NO > 10 LIMIT 2 WITH CONTINUATION ?continuation")) {
                 ps.setBytes("continuation", continuation.serialize());
-                Assertions.assertThatThrownBy(() -> ps.executeQuery())
+                Assertions.assertThatThrownBy(ps::executeQuery)
                         .hasCauseInstanceOf(RelationalException.class)
                         .hasMessageContaining("Continuation binding does not match query");
             }
@@ -369,10 +396,9 @@ public class QueryWithContinuationTest {
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, false);
 
-                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection)connection;
+                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
                         final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
-                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
-                        Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
+                        Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isFalse();
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isFalse();
                     }
                 }
@@ -392,7 +418,7 @@ public class QueryWithContinuationTest {
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, false);
 
-                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection)connection;
+                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
                         final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
                         Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);
@@ -414,7 +440,7 @@ public class QueryWithContinuationTest {
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, true);
 
-                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection)connection;
+                        final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
                         final var metricCollector = Objects.requireNonNull(embeddedRelationalConnection.getMetricCollector());
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isTrue();
                         Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED)).isEqualTo(1L);

@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.Objects;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
@@ -42,28 +43,28 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     private Row currentRow;
 
     @Nullable
-    private final Integer parameterHash;
-
-    @Nullable
     private final Integer planHash;
 
     private volatile boolean closed;
 
+    @Nonnull
+    private final EnrichContinuationFunction enrichContinuationFunction;
+
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection) {
-        this(metaData, iterator, connection, null, null);
+        this(metaData, iterator, connection, EnrichContinuationFunction.identity(), null);
     }
 
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection,
-                                @Nullable Integer parameterHash,
+                                @Nonnull final EnrichContinuationFunction enrichContinuationFunction,
                                 @Nullable Integer planHash) {
         super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
-        this.parameterHash = parameterHash;
+        this.enrichContinuationFunction = enrichContinuationFunction;
         this.planHash = planHash;
     }
 
@@ -130,27 +131,30 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nonnull
     public Continuation getContinuation() throws SQLException {
         try {
-            return enrichContinuation(currentCursor.getContinuation());
+            return enrichContinuationFunction.apply(currentCursor.getContinuation());
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
     }
 
+    /**
+     * Get rid of this method. This is only used for the YAML driver to check for the correct plan hash.
+     * We should rather do that through a command like {@code PLANHASH query} a la {@code EXPLAIN query}. Or maybe
+     * have explain return two columns.
+     * @return the plan hash
+     */
     @Override
-    @Nullable
     public int getPlanHash() {
-        return planHash;
+        return Objects.requireNonNull(planHash);
     }
 
-    private Continuation enrichContinuation(Continuation cont) throws RelationalException {
-        ContinuationBuilder builder = ContinuationImpl.copyOf(cont)
-                .asBuilder();
-        if (parameterHash != null) {
-            builder.withBindingHash(parameterHash);
+    @FunctionalInterface
+    public interface EnrichContinuationFunction {
+        @Nonnull
+        Continuation apply(@Nonnull Continuation continuation) throws RelationalException;
+
+        static EnrichContinuationFunction identity() {
+            return continuation -> continuation;
         }
-        if (planHash != null) {
-            builder.withPlanHash(planHash);
-        }
-        return builder.build();
     }
 }

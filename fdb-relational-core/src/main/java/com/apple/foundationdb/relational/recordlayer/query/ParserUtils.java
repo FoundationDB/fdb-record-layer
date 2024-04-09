@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
@@ -271,17 +270,6 @@ public final class ParserUtils {
         } catch (IllegalArgumentException e) {
             throw new RelationalException("Could not parse bytes literal", ErrorCode.INVALID_BINARY_REPRESENTATION, e).toUncheckedWrappedException();
         }
-    }
-
-    @Nonnull
-    public static Value unstripLiterals(@Nonnull final Value value, @Nonnull final PlanGenerationContext context) {
-        return value.<Value>mapMaybe((current, mappedChildren) -> {
-            if (current instanceof ConstantObjectValue) {
-                final var constantObjectValue = (ConstantObjectValue) current;
-                return LiteralValue.ofScalar(constantObjectValue.eval(null, context.getEvaluationContext(EMPTY_TYPE_REPOSITORY))).withChildren(mappedChildren);
-            }
-            return value;
-        }).orElseThrow();
     }
 
     public static int parseBoundInteger(@Nonnull final String valueAsString,

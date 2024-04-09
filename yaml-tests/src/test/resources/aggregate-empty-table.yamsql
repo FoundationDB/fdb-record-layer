@@ -87,11 +87,11 @@ test_block:
       - result: []
     -
       - query: select count(*) from T2 where col1 = 0 group by col1;
-      - explainContains: "Index(T2_I2 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - explainContains: "Index(T2_I2 [EQUALS promote(@c11 as LONG)] BY_GROUP)"
       - result: []
     -
       - query: select count(*) from T2 where col1 > 0 group by col1;
-      - explainContains: "Index(T2_I2 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
+      - explainContains: "Index(T2_I2 [[GREATER_THAN promote(@c11 as LONG)]] BY_GROUP)"
       - result: []
     -
       - query: select count(*) from T3;
@@ -99,11 +99,11 @@ test_block:
       - result: [{0}]
     -
       - query: select count(*) from T3 where col1 = 0;
-      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I1 [EQUALS promote(@c11 as LONG)])"
       - result: [{0}]
     -
       - query: select count(*) from T3 where col1 > 0;
-      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: [{0}]
     -
       - query: select count(*) from T3 group by col1;
@@ -111,11 +111,11 @@ test_block:
       - result: []
     -
       - query: select count(*) from T3 where col1 = 0 group by col1;
-      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I1 [EQUALS promote(@c11 as LONG)])"
       - result: []
     -
       - query: select count(*) from T3 where col1 > 0 group by col1;
-      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: []
     -
       - query: select count(col2) from T1;
@@ -163,11 +163,11 @@ test_block:
       - result: []
     -
       - query: select count(col2) from T2 where col1 = 0 group by col1;
-      - explainContains: "Index(T2_I4 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - explainContains: "Index(T2_I4 [EQUALS promote(@c11 as LONG)] BY_GROUP)"
       - result: []
     -
       - query: select count(col2) from T2 where col1 > 0 group by col1;
-      - explainContains: "Index(T2_I4 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
+      - explainContains: "Index(T2_I4 [[GREATER_THAN promote(@c11 as LONG)]] BY_GROUP)"
       - result: []
     -
       - query: select count(col2) from T3;
@@ -175,11 +175,11 @@ test_block:
       - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 = 0;
-      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I1 [EQUALS promote(@c11 as LONG)])"
       - result: [{0}]
     -
       - query: select count(col2) from T3 where col1 > 0;
-      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: [{0}]
     -
       - query: select count(col2) from T3 group by col1;
@@ -187,11 +187,11 @@ test_block:
       - result: []
     -
       - query: select count(col2) from T3 where col1 = 0 group by col1;
-      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I1 [EQUALS promote(@c11 as LONG)])"
       - result: []
     -
       - query: select count(col2) from T3 where col1 > 0 group by col1;
-      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: []
     -
       - query: select sum(col1) from T1;
@@ -239,14 +239,14 @@ test_block:
       - error: "0AF00"
     -
       - query: select sum(col1) from T2 where col2 = 0 group by col2;
-      - explainContains: "Index(T2_I6 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - explainContains: "Index(T2_I6 [EQUALS promote(@c11 as LONG)] BY_GROUP)"
       - result: []
     -
       - query: select sum(col1) from T2 where col1 > 0 group by col2;
       - error: "0AF00"
     -
       - query: select sum(col1) from T2 where col2 > 0 group by col2;
-      - explainContains: "Index(T2_I6 [[GREATER_THAN promote(@0 as LONG)]] BY_GROUP)"
+      - explainContains: "Index(T2_I6 [[GREATER_THAN promote(@c11 as LONG)]] BY_GROUP)"
       - result: []
     -
       - query: select sum(col1) from T3;
@@ -254,19 +254,19 @@ test_block:
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0;
-      - explainContains: "Index(T3_I1 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I1 [EQUALS promote(@c11 as LONG)])"
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 = 0;
-      - explainContains: "Index(T3_I2 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I2 [EQUALS promote(@c11 as LONG)])"
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 > 0;
-      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I1 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col2 > 0;
-      - explainContains: "Index(T3_I2 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I2 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: [{!null _}]
     -
       - query: select sum(col1) from T3 where col1 = 0 group by col2;
@@ -274,7 +274,7 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T3 where col2 = 0 group by col2;
-      - explainContains: "Index(T3_I2 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(T3_I2 [EQUALS promote(@c11 as LONG)])"
       - result: []
     -
       - query: select sum(col1) from T3 where col1 > 0 group by col2;
@@ -282,7 +282,7 @@ test_block:
       - result: []
     -
       - query: select sum(col1) from T3 where col2 > 0 group by col2;
-      - explainContains: "Index(T3_I2 [[GREATER_THAN promote(@0 as LONG)]])"
+      - explainContains: "Index(T3_I2 [[GREATER_THAN promote(@c11 as LONG)]])"
       - result: []
 ---
 test_block:

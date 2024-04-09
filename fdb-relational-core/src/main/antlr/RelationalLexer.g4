@@ -30,7 +30,7 @@ channels { MYSQLCOMMENT }
 
 // SKIP
 
-SPACE:                               [ \t\r\n]+    -> channel(HIDDEN);
+SPACE:                               [ \t\r\n]+    -> skip;
 SPEC_MYSQL_COMMENT:                  '/*!' .+? '*/' -> channel(MYSQLCOMMENT);
 COMMENT_INPUT:                       '/*' .*? '*/' -> channel(HIDDEN);
 LINE_COMMENT:                        (
@@ -147,7 +147,6 @@ MODIFIES:                            'MODIFIES';
 NATURAL:                             'NATURAL';
 NOT:                                 'NOT';
 NO_WRITE_TO_BINLOG:                  'NO_WRITE_TO_BINLOG';
-
 NULL_LITERAL:                        'NULL';
 NUMBER:                              'NUMBER';
 OFF:                                 'OFF';

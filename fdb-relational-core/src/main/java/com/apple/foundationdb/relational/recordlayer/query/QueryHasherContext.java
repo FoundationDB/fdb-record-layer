@@ -33,14 +33,13 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 public final class QueryHasherContext implements QueryExecutionParameters {
 
     @Nonnull
-    private final List<Object> literals;
+    private final Literals literals;
 
     @Nullable
     private final byte[] continuation;
@@ -59,7 +58,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
     @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
 
-    private QueryHasherContext(@Nonnull List<Object> literals,
+    private QueryHasherContext(@Nonnull Literals literals,
                                @Nullable byte[] continuation,
                                @Nonnull PreparedStatementParameters preparedStatementParameters,
                                int limit,
@@ -79,12 +78,26 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     @Nonnull
     @Override
+    public Literals getLiterals() {
+        return literals;
+    }
+
+    public int getLimit() {
+        return limit;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
+    @Nonnull
+    @Override
     public EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
         if (literals.isEmpty()) {
             return EvaluationContext.forTypeRepository(typeRepository);
         }
         final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), literals);
+        builder.setConstant(Quantifier.constant(), literals.asMap());
         return builder.build(typeRepository);
     }
 
@@ -181,24 +194,29 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             return this;
         }
 
-        public int addLiteral(@Nonnull final Object object) {
-            return literals.addLiteral(object);
+        public void addLiteral(@Nonnull final  OrderedLiteral orderedLiteral) {
+            literals.addLiteral(orderedLiteral);
         }
 
-        public int startArrayLiteral() {
-            return literals.startArrayLiteral();
+        public void startArrayLiteral() {
+            literals.startArrayLiteral();
         }
 
-        public void finishArrayLiteral() {
-            literals.finishArrayLiteral();
+        public void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
+                                       @Nullable final String parameterName,
+                                       final int tokenIndex) {
+            literals.finishArrayLiteral(unnamedParameterIndex, parameterName, true, tokenIndex);
         }
 
-        public int startStructLiteral() {
-            return literals.startStructLiteral();
+        public void startStructLiteral() {
+            literals.startStructLiteral();
         }
 
-        public void finishStructLiteral(@Nonnull Type.Record type) {
-            literals.finishStructLiteral(type);
+        public void finishStructLiteral(@Nonnull Type.Record type,
+                                        @Nullable final Integer unnamedParameterIndex,
+                                        @Nullable final String parameterName,
+                                        final int tokenIndex) {
+            literals.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
         }
 
         // todo (yhatem) remove.
@@ -222,18 +240,14 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
         @Nonnull
         public QueryHasherContext build() {
-            return new QueryHasherContext(literals.getLiterals(), continuation, preparedStatementParameters, limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED),
-                    parameterHash, 0, isForExplain, Objects.requireNonNull(planHashMode));
+            return new QueryHasherContext(literals.build(), continuation, preparedStatementParameters,
+                    limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED), parameterHash, 0, isForExplain,
+                    Objects.requireNonNull(planHashMode));
         }
     }
 
     @Nonnull
     public static Builder newBuilder() {
         return new Builder();
-    }
-
-    public int addStrippedLiteral(@Nullable final Object literal) {
-        literals.add(literal);
-        return literals.size() - 1;
     }
 }

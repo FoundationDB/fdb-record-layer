@@ -43,7 +43,8 @@ public final class ProceduralPlan extends Plan<Void> {
     }
 
     @Override
-    public Plan<Void> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration, @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
+    public Plan<Void> optimize(@Nonnull final CascadesPlanner planner, @Nonnull final PlannerConfiguration configuration,
+                               @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
         return this;
     }
 

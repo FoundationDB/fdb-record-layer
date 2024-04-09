@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 
 import com.google.common.primitives.Ints;
 import com.google.protobuf.ByteString;
@@ -65,13 +65,13 @@ public class ContinuationTest {
     public void customProto() throws Exception {
         ContinuationProto proto = ContinuationProto.newBuilder()
                 .setVersion(5)
-                .setUnderlyingBytes(ByteString.copyFrom("Blah".getBytes()))
+                .setExecutionState(ByteString.copyFrom("Blah".getBytes()))
                 .setBindingHash(1234)
                 .build();
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.parseContinuation(proto.toByteArray());
         Assertions.assertThat(continuation.atBeginning()).isEqualTo(false);
         Assertions.assertThat(continuation.atEnd()).isEqualTo(false);
-        Assertions.assertThat(continuation.getUnderlyingBytes()).isEqualTo("Blah".getBytes());
+        Assertions.assertThat(continuation.getExecutionState()).isEqualTo("Blah".getBytes());
         Assertions.assertThat(continuation.getVersion()).isEqualTo(5);
         Assertions.assertThat(continuation.getBindingHash()).isEqualTo(1234);
     }
@@ -90,7 +90,7 @@ public class ContinuationTest {
     private void assertContinuation(ContinuationImpl continuation, boolean atBeginning, boolean atEnd, Object underlying) {
         Assertions.assertThat(continuation.atBeginning()).isEqualTo(atBeginning);
         Assertions.assertThat(continuation.atEnd()).isEqualTo(atEnd);
-        Assertions.assertThat(continuation.getUnderlyingBytes()).isEqualTo(underlying);
+        Assertions.assertThat(continuation.getExecutionState()).isEqualTo(underlying);
         Assertions.assertThat(continuation.getVersion()).isEqualTo(ContinuationImpl.CURRENT_VERSION);
     }
 }

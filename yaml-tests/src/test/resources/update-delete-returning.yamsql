@@ -49,7 +49,7 @@ test_block:
     -
       # update DRY RUN, assert that plan and returning result are the same, but nothing is updated
       - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 OPTIONS(DRY RUN);
-      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[($q5.new.A3 as A3)])"
+      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@c15 as LONG) | UPDATE A[($q5.new.A3 as A3)])"
       - result: [ { 44 }, { 44 } ]
     -
       - query: select * from A;
@@ -59,7 +59,7 @@ test_block:
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3;
-      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[($q5.new.A3 as A3)])"
+      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@c15 as LONG) | UPDATE A[($q5.new.A3 as A3)])"
       - result: [ { 44 }, { 44 } ]
 #    -
 #      # TODO ([POST] UPDATE/DELETE RETURNING * does not work)
@@ -78,7 +78,7 @@ test_block:
                   { { A1: 2, A2: 45, A3: 46 } } ]
     -
       - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3 OPTIONS(DRY RUN);
-      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[(add_ll($q5.new.A3, $q5.new.A3) as _0)])"
+      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@c15 as LONG) | UPDATE A[(add_ll($q5.new.A3, $q5.new.A3) as _0)])"
       - result: [ { 88 }, { 88 } ]
     -
       - query: select * from A;
@@ -88,7 +88,7 @@ test_block:
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3;
-      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@2 as LONG) | UPDATE A[(add_ll($q5.new.A3, $q5.new.A3) as _0)])"
+      - explain: "map(Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q24.A1 LESS_THAN_OR_EQUALS promote(@c15 as LONG) | UPDATE A[(add_ll($q5.new.A3, $q5.new.A3) as _0)])"
       - result: [ { 88 }, { 88 } ]
     -
       - query: select * from A;
@@ -97,7 +97,7 @@ test_block:
                   { A1: 3, A2: 12, A3: 30 } ]
     -
       - query: update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN);
-      - explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q22.A1 GREATER_THAN promote(@1 as LONG) | UPDATE A"
+      - explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q22.A1 GREATER_THAN promote(@c10 as LONG) | UPDATE A"
     -
       - query: select * from A;
       - result: [ { A1: 1, A2: 42, A3: 44 },
@@ -105,7 +105,7 @@ test_block:
                   { A1: 3, A2: 12, A3: 30 } ]
     -
       - query: update A set A2 = 52 where A1 > 2;
-      - explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q22.A1 GREATER_THAN promote(@1 as LONG) | UPDATE A"
+      - explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q22.A1 GREATER_THAN promote(@c10 as LONG) | UPDATE A"
     -
       - query: select * from A;
       - result: [ { A1: 1, A2: 42, A3: 44 },

@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -117,8 +116,8 @@ public final class PhysicalPlanEquivalence {
                 if (evaluationContext.isEmpty() || other.evaluationContext.isEmpty()) {
                     return false;
                 }
-                final var constantBindings1 = (List<?>) evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
-                final var constantBindings2 = (List<?>) other.evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
+                final var constantBindings1 = evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
+                final var constantBindings2 = other.evaluationContext.get().getBindings().get(Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId()));
                 return Objects.equals(constantBindings1, constantBindings2);
             }
         } else {

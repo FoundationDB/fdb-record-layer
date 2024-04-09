@@ -109,7 +109,7 @@ test_block:
        - result: [{!l 20, !l 13}, {!l 10, !l 5}]
     -
        - query: select col1, max(col2) from T1 where col1 = 10 group by col1;
-       - explainContains: "AggregateIndexScan(Index(MV8 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+       - explainContains: "AggregateIndexScan(Index(MV8 [EQUALS promote(@c13 as LONG)] BY_GROUP)"
        - result: [{!l 10, !l 5}]
     -
        # At some point, should be able to roll up values from the aggregate index. However, even
@@ -122,11 +122,11 @@ test_block:
        # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
        # NOT by group
        - query: select col2 from T1 where col1 = 10;
-       - explainContains: "Covering(Index(MV8 [EQUALS promote(@0 as LONG)]) -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]])"
+       - explainContains: "Covering(Index(MV8 [EQUALS promote(@c8 as LONG)]) -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]])"
        - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}, {!l 5}]
     -
        - query: select col2 from T1 where col1 = 10 order by col2 desc;
-       - explainContains: "Covering(Index(MV8 [EQUALS promote(@0 as LONG)] REVERSE) -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]])"
+       - explainContains: "Covering(Index(MV8 [EQUALS promote(@c8 as LONG)] REVERSE) -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]])"
        - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
     -
       - query: select min(col3) from T2 group by col1, col2;
@@ -151,49 +151,49 @@ test_block:
       - result: [{COL1: 1, COL3: 1, !l 1}, {COL1: 1, COL3: 100, !l 1}, {COL1: 1, COL3: 2, !l 2}, {COL1: 1, COL3: 200, !l 2}, {COL1: 2, COL3: 3, !l 1}, {COL1: 2, COL3: 200, !l 1}, {COL1: 2, Col3: 400, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 2 group by col1, col3;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG)] BY_GROUP)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP)"
       - result: [{COL3: 3, !l 1}, {COL3: 200, !l 1}, {COL3: 400, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 order by max(col2) desc;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG)] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP REVERSE)"
       - result: [{COL3: 200, !l 2}, {COL3: 2, !l 2}, {COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 order by max(col2) desc limit 3;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG)] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG)] BY_GROUP REVERSE)"
       - result: [{COL3: 200, !l 2}, {COL3: 2, !l 2}, {COL3: 100, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 order by max(col2) desc;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG), [LESS_THAN promote(@1 as LONG)]] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 and max(col2) >= 1 order by max(col2) desc;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG), [GREATER_THAN_OR_EQUALS promote(@2 as LONG) && LESS_THAN promote(@1 as LONG)]] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [GREATER_THAN_OR_EQUALS promote(@c33 as LONG) && LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG)] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c21 as LONG)] BY_GROUP REVERSE)"
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select col3, m from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t order by m desc;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@0 as LONG)] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c21 as LONG)] BY_GROUP REVERSE)"
       - result: [{COL3: 200, M: 2}, {COL3: 2, M: 2}, {COL3: 100, M: 1}, {COL3: 1, M: 1}]
     -
       # Permuted max index can be used as a value index on the underlying columns
       - query: select col3, col2 from t2 where col1 = 1 order by col3 asc;
-      - explainContains: "Covering(Index(MV9 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Covering(Index(MV9 [EQUALS promote(@c10 as LONG)])"
       - result: [{COL3: 1, COL2: 1}, {COL3: 2, COL2: 2}, {COL3: 100, COL2: 1}, {COL3: 200, COL2: 2}]
     -
       - query: select col3, col2 from t2 where col1 = 1 order by col3 desc;
-      - explainContains: "Covering(Index(MV9 [EQUALS promote(@0 as LONG)] REVERSE)"
+      - explainContains: "Covering(Index(MV9 [EQUALS promote(@c10 as LONG)] REVERSE)"
       - result: [{COL3: 200, COL2: 2}, {COL3: 100, COL2: 1}, {COL3: 2, COL2: 2}, {COL3: 1, COL2: 1}]
     -
       # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
-      - explainContains: "Index(MV9 [EQUALS promote(@0 as LONG)])"
+      - explainContains: "Index(MV9 [EQUALS promote(@c20 as LONG)])"
       - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
     -
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
-      - explainContains: "Index(MV9 [EQUALS promote(@0 as LONG)] REVERSE)"
+      - explainContains: "Index(MV9 [EQUALS promote(@c20 as LONG)] REVERSE)"
       - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
 #    -
 #      # grouping by constant is not yet supported.
@@ -221,11 +221,11 @@ test_block:
       - result: [{!l 20, !l 76}]
     -
       - query: select sum(col2) from T1 where col1  = 10 group by col1
-      - explain: "map(AggregateIndexScan(Index(MV1 [EQUALS promote(@0 as LONG)] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
+      - explain: "map(AggregateIndexScan(Index(MV1 [EQUALS promote(@c11 as LONG)] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
       - result: [{!l 15}]
     -
       - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
-      - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@1 as LONG) && LESS_THAN_OR_EQUALS promote(@0 as LONG)]] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
+      - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@c19 as LONG) && LESS_THAN_OR_EQUALS promote(@c12 as LONG)]] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
       - result: [{!l 15}]
 ---
 destruct:

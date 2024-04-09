@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -44,6 +43,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionParameters.OrderedLiteral.constantId;
 
 /**
  * This tests concurrent behavior of the tertiary cache.
@@ -70,22 +71,22 @@ public class ConcurrentCacheTests {
 
     @Nonnull
     private static EvaluationContext ecFor(int value) {
-        return EvaluationContext.newBuilder().setConstant(Quantifier.constant(), List.of(value)).build(EMPTY_TYPE_REPO);
+        return EvaluationContext.newBuilder().setConstant(Quantifier.constant(), Map.of(constantId(0), value)).build(EMPTY_TYPE_REPO);
     }
 
     @Nonnull
     private static final QueryPlanConstraint lt150Constraint = QueryPlanConstraint.ofPredicate(
-            new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
-                    new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 150)));
+            new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), constantId(0),
+                    Type.primitiveType(Type.TypeCode.INT)), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 150)));
 
     @Nonnull
     private static final QueryPlanConstraint lt500Constraint = QueryPlanConstraint.ofPredicate(
-            new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
+            new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), constantId(0), Type.primitiveType(Type.TypeCode.INT)),
                     new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 500)));
 
     @Nonnull
     private static final QueryPlanConstraint lt1000Constraint = QueryPlanConstraint.ofPredicate(
-            new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), 0, Type.primitiveType(Type.TypeCode.INT)),
+            new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), constantId(0), Type.primitiveType(Type.TypeCode.INT)),
                     new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 1000)));
 
     @Nonnull

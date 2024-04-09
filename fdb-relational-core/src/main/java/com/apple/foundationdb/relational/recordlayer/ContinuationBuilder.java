@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.continuation.grpc.ContinuationProto;
+import com.apple.foundationdb.relational.continuation.CompiledStatement;
+import com.apple.foundationdb.relational.continuation.ContinuationProto;
 
 import com.google.protobuf.ByteString;
 
@@ -44,18 +45,27 @@ public class ContinuationBuilder {
         this.proto = proto.toBuilder();
     }
 
-    public ContinuationBuilder withUnderlyingBytes(byte[] underlyingBytes) {
-        this.proto.setUnderlyingBytes(ByteString.copyFrom(underlyingBytes));
+    @Nonnull
+    public ContinuationBuilder withExecutionState(byte[] executionState) {
+        this.proto.setExecutionState(ByteString.copyFrom(executionState));
         return this;
     }
 
+    @Nonnull
     public ContinuationBuilder withBindingHash(int hash) {
         proto.setBindingHash(hash);
         return this;
     }
 
+    @Nonnull
     public ContinuationBuilder withPlanHash(int hash) {
         proto.setPlanHash(hash);
+        return this;
+    }
+
+    @Nonnull
+    public ContinuationBuilder withCompiledStatement(@Nonnull final CompiledStatement compiledStatementProto) {
+        proto.setCompiledStatement(compiledStatementProto);
         return this;
     }
 

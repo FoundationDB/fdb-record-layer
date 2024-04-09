@@ -180,10 +180,16 @@ public class UpdateTest {
     }
 
     private static RelationalPreparedStatement prepareUpdate(RelationalConnection conn, String updateField, Object param, Continuation continuation) throws SQLException {
-        final var statement = conn.prepareStatement("UPDATE RestaurantReviewer SET " + updateField + " = ?param WHERE id >= 0 RETURNING \"new\"." + updateField + ", \"new\".id WITH CONTINUATION ?cont");
-        statement.setObject("param", param);
-        statement.setObject("cont", continuation.serialize());
-        return statement;
+        if (continuation.atBeginning() || !((ContinuationImpl) continuation).hasCompiledStatement()) {
+            final var statement = conn.prepareStatement("UPDATE RestaurantReviewer SET " + updateField + " = ?param WHERE id >= 0 RETURNING \"new\"." + updateField + ", \"new\".id WITH CONTINUATION ?cont");
+            statement.setObject("param", param);
+            statement.setObject("cont", continuation.serialize());
+            return statement;
+        } else {
+            final var statement = conn.prepareStatement("EXECUTE CONTINUATION ?cont");
+            statement.setObject("cont", continuation.serialize());
+            return statement;
+        }
     }
 
     private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws RelationalException, SQLException {

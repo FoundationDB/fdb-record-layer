@@ -34,7 +34,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractAssert;
@@ -42,6 +41,7 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.SoftAssertions;
 
+import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -55,8 +55,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import javax.annotation.Nonnull;
 
 public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalResultSet> {
 
@@ -78,7 +76,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         }
     }
 
-    public static interface SqlPredicate {
+    public interface SqlPredicate {
 
         boolean test(RelationalResultSet rs) throws SQLException;
     }
@@ -222,6 +220,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     public ResultSetAssert hasColumn(String colName, Object colValue) {
         try {
             Object o = actual.getObject(colName);

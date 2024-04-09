@@ -102,7 +102,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
             try (RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.REVERSE_SCAN)) {
+                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult = cursor.getNext();
                 return cursorResult != null && !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             }
@@ -164,7 +164,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         try (RecordCursor<FDBStoredRecord<Message>> cursor =
                 recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                 EndpointType.RANGE_INCLUSIVE),
-                        ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.REVERSE_SCAN);) {
+                        ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN);) {
             RecordCursorResult<FDBStoredRecord<Message>> cursorResult = cursor.getNext();
             if (cursorResult == null || cursorResult.getContinuation().isEnd() || cursorResult.get() == null) {
                 throw new RelationalException("SchemaTemplate=" + templateName + " is not in catalog",
@@ -237,7 +237,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
             RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);
+                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);
             Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData()
                     .getRecordType(SchemaTemplateSystemTable.TABLE_NAME).getDescriptor();
             StructMetaData structMetaData = SqlTypeSupport.recordToMetaData(ProtobufDdlUtil.recordFromDescriptor(d));
@@ -272,7 +272,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
             try (RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getUnderlyingBytes(), ScanProperties.FORWARD_SCAN);) {
+                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult = null;
                 boolean deletedSomething = false;
                 do {

@@ -127,7 +127,7 @@ public class CursorTest {
 
                 // verify
                 Assertions.assertTrue(lastContinuation.atEnd());
-                Assertions.assertEquals(lastContinuation.getUnderlyingBytes(), ContinuationImpl.END.getUnderlyingBytes());
+                Assertions.assertEquals(lastContinuation.getExecutionState(), ContinuationImpl.END.getExecutionState());
 
             } catch (RelationalException | SQLException e) {
                 Assertions.fail("failed to parse ", e);
@@ -143,7 +143,7 @@ public class CursorTest {
                 resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE);
                 Assertions.assertFalse(resultSet.next());
                 Continuation continuation = resultSet.getContinuation();
-                Assertions.assertEquals(0, continuation.getUnderlyingBytes().length);
+                Assertions.assertEquals(0, continuation.getExecutionState().length);
                 Assertions.assertTrue(continuation.atEnd());
                 Assertions.assertFalse(continuation.atBeginning());
                 Assertions.assertFalse(resultSet.next());

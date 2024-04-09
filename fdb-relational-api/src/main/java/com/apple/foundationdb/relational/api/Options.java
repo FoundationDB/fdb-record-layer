@@ -178,6 +178,12 @@ public final class Options {
          * an older plan hash mode.
          */
         VALID_PLAN_HASH_MODES,
+
+        /**
+         * Boolean indicator if continuations generated for query responses may contain serialized compiled statements
+         * that can be used in EXECUTE CONTINUATION statements.
+         */
+        CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS,
     }
 
     public enum IndexFetchMethod {
@@ -209,8 +215,8 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
+        builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
-
     }
 
     public static final Options NONE = Options.builder().build();
@@ -339,6 +345,7 @@ public final class Options {
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
+        data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }
