@@ -244,6 +244,114 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that byte string queries work with values that include a zero byte, which is specially encoded in tuples.
+     */
+    @Test
+    void queryByteStringWithZero() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openBytesRecordStore(context);
+
+            recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
+                                   .setPkey(byteString(1)).setSecondary(byteString(1))
+                                   .build());
+            recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
+                                   .setPkey(byteString(1, 2)).setSecondary(byteString(1, 0, 2))
+                                   .build());
+            recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
+                                   .setPkey(byteString(1, 3)).setSecondary(byteString(1, 0, 3))
+                                   .build());
+            recordStore.saveRecord(TestRecordsBytesProto.ByteStringRecord.newBuilder()
+                                   .setPkey(byteString(2)).setSecondary(byteString(2))
+                                   .build());
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openBytesRecordStore(context);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("ByteStringRecord")
+                    .setFilter(Query.field("secondary").equalsValue(byteString(1)))
+                    .build();
+
+            // Index(ByteStringRecord$secondary [[[1]],[[1]]])
+            RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan,
+                    indexPlan().where(indexName("ByteStringRecord$secondary"))
+                            .and(scanComparisons(range("[[[1]],[[1]]]"))));
+
+            assertEquals(-1357183519, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-574148059, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int count = 0;
+                while (cursor.hasNext()) {
+                    TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
+                    record.mergeFrom(cursor.next().getRecord());
+                    assertEquals(byteString(1), record.getSecondary());
+                    count++;
+                }
+                assertEquals(1, count);
+                assertDiscardedNone(context);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openBytesRecordStore(context);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("ByteStringRecord")
+                    .setFilter(Query.field("secondary").startsWith(byteString(1)))
+                    .build();
+
+            // Index(ByteStringRecord$secondary [[[1]],[[1]]])
+            RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan,
+                    indexPlan().where(indexName("ByteStringRecord$secondary"))
+                            .and(scanComparisons(range("{[[1]],[[1]]}"))));
+
+            assertEquals(2098217494, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2138849812, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int count = 0;
+                while (cursor.hasNext()) {
+                    TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
+                    record.mergeFrom(cursor.next().getRecord());
+                    assertThat("matches prefix", record.getSecondary().startsWith(byteString(1)));
+                    count++;
+                }
+                assertEquals(3, count);
+                assertDiscardedNone(context);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openBytesRecordStore(context);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("ByteStringRecord")
+                    .setFilter(Query.field("secondary").startsWith(byteString(1, 0)))
+                    .build();
+
+            // Index(ByteStringRecord$secondary [[[1]],[[1]]])
+            RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan,
+                    indexPlan().where(indexName("ByteStringRecord$secondary"))
+                            .and(scanComparisons(range("{[[1, 0]],[[1, 0]]}"))));
+
+            assertEquals(2098218454, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2139772372, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                int count = 0;
+                while (cursor.hasNext()) {
+                    TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
+                    record.mergeFrom(cursor.next().getRecord());
+                    assertThat("matches prefix", record.getSecondary().startsWith(byteString(1, 0)));
+                    count++;
+                }
+                assertEquals(2, count);
+                assertDiscardedNone(context);
+            }
+            commit(context);
+        }
+    }
+
+    /**
      * Verify that simple queries execute properly with continuations.
      */
     @DualPlannerTest
