@@ -275,7 +275,7 @@ public class PlanStringRepresentationTest {
         if (r.nextBoolean()) {
             collectionValue = LiteralValue.ofList(List.of(1, 2, 3, 4, 5));
         } else {
-            collectionValue = ConstantObjectValue.of(CorrelationIdentifier.uniqueID(), r.nextInt(10), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)));
+            collectionValue = ConstantObjectValue.of(CorrelationIdentifier.uniqueID(), "__const_" + r.nextInt(10), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)));
         }
         return Pair.of(new RecordQueryExplodePlan(collectionValue), String.format("explode([%s])", collectionValue));
     }
