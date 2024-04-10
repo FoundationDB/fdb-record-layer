@@ -36,6 +36,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomUtils;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -49,6 +50,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -491,6 +493,60 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 assertEquals(Tuple.from(3), Tuple.fromBytes(context.ensureActive().get(key).join()));
             }
+        }
+    }
+
+    @Test
+    void testAutoCommitVersionStampOuterSleep() throws InterruptedException {
+        final byte[] key;
+        try (FDBRecordContext userContext = openContext()) {
+            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(1).pack());
+                firstOperation.set(context);
+            });
+            Thread.sleep(5);
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(2).pack());
+                // the time quota should be checked after this accept
+            });
+            // Here: after the second operation, the first auto-context should be committed
+            AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(3).pack());
+                secondOperation.set(context);
+            });
+            agilityContext.flush();
+            MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
+        }
+    }
+
+    @Test
+    void testAutoCommitVersionStampInnerSleep() {
+        final byte[] key;
+        try (FDBRecordContext userContext = openContext()) {
+            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(1).pack());
+                firstOperation.set(context);
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                // Here: after this "slow" operation, the first auto-context should be committed
+            });
+            AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(3).pack());
+                secondOperation.set(context);
+            });
+            agilityContext.flush();
+            MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
         }
     }
 
