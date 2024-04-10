@@ -50,7 +50,6 @@ public class TestKeySpace {
     public static final KeySpace keySpace = new KeySpace(
             new DirectoryLayerDirectory("record-test", "record-test")
                     .addSubdirectory(new DirectoryLayerDirectory("unit", "unit")
-                            .addSubdirectory(new DirectoryLayerDirectory("conflicts", "conflicts"))
                             .addSubdirectory(new KeySpaceDirectory(TEST_UUID, KeySpaceDirectory.KeyType.STRING)
                                     .addSubdirectory(new DirectoryLayerDirectory(RECORD_STORE, RECORD_STORE))
                                     .addSubdirectory(new DirectoryLayerDirectory(META_DATA_STORE, META_DATA_STORE))

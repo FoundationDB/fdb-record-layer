@@ -27,13 +27,13 @@ import com.apple.foundationdb.directory.PathUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.BiMap;
@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableBiMap;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -69,12 +68,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link FDBReverseDirectoryCache}.
@@ -83,6 +82,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class FDBReverseDirectoryCacheTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private static final Logger logger = LoggerFactory.getLogger(FDBReverseDirectoryCacheTest.class);
 
@@ -122,7 +123,7 @@ public class FDBReverseDirectoryCacheTest {
     }
 
     @Test
-    public void testReverseDirectoryCacheMiss() throws Exception {
+    public void testReverseDirectoryCacheMiss() {
         FDBReverseDirectoryCache reverseDirectoryCache = fdb.getReverseDirectoryCache();
         assertFalse(reverseDirectoryCache.get(createRandomDirectoryScope().wrap(1L)).join().isPresent(),
                 "reverse lookup miss should return empty optional");
@@ -181,17 +182,16 @@ public class FDBReverseDirectoryCacheTest {
     }
 
     @Test
-    public void testPutFail() throws Exception {
+    public void testPutFail() {
         FDBReverseDirectoryCache reverseDirectoryCache = fdb.getReverseDirectoryCache();
 
-        try (FDBRecordContext context = openContext()) {
-            reverseDirectoryCache.put(context, createRandomDirectoryScope().wrap("dir_does_not_exist")).get();
-            context.commit();
-            fail("put should not add directories that do not exist");
-        } catch (ExecutionException e) {
-            assertTrue(e.getCause() instanceof NoSuchElementException, "Expected NoSuchElementException, but got "
-                    + e.getClass().getName());
-        }
+        ExecutionException err = assertThrows(ExecutionException.class, () -> {
+            try (FDBRecordContext context = openContext()) {
+                reverseDirectoryCache.put(context, createRandomDirectoryScope().wrap("dir_does_not_exist")).get();
+                context.commit();
+            }
+        }, "put should not add directories that do not exist");
+        assertThat(err.getCause(), instanceOf(NoSuchElementException.class));
     }
 
     @Test
@@ -300,14 +300,13 @@ public class FDBReverseDirectoryCacheTest {
         }
 
         // Try again with a different value
-        try (FDBRecordContext context = openContext()) {
-            rdc.putIfNotExists(context, globalScope.wrap(name + "_x"), id).get();
-            commit(context);
-            fail("Should have thrown an exception due to wrong value");
-        } catch (ExecutionException e) {
-            // This will throw if we didn't get the exception we wanted
-            RecordCoreException yay = (RecordCoreException) e.getCause();
-        }
+        ExecutionException err = assertThrows(ExecutionException.class, () -> {
+            try (FDBRecordContext context = openContext()) {
+                rdc.putIfNotExists(context, globalScope.wrap(name + "_x"), id).get();
+                commit(context);
+            }
+        }, "Should have thrown an exception due to wrong value");
+        assertThat(err.getCause(), instanceOf(RecordCoreException.class));
     }
 
     @Test
@@ -407,7 +406,7 @@ public class FDBReverseDirectoryCacheTest {
         // this is to simulate multiple VMs
         final int parallelism = 20;
         testParallelReverseDirectoryCache(parallelism, false,
-                dbExtension::getDatabase);
+                () -> new FDBDatabase(dbExtension.getDatabaseFactory(), null));
     }
 
     private void testParallelReverseDirectoryCache(int parallelism, boolean preInitReverseDirectoryCache,
@@ -492,22 +491,21 @@ public class FDBReverseDirectoryCacheTest {
 
     @Test
     public void testPutIfNotExistsNotVisibleUntilCommit() throws Exception {
-        final ScopedDirectoryLayer scope = globalScope;
         final String name = "dir_" + Math.abs(new Random().nextInt());
         final FDBReverseDirectoryCache rdc = fdb.getReverseDirectoryCache();
-        final ScopedValue<String> scopedName = scope.wrap(name);
+        final ScopedValue<String> scopedName = globalScope.wrap(name);
 
         // Create a new directory layer entry, put it in the cache in the same transaction
         try (FDBRecordContext context = openContext()) {
             Transaction transaction = context.ensureActive();
-            DirectoryLayer directoryLayerToUse = new DirectoryLayer(context.join(scope.getNodeSubspace(context)), scope.getContentSubspace());
+            DirectoryLayer directoryLayerToUse = new DirectoryLayer(context.join(globalScope.getNodeSubspace(context)), globalScope.getContentSubspace());
             final byte[] rawDirectoryEntry = directoryLayerToUse.createOrOpen(transaction, Collections.singletonList(name)).get().getKey();
             final Long id = Tuple.fromBytes(rawDirectoryEntry).getLong(0);
             rdc.putIfNotExists(context, scopedName, id).get();
 
             // This happens in its own transaction so should not yet see the uncommitted directory and reverse
             // directory entries that are being created.
-            Optional<String> result = rdc.get(scope.wrap(id)).join();
+            Optional<String> result = rdc.get(globalScope.wrap(id)).join();
             assertFalse(result.isPresent(), "Should not have gotten a result from RDC lookup");
 
             commit(context);
@@ -562,21 +560,21 @@ public class FDBReverseDirectoryCacheTest {
 
     @Test
     @Tag(Tags.WipesFDB)
-    @Disabled("this got broken while it was disabled, I think")
     public void testUniqueCachePerDatabase() throws Exception {
         final Pair<String, Long>[] initialEntries = createRandomDirectoryEntries(fdb, 3);
-        FDBReverseDirectoryCache cache = fdb.getReverseDirectoryCache();
         fdb.clearForwardDirectoryCache();
+        FDBReverseDirectoryCache cache = fdb.getReverseDirectoryCache();
+        cache.clearStats();
 
         // Populate the cache
         for (Pair<String, Long> pair : initialEntries) {
-            assertEquals(pair.getLeft(), cache.get(globalScope.wrap(pair.getRight())).get());
+            assertEquals(Optional.of(pair.getLeft()), cache.get(globalScope.wrap(pair.getRight())).get());
         }
         assertEquals(initialEntries.length, cache.getPersistentCacheHitCount());
 
         // Ensure that the cache is populated
         for (Pair<String, Long> pair : initialEntries) {
-            assertEquals(pair.getLeft(), cache.get(globalScope.wrap(pair.getRight())).get());
+            assertEquals(Optional.of(pair.getLeft()), cache.get(globalScope.wrap(pair.getRight())).get());
         }
         assertEquals(0, cache.getPersistentCacheMissCount());
 
@@ -598,11 +596,11 @@ public class FDBReverseDirectoryCacheTest {
 
         // In the hopes to ensure that re-creating the entries that we previously created
         // will result in new id's, create some initial filler entries.
-        final Pair<String, Long>[] fillerEntries = createRandomDirectoryEntries(fdb, 10);
+        final Pair<String, Long>[] fillerEntries = createRandomDirectoryEntries(fdb, 20);
 
         // Just make sure the filler entries are populated
         for (Pair<String, Long> pair : fillerEntries) {
-            assertEquals(pair.getLeft(), cache.get(globalScope.wrap(pair.getRight())).get());
+            assertEquals(Optional.of(pair.getLeft()), cache.get(globalScope.wrap(pair.getRight())).get());
         }
         assertEquals(fillerEntries.length, cache.getPersistentCacheHitCount());
 
@@ -622,36 +620,36 @@ public class FDBReverseDirectoryCacheTest {
             commit(context);
         }
 
+        boolean oldValuesMatchNewValues = true;
         for (int i = 0; i < newEntries.length; i++) {
             Pair<String, Long> initialEntry = initialEntries[i];
             Pair<String, Long> newEntry = newEntries[i];
 
-            assertEquals(initialEntry.getLeft(), newEntry.getRight());
-            assertNotEquals(initialEntry.getLeft(), newEntry.getRight());
-
-            assertEquals(newEntry.getLeft(), cache.get(globalScope.wrap(newEntry.getRight())).get());
+            assertEquals(initialEntry.getLeft(), newEntry.getLeft());
+            oldValuesMatchNewValues &= initialEntry.getRight().equals(newEntry.getRight());
+            assertEquals(Optional.of(newEntry.getLeft()), cache.get(globalScope.wrap(newEntry.getRight())).get());
         }
+        // While it's possible that some of the values are re-allocated to the same value, it is very unlikely that
+        // they are *all* allocated the same values, so we assert that at least one of them differs
+        assertFalse(oldValuesMatchNewValues, "At least one re-generated value should differ from original allocation");
     }
 
-    private LocatableResolver createRandomDirectoryScope() {
-        final String name = String.format("name-%d", Math.abs(random.nextLong()));
-        KeySpace keySpace = new KeySpace(new KeySpaceDirectory(name, KeySpaceDirectory.KeyType.STRING, name));
-        ResolvedKeySpacePath path;
+    private ScopedDirectoryLayer createRandomDirectoryScope() {
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        ResolvedKeySpacePath resolvedPath;
         try (FDBRecordContext context = fdb.openContext()) {
-            path = keySpace.resolveFromKey(context, Tuple.from(name));
+            resolvedPath = path.toResolvedPath(context);
         }
-        return new ScopedDirectoryLayer(fdb, path);
+        return new ScopedDirectoryLayer(fdb, resolvedPath);
     }
 
-
-
-    private String[] createRandomDirectoryKeys(FDBDatabase database, int nEntries) throws Exception {
+    private String[] createRandomDirectoryKeys(FDBDatabase database, int nEntries) {
         return Arrays.stream(createRandomDirectoryEntries(database, nEntries))
                 .map(Pair::getLeft)
                 .collect(Collectors.toList()).toArray(new String[0]);
     }
 
-    private Pair<String, Long>[] createRandomDirectoryEntries(FDBDatabase database, int nEntries) throws Exception {
+    private Pair<String, Long>[] createRandomDirectoryEntries(FDBDatabase database, int nEntries) {
         try (FDBRecordContext context = database.openContext()) {
             List<String> keys = new ArrayList<>();
             for (int i = 0; i < nEntries; i++) {
