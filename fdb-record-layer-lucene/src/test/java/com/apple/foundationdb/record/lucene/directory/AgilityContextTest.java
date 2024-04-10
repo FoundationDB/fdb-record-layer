@@ -344,14 +344,19 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     napTime(2); // enforce minimal processing time
                 }
             }
-            assertThat(timer.getCount(limitType.timerEvent), Matchers.equalTo(0));
-
-            // we shouldn't have committed anything yet, since everything fails
-            try (FDBRecordContext validationContext = openContext(insertProps)) {
-                for (int i = 0; i < loopCount; i++) {
-                    byte[] key = subspace.pack(Tuple.from(2023, i));
-                    assertNull(validationContext.ensureActive().get(key).join());
+            if (limitType == LimitType.Size) {
+                // Here: we shouldn't have committed anything yet, since everything fails
+                assertThat(timer.getCount(limitType.timerEvent), Matchers.equalTo(0));
+                try (FDBRecordContext validationContext = openContext(insertProps)) {
+                    for (int i = 0; i < loopCount; i++) {
+                        byte[] key = subspace.pack(Tuple.from(2023, i));
+                        final byte[] value = validationContext.ensureActive().get(key).join();
+                        assertNull(value);
+                    }
                 }
+            } else {
+                // Here: since quota is also checked before the operation, it may be committed before throwing the exception
+                assertThat(timer.getCount(limitType.timerEvent), Matchers.greaterThan(0));
             }
             agilityContext.flushAndClose();
         }
@@ -508,11 +513,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 firstOperation.set(context);
             });
             Thread.sleep(5);
-            agilityContext.accept(context -> {
-                context.ensureActive().set(key, Tuple.from(2).pack());
-                // the time quota should be checked after this accept
-            });
-            // Here: after the second operation, the first auto-context should be committed
+            // Here: after this operation, the first auto-context should be committed
             AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
             agilityContext.accept(context -> {
                 context.ensureActive().set(key, Tuple.from(3).pack());
