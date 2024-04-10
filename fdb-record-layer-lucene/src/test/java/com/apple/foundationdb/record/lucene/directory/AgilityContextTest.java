@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
@@ -59,7 +58,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for AgilityContext.
@@ -442,36 +440,77 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     @Test
     void testAgilityContextRecoveryPath() {
         AtomicInteger refInt = new AtomicInteger(0);
+        final byte[] keyAborted;
+        final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
+        byte[] packedValue = value.pack();
         try (FDBRecordContext context = openContext()) {
             final AgilityContext agilityContext = getAgilityContext(context, true);
             final Subspace subspace = path.toSubspace(context);
-            byte[] key = subspace.pack(Tuple.from(2023, 3));
-            byte[] val = Tuple.from(800, "Green eggs and ham", 0).pack();
-            agilityContext.set(key, val);
+            keyAborted = subspace.pack(Tuple.from(2023, 3));
+            agilityContext.set(keyAborted, packedValue);
             agilityContext.abortAndClose();
             IntStream range = IntStream.rangeClosed(1, 10);
             range.parallel().forEach(i -> {
                 if (i == 7) {
                     agilityContext.applyInRecoveryPath(aContext -> {
                         Assertions.assertNotNull(aContext);
-                        refInt.addAndGet(i);
+                        refInt.addAndGet(100);
                         return CompletableFuture.completedFuture(null);
                     }).join();
                 } else {
-                    try {
-                        agilityContext.apply(aContext -> {
-                            refInt.set(i);
-                            return CompletableFuture.completedFuture(null);
-                        }).join();
-                    } catch (RecordCoreException ex) {
-                        assertTrue(ex.getMessage().contains("Agile context is already closed"));
-                    }
+                    Assertions.assertThrows(RecordCoreStorageException.class,
+                            () -> agilityContext.apply(aContext -> {
+                                refInt.set(i);
+                                return CompletableFuture.completedFuture(null);
+                            }).join());
                 }
             });
-            assertEquals(7, refInt.get());
+            assertEquals(100, refInt.get());
+            context.commit();
         }
     }
 
+    @Test
+    void testAgilityContextRecoveryPath2() {
+        final byte[] keyAborted;
+        final byte[] keySucceeds;
+        final byte[] keyFails;
+        final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
+        byte[] packedValue = value.pack();
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = getAgilityContext(context, true);
+            final Subspace subspace = path.toSubspace(context);
+            keyAborted = subspace.pack(Tuple.from(2023, 3));
+            agilityContext.set(keyAborted, packedValue);
+            agilityContext.abortAndClose();
+            IntStream range = IntStream.rangeClosed(1, 10);
+            keySucceeds = this.path.toSubspace(context).pack(Tuple.from(prefix, "yes").pack());
+            keyFails = this.path.toSubspace(context).pack(Tuple.from(prefix, "no").pack());
+            range.parallel().forEach(i -> {
+                if (i == 7) {
+                    agilityContext.applyInRecoveryPath(aContext -> {
+                        Assertions.assertNotNull(aContext);
+                        context.ensureActive().set(keySucceeds, packedValue);
+                        return CompletableFuture.completedFuture(null);
+                    }).join();
+                } else {
+                    Assertions.assertThrows(RecordCoreStorageException.class,
+                            () -> agilityContext.apply(aContext -> {
+                                context.ensureActive().set(keyFails, packedValue);
+                                return CompletableFuture.completedFuture(null);
+                            }).join());
+                    Assertions.assertThrows(RecordCoreStorageException.class,
+                            () -> agilityContext.set(keyFails, packedValue));
+                }
+            });
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertEquals(value, Tuple.fromBytes(context.ensureActive().get(keySucceeds).join()));
+            assertNull(context.ensureActive().get(keyAborted).join());
+            assertNull(context.ensureActive().get(keyFails).join());
+        }
+    }
 
     @ParameterizedTest
     @BooleanSource
