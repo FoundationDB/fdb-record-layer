@@ -933,6 +933,30 @@ public class StandardQueryTests {
     }
 
     @Test
+    void deleteLimit() throws Exception {
+        final String schemaTemplate = "CREATE TABLE simple (rest_no bigint, name string, primary key(rest_no))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into simple values (1,'testRecord1'), (2, 'testRecord2')");
+                Assertions.assertTrue(statement.execute("select * from simple"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals(1L, resultSet.getLong(1));
+                    Assertions.assertEquals("testRecord1", resultSet.getString(2));
+
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals(2L, resultSet.getLong(1));
+                    Assertions.assertEquals("testRecord2", resultSet.getString(2));
+
+                    Assert.that(!resultSet.next());
+                }
+                final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("delete from simple limit 1 returning rest_no, name")).getMessage();
+                Assertions.assertEquals("query is not supported", message);
+            }
+        }
+    }
+
+    @Test
     void selectNestedStarWorks() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {

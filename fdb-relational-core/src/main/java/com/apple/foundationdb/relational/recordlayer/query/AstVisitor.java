@@ -1693,6 +1693,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
+        Assert.thatUnchecked(ctx.limitClause() == null, UNSUPPORTED_QUERY);
         RelationalExpression expression = handleDeleteStatement(ctx.tableName(), ctx.expression());
 
         if (ctx.RETURNING() != null) {
