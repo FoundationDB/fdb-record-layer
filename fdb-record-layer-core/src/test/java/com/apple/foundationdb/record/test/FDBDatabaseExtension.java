@@ -96,6 +96,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
                     baseFactory.setAPIVersion(getAPIVersion());
                     baseFactory.setUnclosedWarning(true);
                     FDBDatabase unused = baseFactory.getDatabase();
+                    unused.performNoOp(); // make sure FDB gets opened
                     unused.close();
                     fdb = FDB.instance();
                 }
