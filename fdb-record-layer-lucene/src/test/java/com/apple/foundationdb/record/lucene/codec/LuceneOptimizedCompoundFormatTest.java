@@ -36,7 +36,6 @@ import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.TestRuleLimitSysouts;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 
 import java.io.IOException;
@@ -61,11 +60,6 @@ import java.util.List;
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedCompoundFormatTest extends BaseCompoundFormatTestCase {
-
-    @BeforeClass
-    public static void beforeClass() {
-        BaseIndexFileFormatTestCaseUtils.beforeClass();
-    }
 
     @Override
     protected Codec getCodec() {

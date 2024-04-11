@@ -28,6 +28,10 @@ import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.FakeClusterFileUtil;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -41,6 +45,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
@@ -48,7 +53,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -76,7 +80,12 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests of the {@link FDBRecordContext} class.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordContextTest extends FDBTestBase {
+public class FDBRecordContextTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
     // A list of transaction IDs where the left item is the original ID and the right item is the expected
     // sanitized ID. It is a list of pairs rather than a map to support null as the expected value.
     @Nonnull
@@ -110,8 +119,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @BeforeEach
     public void getFDB() {
-        FDBDatabaseFactory.instance().clear();
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
     }
 
     /**
@@ -359,6 +367,7 @@ public class FDBRecordContextTest extends FDBTestBase {
                 }
             }
         } finally {
+            fdb.close();
             factory.setTransactionIsTracedSupplier(oldTrIsTracedSupplier);
             factory.clear();
         }
@@ -376,7 +385,7 @@ public class FDBRecordContextTest extends FDBTestBase {
                 }
                 context.ensureActive().getReadVersion().join();
                 assertEquals(expectedId, context.getTransactionId());
-                assertEquals(logged && expectedId != null, context.isLogged());
+                assertEquals((logged || FDBDatabaseExtension.TRACE) && expectedId != null, context.isLogged());
                 context.commit();
             } catch (RuntimeException e) {
                 fail("unable to set id to " + trId, e);
@@ -397,7 +406,7 @@ public class FDBRecordContextTest extends FDBTestBase {
             try (FDBRecordContext context = fdb.openContext(config)) {
                 context.ensureActive().getReadVersion().join();
                 assertEquals(expectedId, context.getTransactionId());
-                assertEquals(logged && expectedId != null, context.isLogged());
+                assertEquals((logged || FDBDatabaseExtension.TRACE) && expectedId != null, context.isLogged());
                 context.commit();
             }
         }
@@ -420,6 +429,12 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @Test
     public void logWithoutSettingId() {
+        if (FDBDatabaseExtension.TRACE) {
+            FDBDatabaseFactory factory = fdb.getFactory();
+            factory.setTransactionIsTracedSupplier(() -> false);
+            factory.clear();
+            fdb = factory.getDatabase();
+        }
         try (FDBRecordContext context = fdb.openContext()) {
             RecordCoreException err = assertThrows(RecordCoreException.class, context::logTransaction);
             assertEquals("Cannot log transaction as ID is not set", err.getMessage());
@@ -451,10 +466,11 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @Test
     public void logTransactionAfterGettingAReadVersion() {
+        final KeySpacePath fakePath = pathManager.createPath(TestKeySpace.RAW_DATA);
         try (FDBRecordContext context = fdb.openContext(null, null, null, FDBTransactionPriority.DEFAULT, "logTransactionAfterGrv")) {
             context.ensureActive().getReadVersion().join();
             context.logTransaction();
-            Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
+            Subspace fakeSubspace = fakePath.toSubspace(context);
             context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
             context.commit();
         }
@@ -467,6 +483,12 @@ public class FDBRecordContextTest extends FDBTestBase {
      */
     @Test
     public void serverRequestTracing() {
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        byte[] prefix;
+        try (FDBRecordContext context = fdb.openContext()) {
+            prefix = path.toSubspace(context).getKey();
+        }
+
         // Add a write conflict range and commit with one ID
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setTransactionId("serverRequestTracingId")
@@ -475,7 +497,7 @@ public class FDBRecordContextTest extends FDBTestBase {
         assertTrue(config.isServerRequestTracing());
         try (FDBRecordContext context = fdb.openContext(config)) {
             context.getReadVersion();
-            context.ensureActive().addWriteConflictRange(ByteArrayUtil2.unprint("hello"), ByteArrayUtil2.unprint("world"));
+            context.ensureActive().addWriteConflictRange(ByteArrayUtil.join(prefix, ByteArrayUtil2.unprint("hello")), ByteArrayUtil.join(prefix, ByteArrayUtil2.unprint("world")));
             context.commit();
         }
         // Add a write conflict range and commit with a different ID
@@ -485,7 +507,7 @@ public class FDBRecordContextTest extends FDBTestBase {
         assertTrue(config2.isServerRequestTracing());
         try (FDBRecordContext context = fdb.openContext(config2)) {
             context.getReadVersion();
-            context.ensureActive().get(ByteArrayUtil2.unprint("foo")).join();
+            context.ensureActive().get(ByteArrayUtil.join(prefix, ByteArrayUtil2.unprint("foo"))).join();
             context.commit();
         }
     }
@@ -496,6 +518,12 @@ public class FDBRecordContextTest extends FDBTestBase {
      */
     @Test
     public void serverRequestTracingNoId() {
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        byte[] prefix;
+        try (FDBRecordContext context = fdb.openContext()) {
+            prefix = path.toSubspace(context).getKey();
+        }
+
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setServerRequestTracing(true)
                 .copyBuilder() // To test to make sure copying the builder preserves the option
@@ -503,22 +531,20 @@ public class FDBRecordContextTest extends FDBTestBase {
         assertTrue(config.isServerRequestTracing());
         try (FDBRecordContext context = fdb.openContext(config)) {
             context.getReadVersion();
-            context.ensureActive().get(ByteArrayUtil2.unprint("some_key")).join();
+            context.ensureActive().get(ByteArrayUtil.join(prefix, ByteArrayUtil2.unprint("some_key"))).join();
             context.commit();
         }
         try (FDBRecordContext context = fdb.openContext(config)) {
             context.getReadVersion();
-            context.ensureActive().get(ByteArrayUtil2.unprint("some_key_2")).join();
+            context.ensureActive().get(ByteArrayUtil.join(prefix, ByteArrayUtil2.unprint("some_key_2"))).join();
             context.commit();
         }
     }
 
     @Test
-    public void reportConflictingKeys() {
-        final Subspace subspace = fdb.run(context -> {
-            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "conflicts");
-            return path.toSubspace(context);
-        });
+    void reportConflictingKeys() {
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        final Subspace subspace = fdb.run(path::toSubspace);
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setReportConflictingKeys(true)
                 .build();
@@ -533,7 +559,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
             final byte[] conflictBegin = subspace.pack(222);
             // Single key range.
-            final List<Range> expected = List.of(new Range(conflictBegin, ByteArrayUtil.join(conflictBegin, new byte[] { 0x00 })));
+            final List<Range> expected = List.of(new Range(conflictBegin, ByteArrayUtil.join(conflictBegin, new byte[] {0x00})));
             assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, context1::commit);
             assertEquals(expected, context1.getNotCommittedConflictingKeys());
         }
@@ -607,8 +633,8 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @Test
     public void timeoutTalkingToFakeCluster() throws IOException {
-        final String fakeClusterFile = FDBTestBase.createFakeClusterFile("for_testing_timeouts");
-        final FDBDatabase fakeFdb = FDBDatabaseFactory.instance().getDatabase(fakeClusterFile);
+        final String fakeClusterFile = FakeClusterFileUtil.createFakeClusterFile("for_testing_timeouts");
+        final FDBDatabase fakeFdb = dbExtension.getDatabaseFactory().getDatabase(fakeClusterFile);
 
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setTransactionTimeoutMillis(100L)
@@ -632,7 +658,7 @@ public class FDBRecordContextTest extends FDBTestBase {
 
     @Test
     public void contextExecutor() {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         final int myThreadId = ThreadId.get();
 
         try {

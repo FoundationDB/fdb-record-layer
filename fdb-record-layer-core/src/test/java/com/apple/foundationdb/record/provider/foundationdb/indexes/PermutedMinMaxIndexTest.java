@@ -785,8 +785,8 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
             md.removeIndex("MySimpleRecord$str_value_indexed");
             md.removeIndex("MySimpleRecord$num_value_3_indexed");
             md.removeIndex("MySimpleRecord$num_value_unique");
-            md.removeIndex(COUNT_INDEX.getName());
-            md.removeIndex(COUNT_UPDATES_INDEX.getName());
+            md.removeIndex(COUNT_INDEX_NAME);
+            md.removeIndex(COUNT_UPDATES_INDEX_NAME);
             md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
                     Key.Expressions.concatenateFields("num_value_2", "num_value_3_indexed", "str_value_indexed", "num_value_unique").group(1),
                     IndexTypes.PERMUTED_MAX, Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "2")));

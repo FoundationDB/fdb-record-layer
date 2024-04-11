@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -43,6 +42,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -89,18 +89,15 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreOpeningTest.class);
 
     @Test
-    public void open() throws Exception {
+    void open() throws Exception {
         // This tests the functionality of "open", so doesn't use the same method of opening
         // the record store that other methods within this class use.
-        Object[] metaDataPathObjects = new Object[]{"record-test", "unit", "metadataStore"};
-        KeySpacePath metaDataPath;
+        KeySpacePath metaDataPath = pathManager.createPath(TestKeySpace.META_DATA_STORE);
         Subspace expectedSubspace;
         Subspace metaDataSubspace;
         try (FDBRecordContext context = fdb.openContext()) {
-            metaDataPath = TestKeySpace.getKeyspacePath(metaDataPathObjects);
             expectedSubspace = path.toSubspace(context);
             metaDataSubspace = metaDataPath.toSubspace(context);
-            context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
             context.commit();
         }
 
@@ -314,13 +311,11 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testUpdateRecords() {
-        KeySpacePath metaDataPath;
+    void testUpdateRecords() {
+        KeySpacePath metaDataPath = pathManager.createPath(TestKeySpace.META_DATA_STORE);
         Subspace metaDataSubspace;
         try (FDBRecordContext context = fdb.openContext()) {
-            metaDataPath = TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore");
             metaDataSubspace = metaDataPath.toSubspace(context);
-            context.ensureActive().clear(Range.startsWith(metaDataSubspace.pack()));
             context.commit();
         }
 
@@ -390,7 +385,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
      * supports read-your-writes).
      */
     @Test
-    public void testReadYourWritesWithHeaderUserField() throws Exception {
+    void testReadYourWritesWithHeaderUserField() throws Exception {
         final String userField = "my_key";
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -429,7 +424,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/489">Issue #489</a>.
      */
     @Test
-    public void testHeaderUserFieldNotUpdatedInRecordStoreOnSameSubspace() throws Exception {
+    void testHeaderUserFieldNotUpdatedInRecordStoreOnSameSubspace() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.setHeaderUserField("user_field", new byte[]{0x42});
@@ -451,7 +446,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testGetHeaderFieldOnUninitializedStore() throws Exception {
+    void testGetHeaderFieldOnUninitializedStore() throws Exception {
         final String userField = "some_user_field";
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
@@ -470,7 +465,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void storeExistenceChecks() {
+    void storeExistenceChecks() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
             FDBRecordStore.Builder storeBuilder = storeBuilder(context, metaData);
@@ -499,7 +494,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void storeExistenceChecksWithNoRecords() throws Exception {
+    void storeExistenceChecksWithNoRecords() throws Exception {
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
@@ -594,7 +589,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void existenceChecks() throws Exception {
+    void existenceChecks() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -646,7 +641,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void metaDataVersionZero() {
+    void metaDataVersionZero() {
         final RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
         metaData.setVersion(0);
 
@@ -680,7 +675,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void invalidMetaData() {
+    void invalidMetaData() {
         RecordMetaDataHook invalid = metaData -> metaData.addIndex("MySimpleRecord", "no_such_field");
         try (FDBRecordContext context = openContext()) {
             assertThrows(KeyExpression.InvalidExpressionException.class, () -> openSimpleRecordStore(context, invalid));
@@ -692,7 +687,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
      * a conflict.
      */
     @Test
-    public void conflictWithHeaderChange() {
+    void conflictWithHeaderChange() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", "num_value_2");
@@ -787,7 +782,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void sizeBasedUserVersionChecker() {
+    void sizeBasedUserVersionChecker() {
         final Index universalCountIndex = new Index("countIndex", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords1Proto.getDescriptor());
@@ -845,7 +840,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testVersionChangedFlagAfterOpening() {
+    void testVersionChangedFlagAfterOpening() {
         // Test call getVersionChanged after unchecked opening a record store
         var metadata = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         final int firstVersion = metadata.getVersion();
@@ -877,7 +872,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
 
         // Test call getVersionChanged after opening a store with metadata update
-        metadata.addUniversalIndex(COUNT_INDEX);
+        metadata.addUniversalIndex(globalCountIndex());
         final int secondVersion = metadata.getVersion();
         assertThat(secondVersion, greaterThan(firstVersion));
         try (FDBRecordContext context = fdb.openContext()) {

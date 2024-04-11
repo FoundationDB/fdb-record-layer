@@ -25,7 +25,6 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -35,6 +34,9 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -43,6 +45,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,11 +73,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBStoreTimer}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBStoreTimerTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     FDBDatabase fdb;
+    KeySpacePath path;
     FDBRecordContext context;
     private Subspace subspace;
-    ExecuteProperties ep;
 
     enum DummySizeEvents implements StoreTimer.SizeEvent {
         SIZE_EVENT_1,
@@ -87,14 +97,15 @@ public class FDBStoreTimerTest {
 
     @BeforeEach
     void setup() throws Exception {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RAW_DATA);
         FDBStoreTimer timer = new FDBStoreTimer();
         context = fdb.openContext(null, timer);
         setupBaseData();
     }
 
     @AfterEach
-    void teardown() {
+    void tearDown() {
         context.close();
         fdb.close();
     }
@@ -400,34 +411,31 @@ public class FDBStoreTimerTest {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final Tuple t = Tuple.from(1L);
-        try {
-            FDBDatabaseFactory.instance().setTransactionListener(listener);
-            for (int i = 0; i < 3; i++) {
-                try (FDBRecordContext context = fdb.openContext(null, timer)) {
-                    Transaction tr = context.ensureActive();
-                    tr.set(subspace.pack(t), t.pack());
-                    tr.get(subspace.pack(t)).join();
-                    tr.get(subspace.pack(t)).join();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        factory.setTransactionListener(listener);
+        for (int i = 0; i < 3; i++) {
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                Transaction tr = context.ensureActive();
+                tr.set(subspace.pack(t), t.pack());
+                tr.get(subspace.pack(t)).join();
+                tr.get(subspace.pack(t)).join();
 
-                    // Make sure we get metrics even if there is no commit
-                    if (i != 1) {
-                        context.commit();
-                    }
+                // Make sure we get metrics even if there is no commit
+                if (i != 1) {
+                    context.commit();
                 }
             }
-            assertThat(listener.transactions, equalTo(3));
-            assertThat(listener.reads, equalTo(6));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(listener.reads));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(listener.reads * t.getPackedSize()));
-            assertThat(listener.writes, equalTo(2));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(listener.writes));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo((t.getPackedSize() * 2 + subspace.getKey().length) * listener.writes));
-            assertThat(listener.commits, equalTo(2));
-            assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), equalTo(listener.commits));
-            assertThat(listener.closes, equalTo(3));
-        } finally {
-            FDBDatabaseFactory.instance().setTransactionListener(null);
         }
+        assertThat(listener.transactions, equalTo(3));
+        assertThat(listener.reads, equalTo(6));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(listener.reads));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(listener.reads * t.getPackedSize()));
+        assertThat(listener.writes, equalTo(2));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(listener.writes));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo((t.getPackedSize() * 2 + subspace.getKey().length) * listener.writes));
+        assertThat(listener.commits, equalTo(2));
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), equalTo(listener.commits));
+        assertThat(listener.closes, equalTo(3));
     }
 
     @Test
@@ -641,11 +649,7 @@ public class FDBStoreTimerTest {
     }
 
     private void setupBaseData() {
-        subspace = fdb.run(context -> {
-            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");
-            path.deleteAllData(context);
-            return path.toSubspace(context);
-        });
+        subspace = fdb.run(path::toSubspace);
 
         // Populate with data.
         fdb.database().run(tr -> {

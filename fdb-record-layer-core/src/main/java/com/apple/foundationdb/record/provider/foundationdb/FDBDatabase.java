@@ -159,9 +159,9 @@ public class FDBDatabase {
     private final APIVersion apiVersion;
 
     @Nonnull
-    private static ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
+    private static final ImmutablePair<Long, Long> initialVersionPair = new ImmutablePair<>(null, null);
     @Nonnull
-    private AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
+    private final AtomicReference<ImmutablePair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
 
     private final NavigableMap<Long, FDBRecordContext> trackedOpenContexts = new ConcurrentSkipListMap<>();
 

@@ -25,10 +25,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.util.LoggableException;
-import com.apple.test.Tags;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -36,7 +34,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -48,8 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link FallbackCursor}.
  */
-@Tag(Tags.RequiresFDB)
-public class FallbackCursorTest extends FDBTestBase {
+public class FallbackCursorTest {
 
     @Test
     public void testFallBackCursorNoFailure() throws Exception {
@@ -147,7 +143,7 @@ public class FallbackCursorTest extends FDBTestBase {
         private boolean closed = false;
 
         public FailingCursor(int numOfElementsBeforeFailure) {
-            executor = ForkJoinPool.commonPool();
+            executor = TestExecutors.defaultThreadPool();
             list = listOfLength(numOfElementsBeforeFailure);
         }
 

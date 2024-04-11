@@ -25,13 +25,12 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.HighContentionAllocator.AllocationWindow;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -39,6 +38,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,25 +63,25 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @Tag(Tags.RequiresFDB)
-class HighContentionAllocatorTest extends FDBTestBase {
+class HighContentionAllocatorTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private FDBDatabase database;
-    private KeySpace keySpace;
+    private KeySpacePath path;
 
     @BeforeEach
     void setup() {
-        database = FDBDatabaseFactory.instance().getDatabase();
-        keySpace = new KeySpace(new KeySpaceDirectory("test-path", KeyType.STRING, "test-path"));
-        try (FDBRecordContext context = database.openContext()) {
-            keySpace.path("test-path").deleteAllData(context);
-            context.commit();
-        }
+        database = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RAW_DATA);
     }
 
     @Test
     void testAllocationsUnique() {
         final Map<Long, String> allocated = new HashMap<>();
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, path);
 
             for (int i = 0; i < 50; i++) {
                 String storedValue = "allocate-" + i;
@@ -94,7 +94,7 @@ class HighContentionAllocatorTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, path);
 
             validateAllocation(context, hca, allocated);
             for (int i = 0; i < 10; i++) {
@@ -109,7 +109,7 @@ class HighContentionAllocatorTest extends FDBTestBase {
     void testAllocationsParallelSameTransaction() {
         final Map<Long, String> allocated;
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, path);
 
             List<CompletableFuture<Pair<Long, String>>> allocationOperations = new ArrayList<>();
             for (int i = 0; i < 50; i++) {
@@ -131,7 +131,7 @@ class HighContentionAllocatorTest extends FDBTestBase {
         AtomicInteger count = new AtomicInteger();
         for (int i = 0; i < 50; i++) {
             CompletableFuture<Pair<Long, String>> allocation = database.runAsync(context -> {
-                HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
+                HighContentionAllocator hca = new HighContentionAllocator(context, path);
                 String storedValue = "allocate-" + count.getAndIncrement();
                 return hca.allocate(storedValue).thenApply(id -> Pair.of(id, storedValue));
             });
@@ -143,7 +143,7 @@ class HighContentionAllocatorTest extends FDBTestBase {
         assertThat("all values are allocated", allocated.entrySet(), hasSize(50));
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = new HighContentionAllocator(context, keySpace.path("test-path"));
+            HighContentionAllocator hca = new HighContentionAllocator(context, path);
             validateAllocation(context, hca, allocated);
         }
     }
@@ -158,7 +158,7 @@ class HighContentionAllocatorTest extends FDBTestBase {
         });
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = HighContentionAllocator.forRoot(context, keySpace.path("test-path"));
+            HighContentionAllocator hca = HighContentionAllocator.forRoot(context, path);
             // write conflicting keys
             // this unfortunately requires some knowledge of the implementation details of the allocator
             // starting from a clean slate the first allocation will be an integer in the range [0, 64)
@@ -191,7 +191,7 @@ class HighContentionAllocatorTest extends FDBTestBase {
         }
 
         try (FDBRecordContext context = database.openContext()) {
-            HighContentionAllocator hca = HighContentionAllocator.forRoot(context, keySpace.path("test-path"));
+            HighContentionAllocator hca = HighContentionAllocator.forRoot(context, path);
 
             try {
                 hca.allocate("some-string").join();

@@ -99,6 +99,7 @@ def configureTestTask = { propertyPrefix, task ->
         tmpdir.mkdirs()
     }
     task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
+    task.systemProperties['junit.jupiter.extensions.autodetection.enabled'] = 'true'
 
     // configure test logging
     task.systemProperties['log4j2.configurationFile'] = rootProject.file('gradle/scripts/log4j-test.properties').toURI()
@@ -122,7 +123,6 @@ def configureTestTask = { propertyPrefix, task ->
         task.systemProperties["com.apple.foundationdb.record.blockingInAsyncDetection"] =
             System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"
     }
-
 
     def reportsDirProperty = "${task.name}.reportsDir".toString()
     handled.add(reportsDirProperty)
@@ -219,6 +219,12 @@ tasks.withType(Test).configureEach { task ->
             systemProperties['tests.iterations'] = project.getProperty('tests.iterations')
         }
         task.testFramework.options.excludeTags.add('Performance')
+
+        if (task.name == 'test') {
+            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'false')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'same_thread')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')
+        }
     }
 
 }

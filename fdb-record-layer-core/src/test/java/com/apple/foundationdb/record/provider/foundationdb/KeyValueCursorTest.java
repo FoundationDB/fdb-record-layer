@@ -34,12 +34,16 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,18 +62,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link KeyValueCursor}.
  */
 @Tag(Tags.RequiresFDB)
-public class KeyValueCursorTest extends FDBTestBase {
+public class KeyValueCursorTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
     private FDBDatabase fdb;
+    private KeySpacePath path;
     private Subspace subspace;
+
 
     @BeforeEach
     public void runBefore() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
-        subspace = fdb.run(context -> {
-            KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "keyvaluecursor");
-            FDBRecordStore.deleteStore(context, path);
-            return path.toSubspace(context);
-        });
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        subspace = fdb.run(path::toSubspace);
 
         // Populate with data.
         fdb.database().run(tr -> {

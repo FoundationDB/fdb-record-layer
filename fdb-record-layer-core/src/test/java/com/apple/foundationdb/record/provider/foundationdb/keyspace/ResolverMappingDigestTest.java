@@ -23,16 +23,18 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSortedMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.security.MessageDigest;
 import java.util.Map;
@@ -51,30 +53,21 @@ import static org.hamcrest.Matchers.not;
  * Tests for {@link ResolverMappingDigest}.
  */
 @Tag(Tags.RequiresFDB)
-public class ResolverMappingDigestTest extends FDBTestBase {
+public class ResolverMappingDigestTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private FDBDatabase database;
     private Random random = new Random();
-    private KeySpace keySpace;
+    private KeySpacePath basePath;
 
     @BeforeEach
     public void setup() {
-        keySpace = new KeySpace(
-                new KeySpaceDirectory("test-path", KeyType.STRING, "test-path-" + random.nextLong())
-                        .addSubdirectory(new KeySpaceDirectory("to", KeyType.STRING, "to")
-                                .addSubdirectory(new KeySpaceDirectory("primary", KeyType.STRING, "primary"))
-                                .addSubdirectory(new KeySpaceDirectory("replica", KeyType.STRING, "replica"))
-                        )
-        );
-
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(100);
-        database = factory.getDatabase();
-        // wipe test keyspace
-        KeySpacePath basePath = keySpace.path("test-path");
-        database.run(context -> {
-            basePath.deleteAllData(context);
-            return null;
-        });
+        database = dbExtension.getDatabase();
+        basePath = pathManager.createPath(TestKeySpace.RESOLVER_MAPPING_REPLICATOR);
     }
 
     @Test
@@ -82,8 +75,8 @@ public class ResolverMappingDigestTest extends FDBTestBase {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedDirectoryLayer(database, keySpace.path("test-path").add("to").add("primary").toResolvedPath(context));
-            replica = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("replica").toResolvedPath(context));
+            primary = new ScopedDirectoryLayer(database, basePath.add("to").add("primary").toResolvedPath(context));
+            replica = new ScopedInterningLayer(database, basePath.add("to").add("replica").toResolvedPath(context));
         }
 
         testComputeDigest(primary, replica, false);
@@ -94,8 +87,8 @@ public class ResolverMappingDigestTest extends FDBTestBase {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("primary").toResolvedPath(context));
-            replica = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("replica").toResolvedPath(context));
+            primary = new ScopedInterningLayer(database, basePath.add("to").add("primary").toResolvedPath(context));
+            replica = new ScopedInterningLayer(database, basePath.add("to").add("replica").toResolvedPath(context));
         }
 
         testComputeDigest(primary, replica, false);
@@ -106,8 +99,8 @@ public class ResolverMappingDigestTest extends FDBTestBase {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("primary").toResolvedPath(context));
-            replica = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("replica").toResolvedPath(context));
+            primary = new ScopedInterningLayer(database, basePath.add("to").add("primary").toResolvedPath(context));
+            replica = new ScopedInterningLayer(database, basePath.add("to").add("replica").toResolvedPath(context));
         }
 
         byte[] metadata = Tuple.from("some-metadata").pack();
@@ -119,8 +112,8 @@ public class ResolverMappingDigestTest extends FDBTestBase {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("primary").toResolvedPath(context));
-            replica = new ExtendedDirectoryLayer(database, keySpace.path("test-path").add("to").add("replica").toResolvedPath(context));
+            primary = new ScopedInterningLayer(database, basePath.add("to").add("primary").toResolvedPath(context));
+            replica = new ExtendedDirectoryLayer(database, basePath.add("to").add("replica").toResolvedPath(context));
         }
 
         testComputeDigest(primary, replica, false);
@@ -131,8 +124,8 @@ public class ResolverMappingDigestTest extends FDBTestBase {
         LocatableResolver primary;
         LocatableResolver replica;
         try (FDBRecordContext context = database.openContext()) {
-            primary = new ScopedInterningLayer(database, keySpace.path("test-path").add("to").add("primary").toResolvedPath(context));
-            replica = new ExtendedDirectoryLayer(database, keySpace.path("test-path").add("to").add("replica").toResolvedPath(context));
+            primary = new ScopedInterningLayer(database, basePath.add("to").add("primary").toResolvedPath(context));
+            replica = new ExtendedDirectoryLayer(database, basePath.add("to").add("replica").toResolvedPath(context));
         }
 
         testComputeDigest(primary, replica, true);

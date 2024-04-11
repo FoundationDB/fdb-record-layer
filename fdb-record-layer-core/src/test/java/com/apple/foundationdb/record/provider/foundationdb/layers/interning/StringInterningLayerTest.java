@@ -24,10 +24,12 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -35,6 +37,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -61,17 +64,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @Tag(Tags.RequiresFDB)
-class StringInterningLayerTest extends FDBTestBase {
+class StringInterningLayerTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private FDBDatabase database;
-    private Subspace testSubspace = new Subspace(Tuple.from("test-interning"));
+    private Subspace testSubspace;
 
     @BeforeEach
     void setup() {
-        database = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = database.openContext()) {
-            context.ensureActive().clear(testSubspace.range());
-            context.commit();
-        }
+        database = dbExtension.getDatabase();
+        KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        testSubspace = database.run(path::toSubspace);
     }
 
     @Test

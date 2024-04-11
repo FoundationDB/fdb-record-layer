@@ -24,15 +24,18 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -42,10 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBTypedRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBTypedRecordStoreTest extends FDBTestBase {
-    private static final Logger logger = LoggerFactory.getLogger(FDBTypedRecordStoreTest.class);
-
+public class FDBTypedRecordStoreTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     FDBDatabase fdb;
+    KeySpacePath path;
     FDBTypedRecordStore<TestRecords1Proto.MySimpleRecord> recordStore;
 
     static final FDBTypedRecordStore.Builder<TestRecords1Proto.MySimpleRecord> BUILDER =
@@ -66,23 +72,20 @@ public class FDBTypedRecordStoreTest extends FDBTestBase {
                     TestRecords1Proto.RecordTypeUnion.Builder::setMyOtherRecord);
 
     @BeforeEach
-    public void setup() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = fdb.openContext()) {
-            FDBRecordStore.deleteStore(context, TestKeySpace.getKeyspacePath("record-test", "unit", "typedtest"));
-            context.commit();
-        }
+    void setUp() {
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RECORD_STORE);
     }
 
-    public void openTypedRecordStore(FDBRecordContext context) throws Exception {
+    private void openTypedRecordStore(FDBRecordContext context) {
         recordStore = BUILDER.copyBuilder()
                 .setContext(context)
-                .setKeySpacePath(TestKeySpace.getKeyspacePath("record-test", "unit", "typedtest"))
+                .setKeySpacePath(path)
                 .createOrOpen();
     }
 
     @Test
-    public void writeRead() throws Exception {
+    void writeRead() {
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
 
@@ -104,7 +107,7 @@ public class FDBTypedRecordStoreTest extends FDBTestBase {
     }
 
     @Test
-    public void query() throws Exception {
+    void query() {
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
 
@@ -137,7 +140,7 @@ public class FDBTypedRecordStoreTest extends FDBTestBase {
     }
 
     @Test
-    public void otherTypes() throws Exception {
+    void otherTypes() {
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
 

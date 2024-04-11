@@ -84,9 +84,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
-    private void openDoublyRepeatedRecordStore(FDBRecordContext context) throws Exception {
+    private void openDoublyRepeatedRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords6Proto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("MyRepeatedRecord", "rep_strings", concat(field("s1", FanType.Concatenate), field("s2", FanType.Concatenate)));
         metaDataBuilder.addIndex("MyRepeatedRecord", "s1$concat", field("s1", FanType.Concatenate));
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());

@@ -26,12 +26,17 @@ import com.apple.foundationdb.record.TestRecordsOneOfProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.MessageBuilderRecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,19 +45,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * Test use of {@code oneof} to define the union message.
  */
 @Tag(Tags.RequiresFDB)
-public class OneOfTest extends FDBTestBase {
-
-    private static final Object[] PATH = { "record-test", "unit", "recordStore" };
-
+public class OneOfTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private FDBDatabase fdb;
+    private KeySpacePath path;
 
     @BeforeEach
-    public void setup() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
-        try (FDBRecordContext context = fdb.openContext()) {
-            FDBRecordStore.deleteStore(context, TestKeySpace.getKeyspacePath(PATH));
-            context.commit();
-        }
+    void setUp() {
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RAW_DATA);
     }
 
     private RecordMetaDataBuilder metaData() {
@@ -67,10 +71,11 @@ public class OneOfTest extends FDBTestBase {
     @Test
     public void dynamic() {
         final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaData());
+                .setMetaDataProvider(metaData())
+                .setKeySpacePath(path);
 
         try (FDBRecordContext context = fdb.openContext()) {
-            final FDBRecordStore recordStore = storeBuilder.setContext(context).setKeySpacePath(TestKeySpace.getKeyspacePath(PATH)).create();
+            final FDBRecordStore recordStore = storeBuilder.setContext(context).create();
             TestRecordsOneOfProto.MySimpleRecord.Builder recBuilder = TestRecordsOneOfProto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
             recBuilder.setStrValueIndexed("abc");
@@ -78,7 +83,7 @@ public class OneOfTest extends FDBTestBase {
             context.commit();
         }
         try (FDBRecordContext context = fdb.openContext()) {
-            final FDBRecordStore recordStore = storeBuilder.setContext(context).setKeySpacePath(TestKeySpace.getKeyspacePath(PATH)).open();
+            final FDBRecordStore recordStore = storeBuilder.setContext(context).open();
             FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(rec1);
             TestRecordsOneOfProto.MySimpleRecord.Builder myrec1 = TestRecordsOneOfProto.MySimpleRecord.newBuilder();
@@ -92,10 +97,11 @@ public class OneOfTest extends FDBTestBase {
     public void builder() {
         final FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData())
+                .setKeySpacePath(path)
                 .setSerializer(new MessageBuilderRecordSerializer(TestRecordsOneOfProto.RecordTypeUnion::newBuilder));
 
         try (FDBRecordContext context = fdb.openContext()) {
-            final FDBRecordStore recordStore = storeBuilder.setContext(context).setKeySpacePath(TestKeySpace.getKeyspacePath(PATH)).create();
+            final FDBRecordStore recordStore = storeBuilder.setContext(context).create();
             TestRecordsOneOfProto.MySimpleRecord.Builder recBuilder = TestRecordsOneOfProto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
             recBuilder.setStrValueIndexed("abc");
@@ -103,7 +109,7 @@ public class OneOfTest extends FDBTestBase {
             context.commit();
         }
         try (FDBRecordContext context = fdb.openContext()) {
-            final FDBRecordStore recordStore = storeBuilder.setContext(context).setKeySpacePath(TestKeySpace.getKeyspacePath(PATH)).open();
+            final FDBRecordStore recordStore = storeBuilder.setContext(context).open();
             FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(rec1);
             TestRecordsOneOfProto.MySimpleRecord myrec1 = (TestRecordsOneOfProto.MySimpleRecord)rec1.getRecord();
@@ -120,10 +126,11 @@ public class OneOfTest extends FDBTestBase {
                         TestRecordsOneOfProto.RecordTypeUnion::hasMySimpleRecord,
                         TestRecordsOneOfProto.RecordTypeUnion::getMySimpleRecord,
                         TestRecordsOneOfProto.RecordTypeUnion.Builder::setMySimpleRecord)
-                        .setMetaDataProvider(metaData());
+                        .setMetaDataProvider(metaData())
+                        .setKeySpacePath(path);
 
         try (FDBRecordContext context = fdb.openContext()) {
-            final FDBTypedRecordStore<TestRecordsOneOfProto.MySimpleRecord> recordStore = storeBuilder.setContext(context).setKeySpacePath(TestKeySpace.getKeyspacePath(PATH)).create();
+            final FDBTypedRecordStore<TestRecordsOneOfProto.MySimpleRecord> recordStore = storeBuilder.setContext(context).create();
             TestRecordsOneOfProto.MySimpleRecord.Builder recBuilder = TestRecordsOneOfProto.MySimpleRecord.newBuilder();
             recBuilder.setRecNo(1);
             recBuilder.setStrValueIndexed("abc");
@@ -131,7 +138,7 @@ public class OneOfTest extends FDBTestBase {
             context.commit();
         }
         try (FDBRecordContext context = fdb.openContext()) {
-            final FDBTypedRecordStore<TestRecordsOneOfProto.MySimpleRecord> recordStore = storeBuilder.setContext(context).setKeySpacePath(TestKeySpace.getKeyspacePath(PATH)).open();
+            final FDBTypedRecordStore<TestRecordsOneOfProto.MySimpleRecord> recordStore = storeBuilder.setContext(context).open();
             FDBStoredRecord<TestRecordsOneOfProto.MySimpleRecord> rec1 = recordStore.loadRecord(Tuple.from(1L));
             assertNotNull(rec1);
             TestRecordsOneOfProto.MySimpleRecord myrec1 = rec1.getRecord();
