@@ -46,6 +46,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBStoreTimer}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBStoreTimerTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -409,34 +412,30 @@ public class FDBStoreTimerTest {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final Tuple t = Tuple.from(1L);
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
-        try {
-            factory.setTransactionListener(listener);
-            for (int i = 0; i < 3; i++) {
-                try (FDBRecordContext context = fdb.openContext(null, timer)) {
-                    Transaction tr = context.ensureActive();
-                    tr.set(subspace.pack(t), t.pack());
-                    tr.get(subspace.pack(t)).join();
-                    tr.get(subspace.pack(t)).join();
+        factory.setTransactionListener(listener);
+        for (int i = 0; i < 3; i++) {
+            try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                Transaction tr = context.ensureActive();
+                tr.set(subspace.pack(t), t.pack());
+                tr.get(subspace.pack(t)).join();
+                tr.get(subspace.pack(t)).join();
 
-                    // Make sure we get metrics even if there is no commit
-                    if (i != 1) {
-                        context.commit();
-                    }
+                // Make sure we get metrics even if there is no commit
+                if (i != 1) {
+                    context.commit();
                 }
             }
-            assertThat(listener.transactions, equalTo(3));
-            assertThat(listener.reads, equalTo(6));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(listener.reads));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(listener.reads * t.getPackedSize()));
-            assertThat(listener.writes, equalTo(2));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(listener.writes));
-            assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo((t.getPackedSize() * 2 + subspace.getKey().length) * listener.writes));
-            assertThat(listener.commits, equalTo(2));
-            assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), equalTo(listener.commits));
-            assertThat(listener.closes, equalTo(3));
-        } finally {
-            factory.setTransactionListener(null);
         }
+        assertThat(listener.transactions, equalTo(3));
+        assertThat(listener.reads, equalTo(6));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.READS), equalTo(listener.reads));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_READ), equalTo(listener.reads * t.getPackedSize()));
+        assertThat(listener.writes, equalTo(2));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.WRITES), equalTo(listener.writes));
+        assertThat(timer.getCount(FDBStoreTimer.Counts.BYTES_WRITTEN), equalTo((t.getPackedSize() * 2 + subspace.getKey().length) * listener.writes));
+        assertThat(listener.commits, equalTo(2));
+        assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), equalTo(listener.commits));
+        assertThat(listener.closes, equalTo(3));
     }
 
     @Test

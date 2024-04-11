@@ -64,8 +64,9 @@ public class TupleTypeUtilTest {
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     @BeforeEach
-    void ensureInit() {
-        // Ensure that FDB has been initialized
+    void ensureAPIVersionIsSet() {
+        // This test does not actually use the database, but the FDB API version needs to be initialized
+        // for proper serialization of versionstamp types, hence the inclusion of this extension
         dbExtension.getDatabase();
     }
 

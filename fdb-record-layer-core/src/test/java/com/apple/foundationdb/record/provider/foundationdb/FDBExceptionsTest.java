@@ -68,6 +68,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 @Execution(ExecutionMode.CONCURRENT)
 class FDBExceptionsTest {
+    // Several tests in this class modify the static CompletionExceptionLogHelper. Those tests must be run in serial, so
+    // they use the @ResourceLock feature with this named lock to avoid stepping on each other
     @Nonnull
     public static final String COMPLETION_EXCEPTION_HELPER_LOCK = "CompletionExceptionLogHelper";
 

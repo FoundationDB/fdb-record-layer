@@ -62,7 +62,7 @@ import java.util.TreeSet;
  * Utilities for classes extending from {@link BaseIndexFileFormatTestCase}.
  */
 public final class BaseIndexFileFormatTestCaseUtils {
-    private static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    public static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     private BaseIndexFileFormatTestCaseUtils() {
     }
@@ -80,14 +80,10 @@ public final class BaseIndexFileFormatTestCaseUtils {
         }
     }
 
-    public static void beforeClass() {
-        // We have to manually call the extension because this is a JUnit4 class
-        dbExtension.beforeEach(null);
-    }
-
     public static void resetStaticConfigs() {
         TestingCodec.reset();
         TestFDBDirectory.reset();
+        dbExtension.afterEach(null);
     }
 
     /**

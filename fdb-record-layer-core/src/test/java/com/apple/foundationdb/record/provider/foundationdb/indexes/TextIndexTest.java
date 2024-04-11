@@ -3219,53 +3219,48 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         final FDBRecordStore.Builder storeBuilder = recordStore.asBuilder();
 
-        long startTime = System.nanoTime();
+        final long startTime = System.nanoTime();
 
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
-        int oldMaxAttempts = factory.getMaxAttempts();
         factory.setMaxAttempts(Integer.MAX_VALUE);
 
-        try {
-            CompletableFuture<?>[] workerFutures = new CompletableFuture<?>[10];
-            int recordsPerWorker = records.size() / workerFutures.length;
-            for (int i = 0; i < workerFutures.length; i++) {
-                List<SimpleDocument> workerDocs = records.subList(i * recordsPerWorker, (i + 1) * recordsPerWorker);
-                CompletableFuture<Void> workerFuture = new CompletableFuture<>();
-                Thread workerThread = new Thread(() -> {
-                    try {
-                        for (int j = 0; j < workerDocs.size(); j += 10) {
-                            // Use retry loop to catch not_committed errors
-                            List<SimpleDocument> batchDocuments = workerDocs.subList(j, j + 10);
-                            fdb.run(context -> {
-                                try {
-                                    FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
-                                    for (SimpleDocument document : batchDocuments) {
-                                        store.saveRecord(document);
-                                    }
-                                    return null;
-                                } catch (RecordCoreException e) {
-                                    throw e;
-                                } catch (Exception e) {
-                                    throw new RecordCoreException(e);
+        CompletableFuture<?>[] workerFutures = new CompletableFuture<?>[10];
+        int recordsPerWorker = records.size() / workerFutures.length;
+        for (int i = 0; i < workerFutures.length; i++) {
+            List<SimpleDocument> workerDocs = records.subList(i * recordsPerWorker, (i + 1) * recordsPerWorker);
+            CompletableFuture<Void> workerFuture = new CompletableFuture<>();
+            Thread workerThread = new Thread(() -> {
+                try {
+                    for (int j = 0; j < workerDocs.size(); j += 10) {
+                        // Use retry loop to catch not_committed errors
+                        List<SimpleDocument> batchDocuments = workerDocs.subList(j, j + 10);
+                        fdb.run(context -> {
+                            try {
+                                FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+                                for (SimpleDocument document : batchDocuments) {
+                                    store.saveRecord(document);
                                 }
-                            });
-                        }
-                        workerFuture.complete(null);
-                    } catch (RuntimeException e) {
-                        workerFuture.completeExceptionally(e);
+                                return null;
+                            } catch (RecordCoreException e) {
+                                throw e;
+                            } catch (Exception e) {
+                                throw new RecordCoreException(e);
+                            }
+                        });
                     }
-                });
-                workerThread.setName("insert-worker-" + i);
-                workerThread.start();
-                workerFutures[i] = workerFuture;
-            }
-            CompletableFuture.allOf(workerFutures).get();
-
-            long endTime = System.nanoTime();
-            LOGGER.info("performed 1000 parallel insertions in {} seconds.", (endTime - startTime) * 1e-9);
-            printUsage();
-        } finally {
-            factory.setMaxAttempts(oldMaxAttempts);
+                    workerFuture.complete(null);
+                } catch (RuntimeException e) {
+                    workerFuture.completeExceptionally(e);
+                }
+            });
+            workerThread.setName("insert-worker-" + i);
+            workerThread.start();
+            workerFutures[i] = workerFuture;
         }
+        CompletableFuture.allOf(workerFutures).get();
+
+        long endTime = System.nanoTime();
+        LOGGER.info("performed 1000 parallel insertions in {} seconds.", (endTime - startTime) * 1e-9);
+        printUsage();
     }
 }

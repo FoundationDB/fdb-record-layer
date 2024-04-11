@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.test.Tags;
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -43,12 +42,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class BlockingInAsyncDetectionTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
-
-    @BeforeEach
-    void ensureInit() {
-        // Ensure the database has been initialized
-        dbExtension.getDatabase();
-    }
 
     @Test
     void testAsyncDetection() {

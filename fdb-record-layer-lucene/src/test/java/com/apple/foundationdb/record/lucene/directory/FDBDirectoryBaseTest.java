@@ -52,6 +52,7 @@ public abstract class FDBDirectoryBaseTest {
     protected Subspace subspace;
     protected FDBDirectory directory;
     protected Random random = new Random();
+    private FDBRecordContext context;
 
     protected FDBStoreTimer timer = new FDBStoreTimer();
 
@@ -59,14 +60,14 @@ public abstract class FDBDirectoryBaseTest {
     public void setUp() {
         fdb = dbExtension.getDatabase();
         path = pathManager.createPath(TestKeySpace.RAW_DATA);
-        FDBRecordContext context = fdb.openContext(getContextConfig());
+        context = fdb.openContext(getContextConfig());
         subspace = fdb.run(path::toSubspace);
         directory = new FDBDirectory(subspace, context, null);
     }
 
     @AfterEach
     public void tearDown() {
-        directory.getCallerContext().close();
+        context.close();
     }
 
     private FDBRecordContextConfig getContextConfig() {

@@ -24,11 +24,11 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexWriter;
@@ -70,7 +70,7 @@ public class TestFDBDirectory extends FDBDirectory {
 
     public TestFDBDirectory() {
         super(new Subspace(Tuple.from("record-test", "unit", "lucene")),
-                FDBDatabaseFactory.instance().getDatabase().openContext(),
+                BaseIndexFileFormatTestCaseUtils.dbExtension.getDatabase().openContext(),
                 Map.of(LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
     }
 

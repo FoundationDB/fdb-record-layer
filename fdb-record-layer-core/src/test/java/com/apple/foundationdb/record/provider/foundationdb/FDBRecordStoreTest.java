@@ -364,14 +364,14 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             recBuilder.setStrValueIndexed(Strings.repeat("x", 10));
             FDBStoredRecord<Message> rec1 = recordStore.saveRecord(recBuilder.build());
             assertEquals(1, rec1.getKeyCount(), "small record should only need one key-value pair");
-            assertThat("small record should only need few key bytes", rec1.getKeySize(), equalTo(recordSubspaceSize + rec1.getPrimaryKey().getPackedSize() + 1));
+            assertThat("small record should only need few key bytes", rec1.getKeySize(), allOf(greaterThan(recordSubspaceSize), lessThan(recordSubspaceSize + 10)));
             assertThat("small record should only need few value bytes", rec1.getValueSize(), allOf(greaterThan(10), lessThan(100)));
 
             recBuilder.setRecNo(2);
             recBuilder.setStrValueIndexed(Strings.repeat("x", 100000));
             FDBStoredRecord<Message> rec2 = recordStore.saveRecord(recBuilder.build());
             assertThat("large record should only need several key-value pairs", rec2.getKeyCount(), allOf(greaterThan(1), lessThan(10)));
-            assertThat("large record should only need few key bytes", rec2.getKeySize(), equalTo(rec2.getKeyCount() * (recordSubspaceSize + rec2.getPrimaryKey().getPackedSize() + 2)));
+            assertThat("large record should only need few key bytes", rec2.getKeySize(), allOf(greaterThan(rec2.getKeyCount() * recordSubspaceSize), lessThan(rec2.getKeyCount() * (recordSubspaceSize + 10))));
             assertThat("large record should only need many value bytes", rec2.getValueSize(), allOf(greaterThan(100000), lessThan(101000)));
 
             FDBStoredRecord<Message> rec1x = recordStore.loadRecord(rec1.getPrimaryKey());

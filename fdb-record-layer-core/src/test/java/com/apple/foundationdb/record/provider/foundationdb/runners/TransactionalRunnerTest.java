@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.TriFunction;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -41,6 +40,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.MDC;
 
@@ -76,6 +77,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 class TransactionalRunnerTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -91,9 +93,7 @@ class TransactionalRunnerTest {
         database = dbExtension.getDatabase();
         final Random random = new Random();
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
-        byte[] randomSuffix = randomBytes(100, random);
-        randomSuffix[0] = 0x10; // to make sure it doesn't end up in unwritable space
-        key = ByteArrayUtil.join(database.run(path::toSubspace).getKey(), randomSuffix);
+        key = database.run(path::toSubspace).pack(Tuple.from("key"));
         value = randomBytes(200, random);
     }
 

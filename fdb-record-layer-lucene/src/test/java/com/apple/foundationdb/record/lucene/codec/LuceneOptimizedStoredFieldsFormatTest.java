@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.compressing.CompressingCodec;
@@ -50,8 +49,6 @@ import java.util.Random;
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsFormatTestCase {
-    private static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
-
     public LuceneOptimizedStoredFieldsFormatTest() {
     }
 
@@ -73,9 +70,8 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
     public void setUp() throws Exception {
         super.setUp();
         TestingCodec.reset();
-        // We have to manually call the extension call backs because this is a JUnit4 class
-        dbExtension.beforeEach(null);
         TestFDBDirectory.reset();
+        BaseIndexFileFormatTestCaseUtils.resetStaticConfigs();
     }
 
     @Override
@@ -83,7 +79,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
         super.tearDown();
         TestingCodec.reset();
         TestFDBDirectory.reset();
-        dbExtension.afterEach(null);
+        BaseIndexFileFormatTestCaseUtils.resetStaticConfigs();
     }
 
     @Override

@@ -21,14 +21,13 @@
 package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.rtree.RTreeModificationTest.Item;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.test.TestClassSubspaceExtension;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
-import com.apple.foundationdb.test.TestSubspaceExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Verify;
@@ -36,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Streams;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -74,6 +72,10 @@ public class RTreeScanTest  {
     private static final int NUM_QUERIES = 100;
     @RegisterExtension
     static TestDatabaseExtension dbExtension = new TestDatabaseExtension();
+    @RegisterExtension
+    static TestClassSubspaceExtension rtSubspaceExtension = new TestClassSubspaceExtension(dbExtension);
+    @RegisterExtension
+    static TestClassSubspaceExtension rtSecondarySubspaceExtension = new TestClassSubspaceExtension(dbExtension);
 
     private static Database db;
     private static Subspace rtSubspace;
@@ -84,24 +86,14 @@ public class RTreeScanTest  {
     @BeforeAll
     public static void setUpDb() {
         db = dbExtension.getDatabase();
-        rtSubspace = new TestSubspaceExtension(dbExtension).getSubspace();
-        rtSecondarySubspace = new TestSubspaceExtension(dbExtension).getSubspace();
+        rtSubspace = rtSubspaceExtension.getSubspace();
+        rtSecondarySubspace = rtSecondarySubspaceExtension.getSubspace();
         final RTree rTree = new RTree(rtSubspace, rtSecondarySubspace, TestExecutors.defaultThreadPool(), RTree.DEFAULT_CONFIG,
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 OnReadListener.NOOP);
         final Item[] items1 = RTreeModificationTest.randomInsertsWithNulls(db, rTree, 0L, NUM_SAMPLES / 2);
         final Item[] items2 = RTreeModificationTest.bitemporalInserts(db, rTree, 0L, NUM_SAMPLES / 2);
         items = ObjectArrays.concat(items1, items2, Item.class);
-    }
-
-    @AfterAll
-    public static void closeDb() {
-        db.run(tr -> {
-            tr.clear(Range.startsWith(rtSubspace.getKey()));
-            tr.clear(Range.startsWith(rtSecondarySubspace.getKey()));
-            return null;
-        });
-        db.close();
     }
 
     @Nonnull

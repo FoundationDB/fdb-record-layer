@@ -96,10 +96,10 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     @API(API.Status.INTERNAL)
     @VisibleForTesting
-    public static FDBDatabaseFactoryImpl testInstance(@Nonnull FDB initedFDB, @Nonnull APIVersion apiVersion) {
+    public static FDBDatabaseFactoryImpl testInstance(@Nonnull FDB initedFDB) {
         final FDBDatabaseFactoryImpl impl = new FDBDatabaseFactoryImpl();
         impl.fdb = initedFDB;
-        impl.apiVersion = apiVersion;
+        impl.apiVersion = APIVersion.fromVersionNumber(initedFDB.getAPIVersion());
         impl.inited = true;
         return impl;
     }

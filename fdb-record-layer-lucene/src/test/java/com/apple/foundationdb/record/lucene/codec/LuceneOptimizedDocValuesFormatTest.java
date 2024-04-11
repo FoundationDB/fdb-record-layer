@@ -48,7 +48,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.apache.lucene.util.TestUtil;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 
 import java.io.IOException;
@@ -78,11 +77,6 @@ import static org.apache.lucene.index.SortedSetDocValues.NO_MORE_ORDS;
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestCase {
-
-    @BeforeClass
-    public static void beforeClass() {
-        BaseIndexFileFormatTestCaseUtils.beforeClass();
-    }
 
     @Override
     protected Codec getCodec() {

@@ -31,7 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -45,30 +46,30 @@ public class ExceptionLoggingDetailsExtension implements TestExecutionExceptionH
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(ExceptionLoggingDetailsExtension.class);
 
-    @Nullable
-    private Map<String, Object> collectLogInfo(@Nonnull Throwable throwable) {
-        Map<String, Object> keys = null;
-        Set<Throwable> seen = new HashSet<>();
+    @Nonnull
+    public Map<String, Object> collectLogInfo(@Nonnull Throwable throwable) {
+        Map<String, Object> combinedLogInfo = new TreeMap<>();
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         @Nullable Throwable current = throwable;
         while (current != null) {
             if (current instanceof LoggableKeysAndValues<?>) {
                 Map<String, Object> logInfo = ((LoggableKeysAndValues<?>)current).getLogInfo();
                 if (!logInfo.isEmpty()) {
-                    if (keys == null) {
-                        keys = new TreeMap<>();
-                    }
-                    keys.putAll(logInfo);
+                    // Put all new keys from this class into the combined log info. Using
+                    // putIfAbsent here ensures that if the same log info key appears in multiple
+                    // exceptions in the stack, we choose the one closest to the top
+                    logInfo.forEach(combinedLogInfo::putIfAbsent);
                 }
             }
-            current = seen.add(throwable) ? throwable.getCause() : null;
+            current = seen.add(current) ? current.getCause() : null;
         }
-        return keys;
+        return combinedLogInfo;
     }
 
     @Override
     public void handleTestExecutionException(final ExtensionContext extensionContext, final Throwable throwable) throws Throwable {
         Map<String, Object> logInfo = collectLogInfo(throwable);
-        if (logInfo != null) {
+        if (!logInfo.isEmpty()) {
             KeyValueLogMessage message = KeyValueLogMessage.build("test failure exception details");
             message.addKeysAndValues(logInfo);
             LOGGER.error(message.toString(), throwable);

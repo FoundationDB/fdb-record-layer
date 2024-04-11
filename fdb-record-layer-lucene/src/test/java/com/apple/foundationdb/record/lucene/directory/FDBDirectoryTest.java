@@ -161,10 +161,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LIST_ALL, 2);
         // Assert that the cache is loaded only once even though directory::listAll is called twice
         assertCorrectMetricCount(LuceneEvents.Events.LUCENE_LOAD_FILE_CACHE, 1);
-
-        FDBRecordContext originalContext = directory.getCallerContext();
-        originalContext.ensureActive().cancel();
-        originalContext.close();
+        directory.getCallerContext().ensureActive().cancel();
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = fdb.openContext(null, timer)) {

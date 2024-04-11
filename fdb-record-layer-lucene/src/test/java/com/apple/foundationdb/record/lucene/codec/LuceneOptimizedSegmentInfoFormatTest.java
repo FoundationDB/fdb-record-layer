@@ -28,7 +28,6 @@ import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.BaseSegmentInfoFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.apache.lucene.util.Version;
-import org.junit.BeforeClass;
 
 import java.io.IOException;
 
@@ -49,11 +48,6 @@ import java.io.IOException;
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedSegmentInfoFormatTest extends BaseSegmentInfoFormatTestCase {
-
-    @BeforeClass
-    public static void beforeClass() {
-        BaseIndexFileFormatTestCaseUtils.beforeClass();
-    }
 
     @Override
     protected Codec getCodec() {

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,10 +47,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <pre>{@code
  *     @RegisterExtension
- *     static final FDBDatabaseExtension = new FDBDatabaseExtension();
+ *     final FDBDatabaseExtension = new FDBDatabaseExtension();
  * }</pre>
+ *
+ * <p>
+ * Because this extension creates a fresh {@link FDBDatabaseFactory} and a fresh {@link FDBDatabase} with each run,
+ * tests that use this extension are free to modify what would otherwise be global state on the factory or database.
+ * </p>
  */
-public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallback {
+public class FDBDatabaseExtension implements AfterEachCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseExtension.class);
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
@@ -82,6 +86,9 @@ public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallba
         if (fdb == null) {
             synchronized (FDBDatabaseExtension.class) {
                 if (fdb == null) {
+                    // Note: in some ways, this mirrors the TestDatabaseExtension abstraction in the
+                    // fdb-extensions project. We could re-use this here, except that if we did, we'd
+                    // never test the FDBDatabaseFactory's methods for initializing FDB
                     FDBDatabaseFactory baseFactory = FDBDatabaseFactory.instance();
                     if (TRACE) {
                         baseFactory.setTrace(".", "fdb_record_layer_test");
@@ -118,7 +125,7 @@ public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallba
     public FDBDatabaseFactory getDatabaseFactory() {
         if (databaseFactory == null) {
             // Create a new one to avoid polluting the caches or global state stored in the factory
-            databaseFactory = FDBDatabaseFactoryImpl.testInstance(getInitedFDB(), getAPIVersion());
+            databaseFactory = FDBDatabaseFactoryImpl.testInstance(getInitedFDB());
             if (TRACE) {
                 databaseFactory.setTransactionIsTracedSupplier(() -> true);
             }
@@ -126,12 +133,6 @@ public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallba
             databaseFactory.setExecutor(threadPoolExecutor);
         }
         return databaseFactory;
-    }
-
-    @Override
-    public void beforeEach(final ExtensionContext extensionContext) {
-        // Ensure that FDB is initialized before the test begins
-        getDatabaseFactory();
     }
 
     @Nonnull
@@ -150,7 +151,8 @@ public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallba
             assertEquals(0, count, "should not have left any contexts open");
             db.close();
             db = null;
+            getDatabaseFactory().clear();
+            databaseFactory = null;
         }
-        getDatabaseFactory().clear();
     }
 }
