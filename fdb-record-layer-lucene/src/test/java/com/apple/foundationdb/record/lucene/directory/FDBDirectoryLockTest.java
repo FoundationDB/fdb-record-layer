@@ -70,10 +70,11 @@ class FDBDirectoryLockTest {
 
             FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
             String lockName = "file.lock";
+            String alreadyLockedMessage = "FileLock: Lock failed: already locked by another entity";
             final Lock lock1 = directory.obtainLock(lockName);
             lock1.ensureValid();
             RecordCoreException e = assertThrows(RecordCoreException.class, () -> directory.obtainLock(lockName));
-            assertTrue(e.getMessage().contains("found old lock"));
+            assertTrue(e.getMessage().contains(alreadyLockedMessage));
             lock1.ensureValid();
             lock1.close();
 
@@ -81,7 +82,7 @@ class FDBDirectoryLockTest {
             final Lock lock2 = directory.obtainLock(lockName);
             lock2.ensureValid();
             e = assertThrows(RecordCoreException.class, () -> directory.obtainLock(lockName));
-            assertTrue(e.getMessage().contains("found old lock"));
+            assertTrue(e.getMessage().contains(alreadyLockedMessage));
             lock2.ensureValid();
             lock2.close();
         }

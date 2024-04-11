@@ -75,21 +75,27 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             this.lockName = lockName; // for log messages
             this.fileLockKey = fileLockKey;
             this.timeWindowMilliseconds = timeWindowMilliseconds;
-            logSelf("Attempting to create Lucene File Lock");
+            logSelf("FileLock: Attempt to create a file Lock");
             fileLockSet(false);
             agilityContext.flush();
-            logSelf("Successfully created lucene file lock");
+            logSelf("FileLock: Successfully created a file lock");
         }
 
         @Override
         public void close() {
             fileLockClear();
+            flushAndClose();
+        }
+
+        private void flushAndClose() {
+            // always flush before declaring this object as closed. Else agilityContext may fail to commit, while this lock may skip retry
+            agilityContext.flush();
             closed = true;
         }
 
         @Override
         public void ensureValid() {
-            // .. and implement heartbeat
+            // ... and implement heartbeat
             if (closed) {
                 throw new AlreadyClosedException("Lock instance already released. This=" + this);
             }
@@ -159,15 +165,16 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (existingTimeStamp > (nowMillis - timeWindowMilliseconds) &&
                     existingTimeStamp < (nowMillis + timeWindowMilliseconds)) {
                 // Here: this lock is valid
-                throw new RecordCoreException("FileLock: Set: found old lock")
+                throw new RecordCoreException("FileLock: Lock failed: already locked by another entity")
                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                 LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                                 LuceneLogMessageKeys.LOCK_DIRECTORY, this);
             }
             // Here: this lock is either too old, or in the future. Steal it
             if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn(KeyValueLogMessage.of("FileLock: Set: found old lock, discard it",
+                LOGGER.warn(KeyValueLogMessage.of("FileLock: discarded an existing old lock",
                         LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
+                        LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                         LuceneLogMessageKeys.LOCK_DIRECTORY, this));
             }
         }
@@ -181,13 +188,18 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                         synchronized (fileLockSetLock) {
                                             fileLockCheckHeartBeat(val); // ensure valid
                                             aContext.ensureActive().clear(fileLockKey);
-                                            logSelf("Cleared Lucene File Lock");
+                                            logSelf("FileLock: Cleared");
                                         }
                                     })
                     ));
         }
 
-        protected void fileLockClearIfLocked(boolean isRecovery) {
+        protected void fileLockClearIfLocked() {
+            if (closed) {
+                // Here: the lock was already cleared and closed.
+                return;
+            }
+            // Here: the lock was not cleared in the regular path while the wrapping resource is being closed -
             // clear the lock unconditionally if locked and matches uuid
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
@@ -196,13 +208,13 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                     UUID existingUuid = fileLockValueToUuid(val);
                                     if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
                                         aContext.ensureActive().clear(fileLockKey);
-                                        logSelf("Cleared Lucene File Lock in Recovery path");
+                                        logSelf("FileLock: Cleared in Recovery path");
                                     }
                                 }
                             });
 
-            if (isRecovery) {
-                // Here: this is called in the recovery path
+            if (agilityContext.isClosed()) {
+                // Here: this is considered to be a recovery path, may bypass closed context.
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.applyInRecoveryPath(fileLockFunc));
             } else {
@@ -210,6 +222,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
+            flushAndClose();
         }
 
         @Override

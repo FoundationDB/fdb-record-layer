@@ -378,7 +378,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return CompletableFuture.completedFuture(null);
         }
         final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REPARTITION);
         int documentCount = mergeControl.getRepartitionDocumentCount();
         if (documentCount < 0) {
             // Skip re-balance
