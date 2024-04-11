@@ -300,7 +300,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("secondary").startsWith(byteString(1)))
                     .build();
 
-            // Index(ByteStringRecord$secondary [[[1]],[[1]]])
+            // Index(ByteStringRecord$secondary {[[1]],[[1]]})
             RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan,
                     indexPlan().where(indexName("ByteStringRecord$secondary"))
@@ -328,7 +328,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("secondary").startsWith(byteString(1, 0)))
                     .build();
 
-            // Index(ByteStringRecord$secondary [[[1]],[[1]]])
+            // Index(ByteStringRecord$secondary {[[1, 0]],[[1, 0]]})
             RecordQueryPlan plan = planQuery(query);
             assertMatchesExactly(plan,
                     indexPlan().where(indexName("ByteStringRecord$secondary"))
