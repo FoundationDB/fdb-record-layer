@@ -383,7 +383,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                     Assertions.assertEquals(TimeUnit.NANOSECONDS, timeoutException.getLogInfo().get(LogMessageKeys.TIME_UNIT.toString()), i + " " + e.getMessage());
                 }
                 fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
-                checkForOpenContexts(); // validate after every loop that we didn't leave any contexts open
+                dbExtension.checkForOpenContexts(); // validate after every loop that we didn't leave any contexts open
                 LOGGER.debug(KeyValueLogMessage.of("Validating",
                         "iteration", i));
                 new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
@@ -392,7 +392,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreTestBase {
                 }).validate(index, ids, Integer.MAX_VALUE, isSynthetic ? "child_str_value:forth" : "text_value:about", !success);
                 LOGGER.debug(KeyValueLogMessage.of("Done Validating",
                         "iteration", i));
-                checkForOpenContexts(); // just in case the validation code leaks a context
+                dbExtension.checkForOpenContexts(); // just in case the validation code leaks a context
             }
         } finally {
             fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);

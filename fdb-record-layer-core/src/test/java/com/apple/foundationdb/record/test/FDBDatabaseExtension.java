@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Extension that allows the user to specify the database. It ensures that FDB has been properly initialized
@@ -144,12 +145,16 @@ public class FDBDatabaseExtension implements AfterEachCallback {
         return db;
     }
 
+    public void checkForOpenContexts() {
+        assertNotNull(db, "Should not check for open contexts on a null database");
+        assertEquals(0, db.warnAndCloseOldTrackedOpenContexts(0), "should not have left any contexts open");
+    }
+
     @Override
     public void afterEach(final ExtensionContext extensionContext) {
         if (db != null) {
-            // Validate that the test closes all of the transactions that it opens
-            int count = db.warnAndCloseOldTrackedOpenContexts(0);
-            assertEquals(0, count, "should not have left any contexts open");
+            // Validate that the test closes all the transactions that it opens
+            checkForOpenContexts();
             db.close();
             db = null;
             getDatabaseFactory().clear();
