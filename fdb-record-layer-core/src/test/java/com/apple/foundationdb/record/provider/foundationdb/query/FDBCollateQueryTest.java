@@ -79,12 +79,16 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
     };
 
     protected void loadNames(RecordMetaDataHook hook) throws Exception {
+        loadNames(NAMES, hook);
+    }
+
+    protected void loadNames(String[] names, RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            for (int i = 0; i < NAMES.length; i++) {
+            for (int i = 0; i < names.length; i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(100 + i)
-                        .setStrValueIndexed(NAMES[i])
+                        .setStrValueIndexed(names[i])
                         .build();
                 recordStore.saveRecord(record);
             }
@@ -111,6 +115,10 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
     protected static final KeyExpression NAME_FIELD = field("str_value_indexed");
 
     protected void sortOnly(String locale, String... expected) throws Exception {
+        sortOnly(locale, NAMES, expected);
+    }
+
+    protected void sortOnly(String locale, String[] names, String... expected) throws Exception {
         final KeyExpression key;
         final RecordMetaDataHook hook;
         if (locale == null) {
@@ -123,7 +131,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
                 md.addIndex("MySimpleRecord", "collated_name", key);
             };
         }
-        loadNames(hook);
+        loadNames(names, hook);
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(key)
