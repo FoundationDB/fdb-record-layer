@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -124,7 +125,9 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         } else {
             final Range range = tupleRange.toRange();
             rangeStart = range.begin;
-            rangeEnd = range.end;
+            // tupleRange has an inclusive high endpoint, so end isn't a valid tuple.
+            // But buildRangeOnly needs to convert missing Ranges back to TupleRanges, so round up.
+            rangeEnd = ByteArrayUtil.strinc(range.end);
         }
 
         final CompletableFuture<FDBRecordStore> maybePresetRangeFuture =

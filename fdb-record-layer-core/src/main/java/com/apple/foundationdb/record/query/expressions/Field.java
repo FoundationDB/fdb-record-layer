@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -166,6 +167,18 @@ public class Field {
      */
     @Nonnull
     public QueryComponent startsWith(@Nonnull String comparand) {
+        return fieldWithComparison(fieldName, Comparisons.Type.STARTS_WITH, comparand);
+    }
+
+    /**
+     * Checks if the field starts with the given byte string.
+     * Requires that the field contains a byte string.
+     * Evaluates to null if the field does not have a value.
+     * @param comparand the object to compare with the value in the field
+     * @return a new component for doing the actual evaluation
+     */
+    @Nonnull
+    public QueryComponent startsWith(@Nonnull ByteString comparand) {
         return fieldWithComparison(fieldName, Comparisons.Type.STARTS_WITH, comparand);
     }
 

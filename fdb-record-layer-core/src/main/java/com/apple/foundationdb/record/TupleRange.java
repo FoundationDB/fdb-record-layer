@@ -501,7 +501,11 @@ public class TupleRange {
             case TREE_END:
             case RANGE_INCLUSIVE:
                 if (highBytes != null) {
-                    highBytes = ByteArrayUtil.strinc(highBytes);
+                    // FF is not a valid tuple code, but is used as an escape following 00 inside string / bytes,
+                    // against 00 otherwise terminating the string / bytes.
+                    // We do not want such suffixed strings / bytes to be included in a tuple-oriented scan.
+                    // They are after the high tuple, so outside the range.
+                    highBytes = ByteArrayUtil.join(highBytes, new byte[] { (byte)0xff });
                 } else {
                     if (highEndpoint != EndpointType.TREE_END) {
                         throw new RecordCoreException("Inclusive high endpoint with null high bytes");
