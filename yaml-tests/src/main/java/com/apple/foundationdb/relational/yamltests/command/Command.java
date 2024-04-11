@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.yamltests;
+package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -30,6 +30,9 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
+import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
 import org.apache.logging.log4j.LogManager;
@@ -43,20 +46,35 @@ import java.util.concurrent.CompletableFuture;
 
 public abstract class Command {
 
-    static final String COMMAND_LOAD_SCHEMA_TEMPLATE = "load schema template";
-    static final String COMMAND_SET_SCHEMA_STATE = "set schema state";
-    static final String COMMAND_QUERY = "query";
+    public static final String COMMAND_LOAD_SCHEMA_TEMPLATE = "load schema template";
+    public static final String COMMAND_SET_SCHEMA_STATE = "set schema state";
+    public static final String COMMAND_QUERY = "query";
 
     private static final Logger logger = LogManager.getLogger(Command.class);
 
-    static Command resolve(String commandString) {
-        if (COMMAND_LOAD_SCHEMA_TEMPLATE.equals(commandString)) {
-            return new Command() {
+    private final int lineNumber;
+
+    Command(int lineNumber) {
+        this.lineNumber = lineNumber;
+    }
+
+    public int getLineNumber() {
+        return lineNumber;
+    }
+
+    public static Command parse(@Nonnull List<?> region) {
+        final var command = Matchers.firstEntry(region.get(0), "command");
+        final var linedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(command, "command").getKey();
+        final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "command"), "command");
+        final var value = Matchers.notNull(command, "query configuration").getValue();
+        final var lineNumber = linedObject.getStartMark().getLine() + 1;
+
+        if (COMMAND_LOAD_SCHEMA_TEMPLATE.equals(key)) {
+            return new Command(lineNumber) {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection,
+                public void invoke(@Nonnull RelationalConnection connection,
                                    @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
-                    final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "schema template"), "schema template").getValue(), "schema template");
-                    logger.debug("⏳ Loading template '{}'", loadCommandString);
+                    logger.debug("⏳ Loading template '{}'", value);
                     // current connection should be __SYS/catalog
                     // save schema template
                     StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
@@ -67,21 +85,19 @@ public abstract class Command {
                             .build();
                     ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
                     try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
-                        metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(loadCommandString), Options.NONE).execute(transaction);
+                        metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto((String) value), Options.NONE).execute(transaction);
                         connection.commit();
                     }
                 }
             };
-        } else if (COMMAND_SET_SCHEMA_STATE.equals(commandString)) {
-            return new Command() {
+        } else if (COMMAND_SET_SCHEMA_STATE.equals(key)) {
+            return new Command(lineNumber) {
                 @Override
-                public void invoke(@Nonnull List<?> region, @Nonnull RelationalConnection connection,
+                public void invoke(@Nonnull RelationalConnection connection,
                                    @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
-                    final var loadCommandString = Matchers.string(Matchers.firstEntry(Matchers.first(region, "set schema state"), "set schema state").getValue(), "set schema state");
-                    logger.debug("⏳ Setting schema state '{}'", loadCommandString);
-                    // current connection should be __SYS/catalog
+                    logger.debug("⏳ Setting schema state '{}'", value);
                     StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
-                    SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(loadCommandString);
+                    SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson((String) value);
                     RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
                             .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
                             .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
@@ -100,14 +116,14 @@ public abstract class Command {
                     }
                 }
             };
-        } else if (COMMAND_QUERY.equals(commandString)) {
-            return new QueryCommand(false);
+        } else if (COMMAND_QUERY.equals(key)) {
+            return new QueryCommand(lineNumber, region);
         } else {
-            Assert.failUnchecked(String.format("‼️ could not find command '%s'", commandString));
+            Assert.failUnchecked(String.format("‼️ could not find command '%s'", key));
             return null;
         }
     }
 
-    public abstract void invoke(@Nonnull final List<?> region, @Nonnull final RelationalConnection connection,
+    public abstract void invoke(@Nonnull final RelationalConnection connection,
                                 @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException;
 }

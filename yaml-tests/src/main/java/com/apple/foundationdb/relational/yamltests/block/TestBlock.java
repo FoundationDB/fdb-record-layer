@@ -18,18 +18,25 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.yamltests;
+package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.command.Command;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
+import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
+import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
+
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opentest4j.AssertionFailedError;
 import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +49,8 @@ import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Implementation of block that serves the purpose of running tests. The block consists of:
@@ -69,7 +78,7 @@ public class TestBlock extends Block {
 
     private static final Logger logger = LogManager.getLogger(TestBlock.class);
 
-    static final String TEST_BLOCK = "test_block";
+    public static final String TEST_BLOCK = "test_block";
     static final String TEST_BLOCK_TESTS = "tests";
     static final String TEST_BLOCK_OPTIONS = "options";
     static final String TEST_BLOCK_PRESET = "preset";
@@ -89,6 +98,7 @@ public class TestBlock extends Block {
     static final String OPTION_CONNECTION_LIFECYCLE = "connection_lifecycle";
     static final String OPTION_CONNECTION_LIFECYCLE_TEST = "test";
     static final String OPTION_CONNECTION_LIFECYCLE_BLOCK = "block";
+    static final String OPTION_FORCE_SIMPLE_STATEMENT = "force_simple_statement";
 
     /**
      * Defines the way in which the tests are run.
@@ -159,6 +169,7 @@ public class TestBlock extends Block {
         private long seed = System.currentTimeMillis();
         private boolean checkCache = true;
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
+        private boolean forceSimpleStatement;
 
         static TestBlockOptions getDefaultTestBlockOptions() {
             return new TestBlockOptions();
@@ -203,6 +214,9 @@ public class TestBlock extends Block {
             }
             if (optionsMap.containsKey(OPTION_CHECK_CACHE)) {
                 this.checkCache = Matchers.bool(optionsMap.get(OPTION_CHECK_CACHE));
+            }
+            if (optionsMap.containsKey(OPTION_FORCE_SIMPLE_STATEMENT)) {
+                this.forceSimpleStatement = Matchers.bool(optionsMap.get(OPTION_FORCE_SIMPLE_STATEMENT));
             }
             setOptionConnectionLifecycle(optionsMap);
         }
@@ -281,7 +295,7 @@ public class TestBlock extends Block {
         }
         // execution context carries the highest priority, try setting options per that if it has some options to override.
         options.setWithExecutionContext(executionContext);
-        setupTests(testsMap.getOrDefault(TEST_BLOCK_TESTS, null));
+        setupTests(Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber));
         Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
     }
 
@@ -327,34 +341,54 @@ public class TestBlock extends Block {
         }
     }
 
-    private void setupTests(@Nullable Object testsObject) {
-        if (testsObject == null) {
-            return;
-        }
-        final var tests = Matchers.arrayList(testsObject, "tests");
+    private void setupTests(@Nonnull Object testsObject) {
+        var randomGenerator = new Random(options.seed);
         executables.clear();
         executableTestsWithCacheCheck.clear();
+        final var tests = Matchers.arrayList(testsObject, "tests");
         for (var testObject : tests) {
             final var test = Matchers.arrayList(testObject, "test");
-            final var testQuery = Matchers.firstEntry(Matchers.first(test, "test query"), "test query command");
-            final var resolvedCommand = Objects.requireNonNull(Command.resolve(getCommandString(testQuery)));
+            final var resolvedCommand = Objects.requireNonNull(Command.parse(test));
             Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
+            var runAsPreparedMix = getRunAsPreparedMix(options.forceSimpleStatement, options.repetition, randomGenerator);
             for (int i = 0; i < options.repetition; i++) {
-                executables.add(createTestExecutable(test, getCommandLineNumber(testQuery), false));
+                executables.add(createTestExecutable((QueryCommand) resolvedCommand, resolvedCommand.getLineNumber(),
+                        false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
             }
             if (options.checkCache) {
-                executableTestsWithCacheCheck.add(createTestExecutable(test, getCommandLineNumber(testQuery), true));
+                executableTestsWithCacheCheck.add(createTestExecutable((QueryCommand) resolvedCommand, resolvedCommand.getLineNumber(),
+                        true, randomGenerator, runAsPreparedMix.getRight()));
             }
         }
         if (options.mode != ExecutionMode.ORDERED) {
-            Collections.shuffle(executables, new Random(options.seed));
+            Collections.shuffle(executables, randomGenerator);
         }
     }
 
-    private Consumer<RelationalConnection> createTestExecutable(List<?> test, int lineNumber, boolean checkCache) {
+    private Pair<List<Boolean>, Boolean> getRunAsPreparedMix(boolean forceFalse, int repetitions, @Nonnull Random random) {
+        if (forceFalse) {
+            // if false is forced, all the instances should be false
+            return Pair.of(Collections.nCopies(repetitions, false), false);
+        } else if (repetitions == 1) {
+            // _all_ the instances (1 test and cache check) should be the same
+            var x = random.nextBoolean();
+            return Pair.of(List.of(x), x);
+        } else {
+            // try to get a mix of both
+            while (true) {
+                var mix = IntStream.range(0, repetitions).mapToObj(ignore -> random.nextBoolean()).collect(Collectors.toList());
+                if (mix.contains(true) && mix.contains(false)) {
+                    return Pair.of(mix, random.nextBoolean());
+                }
+            }
+        }
+    }
+
+    private Consumer<RelationalConnection> createTestExecutable(QueryCommand queryCommand, int lineNumber, boolean checkCache,
+                                                              @Nonnull Random random, boolean runAsPreparedStatement) {
         return connection -> {
             try {
-                new QueryCommand(checkCache).invoke(test, connection, executionContext);
+                queryCommand.invoke(connection, executionContext, checkCache, random, runAsPreparedStatement);
             } catch (SQLException e) {
                 failureException.set(new RuntimeException(String.format("‼️ Cannot run query at line %d", lineNumber), e));
             } catch (RelationalException e) {

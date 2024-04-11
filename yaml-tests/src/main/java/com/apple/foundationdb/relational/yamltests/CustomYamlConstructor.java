@@ -21,20 +21,21 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 
-import com.google.common.collect.Iterables;
+import com.apple.foundationdb.relational.yamltests.command.Command;
+import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.Mark;
-import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class CustomYamlConstructor extends SafeConstructor {
 
@@ -79,19 +80,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         return super.constructObject(node);
     }
 
-    @Override
-    protected void constructMapping2ndStep(MappingNode node, Map<Object, Object> mapping) {
-        super.constructMapping2ndStep(node, mapping);
-        final var keySet = mapping.keySet();
-        if (keySet.size() == 1) {
-            final var key = Iterables.getOnlyElement(keySet);
-            if (key instanceof String && ((String) key).contains("explain")) {
-                mapping.put("__LINE_NUMBER", node.getStartMark().getLine());
-            }
-        }
-    }
-
-    static final class LinedObject {
+    public static final class LinedObject {
         private final Object object;
 
         private final Mark startMark;
@@ -118,7 +107,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         }
     }
 
-    private static class ConstructLong extends AbstractConstruct {
+    public static class ConstructLong extends AbstractConstruct {
         @Override
         public Object construct(Node node) {
             if (!(node instanceof ScalarNode)) {

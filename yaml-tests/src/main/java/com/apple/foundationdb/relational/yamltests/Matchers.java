@@ -269,7 +269,7 @@ public class Matchers {
         };
     }
 
-    static final class ResultSetMatchResult {
+    public static final class ResultSetMatchResult {
 
         private static final ResultSetMatchResult SUCCESS = new ResultSetMatchResult(true, null, null);
 
@@ -334,12 +334,12 @@ public class Matchers {
         }
     }
 
-    static class ResultSetPrettyPrinter {
+    public static class ResultSetPrettyPrinter {
 
         @Nonnull
         private final List<List<String>> resultSet;
 
-        ResultSetPrettyPrinter() {
+        public ResultSetPrettyPrinter() {
             this.resultSet = new ArrayList<>();
         }
 

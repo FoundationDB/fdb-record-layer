@@ -18,10 +18,15 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.yamltests;
+package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.command.Command;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
+import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,7 +38,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,7 +79,7 @@ public abstract class Block {
         this.executionContext = executionContext;
     }
 
-    int getLineNumber() {
+    public int getLineNumber() {
         return lineNumber;
     }
 
@@ -167,15 +171,6 @@ public abstract class Block {
         }
     }
 
-    static String getCommandString(Map.Entry<?, ?> commandAndArgument) {
-        final var key = ((CustomYamlConstructor.LinedObject) Matchers.notNull(commandAndArgument, "command").getKey()).getObject();
-        return Matchers.notNull(Matchers.string(Matchers.notNull(key, "command"), "command"), "command");
-    }
-
-    static int getCommandLineNumber(Map.Entry<?, ?> commandAndArgument) {
-        return ((CustomYamlConstructor.LinedObject) Matchers.notNull(commandAndArgument, "command").getKey()).getStartMark().getLine() + 1;
-    }
-
     public Optional<RuntimeException> getFailureExceptionIfPresent() {
         return failureException.get() == null ? Optional.empty() : Optional.of(failureException.get());
     }
@@ -185,16 +180,16 @@ public abstract class Block {
      * that follows it. In essence, it consists of a `connectPath` that is required to connect to a database and an
      * ordered list of `steps` to execute. A `step` is nothing but a query to be executed, translating to a special
      * {@link QueryCommand} that executes but doesn't verify anything.
-     * </p>
+     * <p>
      * The failure handling in case of {@link ConfigBlock} is straight-forward. It {@code throws} downstream exceptions
      * and errors to handled in the consumer. The rationale for this is that if the {@link ConfigBlock} fails at step,
      * there is no guarantee **as of now** that some following {@link Block} can run independent of this failure.
      */
-    static class ConfigBlock extends Block {
+    public static class ConfigBlock extends Block {
 
-        static final String CONFIG_BLOCK_SETUP = "setup";
-        static final String CONFIG_BLOCK_STEPS = "steps";
-        static final String CONFIG_BLOCK_DESTRUCT = "destruct";
+        public static final String CONFIG_BLOCK_SETUP = "setup";
+        public static final String CONFIG_BLOCK_STEPS = "steps";
+        public static final String CONFIG_BLOCK_DESTRUCT = "destruct";
 
         private ConfigBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
             super((((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "config").getKey()).getStartMark().getLine() + 1), executionContext);
@@ -203,14 +198,13 @@ public abstract class Block {
             final var steps = getSteps(configMap.getOrDefault(CONFIG_BLOCK_STEPS, null));
             for (final var step : steps) {
                 Assert.thatUnchecked(Matchers.map(step).size() == 1, "Illegal Format: A configuration step should be a single command");
-                final var commandString = getCommandString(Matchers.firstEntry(step, "configuration step"));
-                final var resolvedCommand = Objects.requireNonNull(Command.resolve(commandString));
+                final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step)));
                 executables.add(connection -> {
                     try {
-                        resolvedCommand.invoke(List.of(step), connection, executionContext);
+                        resolvedCommand.invoke(connection, executionContext);
                     } catch (Exception e) {
                         failureException.set(new RuntimeException(String.format("‼️ Error executing config step at line %d",
-                                getCommandLineNumber(Matchers.firstEntry(step, "configuration step"))), e));
+                                resolvedCommand.getLineNumber()), e));
                     }
                 });
             }

@@ -25,6 +25,9 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.TestBlock;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -89,15 +92,15 @@ public final class YamlRunner {
         }
 
         @Nonnull
-        YamlConnectionFactory getConnectionFactory() {
+        public YamlConnectionFactory getConnectionFactory() {
             return connectionFactory;
         }
 
-        boolean shouldCorrectExplains() {
+        public boolean shouldCorrectExplains() {
             return editedFileStream != null;
         }
 
-        boolean correctExplain(int lineNumber, @Nonnull String actual) {
+        public boolean correctExplain(int lineNumber, @Nonnull String actual) {
             if (!shouldCorrectExplains()) {
                 return false;
             }
@@ -110,19 +113,19 @@ public final class YamlRunner {
             }
         }
 
-        boolean isNightly() {
+        public boolean isNightly() {
             return Boolean.parseBoolean(System.getProperty(TEST_NIGHTLY, "false"));
         }
 
-        Optional<Long> getSeed() {
-            final var maybeValue = (System.getProperty(TEST_SEED, null));
+        public Optional<Long> getSeed() {
+            final var maybeValue = System.getProperty(TEST_SEED, null);
             if (maybeValue != null) {
                 return Optional.of(Long.parseLong(maybeValue));
             }
             return Optional.empty();
         }
 
-        Optional<Integer> getNightlyRepetition() {
+        public Optional<Integer> getNightlyRepetition() {
             final var maybeValue = System.getProperty(TEST_NIGHTLY_REPETITION, null);
             if (maybeValue != null) {
                 return Optional.of(Integer.parseInt(maybeValue));
@@ -130,7 +133,7 @@ public final class YamlRunner {
             return Optional.empty();
         }
 
-        int getNumThreads() {
+        public int getNumThreads() {
             var numThreads = 1;
             if (System.getProperties().stringPropertyNames().contains(TEST_MAX_THREADS)) {
                 numThreads = Integer.parseInt(System.getProperty(TEST_MAX_THREADS));

@@ -1,0 +1,344 @@
+/*
+ * QueryConfig.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.yamltests.command;
+
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.cli.formatters.ResultSetFormat;
+import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
+import com.apple.foundationdb.relational.util.Assert;
+
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
+import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.github.difflib.text.DiffRow;
+import com.github.difflib.text.DiffRowGenerator;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
+
+/**
+ * A {@link QueryConfig} defines how the query is to be run and how the output of the query execution or the error
+ * (in case of failure in query execution) is to be tested. To do so, it utilizes 2 methods
+ * <ul>
+ *     <li>{@code decorateQuery}: takes in the canonical query string and changes it as is needed to be run</li>
+ *     <li>{@code checkResult}: checks for the result from the query execution.</li>
+ *     <li>{@code checkError}: checks for the error.</li>
+ * </ul>
+ */
+@SuppressWarnings({"PMD.GuardLogStatement"})
+public abstract class QueryConfig {
+    private static final Logger logger = LogManager.getLogger(QueryConfig.class);
+
+    public static final String QUERY_CONFIG_RESULT = "result";
+    public static final String QUERY_CONFIG_UNORDERED_RESULT = "unorderedResult";
+    public static final String QUERY_CONFIG_EXPLAIN = "explain";
+    public static final String QUERY_CONFIG_EXPLAIN_CONTAINS = "explainContains";
+    public static final String QUERY_CONFIG_COUNT = "count";
+    public static final String QUERY_CONFIG_ERROR = "error";
+    public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
+
+    @Nullable private final Object value;
+    private final int lineNumber;
+    @Nullable private final String configName;
+
+    QueryConfig(@Nullable String configName, @Nullable Object value, int lineNumber) {
+        this.configName = configName;
+        this.value = value;
+        this.lineNumber = lineNumber;
+    }
+
+    int getLineNumber() {
+        return lineNumber;
+    }
+
+    Object getVal() {
+        return value;
+    }
+
+    @Nullable
+    String getConfigName() {
+        return configName;
+    }
+
+    String getValueString() {
+        if (value instanceof byte[]) {
+            return ByteArrayUtil2.loggable((byte[]) value);
+        } else if (value != null) {
+            return value.toString();
+        } else {
+            return "";
+        }
+    }
+
+    String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+        return query;
+    }
+
+    abstract void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException;
+
+    void checkError(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
+        final var diffMessage = String.format("‼️ statement failed with the following error at line %s:%n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                "%s%n" +
+                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                lineNumber, e.getMessage());
+        logger.error(diffMessage);
+        throw e;
+
+    }
+
+    private static String appendWithContinuationIfPresent(@Nonnull String queryString, @Nullable Continuation continuation) {
+        String currentQuery = queryString;
+        if (!currentQuery.isEmpty() && currentQuery.charAt(currentQuery.length() - 1) == ';') {
+            currentQuery = currentQuery.substring(0, currentQuery.length() - 1);
+        }
+        if (continuation instanceof ContinuationImpl) {
+            currentQuery += String.format(" with continuation b64'%s'", ResultSetFormat.formatContinuation(continuation));
+        }
+        return currentQuery;
+    }
+
+    private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName, @Nullable Object value, int lineNumber) {
+        return new QueryConfig(configName, value, lineNumber) {
+
+            @Override
+            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+                return appendWithContinuationIfPresent(query, continuation);
+            }
+
+            @Override
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+                logger.debug("⛳️ Matching results of query '{}'", queryDescription);
+                final var resultSet = (RelationalResultSet) actual;
+                final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
+                if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
+                    reportTestFailure(String.format("‼️ result mismatch at line %d:%n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                            Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                            "↪ expected result:%n" +
+                            getValueString() + "%n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                            "↩ actual result:%n" +
+                            Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"),
+                            getLineNumber()));
+                } else {
+                    logger.debug("✅ results match!");
+                }
+            }
+        };
+    }
+
+    private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value, int lineNumber) {
+        return new QueryConfig(configName, value, lineNumber) {
+
+            @Override
+            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+                return "explain " + query;
+            }
+
+            @Override
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+                logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
+                final var resultSet = (RelationalResultSet) actual;
+                resultSet.next();
+                final var actualPlan = resultSet.getString(1);
+                var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
+                if (success) {
+                    logger.debug("✅️ plan match!");
+                } else {
+                    final var expectedPlan = getValueString();
+                    final var diffGenerator = DiffRowGenerator.create()
+                            .showInlineDiffs(true)
+                            .inlineDiffByWord(true)
+                            .newTag(f -> f ? CommandUtil.Color.RED.toString() : CommandUtil.Color.RESET.toString())
+                            .oldTag(f -> f ? CommandUtil.Color.GREEN.toString() : CommandUtil.Color.RESET.toString())
+                            .build();
+                    final List<DiffRow> diffRows = diffGenerator.generateDiffRows(
+                            Collections.singletonList(expectedPlan),
+                            Collections.singletonList(actualPlan));
+                    final var planDiffs = new StringBuilder();
+                    for (final var diffRow : diffRows) {
+                        planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
+                    }
+                    if (isExact && executionContext.shouldCorrectExplains()) {
+                        if (!executionContext.correctExplain(getLineNumber() - 1, actualPlan)) {
+                            reportTestFailure("‼️ Cannot correct explain plan at line " + getLineNumber());
+                        } else {
+                            logger.debug("⭐️ Successfully replaced plan at line " + getLineNumber());
+                        }
+                    } else {
+                        final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +
+                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                planDiffs +
+                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                "↪ expected plan %s:%n" +
+                                getValueString() + "%n" +
+                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                "↩ actual plan:%n" +
+                                actualPlan,
+                                getLineNumber(), (!isExact ? "fragment" : ""));
+                        reportTestFailure(diffMessage);
+                    }
+                }
+            }
+        };
+    }
+
+    private static QueryConfig getCheckErrorConfig(@Nullable Object value, int lineNumber) {
+        return new QueryConfig(QUERY_CONFIG_ERROR, value, lineNumber) {
+
+            @Override
+            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+                return appendWithContinuationIfPresent(query, continuation);
+            }
+
+            @Override
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+                Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
+                if (actual instanceof ErrorCapturingResultSet) {
+                    Matchers.printRemaining((ErrorCapturingResultSet) actual, resultSetPrettyPrinter);
+                    reportTestFailure(String.format(
+                            "‼️ expecting statement to throw an error, however it returned a result set at line %d%n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                    "%s%n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                            getLineNumber(), resultSetPrettyPrinter));
+                } else if (actual instanceof Integer) {
+                    reportTestFailure(String.format(
+                            "‼️ expecting statement to throw an error, however it returned a count at line %d%n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
+                                    "%s%n" +
+                                    "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
+                            getLineNumber(), actual));
+                } else {
+                    reportTestFailure(String.format("‼️ unexpected query result of type '%s' (expecting '%s') at line %d%n",
+                            actual.getClass().getSimpleName(),
+                            ErrorCapturingResultSet.class.getSimpleName(),
+                            getLineNumber()));
+                }
+            }
+
+            @Override
+            void checkError(@Nonnull SQLException e, @Nonnull String queryDescription) {
+                logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
+                if (!e.getSQLState().equals(getVal())) {
+                    reportTestFailure(String.format("‼️ expecting '%s' error code, got '%s' instead at line %d!",
+                            getVal(), e.getSQLState(), getLineNumber()), e);
+                } else {
+                    logger.debug("✅ error codes '{}' match!", getVal());
+                }
+            }
+        };
+    }
+
+    private static QueryConfig getCheckCountConfig(@Nullable Object value, int lineNumber) {
+        return new QueryConfig(QUERY_CONFIG_COUNT, value, lineNumber) {
+
+            @Override
+            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+                return appendWithContinuationIfPresent(query, continuation);
+            }
+
+            @Override
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
+                logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
+                if (!Matchers.matches(getVal(), actual)) {
+                    reportTestFailure(String.format("‼️ Expected count value %d, but got %d at line %d",
+                            (Integer) getVal(), (Integer) actual, getLineNumber()));
+                } else {
+                    logger.debug("✅ Results match!");
+                }
+            }
+        };
+    }
+
+    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, int lineNumber) {
+        return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber) {
+            @Override
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+                logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
+                final var resultSet = (RelationalResultSet) actual;
+                if (!Matchers.matches(getVal(), resultSet.getPlanHash())) {
+                    reportTestFailure("‼️ Incorrect plan hash at line " + getLineNumber());
+                }
+                logger.debug("✅️ Plan hash matches!");
+            }
+        };
+    }
+
+    private static QueryConfig getNoCheckConfig(@Nullable Object value, int lineNumber) {
+        return new QueryConfig(null, value, lineNumber) {
+            @Override
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+                if (actual instanceof RelationalResultSet) {
+                    final var resultSet = (RelationalResultSet) actual;
+                    // slurp
+                    boolean valid = true;
+                    while (valid) { // suppress check style
+                        valid = ((RelationalResultSet) actual).next();
+                    }
+                    resultSet.close();
+                }
+            }
+        };
+    }
+
+    public static QueryConfig parse(@Nullable Map.Entry<?, ?> configEntry) {
+        if (configEntry == null) {
+            return getNoCheckConfig(null, -1);
+        }
+        final var linedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(configEntry, "query configuration").getKey();
+        final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
+        final var value = Matchers.notNull(configEntry, "query configuration").getValue();
+        final var lineNumber = linedObject.getStartMark().getLine() + 1;
+        if (key.equals(QUERY_CONFIG_COUNT)) {
+            return getCheckCountConfig(value, lineNumber);
+        } else if (key.equals(QUERY_CONFIG_ERROR)) {
+            return getCheckErrorConfig(value, lineNumber);
+        } else if (key.equals(QUERY_CONFIG_EXPLAIN)) {
+            return getCheckExplainConfig(true, key, value, lineNumber);
+        } else if (key.equals(QUERY_CONFIG_EXPLAIN_CONTAINS)) {
+            return getCheckExplainConfig(false, key, value, lineNumber);
+        } else if (key.equals(QUERY_CONFIG_PLAN_HASH)) {
+            return getCheckPlanHashConfig(value, lineNumber);
+        } else if (key.contains(QUERY_CONFIG_RESULT)) {
+            return getCheckResultConfig(true, key, value, lineNumber);
+        } else if (key.equals(QUERY_CONFIG_UNORDERED_RESULT)) {
+            return getCheckResultConfig(false, key, value, lineNumber);
+        } else {
+            Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+        }
+        // should not happen
+        return null;
+    }
+}

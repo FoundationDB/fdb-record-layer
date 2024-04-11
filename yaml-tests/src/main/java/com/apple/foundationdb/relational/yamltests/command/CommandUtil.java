@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.yamltests;
+package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
