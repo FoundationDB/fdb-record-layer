@@ -68,6 +68,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
@@ -77,7 +78,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Tag;
@@ -2859,7 +2859,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
                                            @Nullable List<Pair<Tuple, Tuple>> expectedSplitRanges,
                                            OnlineIndexer indexer) {
-        List<Pair<Tuple, Tuple>> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
+        List<org.apache.commons.lang3.tuple.Pair<Tuple, Tuple>> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
 
         if (expectedSplitRanges != null) {
             assertEquals(expectedSplitRanges, splitRanges);
