@@ -472,20 +472,20 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
 
     @Test
     void testAgilityContextRecoveryPath2() {
-        final byte[] keyAborted;
-        final byte[] keySucceeds;
-        final byte[] keyFails;
         final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
+        final Tuple successTuple = Tuple.from(prefix, "yes");
+        final Tuple abortedTuple = Tuple.from(prefix, "abort");
+        final Tuple failTuple = Tuple.from(prefix, "no");
         byte[] packedValue = value.pack();
         try (FDBRecordContext context = openContext()) {
             final AgilityContext agilityContext = getAgilityContext(context, true);
             final Subspace subspace = path.toSubspace(context);
-            keyAborted = subspace.pack(Tuple.from(2023, 3));
+            byte[] keyAborted = subspace.pack(abortedTuple);
+            byte[] keySucceeds = subspace.pack(successTuple);
+            byte[] keyFails = subspace.pack(failTuple);
             agilityContext.set(keyAborted, packedValue);
             agilityContext.abortAndClose();
             IntStream range = IntStream.rangeClosed(1, 10);
-            keySucceeds = this.path.toSubspace(context).pack(Tuple.from(prefix, "yes").pack());
-            keyFails = this.path.toSubspace(context).pack(Tuple.from(prefix, "no").pack());
             range.parallel().forEach(i -> {
                 if (i == 7) {
                     agilityContext.applyInRecoveryPath(aContext -> {
@@ -506,6 +506,10 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            byte[] keyAborted = subspace.pack(abortedTuple);
+            byte[] keySucceeds = subspace.pack(successTuple);
+            byte[] keyFails = subspace.pack(failTuple);
             assertEquals(value, Tuple.fromBytes(context.ensureActive().get(keySucceeds).join()));
             assertNull(context.ensureActive().get(keyAborted).join());
             assertNull(context.ensureActive().get(keyFails).join());
