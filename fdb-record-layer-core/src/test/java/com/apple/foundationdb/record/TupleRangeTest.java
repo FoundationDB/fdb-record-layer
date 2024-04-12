@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -45,33 +45,33 @@ public class TupleRangeTest {
     public void toRange() {
         final Tuple a = Tuple.from("a");
         final Tuple b = Tuple.from("b");
-        List<Pair<TupleRange, Range>> testCases = Arrays.asList(
-                Pair.of(TupleRange.allOf(null), new Range(new byte[0], new byte[]{(byte)0xff})),
-                Pair.of(TupleRange.allOf(PREFIX_TUPLE), new Range(PREFIX_BYTES, ByteArrayUtil.join(PREFIX_BYTES, new byte[] { (byte)0xff }))),
+        List<NonnullPair<TupleRange, Range>> testCases = Arrays.asList(
+                NonnullPair.of(TupleRange.allOf(null), new Range(new byte[0], new byte[]{(byte)0xff})),
+                NonnullPair.of(TupleRange.allOf(PREFIX_TUPLE), new Range(PREFIX_BYTES, ByteArrayUtil.join(PREFIX_BYTES, new byte[] { (byte)0xff }))),
 
-                Pair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
+                NonnullPair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                         new Range(a.pack(), b.pack())),
-                Pair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE),
+                NonnullPair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE),
                         new Range(a.pack(), ByteArrayUtil.join(b.pack(), new byte[] { (byte)0xff }))),
-                Pair.of(new TupleRange(a, b, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
+                NonnullPair.of(new TupleRange(a, b, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                         new Range(ByteArrayUtil.strinc(a.pack()), b.pack())),
-                Pair.of(new TupleRange(a, b, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_INCLUSIVE),
+                NonnullPair.of(new TupleRange(a, b, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_INCLUSIVE),
                         new Range(ByteArrayUtil.strinc(a.pack()), ByteArrayUtil.join(b.pack(), new byte[] { (byte)0xff }))),
-                Pair.of(new TupleRange(null, b, EndpointType.TREE_START, EndpointType.RANGE_EXCLUSIVE),
+                NonnullPair.of(new TupleRange(null, b, EndpointType.TREE_START, EndpointType.RANGE_EXCLUSIVE),
                         new Range(new byte[0], b.pack())),
-                Pair.of(new TupleRange(a, null, EndpointType.RANGE_INCLUSIVE, EndpointType.TREE_END),
+                NonnullPair.of(new TupleRange(a, null, EndpointType.RANGE_INCLUSIVE, EndpointType.TREE_END),
                         new Range(a.pack(), new byte[]{(byte)0xff})),
 
-                Pair.of(new TupleRange(a, b, EndpointType.CONTINUATION, EndpointType.RANGE_EXCLUSIVE),
+                NonnullPair.of(new TupleRange(a, b, EndpointType.CONTINUATION, EndpointType.RANGE_EXCLUSIVE),
                         new Range(ByteArrayUtil.join(a.pack(), new byte[]{0x00}), b.pack())),
-                Pair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.CONTINUATION),
+                NonnullPair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.CONTINUATION),
                         new Range(a.pack(), b.pack())),
 
-                Pair.of(TupleRange.prefixedBy("a"),
+                NonnullPair.of(TupleRange.prefixedBy("a"),
                         new Range(new byte[]{0x02, (byte)'a'}, new byte[]{0x02, (byte)'b'})),
-                Pair.of(new TupleRange(Tuple.from("apple"), a, EndpointType.CONTINUATION, EndpointType.PREFIX_STRING),
+                NonnullPair.of(new TupleRange(Tuple.from("apple"), a, EndpointType.CONTINUATION, EndpointType.PREFIX_STRING),
                         new Range(ByteArrayUtil.join(Tuple.from("apple").pack(), new byte[]{0x00}), new byte[]{0x02, (byte)'b'})),
-                Pair.of(new TupleRange(a, Tuple.from("apple"), EndpointType.PREFIX_STRING, EndpointType.CONTINUATION),
+                NonnullPair.of(new TupleRange(a, Tuple.from("apple"), EndpointType.PREFIX_STRING, EndpointType.CONTINUATION),
                         new Range(new byte[]{0x02, (byte)'a'}, Tuple.from("apple").pack()))
         );
         testCases.forEach(pair -> {

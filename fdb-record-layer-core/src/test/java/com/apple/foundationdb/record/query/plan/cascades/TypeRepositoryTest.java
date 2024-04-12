@@ -27,14 +27,15 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.protobuf.DynamicMessage;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -243,7 +244,11 @@ class TypeRepositoryTest {
         Assertions.assertTrue(result instanceof DynamicMessage);
         final DynamicMessage resultMessage = (DynamicMessage)result;
         Assertions.assertEquals(3, resultMessage.getAllFields().size());
-        List<Object> fieldSorted = resultMessage.getAllFields().entrySet().stream().map(kv -> Pair.of(kv.getKey().getIndex(), kv.getValue())).sorted().map(Pair::getValue).collect(Collectors.toList());
+        List<Object> fieldSorted = resultMessage.getAllFields().entrySet().stream()
+                .map(kv -> Pair.of(kv.getKey().getIndex(), kv.getValue()))
+                .sorted(Map.Entry.comparingByKey())
+                .map(Pair::getValue)
+                .collect(Collectors.toList());
         Assertions.assertEquals("a", fieldSorted.get(0));
         Assertions.assertEquals(2, fieldSorted.get(1));
         Assertions.assertEquals(1.0F, fieldSorted.get(2));

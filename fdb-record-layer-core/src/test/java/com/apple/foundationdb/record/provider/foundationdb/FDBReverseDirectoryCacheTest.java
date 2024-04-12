@@ -34,12 +34,11 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -666,7 +665,7 @@ public class FDBReverseDirectoryCacheTest {
     private static Pair<String, Long>[] zipKeysAndValues(List<String> keys, List<Long> values) {
         final Iterator<Long> valuesIter = values.iterator();
         return keys.stream()
-                .map( key -> new ImmutablePair<>(key, valuesIter.next()) )
+                .map( key -> Pair.of(key, valuesIter.next()) )
                 .collect(Collectors.toList())
                 .toArray(new Pair[0]);
     }

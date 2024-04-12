@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -49,7 +50,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -207,7 +207,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                 .mapPipelined(pair -> saveRecordAsync(store, pair.getRight(), executeProperties.isDryRun())
                                 .thenApply(storedRecord -> {
                                     final var nestedContext = context.childBuilder()
-                                            .setBinding(inner.getAlias(), pair.getKey()) // pre-mutation
+                                            .setBinding(inner.getAlias(), pair.getLeft()) // pre-mutation
                                             .setBinding(currentModifiedRecordAlias, storedRecord.getRecord()) // post-mutation
                                             .build(context.getTypeRepository());
                                     final var result = computationValue.eval(store, nestedContext);

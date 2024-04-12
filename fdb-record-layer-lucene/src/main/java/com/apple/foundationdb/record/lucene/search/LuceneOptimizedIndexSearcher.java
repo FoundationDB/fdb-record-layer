@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.lucene.search;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;

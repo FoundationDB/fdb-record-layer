@@ -22,16 +22,17 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.test.Tags;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -178,26 +179,18 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
         output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, (100L * FDBDirectory.DEFAULT_BLOCK_SIZE));
         byte[] fooey = new byte[FDBDirectory.DEFAULT_BLOCK_SIZE];
-        List<Pair<Integer, Integer>> state = new ArrayList<>();
-        state.add(Pair.of(-1, directory.getBlockCache().asMap().size()));
+        Map<Integer, Integer> state = new HashMap<>();
+        state.put(-1, directory.getBlockCache().asMap().size());
         for (int i = 0; i < 100; i++) {
             blocks.readBytes(fooey, 0, fooey.length);
-            state.add(Pair.of(i, directory.getBlockCache().asMap().size()));
+            state.put(i, directory.getBlockCache().asMap().size());
         }
-        assertEquals("[(-1,10), (0,11), (1,12), (2,13), (3,14), (4,15), (5,16), (6,17), (7,18), (8,19), " +
-                     "(9,20), (10,21), (11,22), (12,23), (13,24), (14,25), (15,26), (16,27), (17,28), (18,29), " +
-                     "(19,30), (20,31), (21,32), (22,33), (23,34), (24,35), (25,36), (26,37), (27,38), (28,39), " +
-                     "(29,40), (30,41), (31,42), (32,43), (33,44), (34,45), (35,46), (36,47), (37,48), (38,49), " +
-                     "(39,50), (40,51), (41,52), (42,53), (43,54), (44,55), (45,56), (46,57), (47,58), (48,59), " +
-                     "(49,60), (50,61), (51,62), (52,63), (53,64), (54,65), (55,66), (56,67), (57,68), (58,69), " +
-                     "(59,70), (60,71), (61,72), (62,73), (63,74), (64,75), (65,76), (66,77), (67,78), (68,79), " +
-                     "(69,80), (70,81), (71,82), (72,83), (73,84), (74,85), (75,86), (76,87), (77,88), (78,89), " +
-                     "(79,90), (80,91), (81,92), (82,93), (83,94), (84,95), (85,96), (86,97), (87,98), (88,99), " +
-                     "(89,100), (90,100), (91,100), (92,100), (93,100), (94,100), (95,100), (96,100), (97,100), " +
-                     "(98,100), (99,101)]", state.toString());
         // The 101 is a bug on the read side where it is not checking that it does not need to read ahead to the last
         // block when the length is exhausted.
-
+        Map<Integer, Integer> expectedElements = IntStream.range(-1, 100)
+                .boxed()
+                .collect(Collectors.toMap(Function.identity(), i -> i == 99 ? 101 : Math.min(i + 11, 100)));
+        assertEquals(expectedElements, state);
     }
 
     @Test

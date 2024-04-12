@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Proposition;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.Range;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +38,7 @@ import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.I
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.LESS_THAN;
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.NOT_NULL;
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.STARTS_WITH;
-import static org.apache.commons.lang3.tuple.Pair.of;
+import static com.apple.foundationdb.record.util.pair.Pair.of;
 
 /**
  * Unit tests for {@link RangeConstraints}.
