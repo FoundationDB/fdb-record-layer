@@ -1426,6 +1426,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
         final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
+        final String luceneSearch2 = isSynthetic ? "simple_text:mary" : "text:mary";
+        final String textFieldName = isSynthetic ? "simple_text" : "text";
+        final String partitionFieldName = isSynthetic ? "complex_timestamp" : "timestamp";
 
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
@@ -1454,6 +1457,145 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     assertEquals(expectedLuceneComparisonQuery, luceneComparisonQuery);
                 }
             }
+
+            // test some "negative" use cases, asserting we won't mistakenly detect a partition field predicate and use
+            // it to optimize the query
+            QueryComponent textSearchPredicate = new LuceneQueryComponent(luceneSearch, List.of(textFieldName));
+            QueryComponent secondTextSearchPredicate = new LuceneQueryComponent(luceneSearch2, List.of(textFieldName));
+            QueryComponent luceneDslPredicate = new LuceneQueryComponent(luceneSearch + " " + partitionFieldName + ":[1 TO 10]", List.of(textFieldName, partitionFieldName));
+            final QueryComponent partitionFieldPredicate;
+            final QueryComponent secondPartitionFieldPredicate;
+            final QueryComponent groupPredicate;
+            if (isSynthetic) {
+                partitionFieldPredicate = Query.field("complex").matches(Query.field("timestamp").greaterThan(15L));
+                secondPartitionFieldPredicate = Query.field("complex").matches(Query.field("timestamp").greaterThan(55L));
+                groupPredicate = Query.field("complex").matches(Query.field("group").equalsParameter("group_value"));
+            } else {
+                partitionFieldPredicate = Query.field(partitionFieldName).greaterThan(15L);
+                secondPartitionFieldPredicate = Query.field(partitionFieldName).greaterThan(55L);
+                groupPredicate = Query.field("group").equalsParameter("group_value");
+            }
+            Map<QueryComponent, QueryPlanningExpectation> filterToOutcomeMap = Map.of(
+                    // full disjunction
+                    Query.or(groupPredicate, textSearchPredicate, partitionFieldPredicate), new QueryPlanningExpectation(
+                            // planning raises exception
+                            false,
+                            // planning produces non-lucene plan
+                            true,
+                            // synthetic planning raises exception
+                            true,
+                            // syntehtic planning produces non-lucene plan
+                            false,
+                            // partition field predicate detected and will be used to optimize search
+                            false),
+                    // group AND (text search OR partition field predicate)
+                    Query.and(groupPredicate, Query.or(textSearchPredicate, partitionFieldPredicate)), new QueryPlanningExpectation(
+                            // planning raises exception
+                            false,
+                            // planning produces non-lucene plan
+                            true,
+                            // synthetic planning raises exception
+                            false,
+                            // syntehtic planning produces non-lucene plan
+                            true,
+                            // partition field predicate detected and will be used to optimize search
+                            false),
+                    // conjunction, and multiple partition group predicates
+                    Query.and(groupPredicate, textSearchPredicate, partitionFieldPredicate, secondPartitionFieldPredicate), new QueryPlanningExpectation(
+                            // planning raises exception
+                            false,
+                            // planning produces non-lucene plan
+                            false,
+                            // synthetic planning raises exception
+                            false,
+                            // syntehtic planning produces non-lucene plan
+                            false,
+                            // partition field predicate detected and will be used to optimize search
+                            false),
+                    // group AND (text search 1 OR (text search 2 AND partition field))
+                    Query.and(groupPredicate, Query.or(textSearchPredicate, Query.and(secondTextSearchPredicate, partitionFieldPredicate))), new QueryPlanningExpectation(
+                            // planning raises exception
+                            false,
+                            // planning produces non-lucene plan
+                            true,
+                            // synthetic planning raises exception
+                            false,
+                            // syntehtic planning produces non-lucene plan
+                            true,
+                            // partition field predicate detected and will be used to optimize search
+                            false),
+                    // no group predicate
+                    Query.and(textSearchPredicate, partitionFieldPredicate), new QueryPlanningExpectation(
+                            // planning raises exception
+                            false,
+                            // planning produces non-lucene plan
+                            true,
+                            // synthetic planning raises exception
+                            true,
+                            // syntehtic planning produces non-lucene plan
+                            false,
+                            // partition field predicate detected and will be used to optimize search
+                            false),
+                    // Lucene DSL query (both search and timestamp expressed in single, lucene-single, string)
+                    Query.and(groupPredicate,  luceneDslPredicate), new QueryPlanningExpectation(
+                            // planning raises exception
+                            false,
+                            // planning produces non-lucene plan
+                            false,
+                            // synthetic planning raises exception
+                            false,
+                            // syntehtic planning produces non-lucene plan
+                            false,
+                            // partition field predicate detected and will be used to optimize search
+                            false)
+            );
+
+            for (Map.Entry<QueryComponent, QueryPlanningExpectation> entry : filterToOutcomeMap.entrySet()) {
+                QueryComponent filter = entry.getKey();
+                QueryPlanningExpectation expectation = entry.getValue();
+
+                RecordQuery recordQuery = RecordQuery.newBuilder()
+                        .setRecordType(isSynthetic ? "luceneJoinedPartitionedIdx" : COMPLEX_DOC)
+                        .setFilter(filter)
+                        .build();
+
+                if (isSynthetic && expectation.syntheticPlanningRaisesException || !isSynthetic && expectation.planningRaisesException) {
+                    assertThrows(RecordCoreException.class, () -> planner.plan(recordQuery));
+                } else {
+                    RecordQueryPlan plan = planner.plan(recordQuery);
+                    if (isSynthetic && expectation.syntheticPlanningProducesUnexpectedPlanType || !isSynthetic && expectation.planningProducesUnexpectedPlanType) {
+                        assertFalse(plan instanceof LuceneIndexQueryPlan);
+                    } else {
+                        LuceneIndexQueryPlan luceneIndexQueryPlan = (LuceneIndexQueryPlan) plan;
+                        LuceneScanParameters scanParameters = (LuceneScanParameters)luceneIndexQueryPlan.getScanParameters();
+                        LuceneScanQuery luceneScanQuery = (LuceneScanQuery)scanParameters.bind(recordStore, index, EvaluationContext.forBinding("group_value", 1));
+                        LuceneComparisonQuery detectedPredicate = partitioner.checkQueryForPartitionFieldPredicate(luceneScanQuery);
+                        if (!expectation.partitionFieldPredicateDetected) {
+                            assertNull(detectedPredicate);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    static class QueryPlanningExpectation {
+        boolean syntheticPlanningRaisesException;
+        boolean planningRaisesException;
+        boolean syntheticPlanningProducesUnexpectedPlanType;
+        boolean planningProducesUnexpectedPlanType;
+        boolean partitionFieldPredicateDetected;
+
+        QueryPlanningExpectation(boolean planningRaisesException,
+                                 boolean planningProducesUnexpectedPlanType,
+                                 boolean syntheticPlanningRaisesException,
+                                 boolean syntheticPlanningProducesUnexpectedPlanType,
+                                 boolean partitionFieldPredicateDetected) {
+            this.planningRaisesException = planningRaisesException;
+            this.planningProducesUnexpectedPlanType = planningProducesUnexpectedPlanType;
+            this.syntheticPlanningRaisesException = syntheticPlanningRaisesException;
+            this.syntheticPlanningProducesUnexpectedPlanType = syntheticPlanningProducesUnexpectedPlanType;
+            this.partitionFieldPredicateDetected = partitionFieldPredicateDetected;
         }
     }
 
