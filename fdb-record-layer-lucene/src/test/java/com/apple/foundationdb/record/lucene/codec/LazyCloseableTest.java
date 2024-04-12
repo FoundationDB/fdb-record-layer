@@ -31,24 +31,65 @@ import javax.annotation.Nonnull;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Isolated // To avoid contention on the thread pool with other tests running in parallel
 class LazyCloseableTest {
+
+    @Nonnull
+    static <T> Deque<T> collectFromMultipleThreads(int concurrency, @Nonnull Supplier<T> supplier) throws InterruptedException {
+        // Set up one thread for each concurrent creation we want to execute
+        final List<Thread> threads = new ArrayList<>(concurrency);
+        final CountDownLatch latch = new CountDownLatch(concurrency);
+        Deque<T> results = new ConcurrentLinkedDeque<>();
+        for (int i = 0; i < concurrency; i++) {
+            Thread t = new Thread(() -> {
+                try {
+                    // Decrement the thread started latch to signal that this thread has begun, then
+                    // wait for all of the other threads to begin before proceeding
+                    latch.countDown();
+                    latch.await();
+
+                    T value = supplier.get();
+                    results.add(value);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            t.setName("collectFromMultipleThreads-" + i);
+            t.start();
+            threads.add(t);
+        }
+
+        // Once we've set up all the threads, wait on them all to complete
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        for (Thread t : threads) {
+            t.join(TimeUnit.SECONDS.toMillis(30));
+        }
+        MatcherAssert.assertThat(results, Matchers.hasSize(concurrency));
+        return results;
+    }
 
     @Test
     void testOpensLazilyExactlyOnce() throws IOException {
@@ -67,7 +108,7 @@ class LazyCloseableTest {
     }
 
     @Test
-    void testOpensLazilyExactlyOnceThreaded() {
+    void testOpensLazilyExactlyOnceThreaded() throws IOException, InterruptedException {
         AtomicInteger starts = new AtomicInteger(0);
         AtomicInteger ends = new AtomicInteger(0);
         AtomicInteger opens = new AtomicInteger(0);
@@ -83,17 +124,32 @@ class LazyCloseableTest {
             ends.incrementAndGet();
             return new CountingCloseable(opens, closes);
         });
+
         ConcurrentHashMap<Thread, Integer> threads = new ConcurrentHashMap<>();
-        final List<CountingCloseable> allValues = IntStream.range(0, concurrency)
-                .parallel()
-                .mapToObj(i -> {
-                    threads.compute(Thread.currentThread(), (k, v) -> v == null ? 1 : v + 1);
-                    return opener.getUnchecked();
-                })
-                .collect(Collectors.toList());
-        MatcherAssert.assertThat(allValues, Matchers.everyItem(Matchers.sameInstance(allValues.get(0))));
-        // Stream.parallel doesn't guarantee that it will run in 100 parallel threads
-        MatcherAssert.assertThat(threads.keySet(), Matchers.hasSize(Matchers.greaterThan(10)));
+        final Deque<CountingCloseable> allValues = collectFromMultipleThreads(concurrency, () -> {
+            // Get the value from the opener before updating the threads map just to
+            // avoid map accesses incidentally serializing accesses to the CountingCloseable
+            CountingCloseable value = opener.getUnchecked();
+            threads.compute(Thread.currentThread(), (k, v) -> v == null ? 1 : v + 1);
+            return value;
+        });
+
+        CountingCloseable closeable = allValues.getFirst();
+        assertNotNull(closeable);
+        MatcherAssert.assertThat(allValues, Matchers.everyItem(Matchers.sameInstance(closeable)));
+
+        assertEquals(1, starts.get());
+        assertEquals(1, ends.get());
+        assertEquals(1, opens.get());
+        assertEquals(0, closes.get());
+        for (CountingCloseable allValue : allValues) {
+            allValue.close();
+        }
+        assertEquals(concurrency, closes.get());
+
+        // Make sure that each execution happens in its own thread
+        MatcherAssert.assertThat(threads.keySet(), Matchers.hasSize(concurrency));
+        MatcherAssert.assertThat(threads.values(), Matchers.everyItem(Matchers.equalTo(1)));
     }
 
     @Test

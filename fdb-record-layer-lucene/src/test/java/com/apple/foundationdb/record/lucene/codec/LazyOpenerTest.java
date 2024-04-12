@@ -29,6 +29,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,7 +60,7 @@ class LazyOpenerTest {
     }
 
     @Test
-    void testOpensLazilyExactlyOnceThreaded() {
+    void testOpensLazilyExactlyOnceThreaded() throws InterruptedException {
         AtomicInteger starts = new AtomicInteger(0);
         AtomicInteger ends = new AtomicInteger(0);
         final int concurrency = 100;
@@ -73,17 +74,20 @@ class LazyOpenerTest {
             return ends.incrementAndGet();
         });
         ConcurrentHashMap<Thread, Integer> threads = new ConcurrentHashMap<>();
-        final List<Integer> allValues = IntStream.range(0, concurrency)
-                .parallel()
-                .map(i -> {
-                    threads.compute(Thread.currentThread(), (k, v) -> v == null ? 1 : v + 1);
-                    return opener.getUnchecked();
-                })
-                .boxed()
-                .collect(Collectors.toList());
+        final Deque<Integer> allValues = LazyCloseableTest.collectFromMultipleThreads(concurrency, () -> {
+            // Get the value from the opener before updating the threads map just to
+            // avoid map accesses incidentally serializing accesses to the CountingCloseable
+            int value = opener.getUnchecked();
+            threads.compute(Thread.currentThread(), (k, v) -> v == null ? 1 : v + 1);
+            return value;
+        });
         MatcherAssert.assertThat(allValues, Matchers.everyItem(Matchers.is(1)));
-        // Stream.parallel doesn't guarantee that it will run in 100 parallel threads
-        MatcherAssert.assertThat(threads.keySet(), Matchers.hasSize(Matchers.greaterThan(10)));
+        assertEquals(1, starts.get());
+        assertEquals(1, ends.get());
+
+        // Make sure that each execution happens in its own thread
+        MatcherAssert.assertThat(threads.keySet(), Matchers.hasSize(concurrency));
+        MatcherAssert.assertThat(threads.values(), Matchers.everyItem(Matchers.equalTo(1)));
     }
 
     @Test
