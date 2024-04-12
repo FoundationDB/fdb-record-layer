@@ -38,12 +38,30 @@ public final class Assert {
     }
 
     public static void that(boolean mustBeTrue, @Nonnull final String messageIfNotTrue) throws RelationalException {
-        that(mustBeTrue, messageIfNotTrue, ErrorCode.INTERNAL_ERROR);
+        that(mustBeTrue, ErrorCode.INTERNAL_ERROR, messageIfNotTrue);
     }
 
-    public static void that(boolean mustBeTrue, @Nonnull final String messageIfNotTrue, @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
+    public static void that(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final Supplier<String> messageSupplier) throws RelationalException {
+        if (!mustBeTrue) {
+            throw new RelationalException(messageSupplier.get(), errorCodeIfNotTrue);
+        }
+    }
+
+    public static void that(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageIfNotTrue) throws RelationalException {
         if (!mustBeTrue) {
             throw new RelationalException(messageIfNotTrue, errorCodeIfNotTrue);
+        }
+    }
+
+    public static void that(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageFormat, @Nonnull Object messageValue) throws RelationalException {
+        if (!mustBeTrue) {
+            throw new RelationalException(String.format(messageFormat, messageValue), errorCodeIfNotTrue);
+        }
+    }
+
+    public static void that(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageFormat, @Nonnull Object messageValue1, @Nonnull Object messageValue2) throws RelationalException {
+        if (!mustBeTrue) {
+            throw new RelationalException(String.format(messageFormat, messageValue1, messageValue2), errorCodeIfNotTrue);
         }
     }
 
@@ -52,10 +70,10 @@ public final class Assert {
     }
 
     public static <T> T notNull(T object, @Nonnull final String messageIfNull) throws RelationalException {
-        return notNull(object, messageIfNull, ErrorCode.INTERNAL_ERROR);
+        return notNull(object, ErrorCode.INTERNAL_ERROR, messageIfNull);
     }
 
-    public static <T> T notNull(T object, @Nonnull final String messageIfNull, @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
+    public static <T> T notNull(T object, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageIfNull) throws RelationalException {
         if (object == null) {
             throw new RelationalException(messageIfNull, errorCodeIfNotTrue);
         } else {
@@ -68,10 +86,10 @@ public final class Assert {
     }
 
     public static void isNull(Object object, @Nonnull final String messageIfNull) throws RelationalException {
-        isNull(object, messageIfNull, ErrorCode.INTERNAL_ERROR);
+        isNull(object, ErrorCode.INTERNAL_ERROR, messageIfNull);
     }
 
-    public static void isNull(Object object, @Nonnull final String messageIfNull, @Nonnull final ErrorCode errorCodeIfNotTrue) throws RelationalException {
+    public static void isNull(Object object, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageIfNull) throws RelationalException {
         if (object != null) {
             throw new RelationalException(messageIfNull, errorCodeIfNotTrue);
         }
@@ -82,10 +100,10 @@ public final class Assert {
     }
 
     public static RelationalException fail(@Nonnull final String failMessage) throws RelationalException {
-        throw fail(failMessage, ErrorCode.INTERNAL_ERROR);
+        throw fail(ErrorCode.INTERNAL_ERROR, failMessage);
     }
 
-    public static RelationalException fail(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) throws RelationalException {
+    public static RelationalException fail(@Nonnull final ErrorCode failErrorCode, @Nonnull final String failMessage) throws RelationalException {
         throw new RelationalException(failMessage, failErrorCode);
     }
 
@@ -94,10 +112,16 @@ public final class Assert {
     }
 
     public static void thatUnchecked(boolean mustBeTrue, @Nonnull final String messageIfNotTrue) {
-        thatUnchecked(mustBeTrue, messageIfNotTrue, ErrorCode.INTERNAL_ERROR);
+        thatUnchecked(mustBeTrue, ErrorCode.INTERNAL_ERROR, messageIfNotTrue);
     }
 
-    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final String messageIfNotTrue, @Nonnull final ErrorCode errorCodeIfNotTrue) {
+    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final Supplier<String> messageSupplier) {
+        if (!mustBeTrue) {
+            throw new RelationalException(messageSupplier.get(), errorCodeIfNotTrue).toUncheckedWrappedException();
+        }
+    }
+
+    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final String messageIfNotTrue) {
         if (!mustBeTrue) {
             throw new RelationalException(messageIfNotTrue, errorCodeIfNotTrue).toUncheckedWrappedException();
         }
@@ -115,23 +139,33 @@ public final class Assert {
         }
     }
 
-    public static void thatUnchecked(boolean mustBeTrue, @Nonnull final ErrorCode errorCodeIfNotTrue, @Nonnull final Supplier<String> messageSupplier) {
-        if (!mustBeTrue) {
-            throw new RelationalException(messageSupplier.get(), errorCodeIfNotTrue).toUncheckedWrappedException();
-        }
-    }
-
     public static <T> T notNullUnchecked(T object) {
         return notNullUnchecked(object, "unexpected null object");
     }
 
     public static <T> T notNullUnchecked(T object, @Nonnull final String messageIfNull) {
-        return notNullUnchecked(object, messageIfNull, ErrorCode.INTERNAL_ERROR);
+        return notNullUnchecked(object, ErrorCode.INTERNAL_ERROR, messageIfNull);
     }
 
-    public static <T> T notNullUnchecked(T object, @Nonnull final String messageIfNull, @Nonnull final ErrorCode errorCodeIfNull) {
+    public static <T> T notNullUnchecked(T object, @Nonnull final ErrorCode errorCodeIfNull, @Nonnull Supplier<String> messageSupplier) {
+        if (object == null) {
+            throw new RelationalException(messageSupplier.get(), errorCodeIfNull).toUncheckedWrappedException();
+        } else {
+            return object;
+        }
+    }
+
+    public static <T> T notNullUnchecked(T object, @Nonnull final ErrorCode errorCodeIfNull, @Nonnull final String messageIfNull) {
         if (object == null) {
             throw new RelationalException(messageIfNull, errorCodeIfNull).toUncheckedWrappedException();
+        } else {
+            return object;
+        }
+    }
+
+    public static <T> T notNullUnchecked(T object, @Nonnull final ErrorCode errorCodeIfNull, @Nonnull final String messageTemplate, @Nonnull final Object messageValue) {
+        if (object == null) {
+            throw new RelationalException(String.format(messageTemplate, messageValue), errorCodeIfNull).toUncheckedWrappedException();
         } else {
             return object;
         }
@@ -142,10 +176,16 @@ public final class Assert {
     }
 
     public static void isNullUnchecked(Object object, @Nonnull final String messageIfNotNull) {
-        isNullUnchecked(object, messageIfNotNull, ErrorCode.INTERNAL_ERROR);
+        isNullUnchecked(object, ErrorCode.INTERNAL_ERROR, messageIfNotNull);
     }
 
-    public static void isNullUnchecked(Object object, @Nonnull final String messageIfNotNull, @Nonnull final ErrorCode errorCodeIfNotNull) {
+    public static void isNullUnchecked(Object object, @Nonnull final ErrorCode errorCodeIfNotNull, @Nonnull final Supplier<String> messageSupplier) {
+        if (object != null) {
+            throw new RelationalException(messageSupplier.get(), errorCodeIfNotNull).toUncheckedWrappedException();
+        }
+    }
+
+    public static void isNullUnchecked(Object object, @Nonnull final ErrorCode errorCodeIfNotNull, @Nonnull final String messageIfNotNull) {
         if (object != null) {
             throw new RelationalException(messageIfNotNull, errorCodeIfNotNull).toUncheckedWrappedException();
         }
@@ -156,10 +196,10 @@ public final class Assert {
     }
 
     public static UncheckedRelationalException failUnchecked(@Nonnull final String failMessage) {
-        throw failUnchecked(failMessage, ErrorCode.INTERNAL_ERROR);
+        throw failUnchecked(ErrorCode.INTERNAL_ERROR, failMessage);
     }
 
-    public static UncheckedRelationalException failUnchecked(@Nonnull final String failMessage, @Nonnull final ErrorCode failErrorCode) {
+    public static UncheckedRelationalException failUnchecked(@Nonnull final ErrorCode failErrorCode, @Nonnull final String failMessage) {
         throw new RelationalException(failMessage, failErrorCode).toUncheckedWrappedException();
     }
 

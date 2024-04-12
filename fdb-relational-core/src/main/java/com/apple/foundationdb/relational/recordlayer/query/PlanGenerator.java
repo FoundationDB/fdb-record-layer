@@ -262,7 +262,7 @@ public final class PlanGenerator {
         context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
         try {
             final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri(), caseSensitive);
-            Assert.thatUnchecked(maybePlan instanceof Plan, String.format("Could not generate a logical plan for query '%s'", ast.getQueryCacheKey().getCanonicalQueryString()));
+            Assert.thatUnchecked(maybePlan instanceof Plan, ErrorCode.INTERNAL_ERROR, "Could not generate a logical plan for query '%s'", ast.getQueryCacheKey().getCanonicalQueryString());
             final Plan<?> logicalPlan = (Plan<?>) maybePlan;
             return logicalPlan.optimize(planner, planContext.getPlannerConfiguration(), currentPlanHashMode);
         } catch (MetaDataException mde) {

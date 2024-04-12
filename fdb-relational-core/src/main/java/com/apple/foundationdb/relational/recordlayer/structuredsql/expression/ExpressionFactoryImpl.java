@@ -93,7 +93,7 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
-        Assert.thatUnchecked(maybeTable.isPresent(), String.format("Could not find table '%s'", normalizedName));
+        Assert.thatUnchecked(maybeTable.isPresent(), ErrorCode.UNDEFINED_TABLE, "Could not find table '%s'", normalizedName);
         return resolve(maybeTable.get().getDatatype(), parts);
     }
 }

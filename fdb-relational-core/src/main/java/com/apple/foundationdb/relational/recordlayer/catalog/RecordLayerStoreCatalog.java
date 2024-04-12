@@ -217,15 +217,13 @@ class RecordLayerStoreCatalog implements StoreCatalog {
                         ErrorCode.UNDEFINED_DATABASE);
             }
         }
-        Assert.that(schema instanceof RecordLayerSchema,
-                String.format("Unexpected schema type %s", schema.getClass()),
-                ErrorCode.INTERNAL_ERROR);
+        Assert.that(schema instanceof RecordLayerSchema, ErrorCode.UNDEFINED_SCHEMA, "Unexpected schema type %s", schema.getClass());
         Assert.that(schemaTemplateCatalog.doesSchemaTemplateExist(txn, schema.getSchemaTemplate().getName(),
                         schema.getSchemaTemplate().getVersion()),
-                String.format("Cannot create schema %s because schema template %s version %d does not exist.",
+                ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
+                () -> String.format("Cannot create schema %s because schema template %s version %d does not exist.",
                         schema.getName(), schema.getSchemaTemplate().getName(),
-                        schema.getSchemaTemplate().getVersion()),
-                ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+                        schema.getSchemaTemplate().getVersion()));
         try {
             putSchema((RecordLayerSchema) schema, recordStore);
         } catch (RecordCoreException ex) {
@@ -301,7 +299,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
                 this.catalogRecordMetaDataProvider);
         try {
             final var primaryKey = getSchemaKey(dbUri, schemaName);
-            Assert.that(recordStore.deleteRecord(primaryKey), "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist", ErrorCode.UNDEFINED_SCHEMA);
+            Assert.that(recordStore.deleteRecord(primaryKey), ErrorCode.UNDEFINED_SCHEMA, "Schema " + dbUri.getPath() + "/" + schemaName + " does not exist");
         } catch (RecordCoreException rce) {
             throw ExceptionUtil.toRelationalException(rce);
         }

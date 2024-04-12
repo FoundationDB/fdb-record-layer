@@ -225,7 +225,7 @@ public class DdlRecordLayerSchemaTemplateTest {
                 "CREATE TABLE t1 (id bigint, val unknown_type, PRIMARY KEY(id))";
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
-                .hasErrorCode(ErrorCode.INTERNAL_ERROR) // todo: this seems like it should be INVALID_SCHEMA_TEMPLATE
+                .hasErrorCode(ErrorCode.UNKNOWN_TYPE) // todo: this seems like it should be INVALID_SCHEMA_TEMPLATE
                 .hasMessageContaining("could not find type 'UNKNOWN_TYPE'"));
     }
 

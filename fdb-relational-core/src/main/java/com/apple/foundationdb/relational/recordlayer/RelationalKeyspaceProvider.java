@@ -79,7 +79,7 @@ public class RelationalKeyspaceProvider {
         @Override
         @Nonnull
         public RelationalSchemaPath schemaPath(String schemaName) {
-            Assert.thatUnchecked(schemaName.equals(CATALOG), "Unknown system schema name: " + schemaName, ErrorCode.UNDEFINED_SCHEMA);
+            Assert.thatUnchecked(schemaName.equals(CATALOG), ErrorCode.UNDEFINED_SCHEMA, "Unknown system schema name: " + schemaName);
             return new RelationalSchemaPath(inner);
         }
 

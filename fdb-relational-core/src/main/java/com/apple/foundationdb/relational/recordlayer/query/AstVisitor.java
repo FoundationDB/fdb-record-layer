@@ -583,7 +583,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         if (ctx.WHERE() != null) {
             final var predicate = ctx.whereExpr.accept(this);
             Assert.notNullUnchecked(predicate);
-            Assert.thatUnchecked(predicate instanceof BooleanValue, String.format("unexpected predicate of type %s", predicate.getClass().getSimpleName()));
+            Assert.thatUnchecked(predicate instanceof BooleanValue, ErrorCode.DATATYPE_MISMATCH, "unexpected predicate of type %s", predicate.getClass().getSimpleName());
             final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
             final var result = context.toQueryPredicate((BooleanValue) predicate, aliases.stream().findFirst().get());
@@ -608,7 +608,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.notNullUnchecked(predicateObj);
             Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
             final Value predicateValue = (Value) predicateObj;
-            Assert.thatUnchecked(predicateValue instanceof BooleanValue, String.format("unexpected predicate of type %s", predicateValue.getClass().getSimpleName()));
+            Assert.thatUnchecked(predicateValue instanceof BooleanValue, ErrorCode.DATATYPE_MISMATCH, "unexpected predicate of type %s", predicateValue.getClass().getSimpleName());
             final Collection<CorrelationIdentifier> aliases = scopes.getCurrentScope().getAllQuantifiers().stream().filter(qun -> qun instanceof Quantifier.ForEach).map(Quantifier::getAlias).collect(Collectors.toList()); // not sure this is correct
             Assert.thatUnchecked(!aliases.isEmpty());
             final var predicate = context.toQueryPredicate((BooleanValue) predicateValue, aliases.stream().findFirst().get());
@@ -633,7 +633,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         var parentScope = scopes.getCurrentScope().getParent();
         var siblingScope = scopes.getCurrentScope().getSibling();
         Assert.thatUnchecked(parentScope == null && siblingScope == null,
-                "LIMIT clause can only be specified with top-level SQL query.", ErrorCode.UNSUPPORTED_OPERATION);
+                ErrorCode.UNSUPPORTED_OPERATION, "LIMIT clause can only be specified with top-level SQL query.");
         final var limit = (int) visit(ctx.limit);
         context.asDql().setLimit(limit);
         if (ctx.offset != null) {
@@ -643,7 +643,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         // Owing to TODO
         if (scopes.getCurrentScope().getAllQuantifiers().size() > 1) {
             Assert.thatUnchecked(context.asDql().getLimit() == 0 && context.asDql().getOffset() == 0,
-                    "LIMIT / OFFSET with multiple FROM elements is not supported.", ErrorCode.UNSUPPORTED_OPERATION);
+                    ErrorCode.UNSUPPORTED_OPERATION, "LIMIT / OFFSET with multiple FROM elements is not supported.");
         }
         return null;
     }
@@ -656,12 +656,12 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             final var literalValue = visitChildren(ctx);
             Assert.thatUnchecked(literalValue instanceof LiteralValue);
             final var limit = ((LiteralValue<?>) literalValue).getLiteralValue();
-            Assert.thatUnchecked(limit instanceof Integer || limit instanceof Long, "argument for LIMIT must be integer or long", ErrorCode.DATATYPE_MISMATCH);
+            Assert.thatUnchecked(limit instanceof Integer || limit instanceof Long, ErrorCode.DATATYPE_MISMATCH, "argument for LIMIT must be integer or long");
             if (limit instanceof Long) {
-                Assert.thatUnchecked((Long) limit <= Integer.MAX_VALUE, "LIMIT must be smaller than Integer.MAX_VALUE", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
-                Assert.thatUnchecked((Long) limit > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+                Assert.thatUnchecked((Long) limit <= Integer.MAX_VALUE, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be smaller than Integer.MAX_VALUE");
+                Assert.thatUnchecked((Long) limit > 0, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be positive");
             } else {
-                Assert.thatUnchecked((Integer) limit > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+                Assert.thatUnchecked((Integer) limit > 0, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be positive");
             }
             return ((Number) limit).intValue();
         });
@@ -743,7 +743,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public Value visitLogicalExpression(RelationalParser.LogicalExpressionContext ctx) {
         Assert.notNullUnchecked(ctx.logicalOperator(), UNSUPPORTED_QUERY);
         Assert.thatUnchecked(ctx.logicalOperator().OR() != null || ctx.logicalOperator().AND() != null,
-                String.format("logical operator %s is not supported", ctx.logicalOperator().getText()));
+                ErrorCode.INTERNAL_ERROR, () -> String.format("logical operator %s is not supported", ctx.logicalOperator().getText()));
         final Value left = (Value) (visit(ctx.expression(0)));
         final Value right = (Value) (visit(ctx.expression(1)));
 
@@ -810,7 +810,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     @Override
     public Value visitInPredicate(RelationalParser.InPredicateContext ctx) {
         if (ctx.inList().selectStatement() != null) {
-            Assert.failUnchecked("IN <SELECT_STATEMENT> is not supported", ErrorCode.SYNTAX_ERROR);
+            Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "IN <SELECT_STATEMENT> is not supported");
         }
         final var left = (Value) visit(ctx.expressionAtom());
         Typed typedList;
@@ -1061,8 +1061,8 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         }
 
         Assert.thatUnchecked(elementFields.size() == providedColumnContexts.size(),
-                "provided record cannot be assigned as its type is incompatible with the target type",
-                ErrorCode.CANNOT_CONVERT_TYPE);
+                ErrorCode.CANNOT_CONVERT_TYPE, "provided record cannot be assigned as its type is incompatible with the target type"
+        );
         return visitRecordFieldContexts(providedColumnContexts, elementFields);
     }
 
@@ -1156,7 +1156,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             return context.processQueryLiteral(Type.primitiveType(Type.TypeCode.BOOLEAN), Boolean.FALSE,
                     ctx.FALSE().getSymbol().getTokenIndex());
         } else {
-            Assert.notNullUnchecked(ctx.TRUE(), String.format("unexpected boolean value %s", ctx.getText()));
+            Assert.notNullUnchecked(ctx.TRUE(), ErrorCode.SYNTAX_ERROR, () -> String.format("unexpected boolean value %s", ctx.getText()));
             return context.processQueryLiteral(Type.primitiveType(Type.TypeCode.BOOLEAN), Boolean.TRUE,
                     ctx.TRUE().getSymbol().getTokenIndex());
         }
@@ -1227,7 +1227,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                         .collect(ImmutableMap.toImmutableMap(pair -> Assert.notNullUnchecked(pair).getLeft(),
                                 pair -> Assert.notNullUnchecked(pair).getRight(),
                                 (l, r) -> {
-                                    throw Assert.failUnchecked("duplicate column", ErrorCode.AMBIGUOUS_COLUMN);
+                                    throw Assert.failUnchecked(ErrorCode.AMBIGUOUS_COLUMN, "duplicate column");
                                 }));
         return new StringTrieNode(uidMap);
     }
@@ -1318,7 +1318,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.isNullUnchecked(ctx.VARIANCE(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.GROUP_CONCAT(), UNSUPPORTED_QUERY);
         Assert.isNullUnchecked(ctx.overClause(), UNSUPPORTED_QUERY);
-        Assert.isNullUnchecked(ctx.BITMAP(), UNSUPPORTED_QUERY, ErrorCode.UNSUPPORTED_QUERY);
+        Assert.isNullUnchecked(ctx.BITMAP(), ErrorCode.UNSUPPORTED_QUERY, UNSUPPORTED_QUERY);
 
         if (ctx.aggregator != null) {
             Assert.thatUnchecked(ctx.aggregator.getText().equals(ctx.ALL().getText()), UNSUPPORTED_QUERY);
@@ -1383,7 +1383,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
                 } else if (option.STORE_ROW_VERSIONS() != null) {
                     schemaTemplateBuilder.setStoreRowVersions(option.booleanLiteral().TRUE() != null);
                 } else {
-                    Assert.failUnchecked("Encountered unknown options in schema template creation", ErrorCode.SYNTAX_ERROR);
+                    Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Encountered unknown options in schema template creation");
                 }
             }
         }
@@ -1504,7 +1504,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         final var isUnique = ctx.UNIQUE() != null;
         final var generator = IndexGenerator.from(viewPlan);
         final var table = context.asDdl().getMetadataBuilder().extractTable(generator.getRecordTypeName());
-        Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, "Cannot create index and order by a column that is not present in the projection list", ErrorCode.INVALID_COLUMN_REFERENCE);
+        Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by a column that is not present in the projection list");
         final var index = generator.generate(indexName, isUnique, table.getType(), containsNullableArray);
         final var tableWithIndex = RecordLayerTable.Builder
                 .from(table)
@@ -1525,7 +1525,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         // (yhatem): we should reorganize the INSERT parser rules such that we can easily change the DQL/DML context _here_.
         final var lookahead = ctx.insertStatementValue().start.getType();
         final var isInsertFromSelect = lookahead == RelationalLexer.SELECT;
-        Assert.thatUnchecked(!isInsertFromSelect || ctx.columns == null, "setting column ordering for insert with select is not supported", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(!isInsertFromSelect || ctx.columns == null, ErrorCode.UNSUPPORTED_OPERATION, "setting column ordering for insert with select is not supported");
         RelationalExpression fromExpression;
 
         if (isInsertFromSelect) {
@@ -1568,7 +1568,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         for (final var recordConstructorUnambiguous : ctx.recordConstructorForInsert()) {
             final var recordValue = (Value) visit(recordConstructorUnambiguous);
             final var resultType = recordValue.getResultType();
-            Assert.thatUnchecked(resultType instanceof Type.Record, "Records in a values statement have to be of record type.", ErrorCode.CANNOT_CONVERT_TYPE);
+            Assert.thatUnchecked(resultType instanceof Type.Record, ErrorCode.CANNOT_CONVERT_TYPE, "Records in a values statement have to be of record type.");
             valuesBuilder.add(recordValue);
         }
 
@@ -1643,7 +1643,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.notNullUnchecked(predicateObj);
             Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
             final var booleanValue = (Value) predicateObj;
-            Assert.thatUnchecked(booleanValue instanceof BooleanValue, String.format("unexpected predicate of type %s", booleanValue.getClass().getSimpleName()));
+            Assert.thatUnchecked(booleanValue instanceof BooleanValue, ErrorCode.DATATYPE_MISMATCH, "unexpected predicate of type %s", booleanValue.getClass().getSimpleName());
             final var innermostAliasOptional =
                     updateScope.getAllQuantifiers()
                             .stream()
@@ -1731,7 +1731,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
             Assert.notNullUnchecked(predicateObj);
             Assert.thatUnchecked(predicateObj instanceof Value, UNSUPPORTED_QUERY);
             final var booleanValue = (Value) predicateObj;
-            Assert.thatUnchecked(booleanValue instanceof BooleanValue, String.format("unexpected predicate of type %s", booleanValue.getClass().getSimpleName()));
+            Assert.thatUnchecked(booleanValue instanceof BooleanValue, ErrorCode.DATATYPE_MISMATCH, "unexpected predicate of type %s", booleanValue.getClass().getSimpleName());
             final var innermostAliasOptional =
                     updateScope.getAllQuantifiers()
                             .stream()
@@ -1779,7 +1779,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
     public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
         final String schemaId = ParserUtils.safeCastLiteral(visit(ctx.uid()), String.class);
         final Pair<Optional<URI>, String> dbAndSchema = ParserUtils.parseSchemaIdentifier(schemaId, caseSensitive);
-        Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), String.format("invalid database identifier in '%s'", ctx.uid().getText()));
+        Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), ErrorCode.UNKNOWN_DATABASE, () -> String.format("invalid database identifier in '%s'", ctx.uid().getText()));
         return ProceduralPlan.of(context.asDdl().getMetadataOperationsFactory().getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
     }
 

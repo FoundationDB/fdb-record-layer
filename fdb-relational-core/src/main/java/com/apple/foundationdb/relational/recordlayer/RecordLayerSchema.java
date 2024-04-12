@@ -131,7 +131,7 @@ public class RecordLayerSchema implements DatabaseSchema {
                 break;
             }
         }
-        Assert.notNullUnchecked(currentDescriptor, "Unknown type: <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
+        Assert.notNullUnchecked(currentDescriptor, ErrorCode.UNKNOWN_TYPE, "Unknown type: <" + typeName + ">");
         for (int i = 1; i < fieldAccessor.length; i++) {
             for (final var field : currentDescriptor.getFields()) {
                 if (field.getName().equals(fieldAccessor[i])) {
@@ -142,7 +142,7 @@ public class RecordLayerSchema implements DatabaseSchema {
                 }
             }
         }
-        Assert.notNullUnchecked(currentDescriptor, "Unknown type: <" + typeName + ">", ErrorCode.UNKNOWN_TYPE);
+        Assert.notNullUnchecked(currentDescriptor, ErrorCode.UNKNOWN_TYPE, "Unknown type: <" + typeName + ">");
         return new ProtobufDataBuilder(currentDescriptor);
     }
 }

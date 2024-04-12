@@ -339,8 +339,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         allowTokenAddition = false;
         if (ctx.bytesLiteral() != null) {
             final var continuation = ParserUtils.parseBytes(ctx.bytesLiteral().getText());
-            Assert.notNullUnchecked(continuation, "Illegal query with BEGIN continuation.", ErrorCode.INVALID_CONTINUATION);
-            Assert.thatUnchecked(continuation.length != 0, "Illegal query with END continuation.", ErrorCode.INVALID_CONTINUATION);
+            Assert.notNullUnchecked(continuation, ErrorCode.INVALID_CONTINUATION, "Illegal query with BEGIN continuation.");
+            Assert.thatUnchecked(continuation.length != 0, ErrorCode.INVALID_CONTINUATION, "Illegal query with END continuation.");
             context.setContinuation(continuation);
             processQueryLiteral(continuation, ctx.getStart().getTokenIndex());
         } else {
@@ -543,12 +543,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     private static Integer processLimitParameter(@Nonnull Object parameter) {
-        Assert.thatUnchecked(parameter instanceof Integer || parameter instanceof Long, "argument for LIMIT must be integer or long", ErrorCode.DATATYPE_MISMATCH);
+        Assert.thatUnchecked(parameter instanceof Integer || parameter instanceof Long, ErrorCode.DATATYPE_MISMATCH, "argument for LIMIT must be integer or long");
         if (parameter instanceof Long) {
-            Assert.thatUnchecked((Long) parameter <= Integer.MAX_VALUE, "LIMIT must be smaller than Integer.MAX_VALUE", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
-            Assert.thatUnchecked((Long) parameter > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            Assert.thatUnchecked((Long) parameter <= Integer.MAX_VALUE, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be smaller than Integer.MAX_VALUE");
+            Assert.thatUnchecked((Long) parameter > 0, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be positive");
         } else {
-            Assert.thatUnchecked((Integer) parameter > 0, "LIMIT must be positive", ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
+            Assert.thatUnchecked((Integer) parameter > 0, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be positive");
         }
         return ((Number) parameter).intValue();
     }

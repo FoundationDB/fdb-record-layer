@@ -281,17 +281,17 @@ public final class ParserUtils {
 
     public static void verifyIntegerBounds(int value, @Nullable Integer lowerbound, @Nullable Integer upperbound) {
         if (lowerbound != null) {
-            Assert.thatUnchecked(value >= lowerbound, String.format("Parsed Integer cannot be less than %d", lowerbound));
+            Assert.thatUnchecked(value >= lowerbound, ErrorCode.INTERNAL_ERROR, "Parsed Integer cannot be less than %d", lowerbound);
         }
         if (upperbound != null) {
-            Assert.thatUnchecked(value <= upperbound, String.format("Parsed Integer cannot be greater than %d", upperbound));
+            Assert.thatUnchecked(value <= upperbound, ErrorCode.INTERNAL_ERROR, "Parsed Integer cannot be greater than %d", upperbound);
         }
     }
 
     public static Value resolveField(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
         final var currentScope = scopes.getCurrentScopeMaybe();
         Assert.thatUnchecked(!fieldPath.isEmpty());
-        Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
+        Assert.notNullUnchecked(currentScope, ErrorCode.UNDEFINED_COLUMN, () -> String.format("could not resolve column '%s'", String.join(".", fieldPath)));
         final var isUnderlyingSelectWhere = currentScope.isFlagSet(Scopes.Scope.Flag.UNDERLYING_EXPRESSION_HAS_GROUPING_VALUE);
         if (isUnderlyingSelectWhere) {
             return resolveFieldGroupedQuantifier(fieldPath, scopes);
@@ -304,13 +304,12 @@ public final class ParserUtils {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     private static Value resolveFieldGroupedQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
         final var currentScope = scopes.getCurrentScopeMaybe();
-        Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
+        Assert.notNullUnchecked(currentScope, ErrorCode.UNDEFINED_COLUMN, () -> String.format("could not resolve column '%s'", String.join(".", fieldPath)));
         Assert.thatUnchecked(!fieldPath.isEmpty());
         FieldValue result = null;
         var fieldAccessors = toAccessors(fieldPath);
         final var isResolvingAggregations = currentScope.isFlagSet(Scopes.Scope.Flag.RESOLVING_AGGREGATION);
         final var isResolvingSelectHaving = currentScope.isFlagSet(Scopes.Scope.Flag.RESOLVING_SELECT_HAVING);
-        final var fieldPathStr = String.join(".", fieldPath);
 
         // Try to resolve the field by looking into the visible part of the only quantifier we have.
         Assert.thatUnchecked(currentScope.getForEachQuantifiers().size() == 1);
@@ -331,7 +330,7 @@ public final class ParserUtils {
                     ImmutableList.<String>builder().add(visibleField.getField().getFieldName()).add(fieldPath.get(fieldPath.size() - 1)).build();
             final var resolved = resolveFieldPath(qun.getFlowedObjectValue().getResultType(), toAccessors(columnPathWithQuantifier));
             if (resolved) {
-                Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+                Assert.isNullUnchecked(result, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("ambiguous column name '%s'", String.join(".", fieldPath)));
                 result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), columnPathWithQuantifier);
             }
         }
@@ -344,7 +343,7 @@ public final class ParserUtils {
         if (!isResolvingAggregations && fieldPath.size() > 1) {
             for (final var groupingColumnField : visibleColumnsDeref.stream().map(Column::getField).collect(toList())) {
                 if ((isResolvingSelectHaving || resolveFieldPath(types.getRight(), fieldAccessors)) && resolveFieldPath(groupingColumnField.getFieldType(), fieldAccessors.subList(1, fieldAccessors.size()))) {
-                    Assert.isNullUnchecked(result, String.format("ambiguous column name '%s'", fieldPathStr), ErrorCode.AMBIGUOUS_COLUMN);
+                    Assert.isNullUnchecked(result, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("ambiguous column name '%s'", String.join(".", fieldPath)));
                     result = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.<String>builder().add(visibleColumnsDeref.get(0).getField().getFieldName()).addAll(fieldPath.subList(1, fieldPath.size())).build());
                 }
             }
@@ -361,13 +360,13 @@ public final class ParserUtils {
         {
             final var ancestorQuns = collectQuantifiersFromAncestorBlocks(currentScope);
             final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
-            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '%s'", fieldPathStr);
+            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("ambiguous column name '%s'", String.join(".", fieldPath)));
             if (resolved.size() == 1) {
                 return resolved.get(0);
             }
         }
 
-        Assert.failUnchecked(String.format("could not find field name '%s' in the grouping list", fieldPathStr), ErrorCode.GROUPING_ERROR);
+        Assert.failUnchecked(ErrorCode.GROUPING_ERROR, String.format("could not find field name '%s' in the grouping list", String.join(".", fieldPath)));
         return null;
     }
 
@@ -375,16 +374,15 @@ public final class ParserUtils {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     private static Value resolveFieldSimpleQuantifier(@Nonnull final List<String> fieldPath, @Nonnull final Scopes scopes) {
         final var currentScope = scopes.getCurrentScopeMaybe();
-        Assert.notNullUnchecked(currentScope, String.format("could not resolve column '%s'", fieldPath), ErrorCode.UNDEFINED_COLUMN);
+        Assert.notNullUnchecked(currentScope, ErrorCode.UNDEFINED_COLUMN, () -> String.format("could not resolve column '%s'", String.join(".", fieldPath)));
         final var fieldAccessors = toAccessors(fieldPath);
-        final var fieldPathStr = String.join(".", fieldPath);
 
         // Try to resolve the field by looking into all quantifiers in current scope, if exactly one field is found, return it.
         // precedence resolves potential ambiguity with similarly named fields in top levels, i.e. do not look for ambiguity issues
         // if we already find a matching field in current scope.
         {
             final var resolved = resolveField(currentScope.getForEachQuantifiers(), fieldAccessors, fieldPath);
-            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '%s'", fieldPathStr);
+            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("ambiguous column name '%s'", String.join(".", fieldPath)));
             if (resolved.size() == 1) {
                 return resolved.get(0);
             }
@@ -394,12 +392,12 @@ public final class ParserUtils {
         {
             final var ancestorQuns = collectQuantifiersFromAncestorBlocks(currentScope);
             final var resolved = resolveField(ancestorQuns, fieldAccessors, fieldPath);
-            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '%s'", fieldPathStr);
+            Assert.thatUnchecked(resolved.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format("ambiguous column name '%s'", String.join(".", fieldPath)));
             if (resolved.size() == 1) {
                 return resolved.get(0);
             }
         }
-        Assert.failUnchecked(String.format("attempting to query non existing column '%s'", fieldPathStr), ErrorCode.INVALID_COLUMN_REFERENCE);
+        Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, String.format("attempting to query non existing column '%s'", String.join(".", fieldPath)));
         return null;
     }
 
@@ -519,8 +517,8 @@ public final class ParserUtils {
             final Optional<Type> recordType = context.asDql().getRecordLayerSchemaTemplate().findTableByName(recordTypeName).map(t -> ((RecordLayerTable) t).getType());
             Assert.thatUnchecked(recordType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table %s", recordTypeName);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), ErrorCode.INTERNAL_ERROR,
-                    "attempt to scan non existing record type %s from record store containing (%s)",
-                    recordTypeName, String.join(",", allAvailableRecordTypeNames));
+                    () -> String.format("attempt to scan non existing record type %s from record store containing (%s)",
+                    recordTypeName, String.join(",", allAvailableRecordTypeNames)));
             // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
             return new LogicalTypeFilterExpression(recordTypeNameSet,
                     Quantifier.forEach(Reference.of(
@@ -538,7 +536,7 @@ public final class ParserUtils {
 
             // Resolve the top-level type
             final QuantifiedValue value = qun.getFlowedObjectValue();
-            Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.RECORD, String.format("alias is not valid %s", qualifier));
+            Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.RECORD, ErrorCode.INTERNAL_ERROR, "alias is not valid %s", qualifier);
             final Type.Record record = (Type.Record) value.getResultType();
             Assert.notNullUnchecked(record.getFieldNameFieldMap());
 
@@ -570,7 +568,7 @@ public final class ParserUtils {
     public static <T> T safeCastLiteral(@Nonnull final Object value, @Nonnull final Class<T> clazz) {
         Assert.thatUnchecked(value instanceof LiteralValue);
         final Object result = ((LiteralValue<?>) value).getLiteralValue();
-        Assert.thatUnchecked(clazz.isInstance(result), String.format("Expected '%s' to be of type '%s'", value, clazz));
+        Assert.thatUnchecked(clazz.isInstance(result), ErrorCode.DATATYPE_MISMATCH, "Expected '%s' to be of type '%s'", value, clazz);
         return clazz.cast(result);
     }
 
@@ -783,11 +781,11 @@ public final class ParserUtils {
         final List<Value> toReturn = new ArrayList<>();
         for (final Value value : values) {
             if (value.getResultType() == Type.NULL) {
-                Assert.failUnchecked("NULL values are not allowed in the IN list", ErrorCode.WRONG_OBJECT_TYPE);
+                Assert.failUnchecked(ErrorCode.WRONG_OBJECT_TYPE, "NULL values are not allowed in the IN list");
             }
             if (value.getResultType().isUnresolved()) {
-                Assert.failUnchecked(String.format("Type cannot be determined for element `%s` in the IN list", value),
-                        ErrorCode.UNKNOWN_TYPE);
+                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, String.format("Type cannot be determined for element `%s` in the IN list", value)
+                );
             }
             toReturn.add(value);
         }
@@ -830,9 +828,9 @@ public final class ParserUtils {
                 case STRING:
                     return LiteralValue.ofScalar("");
                 case ENUM:
-                    throw Assert.failUnchecked("non-nullable enums must be specified", ErrorCode.CANNOT_CONVERT_TYPE);
+                    throw Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE, "non-nullable enums must be specified");
                 case RECORD:
-                    throw Assert.failUnchecked("non-nullable records must be specified", ErrorCode.CANNOT_CONVERT_TYPE);
+                    throw Assert.failUnchecked(ErrorCode.CANNOT_CONVERT_TYPE, "non-nullable records must be specified");
                 case ARRAY:
                     final var elementType = Assert.notNullUnchecked(((Type.Array) type).getElementType());
                     return AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType);

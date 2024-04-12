@@ -55,15 +55,15 @@ public final class PreparedStatementParameters {
 
     public Object getNextParameter() {
         Assert.thatUnchecked(parameters != null && parameters.containsKey(nextParam),
-                "No value found for parameter " + nextParam,
-                ErrorCode.UNDEFINED_PARAMETER);
+                ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + nextParam
+        );
         return parameters.get(nextParam++);
     }
 
     public Object getNamedParameter(String name) {
         Assert.thatUnchecked(namedParameters != null && namedParameters.containsKey(name),
-                "No value found for parameter " + name,
-                ErrorCode.UNDEFINED_PARAMETER);
+                ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + name
+        );
         return namedParameters.get(name);
     }
 

@@ -77,7 +77,7 @@ public final class LiteralsUtils {
         } else {
             // all values must have the same type.
             final var distinctTypes = types.stream().filter(type -> type != Type.nullType()).distinct().collect(Collectors.toList());
-            Assert.thatUnchecked(distinctTypes.size() == 1, "could not determine type of array literal", DATATYPE_MISMATCH);
+            Assert.thatUnchecked(distinctTypes.size() == 1, DATATYPE_MISMATCH, "could not determine type of array literal");
             elementType = distinctTypes.get(0);
         }
         return new Type.Array(elementType);

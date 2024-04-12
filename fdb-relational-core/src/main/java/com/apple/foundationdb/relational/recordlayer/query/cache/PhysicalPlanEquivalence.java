@@ -62,8 +62,8 @@ public final class PhysicalPlanEquivalence {
     PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
                             @Nonnull final Optional<EvaluationContext> evaluationContext) {
         Assert.thatUnchecked(constraint.isPresent() ^ evaluationContext.isPresent(),
-                "Either constraint or evaluation context must be set (but not both)",
-                ErrorCode.INTERNAL_ERROR);
+                ErrorCode.INTERNAL_ERROR, "Either constraint or evaluation context must be set (but not both)"
+        );
         this.constraint = constraint;
         this.evaluationContext = evaluationContext;
     }

@@ -392,13 +392,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public RecordLayerTable findTable(@Nonnull final String name) {
-            Assert.thatUnchecked(tables.containsKey(name), String.format("could not find '%s'", name));
+            Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
             return tables.get(name);
         }
 
         @Nonnull
         public RecordLayerTable extractTable(@Nonnull final String name) {
-            Assert.thatUnchecked(tables.containsKey(name), String.format("could not find '%s'", name));
+            Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
             return tables.remove(name);
         }
 
@@ -418,7 +418,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public RecordLayerSchemaTemplate build() {
-            Assert.thatUnchecked(!tables.isEmpty(), "schema template contains no tables", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            Assert.thatUnchecked(!tables.isEmpty(), ErrorCode.INVALID_SCHEMA_TEMPLATE, "schema template contains no tables");
 
             // make sure all tables and auxiliary types are resolved
             boolean needsResolution = false;
@@ -472,7 +472,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             // sort it
             final var sorted = TopologicalSort.anyTopologicalOrderPermutation(new HashSet<>(namedTypes.values()), id -> deps.getOrDefault(id, ImmutableSet.of()));
-            Assert.thatUnchecked(sorted.isPresent(), "Invalid cyclic dependency in the schema definition", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            Assert.thatUnchecked(sorted.isPresent(), ErrorCode.INVALID_SCHEMA_TEMPLATE, "Invalid cyclic dependency in the schema definition");
 
             // resolve types
             final Map<String, DataType.Named> resolvedTypes = new LinkedHashMap<>();
@@ -532,19 +532,19 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                         final var fieldType = field.getType();
                         if (fieldType instanceof DataType.Named) {
                             final var depName = ((DataType.Named) fieldType).getName();
-                            Assert.thatUnchecked(types.containsKey(depName), String.format("could not find type '%s'", depName));
+                            Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
                             mapBuilder.add(types.get(depName));
                         } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType) fieldType).getElementType() instanceof DataType.Named) {
                             final var asArray = (DataType.ArrayType) fieldType;
                             final var depName = ((DataType.Named) asArray.getElementType()).getName();
-                            Assert.thatUnchecked(types.containsKey(depName), String.format("could not find type '%s'", depName));
+                            Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
                             mapBuilder.add(types.get(depName));
                         }
                     }
                     return mapBuilder.build();
                 case UNKNOWN:
                     final var typeName = ((DataType.UnresolvedType) dataType).getName();
-                    Assert.thatUnchecked(types.containsKey(typeName), String.format("could not find type '%s'", typeName));
+                    Assert.thatUnchecked(types.containsKey(typeName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", typeName);
                     return Set.of(types.get(typeName));
                 default:
                     return Set.of();

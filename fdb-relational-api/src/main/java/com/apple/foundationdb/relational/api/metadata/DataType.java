@@ -1091,7 +1091,7 @@ public abstract class DataType {
         @Nonnull
         @Override
         public DataType resolve(@Nonnull final Map<String, Named> resolutionMap) {
-            Assert.thatUnchecked(resolutionMap.containsKey(name), String.format("Could not find type '%s'", name));
+            Assert.thatUnchecked(resolutionMap.containsKey(name), ErrorCode.INTERNAL_ERROR, "Could not find type %s", name);
             return ((DataType) resolutionMap.get(name)).withNullable(isNullable());
         }
 

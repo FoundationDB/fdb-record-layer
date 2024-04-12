@@ -242,7 +242,7 @@ public class Scopes {
         public RelationalExpression convertToRelationalExpression() {
             RelationalExpression relationalExpression;
             if (getParent() != null || getSibling() != null) {
-                Assert.thatUnchecked(orderByCardinals.isEmpty(), "ORDER BY is only supported for top level selects", ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.thatUnchecked(orderByCardinals.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
                 relationalExpression = convertToSelectExpression();
             } else {
                 relationalExpression = convertToLogicalSortExpression();
@@ -330,15 +330,15 @@ public class Scopes {
         public void addOrderByColumn(@Nonnull final Column<? extends Value> column, boolean isDesc) {
             Assert.thatUnchecked(
                     column.getValue() instanceof FieldValue || column.getValue() instanceof VersionValue,
-                    "Arbitrary expressions are not allowed in order by clause",
-                    ErrorCode.SYNTAX_ERROR);
+                    ErrorCode.SYNTAX_ERROR, "Arbitrary expressions are not allowed in order by clause"
+            );
             if (orderByCardinals.isEmpty()) {
                 isReverse = isDesc;
             } else {
                 Assert.thatUnchecked(
                         isReverse == isDesc,
-                        "Combination of ASC and DESC directions in orderBy clauses is not supported",
-                        ErrorCode.UNSUPPORTED_OPERATION);
+                        ErrorCode.UNSUPPORTED_OPERATION, "Combination of ASC and DESC directions in orderBy clauses is not supported"
+                );
             }
 
             int orderByCardinalInProjectionList = -1;

@@ -359,8 +359,8 @@ public class UpdateStatementImpl implements UpdateStatement {
         @Nonnull
         @Override
         public UpdateStatement build() throws RelationalException {
-            Assert.notNull(table, "table is not set", ErrorCode.UNDEFINED_TABLE);
-            Assert.that(!setClauses.isEmpty(), "update set clauses is empty", ErrorCode.INTERNAL_ERROR); // improve error code.
+            Assert.notNull(table, ErrorCode.UNDEFINED_TABLE, "table is not set");
+            Assert.that(!setClauses.isEmpty(), ErrorCode.INTERNAL_ERROR, "update set clauses is empty"); // improve error code.
             return new UpdateStatementImpl(table, originalTableName, setClauses, whereClause, returning, queryOptionsBuilder.build(), connection);
         }
 
@@ -426,7 +426,7 @@ public class UpdateStatementImpl implements UpdateStatement {
                 updateBuilder.setTable(table);
 
                 if (ctx.uid() != null) {
-                    Assert.failUnchecked("Construction of 'UPDATE' query builder with aliased target table is not supported", ErrorCode.UNSUPPORTED_QUERY);
+                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "Construction of 'UPDATE' query builder with aliased target table is not supported");
                 }
 
                 ctx.updatedElement().forEach(updatedElementContext -> {

@@ -158,7 +158,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(70, "select rating from restaurant GROUP BY rest_no", "could not find field name 'RATING'"),
                     // TODO understand why the query below cannot be planned
                     //Arguments.of(71, "select rating + rest_no, MAX(rest_no) from (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY rest_no, rating", null),
-                    Arguments.of(72, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "could not resolve column '[wrong]'"),
+                    Arguments.of(72, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "could not resolve column 'wrong'"),
                     Arguments.of(73, "select * from restaurant limit 1", null),
                     Arguments.of(74, "select * from restaurant limit 2", null)
             );

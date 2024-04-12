@@ -156,13 +156,13 @@ public final class IndexGenerator {
         final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
         final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
         final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof VersionValue).map(sv -> (VersionValue) sv).collect(toList());
-        Assert.thatUnchecked(versionValues.size() <= 1, "Cannot have index with more than one version column", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
         final var orderByValues = getOrderByValues(relationalExpression);
         if (aggregateValues.isEmpty()) {
             indexBuilder.setIndexType(versionValues.isEmpty() ? IndexTypes.VALUE : IndexTypes.VERSION);
-            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue), "Unsupported index definition, order by must be a subset of projection list", ErrorCode.UNSUPPORTED_OPERATION);
+            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof VersionValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
             if (fieldValues.size() > 1) {
-                Assert.thatUnchecked(!orderByValues.isEmpty(), "Unsupported index definition, value indexes must have an order by clause at the top level", ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
             final var expression = generate(reordered);
@@ -173,7 +173,7 @@ public final class IndexGenerator {
                 indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNullableArray)));
             }
         } else {
-            Assert.thatUnchecked(aggregateValues.size() == 1, "Unsupported index definition, multiple group by aggregations found", ErrorCode.UNSUPPORTED_OPERATION);
+            Assert.thatUnchecked(aggregateValues.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by aggregations found");
             final var aggregateValue = (AggregateValue) aggregateValues.get(0);
             int aggregateOrderIndex = -1;
             if (!orderByValues.isEmpty()) {
@@ -183,7 +183,7 @@ public final class IndexGenerator {
                     Value value = orderByValues.get(i);
                     if (value.equals(aggregateValue)) {
                         if (aggregateOrderIndex >= 0) {
-                            Assert.failUnchecked("Unsupported index definition, aggregate can appear only once in ordering clause", ErrorCode.UNSUPPORTED_OPERATION);
+                            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, aggregate can appear only once in ordering clause");
                         }
                         aggregateOrderIndex = i;
                     } else if (fieldIterator.hasNext()) {
@@ -198,7 +198,7 @@ public final class IndexGenerator {
                     }
                 }
                 if (fieldIterator.hasNext() || !inOrder) {
-                    Assert.failUnchecked("Unsupported index definition, attempt to create a covering aggregate index", ErrorCode.UNSUPPORTED_OPERATION);
+                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, attempt to create a covering aggregate index");
                 }
             }
             final Optional<KeyExpression> groupingKeyExpression = fieldValues.isEmpty() ? Optional.empty() : Optional.of(generate(fieldValues));
@@ -210,7 +210,7 @@ public final class IndexGenerator {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
             } else if (aggregateOrderIndex >= 0) {
-                Assert.failUnchecked("Unsupported index definition. Cannot order " + indexType + " index by aggregate value", ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }
         return indexBuilder.build();
@@ -236,7 +236,7 @@ public final class IndexGenerator {
                 // Make sure the grouping values and the result values are consistent
                 if (groupingValues == null) {
                     // This shouldn't happen unless there's more than one indexable aggregate value
-                    Assert.failUnchecked("Grouping values absent from aggregate result value", ErrorCode.UNSUPPORTED_OPERATION);
+                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
                 }
                 final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of())).iterator();
                 for (Value resultValue : resultValues) {
@@ -244,15 +244,15 @@ public final class IndexGenerator {
                         continue;
                     }
                     if (!simplifiedGroupingValues.hasNext()) {
-                        Assert.failUnchecked("Aggregate result value contains values missing from the grouping expression", ErrorCode.UNSUPPORTED_OPERATION);
+                        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Aggregate result value contains values missing from the grouping expression");
                     }
                     Value groupingValue = simplifiedGroupingValues.next();
                     if (!resultValue.equals(groupingValue)) {
-                        Assert.failUnchecked("Aggregate result value does not align with grouping value", ErrorCode.UNSUPPORTED_OPERATION);
+                        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Aggregate result value does not align with grouping value");
                     }
                 }
                 if (simplifiedGroupingValues.hasNext()) {
-                    Assert.failUnchecked("Grouping value absent from aggregate result value", ErrorCode.UNSUPPORTED_OPERATION);
+                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping value absent from aggregate result value");
                 }
                 return resultValues;
             }
@@ -362,7 +362,7 @@ public final class IndexGenerator {
             FieldValue fieldValue = (FieldValue) value;
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().stream().map(acc -> Pair.of(acc.getName(), acc.getType())).collect(toList()));
         } else {
-            Assert.failUnchecked("unable to construct expression", ErrorCode.UNSUPPORTED_OPERATION);
+            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "unable to construct expression");
             return null;
         }
     }
@@ -397,20 +397,20 @@ public final class IndexGenerator {
 
         // there must be at most a single group by
         final var numGroupBy = expressions.stream().filter(r -> r instanceof GroupByExpression).count();
-        Assert.thatUnchecked(numGroupBy <= 1, "Unsupported index definition, multiple group by expressions found", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(numGroupBy <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by expressions found");
 
         // there can be only one aggregation in group by expression (maybe we can relax this in the future).
         final var groupByContainsOneAggregation = expressions.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
-        Assert.thatUnchecked(groupByContainsOneAggregation, "Unsupported index definition, found group by expression with more than one aggregation", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(groupByContainsOneAggregation, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
 
         // result values of each operation must be simple, e.g. no arithmetic values.
         final var allRecordValues = expressions.stream().allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
-        Assert.thatUnchecked(allRecordValues, "Unsupported index definition, some operators return non-record values", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(allRecordValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, some operators return non-record values");
 
         final var allSimpleValues = expressions.stream()
                 .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
                 .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof VersionValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue));
-        Assert.thatUnchecked(allSimpleValues, "Unsupported index definition, not all fields can be mapped to key expression in", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(allSimpleValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
     }
 
     @Nullable
@@ -425,7 +425,7 @@ public final class IndexGenerator {
         if (expressions.size() > currentExpression && expressions.get(currentExpression) instanceof SelectExpression) {
             if (expressions.size() > (currentExpression + 1) && expressions.get(currentExpression + 1) instanceof GroupByExpression) {
                 // the above select-having must not contain any predicate.
-                Assert.thatUnchecked(((SelectExpression) expressions.get(currentExpression)).getPredicates().isEmpty(), "Unsupported index definition, found predicate in select-having", ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.thatUnchecked(((SelectExpression) expressions.get(currentExpression)).getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in select-having");
                 currentExpression++; // group-by expression.
                 Assert.thatUnchecked(expressions.size() > currentExpression);
                 currentExpression++; // select-where.
@@ -436,7 +436,7 @@ public final class IndexGenerator {
         for (int i = currentExpression + 1; i < expressions.size(); i++) {
             if (expressions.get(i) instanceof SelectExpression) {
                 final var innerSelect = (SelectExpression) expressions.get(i);
-                Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), "Unsupported index definition, found predicate in inner-select", ErrorCode.UNSUPPORTED_OPERATION);
+                Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in inner-select");
             }
         }
         final var predicates = ((SelectExpression) expressions.get(currentExpression)).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
@@ -446,7 +446,7 @@ public final class IndexGenerator {
         }
         final var conjunction = predicates.size() == 1 ? predicates.get(0) : AndPredicate.and(predicates);
         final var result = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(conjunction, false).orElse(conjunction);
-        Assert.thatUnchecked(IndexPredicate.isSupported(result), String.format("Unsupported predicate '%s'", result));
+        Assert.thatUnchecked(IndexPredicate.isSupported(result), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("Unsupported predicate '%s'", result))    ;
         if (IndexPredicateExpansion.dnfPredicateToRanges(result).isEmpty()) {
             return conjunction;
         }
@@ -564,9 +564,9 @@ public final class IndexGenerator {
                 .filter(r -> r instanceof LogicalTypeFilterExpression)
                 .map(r -> (LogicalTypeFilterExpression) r)
                 .collect(toList());
-        Assert.thatUnchecked(expressionRefs.size() == 1, "Unsupported query, expected to find exactly one type filter operator", ErrorCode.UNSUPPORTED_OPERATION);
+        Assert.thatUnchecked(expressionRefs.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
         final var recordTypes = expressionRefs.get(0).getRecordTypes();
-        Assert.thatUnchecked(recordTypes.size() == 1, String.format("Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
+        Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
         return recordTypes.stream().findFirst().orElseThrow();
     }
 

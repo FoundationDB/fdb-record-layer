@@ -73,9 +73,7 @@ public class RecordLayerMetricCollector implements MetricCollector {
     @Override
     public double getAverageTimeMicrosForEvent(@Nonnull RelationalMetric.RelationalEvent event) {
         final var maybeCounter = context.getTimer().getCounter(event);
-        if (null == maybeCounter) {
-            throw new RelationalException(String.format("Cannot find metrics associated for requested event: %s", event.title()), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
-        }
+        Assert.notNullUnchecked(maybeCounter, ErrorCode.INTERNAL_ERROR, "Cannot find metrics associated for requested event: %s", event.title());
         if (maybeCounter.getCount() == 0) {
             return 0.0;
         }
@@ -84,9 +82,9 @@ public class RecordLayerMetricCollector implements MetricCollector {
 
     @Override
     public long getCountsForCounter(@Nonnull RelationalMetric.RelationalCount count) {
-        Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR, () -> String.format("Cannot find metrics associated for requested event: %s", count.title()));
+        Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR, "Cannot find metrics associated for requested event: %s", count.title());
         final var counter = getCounter(count);
-        Assert.thatUnchecked(counter.getTimeNanos() == 0, ErrorCode.INTERNAL_ERROR, () -> String.format("Event: %s records time and is probably a event timer", count.title()));
+        Assert.thatUnchecked(counter.getTimeNanos() == 0, ErrorCode.INTERNAL_ERROR, "Event: %s records time and is probably a event timer", count.title());
         return counter.getCount();
     }
 

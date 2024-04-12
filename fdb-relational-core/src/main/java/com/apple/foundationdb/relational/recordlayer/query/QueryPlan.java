@@ -184,10 +184,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             List<String> explainComponents = new ArrayList<>();
             explainComponents.add(recordQueryPlan.toString());
             if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
-                explainComponents.add(String.format("(limit=%d)", executeProperties.getReturnedRowLimit()));
+                explainComponents.add("(limit=" + executeProperties.getReturnedRowLimit() + ")");
             }
             if (executeProperties.getSkip() != 0) {
-                explainComponents.add(String.format("(offset=%d)", executeProperties.getSkip()));
+                explainComponents.add("(offset=" + executeProperties.getSkip() + ")");
             }
             return String.join(" ", explainComponents);
         }
@@ -262,7 +262,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             final var connection = (EmbeddedRelationalConnection) executionContext.connection;
             Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
-            Assert.that(type instanceof Type.Record, String.format("unexpected plan returning top-level result of type %s", type.getTypeCode()));
+            Assert.that(type instanceof Type.Record, ErrorCode.INTERNAL_ERROR, "unexpected plan returning top-level result of type %s", type.getTypeCode());
             final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
 
             final var options = executionContext.getOptions();

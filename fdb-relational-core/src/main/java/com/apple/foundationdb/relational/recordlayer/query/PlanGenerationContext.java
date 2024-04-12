@@ -69,6 +69,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
 
 /**
  * Context keeping state related to plan generation.
@@ -198,7 +199,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     @Nonnull
     public DDLContext asDdl() {
-        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, expected '%s', however current context is not initialized!", DDLContext.class.getName()));
+        Assert.notNullUnchecked(context, INTERNAL_ERROR, "plan generation context mismatch, expected '%s', however current context is not initialized!", DDLContext.class.getName());
         if (context instanceof DDLContext) {
             return (DDLContext) context;
         }
@@ -209,7 +210,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     @Nonnull
     public DQLContext asDql() {
-        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, expected '%s', however current context is not initialized!", DQLContext.class.getName()));
+        Assert.notNullUnchecked(context, INTERNAL_ERROR, "plan generation context mismatch, expected '%s', however current context is not initialized!", DQLContext.class.getName());
         if (context instanceof DQLContext) {
             return (DQLContext) context;
         }
@@ -220,7 +221,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, there is failUnchecked directly before that.")
     @Nonnull
     public DMLContext asDml() {
-        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, expected '%s', however current context is not initialized!", DMLContext.class.getName()));
+        Assert.notNullUnchecked(context, INTERNAL_ERROR, "plan generation context mismatch, expected '%s', however current context is not initialized!", DMLContext.class.getName());
         if (context instanceof DMLContext) {
             return (DMLContext) context;
         }
@@ -229,12 +230,12 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     }
 
     public boolean isDml() {
-        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DMLContext.class.getName()));
+        Assert.notNullUnchecked(context, INTERNAL_ERROR, "plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DMLContext.class.getName());
         return context.getType() == AbstractContext.TYPE.DML;
     }
 
     public boolean isDdl() {
-        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DDLContext.class.getName()));
+        Assert.notNullUnchecked(context, INTERNAL_ERROR, "plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DDLContext.class.getName());
         return context.getType() == AbstractContext.TYPE.DDL;
     }
 
@@ -252,7 +253,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
     }
 
     public boolean isDql() {
-        Assert.notNullUnchecked(context, String.format("plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DQLContext.class.getName()));
+        Assert.notNullUnchecked(context, INTERNAL_ERROR, "plan generation context mismatch, examining whether context is '%s', however current context is not initialized!", DQLContext.class.getName());
         return context.getType() == AbstractContext.TYPE.DQL;
     }
 
@@ -405,7 +406,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         }
         if (!arrayElements.isEmpty()) {
             Assert.thatUnchecked(resolvedType.equals(LiteralsUtils.resolveArrayTypeFromObjectsList(arrayElements)),
-                    "Cannot convert literal to " + resolvedType, DATATYPE_MISMATCH);
+                    DATATYPE_MISMATCH, "Cannot convert literal to " + resolvedType);
         }
         for (int i = 0; i < arrayElements.size(); i++) {
             final Object o = arrayElements.get(i);
@@ -446,10 +447,10 @@ public class PlanGenerationContext implements QueryExecutionParameters {
                                                    @Nullable final String parameterName,
                                                    final int tokenIndex) {
         if (param instanceof Array) {
-            Assert.thatUnchecked(type == null || type.isArray(), "Array type field required as prepared statement parameter", DATATYPE_MISMATCH);
+            Assert.thatUnchecked(type == null || type.isArray(), DATATYPE_MISMATCH, "Array type field required as prepared statement parameter");
             return processPreparedStatementArrayParameter((Array) param, (Type.Array) type, unnamedParameterIndex, parameterName, tokenIndex);
         } else if (param instanceof Struct) {
-            Assert.thatUnchecked(type == null || type.isRecord(), "Required type field required as prepared statement parameter", DATATYPE_MISMATCH);
+            Assert.thatUnchecked(type == null || type.isRecord(), DATATYPE_MISMATCH, "Required type field required as prepared statement parameter");
             return processPreparedStatementStructParameter((Struct) param, (Type.Record) type, unnamedParameterIndex, parameterName, tokenIndex);
         } else if (param instanceof byte[]) {
             return processQueryLiteralOrParameter(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap((byte[]) param),
@@ -658,7 +659,7 @@ public class PlanGenerationContext implements QueryExecutionParameters {
 
         @Nonnull
         public Type getTargetType() {
-            Assert.thatUnchecked(hasTargetType(), "attempt to retrieve non-existing target type", ErrorCode.UNKNOWN_TYPE);
+            Assert.thatUnchecked(hasTargetType(), ErrorCode.UNKNOWN_TYPE, "attempt to retrieve non-existing target type");
             return Verify.verifyNotNull(targetType);
         }
 
