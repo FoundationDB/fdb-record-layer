@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
 import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
+import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.subspace.Subspace;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -239,15 +239,15 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
         @SuppressWarnings("squid:S1181")
         public CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {
+                                             @Nonnull final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
             CompletableFuture<T> future = new CompletableFuture<>();
             addFutureToCompleteExceptionally(future);
             AsyncUtil.whileTrue(() -> {
                 try {
                     return transactionalRunner.runAsync(currAttempt != 0, retriable)
                             .handle((result, ex) -> {
-                                Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
-                                return handle(newResult.getLeft(), newResult.getRight());
+                                Result<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
+                                return handle(newResult.getValue(), newResult.getError());
                             }).thenCompose(Function.identity());
                 } catch (Exception e) {
                     return handle(null, e);
@@ -297,7 +297,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
+                                             @Nonnull final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         return new RunRetriable<T>(additionalLogMessageKeyValues).runAsync(retriable, handlePostTransaction);
     }
