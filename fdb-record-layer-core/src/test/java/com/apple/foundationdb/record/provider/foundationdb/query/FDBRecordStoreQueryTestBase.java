@@ -241,7 +241,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void openHierarchicalRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords3Proto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
                 concatenateFields("parent_path", "child_name"));
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
@@ -257,7 +257,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
         metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.None).nest(field("values", FanType.FanOut).nest(
                 concatenateFields("value", "weight"))));
@@ -269,7 +269,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected RecordMetaData nestedMetaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4Proto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.FanOut).nest("rating"));
         metaDataBuilder.addIndex("RestaurantRecord", "tag", field("tags", FanType.FanOut).nest(
                 concatenateFields("value", "weight")));
@@ -320,9 +320,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
-    protected void openDoublyNestedRecordStore(FDBRecordContext context) throws Exception {
+    protected void openDoublyNestedRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords5Proto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("CalendarEvent", "alarm_start", field("alarmIndex").nest(
                 field("recurrence", FanType.FanOut).nest("start")));
         metaDataBuilder.addIndex("CalendarEvent", "event_start", field("eventIndex").nest(
@@ -330,9 +330,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
-    public void openConcatNestedRecordStore(FDBRecordContext context) throws Exception {
+    public void openConcatNestedRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords5Proto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("CalendarEvent", "versions", concat(field("alarmIndex").nest("version"),
                 field("eventIndex").nest("version")));
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());

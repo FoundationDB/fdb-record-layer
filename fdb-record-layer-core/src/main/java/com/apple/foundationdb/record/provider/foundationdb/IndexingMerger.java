@@ -139,9 +139,9 @@ public class IndexingMerger {
             giveUpMerging(mergeControl, e);
         }
         switch (lastStep) {
-            case REBALANCE:
-                // Here: this exception might be resolved by reducing the number of documents to move during rebalancing
-                handleRebalanceFailure(mergeControl, e);
+            case REPARTITION:
+                // Here: this exception might be resolved by reducing the number of documents to move during repartitioning
+                handleRepartitioningFailure(mergeControl, e);
                 break;
 
             case MERGE:
@@ -160,7 +160,7 @@ public class IndexingMerger {
         return AsyncUtil.READY_TRUE; // and retry
     }
 
-    private void handleRebalanceFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+    private void handleRepartitioningFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
         repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
         if (repartitionDocumentCount == -1) {
             // Here: failed, despite being set to skip. No recovery.
@@ -168,11 +168,11 @@ public class IndexingMerger {
         }
         repartitionDocumentCount /= 2;
         if (repartitionDocumentCount == 0) {
-            // Here: retry merge, but without partition re-balance
+            // Here: retry merge, but without repartitioning
             repartitionDocumentCount = -1;
         }
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug(mergerLogMessage("IndexMerge: partition rebalance failure", mergeControl), e);
+            LOGGER.debug(mergerLogMessage("IndexMerge: Repartitioning failure", mergeControl), e);
         }
     }
 

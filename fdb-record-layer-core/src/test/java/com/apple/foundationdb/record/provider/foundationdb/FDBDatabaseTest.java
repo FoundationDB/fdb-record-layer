@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -29,21 +30,30 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.FakeClusterFileUtil;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +64,7 @@ import java.util.function.Consumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,41 +78,63 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBDatabase}.
  */
 @Tag(Tags.RequiresFDB)
-class FDBDatabaseTest extends FDBTestBase {
+@Execution(ExecutionMode.CONCURRENT)
+class FDBDatabaseTest {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     @Test
     void cachedVersionMaintenanceOnReadsTest() throws Exception {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setTrackLastSeenVersion(true);
-        FDBDatabase database = factory.getDatabase();
+
+        FDBDatabase database = dbExtension.getDatabase();
+
         assertTrue(database.isTrackLastSeenVersionOnRead());
         assertTrue(database.isTrackLastSeenVersionOnCommit());
 
         // For the purpose of this test, commits will not change the cached read version
         database.setTrackLastSeenVersionOnCommit(false);
+        assertTrue(database.isTrackLastSeenVersionOnRead());
         assertFalse(database.isTrackLastSeenVersionOnCommit());
+        assertTrue(database.isTrackLastSeenVersion());
 
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
 
         // First time, does a GRV from FDB
-        long readVersion1 = getReadVersion(database, 0L, 2000L);
+        long readVersion1 = getReadVersion(database, 0L, 2_000L);
 
         // Store a record (advances future GRV, but not cached version)
-        testStoreAndRetrieveSimpleRecord(database, metaData);
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        final FDBDatabase.WeakReadSemantics weakReadSemantics = new FDBDatabase.WeakReadSemantics(0L, 2_000L, false);
+        try (FDBRecordContext context = database.openContext(FDBRecordContextConfig.newBuilder().setWeakReadSemantics(weakReadSemantics).setMdcContext(MDC.getCopyOfContextMap()).build())) {
+            assertEquals(readVersion1, context.getReadVersion());
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder()
+                    .setKeySpacePath(path)
+                    .setContext(context)
+                    .setMetaDataProvider(metaData)
+                    .create();
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1)
+                    .build());
+            context.commit();
+        }
 
-        // We're fine with any version obtained up to 2s ago, so will get readVersion
+        // We're fine with any version obtained up to 2s ago, so will get the original readVersion
         assertEquals(readVersion1, getReadVersion(database, 0L, 2000L));
 
         Thread.sleep(10L);
 
         // Set a short staleness bound, this will cause a GRV call to FDB and will update the cached version
         long readVersion2 = getReadVersion(database, 0L, 11L);
-        assertTrue(readVersion1 < readVersion2);
+        assertThat(readVersion1, lessThan(readVersion2));
 
         // Store another record
-        testStoreAndRetrieveSimpleRecord(database, metaData);
+        testStoreAndRetrieveSimpleRecord(database, metaData, path);
 
         assertEquals(readVersion2, getReadVersion(database, 0L, 2000L));
         assertEquals(readVersion2, getReadVersion(database, readVersion2, 2000L));
@@ -112,7 +145,7 @@ class FDBDatabaseTest extends FDBTestBase {
         assertTrue(readVersion2 < readVersion3);
 
         // Store another record
-        testStoreAndRetrieveSimpleRecord(database, metaData);
+        testStoreAndRetrieveSimpleRecord(database, metaData, path);
 
         // Don't use a stored version
         assertTrue(readVersion3 < getReadVersion(database, null, null));
@@ -120,9 +153,9 @@ class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     void cachedVersionMaintenanceOnCommitTest() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setTrackLastSeenVersion(true);
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
         assertTrue(database.isTrackLastSeenVersionOnRead());
         assertTrue(database.isTrackLastSeenVersionOnCommit());
 
@@ -132,19 +165,20 @@ class FDBDatabaseTest extends FDBTestBase {
         long readVersion1 = getReadVersion(database, 0L, 2000L);
 
         // Store a record (advances future GRV, but not cached version)
-        testStoreAndRetrieveSimpleRecord(database, metaData);
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        testStoreAndRetrieveSimpleRecord(database, metaData, path);
 
         // We're fine with any version obtained up to 5s ago, but storing the record updated the cached version so we'll get a newer one
         long readVersion2 = getReadVersion(database, 0L, 5000L);
-        assertTrue(readVersion1 < readVersion2);
+        assertThat(readVersion1, lessThan(readVersion2));
     }
 
     @ParameterizedTest(name = "cachedReadVersionWithRetryLoops [async = {0}]")
     @BooleanSource
     void cachedReadVersionWithRetryLoops(boolean async) throws InterruptedException, ExecutionException {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setTrackLastSeenVersion(true);
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
         assertTrue(database.isTrackLastSeenVersionOnRead());
         assertTrue(database.isTrackLastSeenVersionOnCommit());
 
@@ -154,14 +188,17 @@ class FDBDatabaseTest extends FDBTestBase {
         long readVersion2 = getReadVersionInRetryLoop(database, 0L, 500L, async);
         assertEquals(readVersion1, readVersion2);
 
-        testStoreAndRetrieveSimpleRecord(database, metaData);
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        testStoreAndRetrieveSimpleRecord(database, metaData, path);
 
         long readVersion3 = getReadVersionInRetryLoop(database, 0L, 500L, async);
         assertThat(readVersion3, greaterThan(readVersion2));
 
         // Force a commit that doesn't cache the read version
+        Subspace pathSubspace = database.run(path::toSubspace);
         database.database().run(tr -> {
-            tr.addWriteConflictRange(new byte[0], new byte[]{(byte)0xff});
+            Range r = pathSubspace.range();
+            tr.addWriteConflictRange(r.begin, r.end);
             return null;
         });
         long outOfBandReadVersion = database.database().runAsync(Transaction::getReadVersion).get();
@@ -180,11 +217,11 @@ class FDBDatabaseTest extends FDBTestBase {
     @ParameterizedTest(name = "testJoinNowOnCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
     void testJoinNowOnCompletedFuture(BlockingInAsyncDetection behavior) {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(behavior);
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
         TestHelpers.assertDidNotLog(FDBDatabase.class, FDBDatabase.BLOCKING_FOR_FUTURE_MESSAGE, () -> {
             long val = database.joinNow(CompletableFuture.completedFuture(1066L));
             assertEquals(1066L, val);
@@ -195,11 +232,11 @@ class FDBDatabaseTest extends FDBTestBase {
     @ParameterizedTest(name = "testJoinNowOnNonCompletedFuture (behavior = {0})")
     @EnumSource(BlockingInAsyncDetection.class)
     void testJoinNowOnNonCompletedFuture(BlockingInAsyncDetection behavior) {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setBlockingInAsyncDetection(behavior);
         factory.clear();
 
-        FDBDatabase database = factory.getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
         if (behavior.throwExceptionOnBlocking()) {
             assertThrows(BlockingInAsyncException.class, () -> database.joinNow(new CompletableFuture<>()));
         } else {
@@ -215,33 +252,26 @@ class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     void loggableTimeoutException() {
-        CompletableFuture<Void> delayed = new CompletableFuture<Void>();
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        FDBDatabase database = factory.getDatabase();
+        CompletableFuture<Void> delayed = new CompletableFuture<>();
+        FDBDatabase database = dbExtension.getDatabase();
         FDBStoreTimer timer = new FDBStoreTimer();
         database.setAsyncToSyncTimeout(1, TimeUnit.MILLISECONDS);
-        try {
-            database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT, delayed);
-        } catch (Exception ex) {
-            KeyValueLogMessage message = KeyValueLogMessage.build("Testing logging of timeout events.");
-            message.addKeysAndValues(timer.getKeysAndValues());
-            assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_micros"));
-            assertTrue(Long.parseLong(message.getKeyValueMap().get("wait_commit_timeout_micros")) > 0L);
-            assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_count"));
-            assertEquals(Integer.parseInt(message.getKeyValueMap().get("wait_commit_timeout_count")), 1);
-        } finally {
-            factory.clear();
-            timer.reset();
-        }
+        assertThrows(Exception.class, () -> database.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT, delayed));
+        KeyValueLogMessage message = KeyValueLogMessage.build("Testing logging of timeout events.");
+        message.addKeysAndValues(timer.getKeysAndValues());
+        assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_micros"));
+        assertTrue(Long.parseLong(message.getKeyValueMap().get("wait_commit_timeout_micros")) > 0L);
+        assertTrue(message.getKeyValueMap().containsKey("wait_commit_timeout_count"));
+        assertEquals(Integer.parseInt(message.getKeyValueMap().get("wait_commit_timeout_count")), 1);
     }
 
     @Test
-    void testGetReadVersionLatencyInjection() throws Exception {
+    void testGetReadVersionLatencyInjection() {
         testLatencyInjection(FDBLatencySource.GET_READ_VERSION, 300L, FDBRecordContext::getReadVersion);
     }
 
     @Test
-    void testCommitLatencyInjection() throws Exception {
+    void testCommitLatencyInjection() {
         testLatencyInjection(FDBLatencySource.COMMIT_ASYNC, 300L, context -> {
             final Transaction tr = context.ensureActive();
             tr.clear(new byte[] { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef });
@@ -249,15 +279,15 @@ class FDBDatabaseTest extends FDBTestBase {
         });
     }
 
-    private void testLatencyInjection(FDBLatencySource latencySource, long expectedLatency, Consumer<FDBRecordContext> thingToDo) throws Exception {
-        final FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+    private void testLatencyInjection(FDBLatencySource latencySource, long expectedLatency, Consumer<FDBRecordContext> thingToDo) {
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
 
         // Databases only pick up the latency injector upon creation, so clear out any cached database
         factory.clear();
         factory.setLatencyInjector(
                 requestedLatency -> requestedLatency == latencySource ? expectedLatency : 0L);
 
-        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
         try {
             try (FDBRecordContext context = database.openContext()) {
                 long grvStart = System.currentTimeMillis();
@@ -278,8 +308,8 @@ class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
-    void testPostCommitHooks() throws Exception {
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+    void testPostCommitHooks() {
+        final FDBDatabase database = dbExtension.getDatabase();
         final AtomicInteger counter = new AtomicInteger(0);
 
         try (FDBRecordContext context = database.openContext()) {
@@ -312,19 +342,23 @@ class FDBDatabaseTest extends FDBTestBase {
 
     private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
-        try (FDBRecordContext context = database.openContext(Collections.emptyMap(), null, weakReadSemantics)) {
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setWeakReadSemantics(weakReadSemantics)
+                .setMdcContext(MDC.getCopyOfContextMap())
+                .build();
+        try (FDBRecordContext context = database.openContext(config)) {
             return context.getReadVersion();
         }
     }
 
-    static void testStoreAndRetrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData) {
-        TestRecords1Proto.MySimpleRecord simpleRecord = storeSimpleRecord(database, metaData, 1066L);
-        TestRecords1Proto.MySimpleRecord retrieved = retrieveSimpleRecord(database, metaData, 1066L);
+    static void testStoreAndRetrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData, KeySpacePath path) {
+        TestRecords1Proto.MySimpleRecord simpleRecord = storeSimpleRecord(database, metaData, path, 1066L);
+        TestRecords1Proto.MySimpleRecord retrieved = retrieveSimpleRecord(database, metaData, path, 1066L);
         assertNotNull(retrieved);
         assertEquals(simpleRecord, retrieved);
     }
 
-    private static TestRecords1Proto.MySimpleRecord storeSimpleRecord(FDBDatabase database, RecordMetaData metaData, long recordNumber) {
+    private static TestRecords1Proto.MySimpleRecord storeSimpleRecord(FDBDatabase database, RecordMetaData metaData, KeySpacePath path, long recordNumber) {
         TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recordNumber)
                 .setNumValue2(42)
@@ -334,9 +368,11 @@ class FDBDatabaseTest extends FDBTestBase {
                 .addRepeater(5)
                 .build();
 
-        database.run(context -> {
-            FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
+        database.run(null, MDC.getCopyOfContextMap(), context -> {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setMetaDataProvider(metaData)
+                    .setContext(context)
+                    .setKeySpacePath(path)
                     .build();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
@@ -345,22 +381,23 @@ class FDBDatabaseTest extends FDBTestBase {
         return simpleRecord;
     }
 
-    private static TestRecords1Proto.MySimpleRecord retrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData, long recordNumber) {
+    private static TestRecords1Proto.MySimpleRecord retrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData, KeySpacePath path, long recordNumber) {
         // Tests to make sure the database operations are run and committed.
-        TestRecords1Proto.MySimpleRecord retrieved = database.run(context -> {
-            FDBRecordStore store = FDBRecordStore.newBuilder().setMetaDataProvider(metaData).setContext(context)
-                    .setKeySpacePath(TestKeySpace.getKeyspacePath(FDBRecordStoreTestBase.PATH_OBJECTS))
+        return database.run(null, MDC.getCopyOfContextMap(), context -> {
+            FDBRecordStore store = FDBRecordStore.newBuilder()
+                    .setMetaDataProvider(metaData)
+                    .setContext(context)
+                    .setKeySpacePath(path)
                     .build();
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
             FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(recordNumber));
             return builder.mergeFrom(rec.getRecord()).build();
         });
-        return retrieved;
     }
 
     @Test
     void performNoOp() {
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        final FDBDatabase database = dbExtension.getDatabase();
         FDBStoreTimer timer = new FDBStoreTimer();
         database.performNoOp(timer);
         assertEquals(1, timer.getCount(FDBStoreTimer.Events.PERFORM_NO_OP));
@@ -375,8 +412,8 @@ class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     void performNoOpAgainstFakeCluster() throws IOException {
-        final String clusterFile = FDBTestBase.createFakeClusterFile("perform_no_op_");
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
+        final String clusterFile = FakeClusterFileUtil.createFakeClusterFile("perform_no_op_");
+        final FDBDatabase database = dbExtension.getDatabaseFactory().getDatabase(clusterFile);
 
         // Should not be able to get a real read version from the fake cluster
         assertThrows(TimeoutException.class, () -> {
@@ -413,7 +450,7 @@ class FDBDatabaseTest extends FDBTestBase {
     }
 
     private void testSizeAssertion(Consumer<FDBRecordContext> consumer, Class<? extends Exception> exception) {
-        FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase database = dbExtension.getDatabase();
 
         // By default key size validation happens in the FDB driver at commit time
         try (FDBRecordContext context = database.openContext()) {
@@ -430,8 +467,8 @@ class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     void apiVersionIsSet() {
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        assertEquals(FDBTestBase.getAPIVersion(), database.getAPIVersion());
+        final FDBDatabase database = dbExtension.getDatabase();
+        assertEquals(dbExtension.getAPIVersion(), database.getAPIVersion());
         assertEquals(FDB.instance().getAPIVersion(), database.getAPIVersion().getVersionNumber());
         try (FDBRecordContext context = database.openContext()) {
             assertEquals(database.getAPIVersion(), context.getAPIVersion());
@@ -442,7 +479,7 @@ class FDBDatabaseTest extends FDBTestBase {
 
     @Test
     void cannotChangeAPIVersionAfterInit() {
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
+        final FDBDatabase database = dbExtension.getDatabase();
         final APIVersion initApiVersion = database.getAPIVersion();
 
         for (APIVersion newApiVersion : APIVersion.values()) {

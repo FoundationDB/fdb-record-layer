@@ -24,12 +24,13 @@ import com.carrotsearch.randomizedtesting.ThreadFilter;
 
 /**
  * The randomized testing framework that Lucene uses has checks for leaked threads, but FDB depends on the
- * network thread, and common thread pool, so we filter those out.
+ * network thread, a common thread pool, and the {@link com.apple.foundationdb.test.TestExecutors#defaultThreadPool()}, so we filter those out.
  */
 public class FDBThreadFilter implements ThreadFilter {
     @Override
     public boolean reject(final Thread t) {
         return t.getName().equals("fdb-network-thread") ||
-               t.getName().startsWith("ForkJoinPool.commonPool");
+               t.getName().startsWith("ForkJoinPool.commonPool") ||
+               t.getName().startsWith("fdb-record-layer-test-");
     }
 }

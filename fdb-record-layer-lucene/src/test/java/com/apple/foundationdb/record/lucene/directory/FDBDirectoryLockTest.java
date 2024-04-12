@@ -21,11 +21,19 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.test.Tags;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Lock;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -35,7 +43,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
-class FDBDirectoryLockTest extends FDBDirectoryBaseTest {
+class FDBDirectoryLockTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
+    private FDBDatabase fdb;
+    private Subspace subspace;
+
+    @BeforeEach
+    void setUp() {
+        fdb = dbExtension.getDatabase();
+        KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        subspace = fdb.run(path::toSubspace);
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
@@ -45,19 +67,22 @@ class FDBDirectoryLockTest extends FDBDirectoryBaseTest {
                     useAgile ?
                     AgilityContext.agile(context, 1000, 100_0000) :
                     AgilityContext.nonAgile(context);
-            directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+
+            FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
             String lockName = "file.lock";
+            String alreadyLockedMessage = "FileLock: Lock failed: already locked by another entity";
             final Lock lock1 = directory.obtainLock(lockName);
             lock1.ensureValid();
             RecordCoreException e = assertThrows(RecordCoreException.class, () -> directory.obtainLock(lockName));
-            assertTrue(e.getMessage().contains("found old lock"));
+            assertTrue(e.getMessage().contains(alreadyLockedMessage));
             lock1.ensureValid();
             lock1.close();
+
             assertThrows(AlreadyClosedException.class, lock1::ensureValid);
             final Lock lock2 = directory.obtainLock(lockName);
             lock2.ensureValid();
             e = assertThrows(RecordCoreException.class, () -> directory.obtainLock(lockName));
-            assertTrue(e.getMessage().contains("found old lock"));
+            assertTrue(e.getMessage().contains(alreadyLockedMessage));
             lock2.ensureValid();
             lock2.close();
         }

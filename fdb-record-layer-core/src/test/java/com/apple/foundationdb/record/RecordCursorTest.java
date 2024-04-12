@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.cursors.MapResultCursor;
 import com.apple.foundationdb.record.cursors.RowLimitedCursor;
 import com.apple.foundationdb.record.cursors.SkipCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.test.TestExecutors;
 import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -55,7 +56,6 @@ import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -84,7 +84,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link RecordCursor}.
  */
 public class RecordCursorTest {
-    static final Executor EXECUTOR = ForkJoinPool.commonPool();
+    static final Executor EXECUTOR = TestExecutors.defaultThreadPool();
 
     Timer timer;
 
@@ -1216,7 +1216,7 @@ public class RecordCursorTest {
         @Nonnull
         @Override
         public Executor getExecutor() {
-            return ForkJoinPool.commonPool();
+            return TestExecutors.defaultThreadPool();
         }
 
         @Override

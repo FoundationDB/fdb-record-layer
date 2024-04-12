@@ -32,6 +32,8 @@ import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -46,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Basic CRUD operation tests on {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
 
     @Test

@@ -58,11 +58,10 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -92,22 +91,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for scan limits in {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBRecordStoreScanLimitTest.class);
 
-    @BeforeAll
-    public void init() {
-        clearAndInitialize();
-    }
-
-    @BeforeEach
-    private void setupRecordStore() throws Exception {
-        setupSimpleRecordStore();
-    }
-
-    private Optional<Integer> getRecordScanned(FDBRecordContext context) {
+    private static Optional<Integer> getRecordScanned(FDBRecordContext context) {
         if (context.getTimer() == null) {
             return Optional.empty();
         }
@@ -202,17 +191,17 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
         return maximumToScan;
     }
 
-    public Stream<Arguments> plansWithoutFail() {
+    static Stream<Arguments> plansWithoutFail() {
         return plans(false);
     }
 
-    public Stream<Arguments> plansWithFails() throws Exception {
+    static Stream<Arguments> plansWithFails() throws Exception {
         return Stream.of(Boolean.FALSE, Boolean.TRUE).flatMap(fail -> Stream.concat(plans(fail), unorderedPlans(fail)));
     }
 
     @ParameterizedTest(name = "testPlans() [{index}] {0} {1}")
     @MethodSource("plansWithFails")
-    public void testPlans(String description, boolean fail, RecordQueryPlan plan) throws Exception {
+    void testPlans(String description, boolean fail, RecordQueryPlan plan) throws Exception {
         // include a scanLimit of 0, in which case all progress happens via the first "free" key-value scan.
         LOGGER.info(KeyValueLogMessage.of("running plan to check scan limit failures",
                         LogMessageKeys.DESCRIPTION, description,
@@ -233,7 +222,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
 
     @ParameterizedTest(name = "plansByContinuation() [{index}] {0}")
     @MethodSource("plansWithoutFail")
-    public void plansByContinuation(String description, boolean fail, RecordQueryPlan plan) throws Exception {
+    void plansByContinuation(String description, boolean fail, RecordQueryPlan plan) throws Exception {
         int maximumToScan = getMaximumToScan(plan);
 
         // include a scanLimit of 0, in which case all progress happens via the first "free" key-value scan.
@@ -279,7 +268,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
 
     @ParameterizedTest(name = "unorderedIntersectionWithScanLimit [fail = {0}]")
     @BooleanSource
-    public void unorderedIntersectionWithScanLimit(boolean fail) throws Exception {
+    void unorderedIntersectionWithScanLimit(boolean fail) throws Exception {
         // TODO: When there is an UnorderedIntersectionPlan (or whatever) add that to the unordered plans stream
         RecordQueryPlanner planner = new RecordQueryPlanner(simpleMetaData(NO_HOOK), new RecordStoreState(null, null));
         RecordQueryPlan leftPlan = planner.plan(RecordQuery.newBuilder()
@@ -318,7 +307,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     }
 
     @Test
-    public void testSplitContinuation() throws Exception {
+    void testSplitContinuation() {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
             recordStore.deleteAllRecords(); // Undo setupRecordStore().

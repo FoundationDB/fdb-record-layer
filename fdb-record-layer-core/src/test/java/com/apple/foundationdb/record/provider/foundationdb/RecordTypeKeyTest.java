@@ -94,8 +94,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         final KeyExpression pkey = concat(recordType(), field("rec_no"));
         t1.setPrimaryKey(pkey);
         t2.setPrimaryKey(pkey);
-        metaData.removeIndex(COUNT_INDEX.getName());
-        metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+        metaData.removeIndex(COUNT_INDEX_NAME);
+        metaData.removeIndex(COUNT_UPDATES_INDEX_NAME);
         metaData.addUniversalIndex(new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
     };
 
@@ -213,8 +213,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
             final KeyExpression pkey = concat(recordType(), field("rec_no"));
             t1.setPrimaryKey(pkey);
-            metaData.removeIndex(COUNT_INDEX.getName());
-            metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+            metaData.removeIndex(COUNT_INDEX_NAME);
+            metaData.removeIndex(COUNT_UPDATES_INDEX_NAME);
         };
 
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(hook);
@@ -445,8 +445,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             final RecordTypeBuilder t2 = metaData.getRecordType("MyOtherRecord");
             t1.setPrimaryKey(concat(recordType(), field("rec_no")));
             t2.setPrimaryKey(recordType());
-            metaData.removeIndex(COUNT_INDEX.getName());
-            metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+            metaData.removeIndex(COUNT_INDEX_NAME);
+            metaData.removeIndex(COUNT_UPDATES_INDEX_NAME);
             metaData.addUniversalIndex(new Index("countByRecordType", GroupingKeyExpression.of(empty(), recordType()), IndexTypes.COUNT));
         };
 
@@ -505,8 +505,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
             final RecordTypeBuilder t2 = metaData.getRecordType("MyOtherRecord");
             t1.setPrimaryKey(concat(recordType(), field("str_value_indexed"), field("rec_no")));
-            metaData.removeIndex(COUNT_INDEX.getName());
-            metaData.removeIndex(COUNT_UPDATES_INDEX.getName());
+            metaData.removeIndex(COUNT_INDEX_NAME);
+            metaData.removeIndex(COUNT_UPDATES_INDEX_NAME);
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
             metaData.removeIndex("MySimpleRecord$num_value_unique");

@@ -22,8 +22,7 @@ package org.apache.lucene.index;
 
 import com.apple.foundationdb.record.lucene.codec.TestFDBDirectory;
 import com.apple.foundationdb.record.lucene.codec.TestingCodec;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesConsumer;
@@ -63,6 +62,7 @@ import java.util.TreeSet;
  * Utilities for classes extending from {@link BaseIndexFileFormatTestCase}.
  */
 public final class BaseIndexFileFormatTestCaseUtils {
+    public static final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
     private BaseIndexFileFormatTestCaseUtils() {
     }
@@ -80,18 +80,10 @@ public final class BaseIndexFileFormatTestCaseUtils {
         }
     }
 
-    public static void beforeClass() {
-        // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
-        // but that class is JUnit4
-        FDBTestBase.initFDB();
-        FDBTestBase.setupBlockingInAsyncDetection();
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.getDatabase();
-    }
-
     public static void resetStaticConfigs() {
         TestingCodec.reset();
         TestFDBDirectory.reset();
+        dbExtension.afterEach(null);
     }
 
     /**

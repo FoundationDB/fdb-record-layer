@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb;
+package com.apple.foundationdb.record.test;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
@@ -38,28 +38,37 @@ public class TestKeySpace {
 
     private static final Logger LOG = LogManager.getLogger(TestKeySpace.class);
 
+    public static final String TEST_UUID = "testUuid";
+    public static final String RECORD_STORE = "recordStore";
+    public static final String META_DATA_STORE = "metaDataStore";
+    public static final String RAW_DATA = "rawData";
+    public static final String MULTI_RECORD_STORE = "multiRecordStore";
+    public static final String STORE_PATH = "storePath";
+    public static final String RESOLVER_MAPPING_REPLICATOR = "resolverMappingReplicator";
+    public static final String RESOLVER_HOOKS = "resolverHooks";
+
     public static final KeySpace keySpace = new KeySpace(
             new DirectoryLayerDirectory("record-test", "record-test")
                     .addSubdirectory(new DirectoryLayerDirectory("unit", "unit")
-                            .addSubdirectory(new DirectoryLayerDirectory("recordStore", "recordStore"))
-                            .addSubdirectory(new DirectoryLayerDirectory("corruptRecordStore", "corruptRecordStore"))
-                            .addSubdirectory(new DirectoryLayerDirectory("multiRecordStore", "multiRecordStore")
-                                    .addSubdirectory(new DirectoryLayerDirectory("storePath"))
+                            .addSubdirectory(new KeySpaceDirectory(TEST_UUID, KeySpaceDirectory.KeyType.STRING)
+                                    .addSubdirectory(new DirectoryLayerDirectory(RECORD_STORE, RECORD_STORE))
+                                    .addSubdirectory(new DirectoryLayerDirectory(META_DATA_STORE, META_DATA_STORE))
+                                    .addSubdirectory(new DirectoryLayerDirectory(RAW_DATA, RAW_DATA))
+                                    .addSubdirectory(new DirectoryLayerDirectory(MULTI_RECORD_STORE, MULTI_RECORD_STORE)
+                                            .addSubdirectory(new DirectoryLayerDirectory(STORE_PATH))
+                                    )
+                                    .addSubdirectory(new DirectoryLayerDirectory(RESOLVER_MAPPING_REPLICATOR, RESOLVER_MAPPING_REPLICATOR)
+                                            .addSubdirectory(new KeySpaceDirectory("to", KeySpaceDirectory.KeyType.STRING, "to")
+                                                    .addSubdirectory(new KeySpaceDirectory("primary", KeySpaceDirectory.KeyType.STRING, "primary"))
+                                                    .addSubdirectory(new KeySpaceDirectory("replica", KeySpaceDirectory.KeyType.STRING, "replica"))
+                                            )
+                                    )
+                                    .addSubdirectory(new DirectoryLayerDirectory(RESOLVER_HOOKS, RESOLVER_HOOKS)
+                                            .addSubdirectory(new KeySpaceDirectory("resolvers", KeySpaceDirectory.KeyType.STRING, "resolvers")
+                                                    .addSubdirectory(new KeySpaceDirectory("resolverNode", KeySpaceDirectory.KeyType.STRING)))
+                                            .addSubdirectory(new KeySpaceDirectory("should-use-A", KeySpaceDirectory.KeyType.STRING, "should-use-A"))
+                                    )
                             )
-                            .addSubdirectory(new DirectoryLayerDirectory("metadataStore", "metadataStore"))
-                            .addSubdirectory(new DirectoryLayerDirectory("keyvaluecursor", "keyvaluecursor"))
-                            .addSubdirectory(new DirectoryLayerDirectory("ackeyvaluecursor", "ackeyvaluecursor"))
-                            .addSubdirectory(new DirectoryLayerDirectory("typedtest", "typedtest"))
-                            .addSubdirectory(new DirectoryLayerDirectory("concatcursor", "concatcursor"))
-                            .addSubdirectory(new DirectoryLayerDirectory("indexTest", "indexTest")
-                                    .addSubdirectory(new KeySpaceDirectory("leaderboard", KeySpaceDirectory.KeyType.LONG, 8L))
-                                    .addSubdirectory(new KeySpaceDirectory("version", KeySpaceDirectory.KeyType.LONG, 9L))
-                                    .addSubdirectory(new KeySpaceDirectory("version2", KeySpaceDirectory.KeyType.LONG, 10L))
-                            )
-                            .addSubdirectory(new DirectoryLayerDirectory("synchronizedsession", "synchronizedsession")
-                                    .addSubdirectory(new KeySpaceDirectory("lock", KeySpaceDirectory.KeyType.LONG))
-                            )
-                            .addSubdirectory(new DirectoryLayerDirectory("conflicts", "conflicts"))
                     )
                     .addSubdirectory(new DirectoryLayerDirectory("performance", "performance")
                             .addSubdirectory(new DirectoryLayerDirectory("recordStore", "recordStore"))

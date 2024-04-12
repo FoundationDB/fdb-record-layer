@@ -43,7 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -62,6 +62,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -239,10 +240,13 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         SynonymMapRegistryImpl.instance().getSynonymMap(EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
     }
 
-    @Override
+    @BeforeEach
     protected void clear() {
         if (Config.CLEAR_BEFORE_RUN) {
-            super.clear();
+            fdb.run(context -> {
+                path.deleteAllData(context);
+                return null;
+            });
         }
     }
 

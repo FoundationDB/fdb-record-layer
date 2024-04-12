@@ -21,22 +21,23 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory.KeyType;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,34 +58,26 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link ResolverMappingReplicator}.
  */
 @Tag(Tags.RequiresFDB)
-public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
+public abstract class ResolverMappingReplicatorTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
     protected LocatableResolver primary;
     protected LocatableResolver replica;
     protected FDBDatabase database;
     protected boolean seedWithMetadata = false;
     private Random random = new Random();
-    protected KeySpace keySpace;
+    protected KeySpacePath basePath;
 
     @BeforeEach
     public void setupBase() {
-        keySpace = new KeySpace(
-                new KeySpaceDirectory("test-path", KeyType.STRING, "test-path-" + random.nextLong())
-                        .addSubdirectory(new KeySpaceDirectory("to", KeyType.STRING, "to")
-                                .addSubdirectory(new KeySpaceDirectory("primary", KeyType.STRING, "primary"))
-                                .addSubdirectory(new KeySpaceDirectory("replica", KeyType.STRING, "replica"))
-                        )
-        );
-
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(100);
-        database = factory.getDatabase();
+        database = dbExtension.getDatabase();
         database.clearCaches();
-        KeySpacePath basePath = keySpace.path("test-path");
-        // wipe test keyspace
-        database.run(context -> {
-            context.ensureActive().clear(Range.startsWith(basePath.toTuple(context).pack()));
-            return null;
-        });
+        basePath = pathManager.createPath(TestKeySpace.RESOLVER_MAPPING_REPLICATOR);
     }
 
     @Test
@@ -244,9 +237,9 @@ public abstract class ResolverMappingReplicatorTest extends FDBTestBase {
     @Test
     public void testCopyInSameDatabase() {
         ResolverMappingReplicator replicator = new ResolverMappingReplicator(primary, 10);
-        FDBDatabase differentDB = new FDBDatabase(FDBDatabaseFactory.instance(), null);
+        FDBDatabase differentDB = new FDBDatabase(dbExtension.getDatabaseFactory(), null);
 
-        KeySpacePath path = keySpace.path("test-path").add("to").add("replica");
+        KeySpacePath path = basePath.add("to").add("replica");
         try (FDBRecordContext context = differentDB.openContext()) {
             LocatableResolver resolverInDifferentDB = new ScopedInterningLayer(differentDB, path.toResolvedPath(context));
             replicator.copyTo(resolverInDifferentDB);

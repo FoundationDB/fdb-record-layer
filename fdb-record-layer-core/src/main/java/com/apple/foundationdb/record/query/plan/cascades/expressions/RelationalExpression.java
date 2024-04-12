@@ -45,6 +45,8 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -53,7 +55,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -670,7 +671,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * </ul>
      *
      * @param candidateExpression the candidate expression
-     * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
+     * @param bindingAliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      * from one of the expressions below that quantifier
      * @param evaluationContext the evaluation context used for checking subsumption.
@@ -680,7 +681,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      */
     @Nonnull
     default Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                           @Nonnull final AliasMap aliasMap,
+                                           @Nonnull final AliasMap bindingAliasMap,
                                            @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                            @Nonnull final EvaluationContext evaluationContext) {
         // we don't match by default -- end
@@ -694,19 +695,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      *        from one of the expressions below that quantifier
+     * @param maxMatchMap the max match map.
      * @return an iterable of {@link MatchInfo}s if semantic equivalence between this expression and the candidate
      *         expression can be established
      */
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     default Iterable<MatchInfo> exactlySubsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                                   @Nonnull final AliasMap aliasMap,
-                                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+                                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                  @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
         if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
 
         if (equalsWithoutChildren(candidateExpression, aliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap)
+            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {

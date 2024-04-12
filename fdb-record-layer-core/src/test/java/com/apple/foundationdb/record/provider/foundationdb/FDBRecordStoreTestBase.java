@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -41,19 +43,27 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.test.TestMdcExtension;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.provider.Arguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -64,28 +74,36 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Base class for tests for {@link FDBRecordStore}.
  */
-public abstract class FDBRecordStoreTestBase extends FDBTestBase {
+@Tag(Tags.RequiresFDB)
+public abstract class FDBRecordStoreTestBase {
+    @RegisterExtension
+    protected final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    protected final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreTestBase.class);
-
-    protected static final Object[] PATH_OBJECTS = new Object[]{"record-test", "unit", "recordStore"};
 
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;
     protected FDBStoreTimer timer = new FDBStoreTimer();
     protected boolean useCascadesPlanner = false;
     protected QueryPlanner planner;
-    protected final KeySpacePath path;
+    @Nullable
+    protected KeySpacePath path;
 
     public FDBRecordStoreTestBase() {
-        this(PATH_OBJECTS);
+        this(null);
     }
 
-    public FDBRecordStoreTestBase(Object[] path) {
-        this(TestKeySpace.getKeyspacePath(path));
+    public FDBRecordStoreTestBase(@Nullable KeySpacePath path) {
+        this.path = path;
     }
 
-    public FDBRecordStoreTestBase(final KeySpacePath keyspacePath) {
-        this.path = keyspacePath;
+    @BeforeEach
+    void initDatabaseAndPath() {
+        fdb = dbExtension.getDatabase();
+        if (path == null) {
+            path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        }
     }
 
     @Nonnull
@@ -111,8 +129,8 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     protected static final RecordMetaDataHook NO_HOOK = metadata -> {
     };
-    protected static final Index COUNT_INDEX = new Index("globalRecordCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
-    protected static final Index COUNT_UPDATES_INDEX = new Index("globalRecordUpdateCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT_UPDATES);
+    protected static final String COUNT_INDEX_NAME = "globalRecordCount";
+    protected static final String COUNT_UPDATES_INDEX_NAME = "globalRecordUpdateCount";
 
     @FunctionalInterface
     protected interface Opener {
@@ -129,15 +147,26 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         final FDBRecordContextConfig config = contextConfig(props).setTimer(timer).build();
-        return fdb.openContext(config);
+        FDBRecordContext context = fdb.openContext(config);
+        return context;
     }
 
     private FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
+        UUID transactionUuid = UUID.randomUUID();
+        @Nullable String testMethod = MDC.get(TestMdcExtension.TEST_METHOD);
+        String transactionId = (testMethod == null) ? transactionUuid.toString() : (testMethod + "_" + transactionUuid);
+        ImmutableMap<String, String> mdcContext = ImmutableMap.<String, String>builder()
+                .put("uuid", transactionId)
+                .putAll(MDC.getCopyOfContextMap())
+                .build();
+
         return FDBRecordContextConfig.newBuilder()
+                .setTransactionId(transactionId)
                 .setTimer(timer)
-                .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
+                .setMdcContext(mdcContext)
                 .setTrackOpen(true)
                 .setSaveOpenStackTrace(true)
+                .setReportConflictingKeys(true)
                 .setRecordContextProperties(addDefaultProps(props).build());
     }
 
@@ -146,34 +175,14 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
         return props;
     }
 
-    @BeforeEach
-    public void clearAndInitialize() {
-        getFDB();
-        clear();
-
-        // Reset these indexes added and last modified versions, which can be updated during tests.
-        // For example, adding the indexes to a RecordMetaDataBuilder can update these fields
-        COUNT_INDEX.setAddedVersion(0);
-        COUNT_INDEX.setLastModifiedVersion(0);
-        COUNT_UPDATES_INDEX.setAddedVersion(0);
-        COUNT_UPDATES_INDEX.setLastModifiedVersion(0);
+    @Nonnull
+    public static Index globalCountIndex() {
+        return new Index(COUNT_INDEX_NAME, new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
     }
 
-    protected void clear() {
-        fdb.run(timer, null, context -> {
-            path.deleteAllData(context);
-            return null;
-        });
-    }
-
-    @AfterEach
-    public void checkForOpenContexts() {
-        int count = fdb.warnAndCloseOldTrackedOpenContexts(0);
-        assertEquals(0, count, "should not have left any contexts open");
-    }
-
-    public void getFDB() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
+    @Nonnull
+    public static Index globalCountUpdatesIndex() {
+        return new Index(COUNT_UPDATES_INDEX_NAME, new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT_UPDATES);
     }
 
     @Nonnull
@@ -220,8 +229,15 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
             if (logger.isInfoEnabled()) {
                 KeyValueLogMessage msg = KeyValueLogMessage.build("committing transaction");
                 msg.addKeysAndValues(timer.getKeysAndValues());
+                msg.addKeyAndValue(LogMessageKeys.TRANSACTION_ID, context.getTransactionId());
                 logger.info(msg.toString());
             }
+        } catch (FDBExceptions.FDBStoreTransactionConflictException conflictException) {
+            List<Range> conflictRanges = context.getNotCommittedConflictingKeys();
+            if (conflictRanges != null && !conflictRanges.isEmpty()) {
+                conflictException.addLogInfo("conflict_ranges", conflictRanges);
+            }
+            throw conflictException;
         } finally {
             timer.reset();
         }
@@ -263,8 +279,8 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     protected RecordMetaData simpleMetaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
-        metaData.addUniversalIndex(COUNT_INDEX);
-        metaData.addUniversalIndex(COUNT_UPDATES_INDEX);
+        metaData.addUniversalIndex(globalCountIndex());
+        metaData.addUniversalIndex(globalCountUpdatesIndex());
         if (hook != null) {
             hook.apply(metaData);
         }
@@ -322,7 +338,7 @@ public abstract class FDBRecordStoreTestBase extends FDBTestBase {
 
     public void openMultiRecordStore(FDBRecordContext context) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultiProto.getDescriptor());
-        metaDataBuilder.addUniversalIndex(COUNT_INDEX);
+        metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addMultiTypeIndex(Arrays.asList(metaDataBuilder.getRecordType("MultiRecordOne"), metaDataBuilder.getRecordType("MultiRecordTwo")),
                 new Index("onetwo$element", field("element", FanType.FanOut)));
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());

@@ -34,10 +34,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver.LocatableResolverLockedException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -110,7 +110,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Tag(Tags.WipesFDB)
 @Tag(Tags.RequiresFDB)
-public abstract class LocatableResolverTest extends FDBTestBase {
+public abstract class LocatableResolverTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+
     @RegisterExtension
     protected final TestingResolverFactory resolverFactory;
 
@@ -119,7 +122,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
     protected FDBDatabase database;
 
     protected LocatableResolverTest(TestingResolverFactory.ResolverType resolverType) {
-        resolverFactory = new TestingResolverFactory(resolverType);
+        resolverFactory = new TestingResolverFactory(dbExtension, resolverType);
     }
 
     @BeforeEach
@@ -216,11 +219,10 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
     @Test
     void testDirectoryCache() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
 
         FDBStoreTimer timer = new FDBStoreTimer();
-
 
         FDBDatabase fdb = factory.getDatabase();
         fdb.close(); // Make sure cache is fresh.
@@ -244,7 +246,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
     @Test
     void testDirectoryCacheWithUncommittedContext() {
-        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase();
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -298,7 +300,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
     @Test
     void testCachesWinnerOfConflict() {
-        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase();
         fdb.clearCaches();
 
         // In the scoped directory layer test, this can conflict with initializing the reverse directory layer
@@ -348,7 +350,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
      */
     @Test
     void testDoesNotCacheValueReadFromReadYourWritesCache() {
-        FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();
+        FDBDatabase fdb = dbExtension.getDatabase();
         fdb.clearCaches();
 
         final String key = "hello " + UUID.randomUUID();
@@ -390,7 +392,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
     @Test
     void testResolveUseCacheCommits() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
 
         FDBStoreTimer timer = new FDBStoreTimer();
@@ -433,7 +435,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         Long baseline = database.getDirectoryCacheStats().hitCount();
         Long reverseCacheBaseline = database.getReverseDirectoryInMemoryCache().stats().hitCount();
         database.close();
-        database = FDBDatabaseFactory.instance().getDatabase();
+        database = dbExtension.getDatabase();
         try (FDBRecordContext context = database.openContext()) {
             for (Map.Entry<String, Long> entry : mappings.entrySet()) {
                 Long value = globalScope.resolve(context.getTimer(), entry.getKey()).join();
@@ -712,8 +714,9 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                     timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(0));
         }
 
-        FDBDatabaseFactory.instance().clear();
-        FDBDatabase newDatabase = FDBDatabaseFactory.instance().getDatabase();
+        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
+        factory.clear();
+        FDBDatabase newDatabase = factory.getDatabase();
         FDBStoreTimer timer2 = new FDBStoreTimer();
         try (FDBRecordContext context = newDatabase.openContext(null, timer2)) {
             globalScope.resolve(context.getTimer(), "something").join();
@@ -892,7 +895,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         // sets the timeout for all the db instances we create
         final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
-        parallelFactory.setAPIVersion(FDBTestBase.getAPIVersion());
+        parallelFactory.setAPIVersion(dbExtension.getAPIVersion());
         Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, null);
         consistently("uninitialized version is 0", () -> {
             try (FDBRecordContext context = database.openContext()) {
@@ -927,7 +930,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
     @Test
     void testVersionIncrementInvalidatesCache() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setDirectoryCacheSize(10);
         final FDBStoreTimer timer = new FDBStoreTimer();
         FDBDatabase fdb = factory.getDatabase();

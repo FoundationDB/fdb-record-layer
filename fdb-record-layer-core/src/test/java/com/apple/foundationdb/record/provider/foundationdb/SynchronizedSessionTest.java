@@ -21,14 +21,17 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,8 +49,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner}.
  */
 @Tag(Tags.RequiresFDB)
-public abstract class SynchronizedSessionTest extends FDBTestBase {
+public abstract class SynchronizedSessionTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronizedSessionTest.class);
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private FDBDatabase database;
     private Subspace lockSubspace1;
@@ -64,13 +71,11 @@ public abstract class SynchronizedSessionTest extends FDBTestBase {
     }
 
     @BeforeEach
-    public void initializeSubspace() {
-        database = FDBDatabaseFactory.instance().getDatabase();
-        KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit", "synchronizedsession");
+    void initializeSubspace() {
+        database = dbExtension.getDatabase();
         try (FDBRecordContext context = database.openContext()) {
-            path.deleteAllData(context);
-            lockSubspace1 = path.add("lock", 1L).toSubspace(context);
-            lockSubspace2 = path.add("lock", 2L).toSubspace(context);
+            lockSubspace1 = pathManager.createPath(TestKeySpace.RAW_DATA).toSubspace(context);
+            lockSubspace2 = pathManager.createPath(TestKeySpace.RAW_DATA).toSubspace(context);
             context.commit();
         }
     }

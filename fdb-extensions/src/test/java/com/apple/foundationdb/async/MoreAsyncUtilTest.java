@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.async;
 
+import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,8 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link MoreAsyncUtil}.
  */
 public class MoreAsyncUtilTest {
-
-    static final Executor EXECUTOR = ForkJoinPool.commonPool();
+    static final Executor EXECUTOR = TestExecutors.defaultThreadPool();
 
     int count;
 

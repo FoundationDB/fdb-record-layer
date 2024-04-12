@@ -21,18 +21,23 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface PredicateWithValue extends LeafQueryPredicate {
-    @Nonnull
-    Value getValue();
+public interface PredicateWithValue extends LeafQueryPredicate, WithValue<PredicateWithValue> {
 
+    /**
+     * Replaces the predicate {@code Value} and any {@code Value}(s) in the {@code Comparison}.
+     * @param translator The value translator.
+     * @return potentially a new instance of {@code PredicateWithValue} with translated {@code Value}(s).
+     */
     @Nonnull
-    PredicateWithValue withValue(@Nonnull Value value);
+    PredicateWithValue translateValues(@Nonnull UnaryOperator<Value> translator);
 }

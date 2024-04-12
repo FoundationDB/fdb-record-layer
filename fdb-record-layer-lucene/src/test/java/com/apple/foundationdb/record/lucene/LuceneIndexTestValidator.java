@@ -137,12 +137,12 @@ public class LuceneIndexTestValidator {
                     .collect(Collectors.toList());
             List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
             partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
+            final String allCounts = partitionInfos.stream()
+                    .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
+                    .collect(Collectors.joining(",", "[", "]"));
             Set<Integer> usedPartitionIds = new HashSet<>();
             Tuple lastToTuple = null;
             int visitedCount = 0;
-            String allCounts = partitionInfos.stream()
-                    .map(info -> String.valueOf(info.getCount()))
-                    .collect(Collectors.joining(",", "[", "]"));
 
             try (FDBRecordContext context = contextProvider.get()) {
                 final FDBRecordStore recordStore = schemaSetup.apply(context);
@@ -206,7 +206,7 @@ public class LuceneIndexTestValidator {
         assertEquals(Map.of(), missingDocuments, "We should have found all documents in the index");
     }
 
-    private List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
+    List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
                                                                                 Tuple groupingKey) {
         try (FDBRecordContext context = contextProvider.get()) {
             final FDBRecordStore recordStore = schemaSetup.apply(context);

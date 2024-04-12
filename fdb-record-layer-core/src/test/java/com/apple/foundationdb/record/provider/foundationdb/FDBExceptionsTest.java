@@ -24,18 +24,25 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreInterruptedException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.util.LoggableKeysAndValues;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -59,7 +66,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBExceptions}.
  */
 @Tag(Tags.RequiresFDB)
+@Execution(ExecutionMode.CONCURRENT)
 class FDBExceptionsTest {
+    // Several tests in this class modify the static CompletionExceptionLogHelper. Those tests must be run in serial, so
+    // they use the @ResourceLock feature with this named lock to avoid stepping on each other
+    @Nonnull
+    public static final String COMPLETION_EXCEPTION_HELPER_LOCK = "CompletionExceptionLogHelper";
+
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     private static final String EXCEPTION_CAUSE_MESSAGE = "the failure cause";
     private static final String PARENT_EXCEPTION_MESSAGE = "something failed asynchronously";
 
@@ -72,21 +87,15 @@ class FDBExceptionsTest {
 
     @Test
     void loggableTimeoutException() {
-        CompletableFuture<Void> delayed = new CompletableFuture<Void>();
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        FDBDatabase database = factory.getDatabase();
+        CompletableFuture<Void> delayed = new CompletableFuture<>();
+        FDBDatabase database = dbExtension.getDatabase();
         database.setAsyncToSyncTimeout(1, TimeUnit.MILLISECONDS);
-        try {
-            database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed);
-        } catch (Exception ex) {
-            assertTrue(ex instanceof LoggableKeysAndValues);
-            assertTrue(((LoggableKeysAndValues)ex).getLogInfo().containsKey(LogMessageKeys.TIME_LIMIT.toString()));
-            Assertions.assertEquals((long)((LoggableKeysAndValues)ex).getLogInfo().get((Object)LogMessageKeys.TIME_LIMIT.toString()), 1L);
-            assertTrue(((LoggableKeysAndValues)ex).getLogInfo().containsKey(LogMessageKeys.TIME_UNIT.toString()));
-            Assertions.assertEquals(((LoggableKeysAndValues)ex).getLogInfo().get((Object)LogMessageKeys.TIME_UNIT.toString()), TimeUnit.MILLISECONDS);
-        } finally {
-            factory.clear();
-        }
+        LoggableException ex = assertThrows(LoggableException.class, () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed));
+        Map<String, Object> logInfo = ex.getLogInfo();
+        assertTrue(logInfo.containsKey(LogMessageKeys.TIME_LIMIT.toString()));
+        Assertions.assertEquals((long)(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), 1L);
+        assertTrue(logInfo.containsKey(LogMessageKeys.TIME_UNIT.toString()));
+        Assertions.assertEquals(logInfo.get(LogMessageKeys.TIME_UNIT.toString()), TimeUnit.MILLISECONDS);
     }
 
     @Test
@@ -130,6 +139,7 @@ class FDBExceptionsTest {
         ));
     }
 
+    @ResourceLock(value = COMPLETION_EXCEPTION_HELPER_LOCK, mode = ResourceAccessMode.READ_WRITE)
     @Test
     void tooManySuppressedExceptions() {
         try {
@@ -168,6 +178,7 @@ class FDBExceptionsTest {
         }
     }
 
+    @ResourceLock(value = COMPLETION_EXCEPTION_HELPER_LOCK, mode = ResourceAccessMode.READ_WRITE)
     @Test
     void countSuppressedExceptions() {
         try {
@@ -188,6 +199,7 @@ class FDBExceptionsTest {
         }
     }
 
+    @ResourceLock(value = COMPLETION_EXCEPTION_HELPER_LOCK, mode = ResourceAccessMode.READ_WRITE)
     @Test
     void negativeSuppressedExceptionLimit() {
         try {
@@ -215,16 +227,5 @@ class FDBExceptionsTest {
     @Nonnull
     private InterruptedException createInterruptedException() {
         return new InterruptedException(EXCEPTION_CAUSE_MESSAGE);
-    }
-
-    private static class CountingCompletionException extends CompletionException {
-        private static final long serialVersionUID = 1L;
-
-        private final int count;
-
-        public CountingCompletionException(int count, @Nonnull Throwable cause) {
-            super("count: " + count, cause);
-            this.count = count;
-        }
     }
 }

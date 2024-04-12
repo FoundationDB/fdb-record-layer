@@ -36,9 +36,9 @@ import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsImplicitUsageNoUnionProto;
 import com.apple.foundationdb.record.TestRecordsImplicitUsageProto;
-import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsImportProto;
 import com.apple.foundationdb.record.TestRecordsImportedAndNewProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
@@ -54,6 +54,10 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataProtoTest;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -64,6 +68,7 @@ import com.google.protobuf.ExtensionRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -96,24 +101,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBMetaDataStore}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBMetaDataStoreTest extends FDBTestBase {
+public class FDBMetaDataStoreTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
+
     FDBDatabase fdb;
+    KeySpacePath path;
     FDBMetaDataStore metaDataStore;
 
-    public void openMetaDataStore(FDBRecordContext context) {
-        metaDataStore = new FDBMetaDataStore(context, TestKeySpace.getKeyspacePath("record-test", "unit", "metadataStore"));
-        metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
-                RecordMetaDataOptionsProto.getDescriptor()
-        });
+    @BeforeEach
+    void setUp() {
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.META_DATA_STORE);
     }
 
-    @BeforeEach
-    public void setup() {
-        fdb = FDBDatabaseFactory.instance().getDatabase();
-        fdb.run(context -> {
-            openMetaDataStore(context);
-            context.ensureActive().clear(metaDataStore.getSubspace().range());
-            return null;
+    public void openMetaDataStore(FDBRecordContext context) {
+        metaDataStore = new FDBMetaDataStore(context, path);
+        metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
+                RecordMetaDataOptionsProto.getDescriptor()
         });
     }
 
@@ -457,7 +464,7 @@ public class FDBMetaDataStoreTest extends FDBTestBase {
 
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            metaDataStore.addUniversalIndex(FDBRecordStoreTestBase.COUNT_INDEX);
+            metaDataStore.addUniversalIndex(FDBRecordStoreTestBase.globalCountIndex());
             metaDataStore.addMultiTypeIndex(Arrays.asList("MultiRecordOne", "MultiRecordTwo", "MultiRecordThree"),
                     new Index("all$elements", Key.Expressions.field("element", KeyExpression.FanType.Concatenate),
                             Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));

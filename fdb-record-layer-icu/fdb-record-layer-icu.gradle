@@ -29,6 +29,7 @@ dependencies {
     compileOnly "com.google.auto.service:auto-service:undefined"
     annotationProcessor "com.google.auto.service:auto-service:undefined"
 
+    testImplementation project(path: ':fdb-extensions', configuration: 'tests')
     testImplementation project(path: coreProject, configuration: 'tests')
     testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"

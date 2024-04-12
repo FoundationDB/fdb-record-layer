@@ -255,7 +255,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     @Nonnull
     @Override
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap aliasMap,
+                                          @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
 
@@ -264,17 +264,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return ImmutableList.of();
         }
 
-        final var otherGroupByExpression = (GroupByExpression)candidateExpression;
+        final var candidateGroupByExpression = (GroupByExpression)candidateExpression;
 
         // the grouping values are encoded directly in the underlying SELECT-WHERE, reaching this point means that the
         // grouping values had exact match, so we don't need to check them.
 
-
         // check that aggregate value is the same.
-        final var otherAggregateValue = otherGroupByExpression.getAggregateValue();
-        if (aggregateValue.subsumedBy(otherAggregateValue, aliasMap)) {
-            // placeholder for information needed for later compensation.
-            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), Optional.empty())
+        final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
+        if (aggregateValue.subsumedBy(otherAggregateValue, bindingAliasMap)) {
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(), Optional.empty(), Optional.empty())
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }

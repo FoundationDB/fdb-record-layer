@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -34,7 +36,6 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomUtils;
-import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -47,10 +48,14 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for AgilityContext.
@@ -252,7 +257,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 }
             }
             context.commit();
-            MatcherAssert.assertThat(timer.getCount(limitType.timerEvent), Matchers.greaterThan(0));
+            assertThat(timer.getCount(limitType.timerEvent), Matchers.greaterThan(0));
         }
         try (FDBRecordContext context = openContext(insertProps)) {
             final Subspace subspace = path.toSubspace(context);
@@ -321,7 +326,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                                             throw new FailException();
                                         })).join()
                         );
-                        MatcherAssert.assertThat(completionException.getCause(), Matchers.instanceOf(FailException.class));
+                        assertThat(completionException.getCause(), Matchers.instanceOf(FailException.class));
                         break;
                     case Accept:
                         Assertions.assertThrows(FailException.class, () ->
@@ -337,13 +342,13 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     napTime(2); // enforce minimal processing time
                 }
             }
-            MatcherAssert.assertThat(timer.getCount(limitType.timerEvent), Matchers.equalTo(0));
+            assertThat(timer.getCount(limitType.timerEvent), Matchers.equalTo(0));
 
             // we shouldn't have committed anything yet, since everything fails
             try (FDBRecordContext validationContext = openContext(insertProps)) {
                 for (int i = 0; i < loopCount; i++) {
                     byte[] key = subspace.pack(Tuple.from(2023, i));
-                    Assertions.assertNull(validationContext.ensureActive().get(key).join());
+                    assertNull(validationContext.ensureActive().get(key).join());
                 }
             }
             agilityContext.flushAndClose();
@@ -458,6 +463,35 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 }
             }
         });
+    }
+
+    @Test
+    void testCloseOnCommitFailure() {
+        final byte[] key;
+        try (FDBRecordContext context = openContext()) {
+            key = this.path.toSubspace(context).pack(Tuple.from(prefix, "a").pack());
+            context.ensureActive().set(key, Tuple.from(1).pack());
+            context.commit();
+        }
+        try (FDBRecordContext callerContext = openContext()) {
+            final AgilityContext agile = AgilityContext.agile(callerContext, TimeUnit.MINUTES.toMillis(5),
+                    1_000_000);
+            assertEquals(Tuple.from(1), Tuple.fromBytes(agile.get(key).join()));
+            agile.set(key, Tuple.from(2).pack());
+            try (FDBRecordContext context = openContext()) {
+                assertEquals(Tuple.from(1), Tuple.fromBytes(context.ensureActive().get(key).join()));
+                context.ensureActive().set(key, Tuple.from(3).pack());
+                context.commit();
+            }
+            assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, agile::flush);
+            final RecordCoreStorageException exception = assertThrows(RecordCoreStorageException.class,
+                    () -> agile.set(key, Tuple.from(5).pack()));
+            assertThat(exception.getMessage(), Matchers.containsString("already closed"));
+
+            try (FDBRecordContext context = openContext()) {
+                assertEquals(Tuple.from(3), Tuple.fromBytes(context.ensureActive().get(key).join()));
+            }
+        }
     }
 
     @SuppressWarnings("serial")

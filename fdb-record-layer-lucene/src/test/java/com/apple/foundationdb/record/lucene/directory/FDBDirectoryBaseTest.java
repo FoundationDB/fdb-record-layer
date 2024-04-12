@@ -22,15 +22,19 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
-import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.Random;
 
@@ -39,27 +43,31 @@ import java.util.Random;
  *
  */
 public abstract class FDBDirectoryBaseTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
     protected FDBDatabase fdb;
+    protected KeySpacePath path;
     protected Subspace subspace;
     protected FDBDirectory directory;
     protected Random random = new Random();
+    private FDBRecordContext context;
 
     protected FDBStoreTimer timer = new FDBStoreTimer();
 
     @BeforeEach
     public void setUp() {
-        if (fdb == null) {
-            fdb = FDBDatabaseFactory.instance().getDatabase();
-        }
-        if (subspace == null) {
-            subspace = fdb.run(context -> TestKeySpace.getKeyspacePath("record-test", "unit", "indexTest", "version").toSubspace(context));
-        }
-        fdb.run(context -> {
-            context.ensureActive().clear(subspace.range());
-            return null;
-        });
-        FDBRecordContext context = fdb.openContext(getContextConfig());
+        fdb = dbExtension.getDatabase();
+        path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        context = fdb.openContext(getContextConfig());
+        subspace = fdb.run(path::toSubspace);
         directory = new FDBDirectory(subspace, context, null);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        context.close();
     }
 
     private FDBRecordContextConfig getContextConfig() {

@@ -19,9 +19,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Log total records scanned and time during index build  [(Issue #2629)](https://github.com/FoundationDB/fdb-record-layer/issues/2629)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Typobug: LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS has duplicated property key [(Issue #2632)](https://github.com/FoundationDB/fdb-record-layer/issues/2632)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,27 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.489.0
+
+* **Bug fix** Equality index scan can match additional suffix starting with zero byte [(Issue #2650)](https://github.com/FoundationDB/fdb-record-layer/issues/2650)
+* **Performance** Lucene: cleanup logs and lock release path [(Issue #2648)](https://github.com/FoundationDB/fdb-record-layer/issues/2648)
+
+### 3.4.485.0
+
+* **Bug fix** Improve logging for Lucene file locks [(Issue #2645)](https://github.com/FoundationDB/fdb-record-layer/issues/2645)
+* **Bug fix** Review Lucene's use of executors [(Issue #2638)](https://github.com/FoundationDB/fdb-record-layer/issues/2638)
+
+### 3.4.484.0
+
+* **Bug fix** AgilityContext: Prevent operations after failed commit [(Issue #2642)](https://github.com/FoundationDB/fdb-record-layer/issues/2642)
+* **Bug fix** LucenePartitioner.getNextNewerPartitionInfo() sometimes returns invalid (null) result [(Issue #2640)](https://github.com/FoundationDB/fdb-record-layer/issues/2640)
+
+### 3.4.483.0
+
+* **Bug fix** Log total records scanned and time during index build  [(Issue #2629)](https://github.com/FoundationDB/fdb-record-layer/issues/2629)
+* **Bug fix** AgilityContext: prevent other threads writes after abort [(Issue #2634)](https://github.com/FoundationDB/fdb-record-layer/issues/2634)
+* **Bug fix** Typobug: LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS has duplicated property key [(Issue #2632)](https://github.com/FoundationDB/fdb-record-layer/issues/2632)
 
 ### 3.4.482.0
 

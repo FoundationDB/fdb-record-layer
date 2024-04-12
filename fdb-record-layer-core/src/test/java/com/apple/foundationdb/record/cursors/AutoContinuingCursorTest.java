@@ -26,14 +26,14 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -52,12 +52,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Test for {@link AutoContinuingCursor}.
  */
 @Tag(Tags.RequiresFDB)
-public class AutoContinuingCursorTest extends FDBTestBase {
+public class AutoContinuingCursorTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     private FDBDatabase database;
 
     @BeforeEach
     public void getDatabase() {
-        database = FDBDatabaseFactory.instance().getDatabase();
+        database = dbExtension.getDatabase();
     }
 
     private static final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);

@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb.runners;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.FDBDatabaseExtension;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -36,7 +38,10 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.MDC;
 
@@ -72,7 +77,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
-class TransactionalRunnerTest extends FDBTestBase {
+@Execution(ExecutionMode.CONCURRENT)
+class TransactionalRunnerTest {
+    @RegisterExtension
+    final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
+    @RegisterExtension
+    final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private FDBDatabase database;
     private byte[] key;
@@ -80,10 +90,10 @@ class TransactionalRunnerTest extends FDBTestBase {
 
     @BeforeEach
     public void setUp() {
-        database = FDBDatabaseFactory.instance().getDatabase();
+        database = dbExtension.getDatabase();
         final Random random = new Random();
-        key = randomBytes(100, random);
-        key[0] = 0x10; // to make sure it doesn't end up in unwritable space
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        key = database.run(path::toSubspace).pack(Tuple.from("key"));
         value = randomBytes(200, random);
     }
 

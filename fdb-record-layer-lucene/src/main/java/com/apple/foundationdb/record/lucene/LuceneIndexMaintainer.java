@@ -378,7 +378,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return CompletableFuture.completedFuture(null);
         }
         final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REBALANCE);
+        mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.REPARTITION);
         int documentCount = mergeControl.getRepartitionDocumentCount();
         if (documentCount < 0) {
             // Skip re-balance
@@ -503,14 +503,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         LOG.trace("scanUniquenessViolations");
-        return RecordCursor.empty();
+        return RecordCursor.empty(executor);
     }
 
     @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
         LOG.trace("validateEntries");
-        return RecordCursor.empty();
+        return RecordCursor.empty(executor);
     }
 
     @Override

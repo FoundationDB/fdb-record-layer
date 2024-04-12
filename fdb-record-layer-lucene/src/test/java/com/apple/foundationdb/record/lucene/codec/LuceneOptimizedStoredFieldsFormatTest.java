@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.compressing.CompressingCodec;
@@ -29,7 +27,6 @@ import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.BaseStoredFieldsFormatTestCase;
 import org.apache.lucene.util.TestRuleLimitSysouts;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 
 import java.io.IOException;
@@ -52,18 +49,7 @@ import java.util.Random;
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
 public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsFormatTestCase {
-
     public LuceneOptimizedStoredFieldsFormatTest() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.getDatabase();
-    }
-
-    @BeforeClass
-    public static void beforeClass() throws Exception {
-        // We have to manually copy these from FDBTestBase because we are a junit4 test class, thanks to Lucene,
-        // but that class is JUnit4
-        FDBTestBase.initFDB();
-        FDBTestBase.setupBlockingInAsyncDetection();
     }
 
     @Override
@@ -85,6 +71,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
         super.setUp();
         TestingCodec.reset();
         TestFDBDirectory.reset();
+        BaseIndexFileFormatTestCaseUtils.resetStaticConfigs();
     }
 
     @Override
@@ -92,6 +79,7 @@ public class LuceneOptimizedStoredFieldsFormatTest extends BaseStoredFieldsForma
         super.tearDown();
         TestingCodec.reset();
         TestFDBDirectory.reset();
+        BaseIndexFileFormatTestCaseUtils.resetStaticConfigs();
     }
 
     @Override

@@ -47,16 +47,16 @@ public class TupleRangeTest {
         final Tuple b = Tuple.from("b");
         List<Pair<TupleRange, Range>> testCases = Arrays.asList(
                 Pair.of(TupleRange.allOf(null), new Range(new byte[0], new byte[]{(byte)0xff})),
-                Pair.of(TupleRange.allOf(PREFIX_TUPLE), Range.startsWith(PREFIX_BYTES)),
+                Pair.of(TupleRange.allOf(PREFIX_TUPLE), new Range(PREFIX_BYTES, ByteArrayUtil.join(PREFIX_BYTES, new byte[] { (byte)0xff }))),
 
                 Pair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                         new Range(a.pack(), b.pack())),
                 Pair.of(new TupleRange(a, b, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE),
-                        new Range(a.pack(), ByteArrayUtil.strinc(b.pack()))),
+                        new Range(a.pack(), ByteArrayUtil.join(b.pack(), new byte[] { (byte)0xff }))),
                 Pair.of(new TupleRange(a, b, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_EXCLUSIVE),
                         new Range(ByteArrayUtil.strinc(a.pack()), b.pack())),
                 Pair.of(new TupleRange(a, b, EndpointType.RANGE_EXCLUSIVE, EndpointType.RANGE_INCLUSIVE),
-                        new Range(ByteArrayUtil.strinc(a.pack()), ByteArrayUtil.strinc(b.pack()))),
+                        new Range(ByteArrayUtil.strinc(a.pack()), ByteArrayUtil.join(b.pack(), new byte[] { (byte)0xff }))),
                 Pair.of(new TupleRange(null, b, EndpointType.TREE_START, EndpointType.RANGE_EXCLUSIVE),
                         new Range(new byte[0], b.pack())),
                 Pair.of(new TupleRange(a, null, EndpointType.RANGE_INCLUSIVE, EndpointType.TREE_END),

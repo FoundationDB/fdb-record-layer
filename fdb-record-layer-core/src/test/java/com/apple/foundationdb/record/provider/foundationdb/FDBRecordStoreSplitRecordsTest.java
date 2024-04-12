@@ -208,7 +208,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             // Add an index so that we have to check the record count. (This automatic upgrade happens only
             // if we are already reading the record count anyway, which is why it happens here.)
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
-                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
+                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
             assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
@@ -233,7 +233,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             // it correctly switches to the new one.
             // Use same meta-data as last test
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
-                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.COUNT_INDEX.getRootExpression(), IndexTypes.COUNT))
+                    metaDataBuilder.addUniversalIndex(new Index("global$newCount", globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
             assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
