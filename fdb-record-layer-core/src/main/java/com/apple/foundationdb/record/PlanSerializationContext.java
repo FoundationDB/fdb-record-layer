@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
+import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -43,6 +44,9 @@ import java.util.Objects;
 @API(API.Status.INTERNAL)
 public class PlanSerializationContext {
     @Nonnull
+    private static final RecordTypeWithNameEquivalence recordTypeWithNameEquivalence = new RecordTypeWithNameEquivalence();
+
+    @Nonnull
     private final PlanSerializationRegistry registry;
     @Nonnull
     private final PlanHashMode mode;
@@ -51,7 +55,7 @@ public class PlanSerializationContext {
     private final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap;
 
     @Nonnull
-    private final BiMap<Type.Record, Integer> knownRecordTypesMap;
+    private final BiMap<Equivalence.Wrapper<Type.Record>, Integer> knownRecordTypesMap;
 
     public PlanSerializationContext(@Nonnull final PlanSerializationRegistry registry,
                                     @Nonnull final PlanHashMode mode) {
@@ -61,7 +65,7 @@ public class PlanSerializationContext {
     public PlanSerializationContext(@Nonnull final PlanSerializationRegistry registry,
                                     @Nonnull final PlanHashMode mode,
                                     @Nonnull final IdentityBiMap<RecordQueryPlan, Integer> knownPlansMap,
-                                    @Nonnull final BiMap<Type.Record, Integer> knownRecordTypesMap) {
+                                    @Nonnull final BiMap<Equivalence.Wrapper<Type.Record>, Integer> knownRecordTypesMap) {
         this.registry = registry;
         this.mode = mode;
         this.knownPlansMap = knownPlansMap;
@@ -131,18 +135,37 @@ public class PlanSerializationContext {
         //
         // First time the type is being visited, set the reference and the message.
         //
-        knownRecordTypesMap.put(recordType, referenceId);
+        knownRecordTypesMap.put(recordTypeWithNameEquivalence.wrap(recordType), referenceId);
         return referenceId;
     }
 
     @Nullable
     public Integer lookupReferenceIdForRecordType(@Nonnull final Type.Record type) {
-        return knownRecordTypesMap.get(type);
+        return knownRecordTypesMap.get(recordTypeWithNameEquivalence.wrap(type));
     }
 
     @Nullable
     public Type.Record lookupRecordTypeForReferenceId(final int referenceId) {
-        final BiMap<Integer, Type.Record> inverse = knownRecordTypesMap.inverse();
-        return inverse.get(referenceId);
+        final BiMap<Integer, Equivalence.Wrapper<Type.Record>> inverse = knownRecordTypesMap.inverse();
+        final Equivalence.Wrapper<Type.Record> wrapper = inverse.get(referenceId);
+        return wrapper == null ? null : wrapper.get();
+    }
+
+    /**
+     * Equivalence that is established on record types including their names and structure.
+     */
+    private static class RecordTypeWithNameEquivalence extends Equivalence<Type.Record> {
+        @Override
+        protected boolean doEquivalent(@Nonnull final Type.Record a, @Nonnull final Type.Record b) {
+            if (!a.equals(b)) {
+                return false;
+            }
+            return Objects.equals(a.getName(), b.getName());
+        }
+
+        @Override
+        protected int doHash(@Nonnull final Type.Record record) {
+            return Objects.hash(record.getName(), record.hashCode());
+        }
     }
 }
