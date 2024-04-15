@@ -70,9 +70,20 @@ public class Bindings {
             return value + suffix;
         }
 
-        public String identifier(@Nonnull String bindingName) {
-            Verify.verify(bindingName.startsWith(value));
-            return bindingName.substring(value.length());
+        public String identifier(@Nonnull final String bindingName) {
+            Internal internalType = resolveType(bindingName);
+            Verify.verify(internalType != null);
+            return bindingName.substring(internalType.value.length());
+        }
+
+        @Nullable
+        private static Internal resolveType(@Nonnull String name) {
+            for (Internal internal: Internal.values()) {
+                if (name.startsWith(internal.value)) {
+                    return internal;
+                }
+            }
+            return null;
         }
 
         @Nonnull
