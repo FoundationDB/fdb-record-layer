@@ -75,6 +75,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Comparator;
@@ -382,10 +383,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final Map<Tuple, Map<Tuple, Tuple>> ids = new HashMap<>();
         generateDocuments(isGrouped, isSynthetic, minDocumentCount, random, contextProps, schemaSetup, transactionCount, ids, textGenerator, new AtomicInteger(), new AtomicInteger());
 
-        final Function<StoreTimer.Wait, org.apache.commons.lang3.tuple.Pair<Long, TimeUnit>> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
+        final Function<StoreTimer.Wait, Duration> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
         AtomicInteger waitCounts = new AtomicInteger();
         try {
-            final Function<StoreTimer.Wait, org.apache.commons.lang3.tuple.Pair<Long, TimeUnit>> asyncToSyncTimeout = (wait) -> {
+            final Function<StoreTimer.Wait, Duration> asyncToSyncTimeout = (wait) -> {
                 if (wait.getClass().equals(LuceneEvents.Waits.class) &&
                         // don't have the timeout on FILE_LOCK_CLEAR because that will leave the file lock around,
                         // and the next iteration will fail on that.
@@ -395,9 +396,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET &&
                         waitCounts.getAndDecrement() == 0) {
 
-                    return org.apache.commons.lang3.tuple.Pair.of(1L, TimeUnit.NANOSECONDS);
+                    return Duration.ofNanos(1L);
                 } else {
-                    return oldAsyncToSyncTimeout == null ? org.apache.commons.lang3.tuple.Pair.of(1L, TimeUnit.DAYS) : oldAsyncToSyncTimeout.apply(wait);
+                    return oldAsyncToSyncTimeout == null ? Duration.ofDays(1L) : oldAsyncToSyncTimeout.apply(wait);
                 }
             };
             for (int i = 0; i < 100; i++) {
