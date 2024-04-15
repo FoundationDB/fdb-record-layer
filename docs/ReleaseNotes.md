@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.490.0
+
+
 ### 3.4.489.0
 
 * **Bug fix** Equality index scan can match additional suffix starting with zero byte [(Issue #2650)](https://github.com/FoundationDB/fdb-record-layer/issues/2650)
