@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistryImpl;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Sets;
@@ -32,7 +33,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -170,7 +170,7 @@ public class MetaDataEvolutionValidator {
             return;
         }
         final BiMap<Descriptor, Descriptor> updatedDescriptors = HashBiMap.create(oldUnionDescriptor.getFields().size());
-        final Set<Pair<Descriptor, Descriptor>> seenDescriptors = new HashSet<>();
+        final Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors = new HashSet<>();
 
         for (FieldDescriptor oldUnionField : oldUnionDescriptor.getFields()) {
             if (!oldUnionField.getType().equals(FieldDescriptor.Type.MESSAGE)) {
@@ -216,12 +216,12 @@ public class MetaDataEvolutionValidator {
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private void validateMessage(@Nonnull Descriptor oldDescriptor, @Nonnull Descriptor newDescriptor,
-                                 @Nonnull Set<Pair<Descriptor, Descriptor>> seenDescriptors) {
+                                 @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
         if (oldDescriptor == newDescriptor) {
             // Don't bother validating message types that are the same.
             return;
         }
-        if (!seenDescriptors.add(Pair.of(oldDescriptor, newDescriptor))) {
+        if (!seenDescriptors.add(NonnullPair.of(oldDescriptor, newDescriptor))) {
             // Note that because messages can contain fields that are of the same type as the containing
             // message, if this check to make sure the pair hadn't already been validated weren't present,
             // this might recurse infinitely on some inputs.
@@ -261,7 +261,7 @@ public class MetaDataEvolutionValidator {
     }
 
     private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
-                               @Nonnull Set<Pair<Descriptor, Descriptor>> seenDescriptors) {
+                               @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
         if (!oldFieldDescriptor.getName().equals(newFieldDescriptor.getName())) {
             // TODO: Field renaming should be allowed with some caveats about if the field is indexed or not
             throw new MetaDataException("field renamed",

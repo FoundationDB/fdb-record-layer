@@ -68,6 +68,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
@@ -78,8 +79,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -649,10 +648,10 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            try (RecordCursorIterator<? extends Pair<Message, Long>> cursor =
+            try (RecordCursorIterator<Pair<Message, Long>> cursor =
                          recordStore.executeQuery(plan)
                                  .mapPipelined(record -> ranker.eval(recordStore, EvaluationContext.EMPTY, record.getStoredRecord())
-                                         .thenApply(rank -> new ImmutablePair<>(record.getRecord(), rank)), recordStore.getPipelineSize(PipelineOperation.RECORD_FUNCTION))
+                                         .thenApply(rank -> Pair.of(record.getRecord(), rank)), recordStore.getPipelineSize(PipelineOperation.RECORD_FUNCTION))
                                  .asIterator()) {
                 long rank = 0;
                 while (cursor.hasNext()) {

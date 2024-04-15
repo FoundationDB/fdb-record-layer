@@ -24,10 +24,10 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneIndexOptions;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.BaseIndexFileFormatTestCaseUtils;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.IndexFileNames;
@@ -60,8 +60,8 @@ public class TestFDBDirectory extends FDBDirectory {
     private static boolean fullBufferToSurviveDeletes;
     private static boolean allowAddIndexes;
 
-    private static final AtomicReference<Pair<String, FieldInfos>> previousFieldInfos = new AtomicReference<>();
-    private static final AtomicReference<Pair<String, Map<Long, byte[]>>> previousStoredFields = new AtomicReference<>();
+    private static final AtomicReference<NonnullPair<String, FieldInfos>> previousFieldInfos = new AtomicReference<>();
+    private static final AtomicReference<NonnullPair<String, Map<Long, byte[]>>> previousStoredFields = new AtomicReference<>();
     /**
      * Whether to block any calls to {@code addIndexes}. This is useful if we need tests are failing in a way that could
      * indicate that {@code addIndexes} is being called.
@@ -149,7 +149,7 @@ public class TestFDBDirectory extends FDBDirectory {
                     final FieldInfos fieldInfos = FIELD_INFOS_FORMAT.read(this, name);
                     // the test code calls `openInput` twice for the same file before trying to write it, but fieldInfos
                     // does not have a good `.equals()`, so we can't compare just the values
-                    final Pair<String, FieldInfos> previous = previousFieldInfos.getAndSet(Pair.of(name, fieldInfos));
+                    final NonnullPair<String, FieldInfos> previous = previousFieldInfos.getAndSet(NonnullPair.of(name, fieldInfos));
                     if (previous != null) {
                         Assert.assertEquals(previous.getLeft(), name);
                     }
@@ -165,7 +165,7 @@ public class TestFDBDirectory extends FDBDirectory {
                             keyValue -> storedFieldsSubspace.unpack(keyValue.getKey()).getLong(1),
                             keyValue -> keyValue.getValue()
                     ));
-                    final Pair<String, Map<Long, byte[]>> previous = previousStoredFields.getAndSet(Pair.of(name, storedFields));
+                    final NonnullPair<String, Map<Long, byte[]>> previous = previousStoredFields.getAndSet(NonnullPair.of(name, storedFields));
                     if (previous != null) {
                         Assert.assertEquals(previous.getLeft(), name);
                     }
@@ -189,7 +189,7 @@ public class TestFDBDirectory extends FDBDirectory {
                         @Override
                         public void close() throws IOException {
                             super.close();
-                            final Pair<String, FieldInfos> previous = previousFieldInfos.get();
+                            final NonnullPair<String, FieldInfos> previous = previousFieldInfos.get();
                             FIELD_INFOS_FORMAT.write(TestFDBDirectory.this, previous.getRight(), name);
 
                             previousFieldInfos.compareAndSet(previous, null);
@@ -199,7 +199,7 @@ public class TestFDBDirectory extends FDBDirectory {
 
                 if (name.endsWith("." + LuceneOptimizedCompoundFormat.DATA_EXTENSION) ||
                         name.endsWith("." + LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)) {
-                    final Pair<String, Map<Long, byte[]>> previous = previousStoredFields.get();
+                    final NonnullPair<String, Map<Long, byte[]>> previous = previousStoredFields.get();
                     final String segmentName = IndexFileNames.parseSegmentName(name);
                     for (final Map.Entry<Long, byte[]> storedFields : previous.getRight().entrySet()) {
                         writeStoredFields(segmentName, storedFields.getKey().intValue(), storedFields.getValue());

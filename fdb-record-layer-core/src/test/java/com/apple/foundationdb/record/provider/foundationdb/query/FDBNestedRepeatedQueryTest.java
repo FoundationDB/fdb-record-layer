@@ -57,9 +57,9 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexAggregate;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -77,6 +77,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.ComparablePair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -84,7 +87,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -671,11 +673,11 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             for (long otherId : otherIds) {
                 for (String key1 : keys) {
                     for (String key2 : keys) {
-                        final List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> expected = data.stream()
+                        final List<NonnullPair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> expected = data.stream()
                                 .filter(rec -> rec.getOtherId() == otherId)
                                 .flatMap(rec -> rec.getMap().getEntryList().stream()
                                         .filter(entry -> entry.getKey().equals(key1) || entry.getKey().equals(key2))
-                                        .map(entry -> Pair.of(rec, entry)))
+                                        .map(entry -> NonnullPair.of(rec, entry)))
                                 .sorted((p1, p2) -> {
                                     int comparison = p1.getRight().getValue().compareTo(p2.getRight().getValue());
                                     if (comparison != 0) {
@@ -759,10 +761,10 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                             .build();
                     final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
 
-                    final List<Pair<Long, String>> expected = data.stream()
+                    final List<ComparablePair<Long, String>> expected = data.stream()
                             .flatMap(outerRecord -> outerRecord.getMap().getEntryList().stream()
                                     .filter(entry -> entry.getKey().equals(key1) || entry.getKey().equals(key2))
-                                    .map(entry -> Pair.of(outerRecord.getRecId(), entry.getValue()))
+                                    .map(entry -> ComparablePair.of(outerRecord.getRecId(), entry.getValue()))
                             )
                             .sorted(reverse ? Comparator.reverseOrder() : Comparator.naturalOrder())
                             .collect(Collectors.toList());
