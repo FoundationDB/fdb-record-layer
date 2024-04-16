@@ -231,7 +231,7 @@ public abstract class GraphExporter<N, E> {
     /**
      * Get a unique string for a node which adheres to the current language.
      * @param node a node
-     * @return a unique identifier
+     * @return a unique typedIdentifier
      */
     @Nonnull
     protected String getVertexID(@Nonnull final N node) {
@@ -251,7 +251,7 @@ public abstract class GraphExporter<N, E> {
     /**
      * Get a unique string for a edge which adheres to the current language.
      * @param edge a edge
-     * @return a unique identifier
+     * @return a unique typedIdentifier
      */
     @Nonnull
     protected String getEdgeID(@Nonnull final E edge) {

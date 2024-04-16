@@ -275,7 +275,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * given by the {@link AliasMap} passed in.
      * @param other the other object to establish equality with
      * @param aliasMap a map of {@link CorrelationIdentifier}s {@code ids} to {@code ids'}. A correlation
-     *        identifier {@code id} used in {@code this} should be considered equal to another correlation identifier
+     *        typedIdentifier {@code id} used in {@code this} should be considered equal to another correlation typedIdentifier
      *        {@code id'} used in {@code other} if either they are the same by {@link Object#equals}
      *        of if there is a mapping from {@code id} to {@code id'}.
      * @return {@code true} if this is considered equal to {@code other}, false otherwise

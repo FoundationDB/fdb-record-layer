@@ -126,7 +126,7 @@ public class EvaluationContext {
     /**
      * Get the value bound to a single parameter.
      *
-     * @param alias the correlation identifier
+     * @param alias the correlation typedIdentifier
      * @return the value bound to the given parameter
      */
     public Object getBinding(@Nonnull CorrelationIdentifier alias) {
@@ -136,7 +136,7 @@ public class EvaluationContext {
     /**
      * Dereferences the constant.
      *
-     * @param alias the correlation identifier
+     * @param alias the correlation typedIdentifier
      * @param constantId the constant id
      * @return de-referenced constant
      */

@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * A correlation identifier is an immutable object that is created with a string uniquely identifying it.
+ * A correlation typedIdentifier is an immutable object that is created with a string uniquely identifying it.
  */
 @API(API.Status.EXPERIMENTAL)
 public class CorrelationIdentifier {
@@ -45,9 +45,9 @@ public class CorrelationIdentifier {
     private final String id;
 
     /**
-     * Create a new correlation identifier using the given string. It is the callers responsibility to only use
+     * Create a new correlation typedIdentifier using the given string. It is the callers responsibility to only use
      * unique string values in order to avoid clashes.
-     * @param id the identifier string
+     * @param id the typedIdentifier string
      * @return a new {@link CorrelationIdentifier}
      */
     @Nonnull
@@ -56,7 +56,7 @@ public class CorrelationIdentifier {
     }
 
     /**
-     * Create a new correlation identifier. The returned correlation identifier can be assumed
+     * Create a new correlation typedIdentifier. The returned correlation typedIdentifier can be assumed
      * to be unique.
      * @return a new unique {@link CorrelationIdentifier}
      */
@@ -66,9 +66,9 @@ public class CorrelationIdentifier {
     }
 
     /**
-     * Create a new correlation identifier. The returned correlation identifier can be assumed
+     * Create a new correlation typedIdentifier. The returned correlation typedIdentifier can be assumed
      * to be unique.
-     * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
+     * @param clazz to specify the kind of entity this typedIdentifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
      * @return a new unique {@link CorrelationIdentifier}
      */
@@ -78,11 +78,11 @@ public class CorrelationIdentifier {
     }
 
     /**
-     * Create a new correlation identifier. The returned correlation identifier can be assumed
+     * Create a new correlation typedIdentifier. The returned correlation typedIdentifier can be assumed
      * to be unique for the given class.
-     * @param clazz to specify the kind of entity this identifier is going to be used for. This is really only useful
+     * @param clazz to specify the kind of entity this typedIdentifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
-     * @param prefix a prefix for the returned identifier
+     * @param prefix a prefix for the returned typedIdentifier
      * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull
@@ -96,12 +96,12 @@ public class CorrelationIdentifier {
     }
 
     /**
-     * Create a new correlation identifier. The returned correlation identifier can be assumed to be unique and stable
+     * Create a new correlation typedIdentifier. The returned correlation typedIdentifier can be assumed to be unique and stable
      * for subsequent calls. The advantage of using this approach for singletons is that this method returns rather
-     * readable identifier names when a debugger is installed.
-     * @param singleton to specify the singleton this identifier is going to be used for. This is really only useful
+     * readable typedIdentifier names when a debugger is installed.
+     * @param singleton to specify the singleton this typedIdentifier is going to be used for. This is really only useful
      *        if a {@link Debugger} is set.
-     * @param prefix a prefix for the returned identifier
+     * @param prefix a prefix for the returned typedIdentifier
      * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull

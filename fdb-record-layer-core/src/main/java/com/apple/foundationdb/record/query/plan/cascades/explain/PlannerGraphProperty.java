@@ -85,8 +85,8 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
     private final int flags;
 
     /**
-     * Helper class to provide an incrementing integer identifier per use.
-     * @param <T> the class of the component the {@code apply} method generates an identifier for.
+     * Helper class to provide an incrementing integer typedIdentifier per use.
+     * @param <T> the class of the component the {@code apply} method generates an typedIdentifier for.
      */
     private static class CountingIdProvider<T> implements ComponentIdProvider<T> {
         int counter = 0;

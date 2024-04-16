@@ -331,7 +331,7 @@ public class FDBDatabase {
      *
      * <p>
      * If the logger context includes "uuid" as a key, the value associated with that key will be associated
-     * with the returned transaction as its debug identifier. See
+     * with the returned transaction as its debug typedIdentifier. See
      * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
      * </p>
      *
@@ -351,7 +351,7 @@ public class FDBDatabase {
      *
      * <p>
      * If the logger context includes "uuid" as a key, the value associated with that key will be associated
-     * with the returned transaction as its debug identifier. See
+     * with the returned transaction as its debug typedIdentifier. See
      * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
      * </p>
      *
@@ -373,7 +373,7 @@ public class FDBDatabase {
      *
      * <p>
      * If the logger context includes "uuid" as a key, the value associated with that key will be associated
-     * with the returned transaction as its debug identifier. See
+     * with the returned transaction as its debug typedIdentifier. See
      * {@link #openContext(Map, FDBStoreTimer, WeakReadSemantics, FDBTransactionPriority, String)} for more details.
      * </p>
      *

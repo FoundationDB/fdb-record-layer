@@ -113,7 +113,7 @@ public abstract class WindowedValue extends AbstractValue {
      * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
      * @param mode the plan hash kind to use
-     * @param baseHash the subclass' base hash (concrete identifier)
+     * @param baseHash the subclass' base hash (concrete typedIdentifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */

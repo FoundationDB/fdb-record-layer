@@ -70,7 +70,12 @@ public class Bindings {
             return value + suffix;
         }
 
-        public String identifier(@Nonnull final String bindingName) {
+        public String typedIdentifier(@Nonnull final String bindingName) {
+            Verify.verify(bindingName.startsWith(value));
+            return bindingName.substring(value.length());
+        }
+
+        public static String identifier(@Nonnull final String bindingName) {
             Internal internalType = resolveType(bindingName);
             Verify.verify(internalType != null);
             return bindingName.substring(internalType.value.length());

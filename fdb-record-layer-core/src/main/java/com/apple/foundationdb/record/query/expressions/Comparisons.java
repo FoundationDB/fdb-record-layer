@@ -1161,7 +1161,7 @@ public class Comparisons {
             if (!isCorrelation()) {
                 return false;
             }
-            return Bindings.Internal.CORRELATION.identifier(getParameter()).equals(alias.getId());
+            return Bindings.Internal.CORRELATION.typedIdentifier(getParameter()).equals(alias.getId());
         }
 
         @Nullable
@@ -1182,7 +1182,7 @@ public class Comparisons {
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             if (isCorrelation()) {
                 final var aliasMap = translationMap.getAliasMapMaybe().orElseThrow(() -> new RecordCoreException("must have aliasMap"));
-                final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
+                final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.typedIdentifier(parameter));
                 final var translatedAlias = aliasMap.getTargetOrDefault(alias, alias);
                 return new ParameterComparison(type,
                         Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
@@ -1269,7 +1269,7 @@ public class Comparisons {
             if (!isCorrelation()) {
                 throw new IllegalStateException("caller should check for type of binding before calling this method");
             }
-            return CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
+            return CorrelationIdentifier.of(Bindings.Internal.CORRELATION.typedIdentifier(parameter));
         }
 
         @Override
@@ -1278,7 +1278,7 @@ public class Comparisons {
         public boolean equals(Object o) {
             final AliasMap aliasMap;
             if (isCorrelation()) {
-                final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
+                final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.typedIdentifier(parameter));
                 aliasMap = AliasMap.identitiesFor(ImmutableSet.of(alias));
             } else {
                 aliasMap = AliasMap.emptyMap();

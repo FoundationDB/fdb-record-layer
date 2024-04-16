@@ -79,7 +79,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
      * WHERE [g1, g2, ...]
      * }
      *
-     * The notation {@code [identifier]} is used to represent an index parameter (or also called a placeholder)
+     * The notation {@code [typedIdentifier]} is used to represent an index parameter (or also called a placeholder)
      * which is used for matching.
      *
      * Note that the pseudo-SQL above can vary (and become significantly more complex) in the case where the grouping

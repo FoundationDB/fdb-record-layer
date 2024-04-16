@@ -22,7 +22,7 @@
  * A layer for mapping potentially long strings to and from more compact tuple elements.
  *
  * <p>
- * A string identifier that is part of a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} will be part of the key for every record and every index entry is a record store following that key space.
+ * A string typedIdentifier that is part of a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} will be part of the key for every record and every index entry is a record store following that key space.
  * Since FoundationDB does not do prefix compression, this can add up to a lot of space when the string is long enough to really express anything.
  * Space is saved by replacing the string in the key {@link com.apple.foundationdb.tuple.Tuple} with an integer gotten by interning it.
  * </p>

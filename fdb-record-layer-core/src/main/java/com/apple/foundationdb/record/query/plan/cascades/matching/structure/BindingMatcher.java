@@ -153,7 +153,7 @@ public interface BindingMatcher<T> {
      * Method that explain what this matcher does. By convention implementors use a somewhat Scala-esque syntax to
      * provide the explain string.
      * @param atLeastType the type that we know {@code boundId} is at least of
-     * @param boundId an identifier for the object being matched.
+     * @param boundId an typedIdentifier for the object being matched.
      * @param indentation the current indentation as a string of spaces
      * @return a string explaining the semantics of this matcher
      */

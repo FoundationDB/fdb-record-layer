@@ -90,8 +90,8 @@ public class StreamGrouping<M extends Message> {
      * @param groupingKeyValue the grouping key
      * @param aggregateValue the aggregate values that will accumulate the fields
      * @param completeResultValue the {@link Value} of the aggregate results
-     * @param groupingKeyAlias the identifier of {@code groupingKeyValue}
-     * @param aggregateAlias the identifier of {@code aggregateValue}
+     * @param groupingKeyAlias the typedIdentifier of {@code groupingKeyValue}
+     * @param aggregateAlias the typedIdentifier of {@code aggregateValue}
      * @param store record store from which to fetch records
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
