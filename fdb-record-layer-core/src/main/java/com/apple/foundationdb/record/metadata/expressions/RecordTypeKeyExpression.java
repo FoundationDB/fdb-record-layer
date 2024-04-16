@@ -39,11 +39,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * A key expression that indicates that a unique record type typedIdentifier should
+ * A key expression that indicates that a unique record type identifier should
  * be contained within the key. The unique value can be specified explicitly or generated automatically
  * from the corresponding field numbers in the union message descriptor.
  *
- * It is important that the unique identifiers are stable. A record type's typedIdentifier should never change.
+ * It is important that the unique identifiers are stable. A record type's identifier should never change.
  * If it is automatically generated, that means that fields should never be removed / reused in the union
  * message descriptor, but at most deprecated. In that way, the lowest numbered field for a given type
  * will always be the same.

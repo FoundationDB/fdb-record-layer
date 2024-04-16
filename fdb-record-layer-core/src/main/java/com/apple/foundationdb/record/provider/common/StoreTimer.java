@@ -198,7 +198,7 @@ public class StoreTimer {
     }
 
     /**
-     * An typedIdentifier for occurrences that need to be timed.
+     * An identifier for occurrences that need to be timed.
      */
     public interface Event {
         Map<String, Map<Event, String>> LOG_KEY_SUFFIX_CACHE = new ConcurrentHashMap<>();

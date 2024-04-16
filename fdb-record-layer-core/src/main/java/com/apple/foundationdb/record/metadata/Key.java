@@ -333,7 +333,7 @@ public class Key {
         }
 
         /**
-         * The record type key expression, which indicates that a unique record type typedIdentifier should
+         * The record type key expression, which indicates that a unique record type identifier should
          * be contained within the key.
          * @return the record type key expression
          * @see RecordTypeKeyExpression

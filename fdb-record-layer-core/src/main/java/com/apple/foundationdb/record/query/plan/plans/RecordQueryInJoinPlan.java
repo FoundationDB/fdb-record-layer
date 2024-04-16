@@ -216,7 +216,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
      * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
      * @param mode the plan hash mode to use
-     * @param baseHash the subclass' base hash (concrete typedIdentifier)
+     * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */

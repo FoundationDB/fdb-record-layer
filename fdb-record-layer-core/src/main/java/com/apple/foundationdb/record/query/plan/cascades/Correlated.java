@@ -35,13 +35,13 @@ import java.util.Set;
  * Since a correlated entity can have multiple correlations to similar quantifiers, a correlation is disambiguated by a
  * {@link CorrelationIdentifier}. Correlated entities are said to be correlated to a quantifier {@code q} if the identifiers
  * returned by {@link #getCorrelatedTo()} set contain
- * the correlation typedIdentifier that {@code q} uses.
+ * the correlation identifier that {@code q} uses.
  *
- * Distinguishing the correlation typedIdentifier from the identity of the quantifier object simplifies modifications of the
+ * Distinguishing the correlation identifier from the identity of the quantifier object simplifies modifications of the
  * graph, for example while applying transformations during query planning.
 
  * An correlated object can be <em>rebased</em> using {@link #rebase} and a map of translations from one
- * correlation typedIdentifier to another, resulting in a new object of type {@code S} that is
+ * correlation identifier to another, resulting in a new object of type {@code S} that is
  * identical to {@code this} except that all correlated references in the subtree rooted at this entity
  * (i.e., this object's relational children, predicates, etc.) are replaced with their corresponding identifiers
  * per the map.
@@ -50,7 +50,7 @@ import java.util.Set;
  *
  * As the planner DAG objects are immutable, a rebase operation can be expensive as objects have to be recreated
  * as needed. We follow the ideas of other persistent data structures as we do not require a copy to be made.
- * It is perfectly acceptable to return {@code this} if {@code this} is not correlated to any typedIdentifier participating
+ * It is perfectly acceptable to return {@code this} if {@code this} is not correlated to any identifier participating
  * in the translation.
  *
  * This interface defines a {@link #semanticEquals} method that also takes an equivalence map, and determines equality up
@@ -154,7 +154,7 @@ public interface Correlated<S extends Correlated<S>> {
      *
      * @param other the other object to establish equality with
      * @param aliasMap a map of {@link CorrelationIdentifier}s {@code ids} to {@code ids'}. A correlation
-     *        typedIdentifier {@code id} used in {@code this} should be considered equal to another correlation typedIdentifier
+     *        identifier {@code id} used in {@code this} should be considered equal to another correlation identifier
      *        {@code id'} used in {@code other} if either they are the same by {@link Object#equals}
      *        of if there is a mapping from {@code id} to {@code id'}.
      * @return {@code true} if both entities are considered equal using the equivalences passed in, {@code false}

@@ -75,7 +75,7 @@ public class LuceneAnalyzerCombinationProvider {
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
         final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer(texts);
         if (customizedAnalyzerChooserPerField != null) {
-            // The order of keys matters because the typedIdentifier for each map needs to be consistent
+            // The order of keys matters because the identifier for each map needs to be consistent
             SortedMap<String, LuceneAnalyzerWrapper> analyzerWrapperMap = new TreeMap<>(customizedAnalyzerChooserPerField.entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer(texts))));
 

@@ -96,7 +96,7 @@ public class Commands {
      * Supports:
      * <ul>
      * <li>{@code break [list]} -- show all currently defined break points</li>
-     * <li>{@code break yield <typedIdentifier>} -- set a break point when the specified expression is yielded</li>
+     * <li>{@code break yield <identifier>} -- set a break point when the specified expression is yielded</li>
      * <li>{@code break remove <index>} -- remove the break point at the specified index</li>
      * <li>{@code break <rule> [<location>]} -- set a break point when the specified event happens</li>
      * </ul>
@@ -178,7 +178,7 @@ public class Commands {
                         if ("EXP".equals(word2)) {
                             final String word3 = words.get(3);
                             if (!plannerRepl.isValidEntityName(word3)) {
-                                plannerRepl.printlnError("invalid typedIdentifier");
+                                plannerRepl.printlnError("invalid identifier");
                                 return false;
                             }
                             plannerRepl.addBreakPoint(new PlannerRepl.OnYieldExpressionBreakPoint(word3.toLowerCase()));
@@ -201,7 +201,7 @@ public class Commands {
                             return false;
                         }
                     }
-                    plannerRepl.printlnError("usage: break yield [exp <typedIdentifier> | match <candidate>]");
+                    plannerRepl.printlnError("usage: break yield [exp <identifier> | match <candidate>]");
                     return false;
                 }
 
