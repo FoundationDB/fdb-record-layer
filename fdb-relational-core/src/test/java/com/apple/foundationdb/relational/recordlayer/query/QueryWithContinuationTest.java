@@ -119,6 +119,33 @@ public class QueryWithContinuationTest {
     }
 
     @Test
+    void preparedStatementWithExecuteContinuationWithOption() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            Continuation continuation;
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (var statement =
+                        connection.prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 OPTIONS(CONTINUATION CONTAINS COMPILED STATEMENT)")) {
+                    continuation = assertResult(statement, 10L, 11L);
+                    assertContinuation(continuation, false, false);
+                }
+            }
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                try (var statement =
+                        connection.prepareStatement("EXECUTE CONTINUATION ?continuation LIMIT 2 OPTIONS(CONTINUATION CONTAINS COMPILED STATEMENT)")) {
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 12L, 13L);
+                    assertContinuation(continuation, false, false);
+
+                    statement.setBytes("continuation", continuation.serialize());
+                    continuation = assertResult(statement, 14L);
+                    assertContinuation(continuation, false, true);
+                }
+            }
+        }
+    }
+
+    @Test
     void preparedStatementWithLimit() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);

@@ -518,7 +518,7 @@ public final class ParserUtils {
             Assert.thatUnchecked(recordType.isPresent(), ErrorCode.UNDEFINED_TABLE, "Unknown table %s", recordTypeName);
             Assert.thatUnchecked(allAvailableRecordTypeNames.contains(recordTypeName), ErrorCode.INTERNAL_ERROR,
                     () -> String.format("attempt to scan non existing record type %s from record store containing (%s)",
-                    recordTypeName, String.join(",", allAvailableRecordTypeNames)));
+                            recordTypeName, String.join(",", allAvailableRecordTypeNames)));
             // we explicitly do not add this quantifier to the scope, so it doesn't cause name resolution errors due to duplicate identifiers.
             return new LogicalTypeFilterExpression(recordTypeNameSet,
                     Quantifier.forEach(Reference.of(

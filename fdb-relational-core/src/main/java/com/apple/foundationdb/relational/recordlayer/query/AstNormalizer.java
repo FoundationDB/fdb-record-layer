@@ -288,6 +288,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             if (ctx.DRY() != null) {
                 queryOptions.withOption(Options.Name.DRY_RUN, true);
             }
+            if (ctx.CONTINUATION() != null) {
+                queryOptions.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+            }
             return null;
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
@@ -472,6 +475,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
         if (ctx.limitClause() != null) {
             ctx.limitClause().accept(this);
+        }
+        if (ctx.queryOptions() != null) {
+            ctx.queryOptions().accept(this);
         }
         return ctx.packageBytes.accept(this);
     }
