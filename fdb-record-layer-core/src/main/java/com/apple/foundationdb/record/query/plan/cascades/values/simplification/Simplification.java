@@ -34,11 +34,11 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateComputationRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

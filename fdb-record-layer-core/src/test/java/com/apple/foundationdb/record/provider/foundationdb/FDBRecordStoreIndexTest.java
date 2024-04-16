@@ -67,6 +67,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
@@ -863,8 +864,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(5, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("odd"), IsolationLevel.SNAPSHOT).join().getLong(0));
             assertEquals(ImmutableMap.of("even", 5L, "odd", 5L),
                     recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("count_by_str"), IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
-                            .map(i -> Pair.of(i.getKey().get(0), i.getValue().get(0)))
-                            .asList().join().stream().collect(Collectors.toMap(Pair::getLeft, Pair::getRight)));
+                            .map(i -> NonnullPair.of(i.getKey().get(0), i.getValue().get(0)))
+                            .asList().join().stream().collect(Collectors.toMap(NonnullPair::getLeft, NonnullPair::getRight)));
             commit(context);
         }
 
@@ -882,8 +883,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(5, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("odd"), IsolationLevel.SNAPSHOT).join().getLong(0));
             assertEquals(clearWhenZero ? ImmutableMap.of("odd", 5L) : ImmutableMap.of("even", 0L, "odd", 5L),
                     recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("count_by_str"), IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
-                            .map(i -> Pair.of(i.getKey().get(0), i.getValue().get(0)))
-                            .asList().join().stream().collect(Collectors.toMap(Pair::getLeft, Pair::getRight)));
+                            .map(i -> NonnullPair.of(i.getKey().get(0), i.getValue().get(0)))
+                            .asList().join().stream().collect(Collectors.toMap(NonnullPair::getLeft, NonnullPair::getRight)));
             commit(context);
         }
     }

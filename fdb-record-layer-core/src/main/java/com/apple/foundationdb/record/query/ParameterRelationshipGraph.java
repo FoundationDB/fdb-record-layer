@@ -29,15 +29,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 import com.google.common.graph.NetworkBuilder;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.expressions.BooleanComponent.groupedComparisons;
 import static com.apple.foundationdb.record.query.combinatorics.CrossProduct.crossProduct;
+import static com.apple.foundationdb.record.query.expressions.BooleanComponent.groupedComparisons;
 
 /**
  * A class to keep track of the relationships of parameters in a query given a {@link RecordQuery} and a set of
@@ -138,10 +137,9 @@ public class ParameterRelationshipGraph {
         if (filter != null) {
             groupedComparisons(filter)
                     .flatMap(entry -> StreamSupport.stream(crossProduct(ImmutableList.of(entry.getValue(), entry.getValue())).spliterator(), false))
-                    .map(list -> Pair.of(list.get(0), list.get(1)))
-                    .forEach(pair -> {
-                        final Comparisons.ComparisonWithParameter left = pair.getLeft();
-                        final Comparisons.ComparisonWithParameter right = pair.getRight();
+                    .forEach(list -> {
+                        final Comparisons.ComparisonWithParameter left = list.get(0);
+                        final Comparisons.ComparisonWithParameter right = list.get(1);
 
                         if (left.getParameter().equals(right.getParameter())) {
                             Relationship.addEdge(networkBuilder, RelationshipType.EQUALS, left.getParameter(), right.getParameter());

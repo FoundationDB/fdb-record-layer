@@ -24,10 +24,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.Directory;
 
 import java.io.IOException;

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.record.util.pair.Pair;
 
 import javax.annotation.Nonnull;
 

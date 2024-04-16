@@ -39,6 +39,8 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -48,7 +50,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -73,7 +74,7 @@ public class VariadicFunctionValue extends AbstractValue {
     private final List<Value> children;
 
     @Nonnull
-    private static final Supplier<Map<Pair<ComparisonFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
+    private static final Supplier<Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
             Suppliers.memoize(VariadicFunctionValue::computeOperatorMap);
 
     /**
@@ -178,7 +179,7 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Nonnull
-    private static Map<Pair<ComparisonFunction, TypeCode>, PhysicalOperator> getOperatorMap() {
+    private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
@@ -207,10 +208,10 @@ public class VariadicFunctionValue extends AbstractValue {
         return new VariadicFunctionValue(physicalOperator, promotedArgs.build());
     }
 
-    private static Map<Pair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
-        final ImmutableMap.Builder<Pair<ComparisonFunction, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
+        final ImmutableMap.Builder<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final PhysicalOperator operator : PhysicalOperator.values()) {
-            mapBuilder.put(Pair.of(operator.getComparisonFunction(), operator.getResultType()), operator);
+            mapBuilder.put(NonnullPair.of(operator.getComparisonFunction(), operator.getResultType()), operator);
         }
         return mapBuilder.build();
     }

@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,7 +48,7 @@ public class FDBDirectorySharedCache {
     private final AtomicReference<Map<String, FDBLuceneFileReference>> fileReferences;
 
     @Nonnull
-    private AtomicReference<ConcurrentMap<Long, AtomicInteger>> fieldInfosReferenceCount = new AtomicReference<>();
+    private final AtomicReference<ConcurrentMap<Long, AtomicInteger>> fieldInfosReferenceCount = new AtomicReference<>();
     @Nonnull
     private final Cache<Pair<Long, Integer>, byte[]> blocks;
 
