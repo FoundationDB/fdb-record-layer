@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTest
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.Type;
 import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -193,7 +194,6 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MANY_FIELDS_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
-import static com.apple.foundationdb.record.query.expressions.Comparisons.Type;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -1426,9 +1426,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
         final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
-        final String luceneSearch2 = isSynthetic ? "simple_text:mary" : "text:mary";
-        final String textFieldName = isSynthetic ? "simple_text" : "text";
-        final String partitionFieldName = isSynthetic ? "complex_timestamp" : "timestamp";
 
         try (FDBRecordContext context = openContext(contextProps)) {
             schemaSetup.accept(context);
@@ -1443,6 +1440,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             sortType,
                             15L,
                             luceneSearch);
+
                     LuceneComparisonQuery luceneComparisonQuery = partitioner.checkQueryForPartitionFieldPredicate(luceneScanQuery);
                     final LuceneComparisonQuery expectedLuceneComparisonQuery;
                     if (comparisonType == Type.NOT_EQUALS) {
@@ -1457,6 +1455,30 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     assertEquals(expectedLuceneComparisonQuery, luceneComparisonQuery);
                 }
             }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void partitionFieldPredicateNotDetectedTest(boolean isSynthetic) {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
+                .build();
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
+        final String luceneSearch2 = isSynthetic ? "simple_text:mary" : "text:mary";
+        final String textFieldName = isSynthetic ? "simple_text" : "text";
+        final String partitionFieldName = isSynthetic ? "complex_timestamp" : "timestamp";
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
 
             // test some "negative" use cases, asserting we won't mistakenly detect a partition field predicate and use
             // it to optimize the query
@@ -1478,76 +1500,28 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Map<QueryComponent, QueryPlanningExpectation> filterToOutcomeMap = Map.of(
                     // full disjunction
                     Query.or(groupPredicate, textSearchPredicate, partitionFieldPredicate), new QueryPlanningExpectation(
-                            // planning raises exception
-                            false,
-                            // planning produces non-lucene plan
-                            true,
-                            // synthetic planning raises exception
-                            true,
-                            // syntehtic planning produces non-lucene plan
-                            false,
-                            // partition field predicate detected and will be used to optimize search
-                            false),
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN),
                     // group AND (text search OR partition field predicate)
                     Query.and(groupPredicate, Query.or(textSearchPredicate, partitionFieldPredicate)), new QueryPlanningExpectation(
-                            // planning raises exception
-                            false,
-                            // planning produces non-lucene plan
-                            true,
-                            // synthetic planning raises exception
-                            false,
-                            // syntehtic planning produces non-lucene plan
-                            true,
-                            // partition field predicate detected and will be used to optimize search
-                            false),
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN),
                     // conjunction, and multiple partition group predicates
                     Query.and(groupPredicate, textSearchPredicate, partitionFieldPredicate, secondPartitionFieldPredicate), new QueryPlanningExpectation(
-                            // planning raises exception
-                            false,
-                            // planning produces non-lucene plan
-                            false,
-                            // synthetic planning raises exception
-                            false,
-                            // syntehtic planning produces non-lucene plan
-                            false,
-                            // partition field predicate detected and will be used to optimize search
-                            false),
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED,
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED),
                     // group AND (text search 1 OR (text search 2 AND partition field))
                     Query.and(groupPredicate, Query.or(textSearchPredicate, Query.and(secondTextSearchPredicate, partitionFieldPredicate))), new QueryPlanningExpectation(
-                            // planning raises exception
-                            false,
-                            // planning produces non-lucene plan
-                            true,
-                            // synthetic planning raises exception
-                            false,
-                            // syntehtic planning produces non-lucene plan
-                            true,
-                            // partition field predicate detected and will be used to optimize search
-                            false),
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN),
                     // no group predicate
                     Query.and(textSearchPredicate, partitionFieldPredicate), new QueryPlanningExpectation(
-                            // planning raises exception
-                            false,
-                            // planning produces non-lucene plan
-                            true,
-                            // synthetic planning raises exception
-                            true,
-                            // syntehtic planning produces non-lucene plan
-                            false,
-                            // partition field predicate detected and will be used to optimize search
-                            false),
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN),
                     // Lucene DSL query (both search and timestamp expressed in single, lucene-single, string)
-                    Query.and(groupPredicate,  luceneDslPredicate), new QueryPlanningExpectation(
-                            // planning raises exception
-                            false,
-                            // planning produces non-lucene plan
-                            false,
-                            // synthetic planning raises exception
-                            false,
-                            // syntehtic planning produces non-lucene plan
-                            false,
-                            // partition field predicate detected and will be used to optimize search
-                            false)
+                    Query.and(groupPredicate, luceneDslPredicate), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED,
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED)
             );
 
             for (Map.Entry<QueryComponent, QueryPlanningExpectation> entry : filterToOutcomeMap.entrySet()) {
@@ -1559,20 +1533,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .setFilter(filter)
                         .build();
 
-                if (isSynthetic && expectation.syntheticPlanningRaisesException || !isSynthetic && expectation.planningRaisesException) {
+                if (isSynthetic && expectation.forSynthetic == QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN ||
+                        !isSynthetic && expectation.forSimple == QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN) {
                     assertThrows(RecordCoreException.class, () -> planner.plan(recordQuery));
                 } else {
                     RecordQueryPlan plan = planner.plan(recordQuery);
-                    if (isSynthetic && expectation.syntheticPlanningProducesUnexpectedPlanType || !isSynthetic && expectation.planningProducesUnexpectedPlanType) {
+                    if (isSynthetic && expectation.forSynthetic == QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN ||
+                            !isSynthetic && expectation.forSimple == QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN) {
                         assertFalse(plan instanceof LuceneIndexQueryPlan);
                     } else {
-                        LuceneIndexQueryPlan luceneIndexQueryPlan = (LuceneIndexQueryPlan) plan;
+                        LuceneIndexQueryPlan luceneIndexQueryPlan = (LuceneIndexQueryPlan)plan;
                         LuceneScanParameters scanParameters = (LuceneScanParameters)luceneIndexQueryPlan.getScanParameters();
                         LuceneScanQuery luceneScanQuery = (LuceneScanQuery)scanParameters.bind(recordStore, index, EvaluationContext.forBinding("group_value", 1));
                         LuceneComparisonQuery detectedPredicate = partitioner.checkQueryForPartitionFieldPredicate(luceneScanQuery);
-                        if (!expectation.partitionFieldPredicateDetected) {
-                            assertNull(detectedPredicate);
-                        }
+                        assertEquals(detectedPredicate != null, expectation == QueryPlanningExpectation.SELECTED);
                     }
                 }
             }
@@ -1580,22 +1554,24 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     static class QueryPlanningExpectation {
-        boolean syntheticPlanningRaisesException;
-        boolean planningRaisesException;
-        boolean syntheticPlanningProducesUnexpectedPlanType;
-        boolean planningProducesUnexpectedPlanType;
-        boolean partitionFieldPredicateDetected;
+        static final QueryPlanningExpectation SELECTED = new QueryPlanningExpectation(
+                DetectionStatus.PREDICATE_SELECTED,
+                DetectionStatus.PREDICATE_SELECTED);
 
-        QueryPlanningExpectation(boolean planningRaisesException,
-                                 boolean planningProducesUnexpectedPlanType,
-                                 boolean syntheticPlanningRaisesException,
-                                 boolean syntheticPlanningProducesUnexpectedPlanType,
-                                 boolean partitionFieldPredicateDetected) {
-            this.planningRaisesException = planningRaisesException;
-            this.planningProducesUnexpectedPlanType = planningProducesUnexpectedPlanType;
-            this.syntheticPlanningRaisesException = syntheticPlanningRaisesException;
-            this.syntheticPlanningProducesUnexpectedPlanType = syntheticPlanningProducesUnexpectedPlanType;
-            this.partitionFieldPredicateDetected = partitionFieldPredicateDetected;
+        enum DetectionStatus {
+            NON_LUCENE_PLAN,
+            EXCEPTION_THROWN,
+            PREDICATE_SELECTED,
+            PREDICATE_NOT_SELECTED
+        }
+
+        DetectionStatus forSynthetic;
+        DetectionStatus forSimple;
+
+        QueryPlanningExpectation(DetectionStatus forSimple,
+                                 DetectionStatus forSynthetic) {
+            this.forSynthetic = forSynthetic;
+            this.forSimple = forSimple;
         }
     }
 
@@ -5822,7 +5798,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     protected static final List<String> autoCompletes = java.util.List.of("Good morning", "Good afternoon", "good evening", "Good night", "That's really good!", "I'm good", "Hello Record Layer", "Hello FoundationDB!", ENGINEER_JOKE);
-    protected static final List<String> autoCompletePhrases = List.of(
+    protected static final List<String> autoCompletePhrases = java.util.List.of(
             "united states of america",
             "welcome to the united states of america",
             "united kingdom, france, the states",
