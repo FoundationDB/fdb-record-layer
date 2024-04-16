@@ -23,11 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -363,6 +365,24 @@ class ValueSimplificationTest {
                         FieldValue.ofFieldName(someCurrentValue, "z"));
 
         Assertions.assertEquals(expectedResult, orderingValues);
+    }
+
+    @Test
+    void testInvalidSimplification() {
+        final var recordType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("pk")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"))));
+
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), recordType);
+        final var iField = FieldValue.ofFieldName(qov, "i");
+        final var bField = FieldValue.ofFieldName(qov, "b");
+        final var orderingKeyValues = ImmutableList.of(iField, bField);
+        final var constantAliases = ImmutableSet.<CorrelationIdentifier>of();
+        final var aliasMap = AliasMap.ofAliases(CorrelationIdentifier.of("q2"), Quantifier.current());
+        final var value = RecordConstructorValue.ofUnnamed(List.of(QuantifiedObjectValue.of(CorrelationIdentifier.of("q2"), recordType)));
+        final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.current());
+        Assertions.assertFalse(pulledUpValuesMap.isEmpty());
     }
 
     @Nonnull
