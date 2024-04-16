@@ -316,6 +316,7 @@ public interface AgilityContext {
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             ensureOpen();
+            commitIfNeeded();
             final long stamp = lock.readLock();
             boolean successfulCreate = false;
             try {
@@ -363,6 +364,7 @@ public interface AgilityContext {
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
             ensureOpen();
+            commitIfNeeded();
             final long stamp = lock.readLock();
             try {
                 createIfNeeded();
