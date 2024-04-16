@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.planprotos.PLuceneSpellCheckCopier;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.auto.service.AutoService;
@@ -48,7 +49,6 @@ import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageLite;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -112,7 +112,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             return;
         }
 
-        Pair<List<String>, List<String>> pair = getOriginalAndMappedFieldElements(concatenatedFieldPath, overriddenKeyRanges);
+        NonnullPair<List<String>, List<String>> pair = getOriginalAndMappedFieldElements(concatenatedFieldPath, overriddenKeyRanges);
         final List<String> fixedFieldNames = pair.getLeft();
         final List<String> dynamicFieldNames = pair.getRight();
 
@@ -182,8 +182,8 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * @return a pair of the list of fixed names and that of the dynamic ones
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Pair<List<String>, List<String>> getOriginalAndMappedFieldElements(@Nonnull String entireFieldName,
-                                                                                      @Nonnull List<Integer> overriddenKeyRanges) {
+    private static NonnullPair<List<String>, List<String>> getOriginalAndMappedFieldElements(@Nonnull String entireFieldName,
+                                                                                             @Nonnull List<Integer> overriddenKeyRanges) {
         int size = overriddenKeyRanges.size();
         final List<String> fixedFieldNames = new ArrayList<>();
         final List<String> dynamicFieldNames = new ArrayList<>();
@@ -216,7 +216,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             }
         }
 
-        return Pair.of(fixedFieldNames, dynamicFieldNames);
+        return NonnullPair.of(fixedFieldNames, dynamicFieldNames);
     }
 
     /**
