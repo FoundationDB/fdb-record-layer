@@ -47,6 +47,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -334,6 +335,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             valuesBuilder.add(aggregateValue);
         }
 
-        return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
+        final var rcv = RecordConstructorValue.ofUnnamed(valuesBuilder.build());
+        return rcv.simplify(AliasMap.identitiesFor(rcv.getCorrelatedTo()), ImmutableSet.of());
     }
 }
