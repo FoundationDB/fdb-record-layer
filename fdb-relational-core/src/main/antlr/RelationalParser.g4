@@ -502,7 +502,7 @@ helpStatement
 describeObjectClause
     : (
         selectStatementWithContinuation | deleteStatement | insertStatement
-        | updateStatement
+        | updateStatement | executeContinuationStatement
       )                                                             #describeStatements
     | FOR CONNECTION uid                                            #describeConnection
     ;

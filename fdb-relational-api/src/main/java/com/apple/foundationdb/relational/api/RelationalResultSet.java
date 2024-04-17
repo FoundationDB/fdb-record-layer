@@ -81,10 +81,6 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
     @Nullable
     NoNextRowReason noNextRowReason() throws SQLException;
 
-    default int getPlanHash() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
     /*Unsupported Operations*/
     @ExcludeFromJacocoGeneratedReport
     @Override

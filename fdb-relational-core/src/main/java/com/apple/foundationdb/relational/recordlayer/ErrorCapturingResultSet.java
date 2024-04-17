@@ -272,9 +272,4 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     public NoNextRowReason noNextRowReason() throws SQLException {
         return delegate.noNextRowReason();
     }
-
-    @Override
-    public int getPlanHash() throws SQLException {
-        return delegate.getPlanHash();
-    }
 }

@@ -284,11 +284,19 @@ public abstract class QueryConfig {
 
     private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, int lineNumber) {
         return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber) {
+
+            @Override
+            String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
+                return "explain " + query;
+            }
+
             @Override
             void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
                 logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
-                if (!Matchers.matches(getVal(), resultSet.getPlanHash())) {
+                resultSet.next();
+                final var actualPlanHash = resultSet.getInt(2);
+                if (!Matchers.matches(getVal(), actualPlanHash)) {
                     reportTestFailure("‼️ Incorrect plan hash at line " + getLineNumber());
                 }
                 logger.debug("✅️ Plan hash matches!");

@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.util.Objects;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
@@ -42,9 +41,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     private Row currentRow;
 
-    @Nullable
-    private final Integer planHash;
-
     private volatile boolean closed;
 
     @Nonnull
@@ -53,19 +49,17 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection) {
-        this(metaData, iterator, connection, EnrichContinuationFunction.identity(), null);
+        this(metaData, iterator, connection, EnrichContinuationFunction.identity());
     }
 
     public RecordLayerResultSet(@Nonnull StructMetaData metaData,
                                 @Nonnull final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection,
-                                @Nonnull final EnrichContinuationFunction enrichContinuationFunction,
-                                @Nullable Integer planHash) {
+                                @Nonnull final EnrichContinuationFunction enrichContinuationFunction) {
         super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
         this.enrichContinuationFunction = enrichContinuationFunction;
-        this.planHash = planHash;
     }
 
     @Override
@@ -135,17 +129,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
-    }
-
-    /**
-     * Get rid of this method. This is only used for the YAML driver to check for the correct plan hash.
-     * We should rather do that through a command like {@code PLANHASH query} a la {@code EXPLAIN query}. Or maybe
-     * have explain return two columns.
-     * @return the plan hash
-     */
-    @Override
-    public int getPlanHash() {
-        return Objects.requireNonNull(planHash);
     }
 
     @FunctionalInterface

@@ -47,7 +47,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
     @Nonnull
     private final PreparedStatementParameters preparedStatementParameters;
 
-    private final boolean isForExplain; // todo(yhatem) remove.
+    private final boolean isForExplain;
 
     private final int limit;
 
@@ -219,7 +219,6 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             literals.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
         }
 
-        // todo (yhatem) remove.
         @Nonnull
         public Builder setForExplain(boolean isForExplain) {
             this.isForExplain = isForExplain;

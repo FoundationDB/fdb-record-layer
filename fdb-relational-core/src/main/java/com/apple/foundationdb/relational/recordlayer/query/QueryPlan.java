@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObjectDependenciesPredicate;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
@@ -64,6 +66,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
@@ -72,7 +75,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
-import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -85,6 +87,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
+import java.sql.Struct;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -223,16 +226,17 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                 final var evaluationContext = queryExecutionParameters.getEvaluationContext();
                 final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
+                final ContinuationImpl parsedContinuation;
+                try {
+                    parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation());
+                } catch (final InvalidProtocolBufferException ipbe) {
+                    executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
+                    throw ExceptionUtil.toRelationalException(ipbe);
+                }
                 if (queryExecutionParameters.isForExplain()) {
-                    Row printablePlan = new ValueTuple(explain());
-                    StructMetaData metaData = new RelationalStructMetaData(
-                            FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-                    );
-                    return new IteratorResultSet(metaData, Collections.singleton(printablePlan).iterator(), 0);
+                    return executeExplain(parsedContinuation);
                 } else {
-                    return executePhysicalPlan(recordLayerSchema,
-                            typedEvaluationContext,
-                            executionContext);
+                    return executePhysicalPlan(recordLayerSchema, typedEvaluationContext, executionContext, parsedContinuation);
                 }
             }
         }
@@ -256,9 +260,37 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
+        private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation) {
+            StructMetaData continuationMetadata = new RelationalStructMetaData(
+                    FieldDescription.primitive("EXECUTION_STATE", Types.BINARY, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("VERSION", Types.INTEGER, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("PLAN_HASH_MODE", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+            );
+            StructMetaData metaData = new RelationalStructMetaData(
+                    FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("PLAN_HASH", Types.INTEGER, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("PLAN_DOT", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNoNulls, continuationMetadata)
+            );
+            final Struct continuationInfo = parsedContinuation == ContinuationImpl.BEGIN ? null :
+                new ImmutableRowStruct(new ArrayRow(
+                        parsedContinuation.getExecutionState(),
+                        parsedContinuation.getVersion(),
+                        parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
+                ), continuationMetadata);
+
+            return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
+                    explain(),
+                    planHashSupplier.get(),
+                    PlannerGraphProperty.exportToDot(Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphProperty.forExplain()))),
+                    continuationInfo)).iterator(), 0);
+        }
+
+        @Nonnull
         private RelationalResultSet executePhysicalPlan(@Nonnull final RecordLayerSchema recordLayerSchema,
                                                       @Nonnull final EvaluationContext evaluationContext,
-                                                      @Nonnull final ExecutionContext executionContext) throws RelationalException {
+                                                      @Nonnull final ExecutionContext executionContext,
+                                                      @Nonnull final ContinuationImpl parsedContinuation) throws RelationalException {
             final var connection = (EmbeddedRelationalConnection) executionContext.connection;
             Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
@@ -266,13 +298,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             final FDBRecordStoreBase<Message> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
 
             final var options = executionContext.getOptions();
-            final ContinuationImpl parsedContinuation;
-            try {
-                parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation());
-            } catch (final InvalidProtocolBufferException ipbe) {
-                executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
-                throw ExceptionUtil.toRelationalException(ipbe);
-            }
 
             validatePlanAgainstEnvironment(parsedContinuation, fdbRecordStore, executionContext, getValidPlanHashModes(options));
 
@@ -292,8 +317,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(metaData, iterator, connection,
                         continuation -> enrichContinuation(continuation, fdbRecordStore.getRecordMetaData(),
-                                currentPlanHashMode, getContinuationsContainsCompiledStatements(options)),
-                        planHashSupplier.get());
+                                currentPlanHashMode, getContinuationsContainsCompiledStatements(options)));
             });
         }
 

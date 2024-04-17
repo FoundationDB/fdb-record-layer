@@ -332,6 +332,7 @@ public final class PlanGenerator {
                         .setMetricsCollector(planContext.getMetricsCollector())
                         .setPlanHashMode(currentPlanHashMode)
                         .build();
+        context.setForExplain(ast.getQueryExecutionParameters().isForExplain());
         context.setParameterHash(Objects.requireNonNull(continuation.getBindingHash()));
 
         // TODO This is needed so the execute code path can pick up the limit and offset which are stored by the grammar
