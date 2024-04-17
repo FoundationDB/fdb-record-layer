@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.MatchOrCompensateFieldValueRule.FieldValueCompensation;
 
 import javax.annotation.Nonnull;
 import java.util.Map;

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -155,5 +156,10 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<VersionValue> versionValue() {
         return typed(VersionValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<QuantifiedObjectValue> quantifiedObjectValue() {
+        return typed(QuantifiedObjectValue.class);
     }
 }
