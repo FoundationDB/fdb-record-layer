@@ -43,6 +43,10 @@ public class LuceneOptimizedPostingsFormat extends PostingsFormat {
     PostingsFormat postingsFormat;
     static boolean allowCheckDataIntegrity = true;
 
+    public static boolean shouldAllowCheckDataIntegrity() {
+        return allowCheckDataIntegrity;
+    }
+
     public LuceneOptimizedPostingsFormat() {
         this(new Lucene84PostingsFormat());
     }
