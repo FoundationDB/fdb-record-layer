@@ -21,13 +21,17 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
+import com.apple.foundationdb.record.util.pair.ComparablePair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.test.Tags;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Function;
@@ -84,6 +88,11 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME_TWO).getSize());
     }
 
+    @Nonnull
+    private List<ComparablePair<Long, Integer>> directoryCacheKeys() {
+        return directory.getBlockCache().asMap().keySet().stream().sorted().collect(Collectors.toList());
+    }
+
     @Test
     public void testCopyBytesReadAheadPipelineShortBuffer() throws Exception {
         FDBIndexOutput output = new FDBIndexOutput(FILE_NAME, directory);
@@ -93,11 +102,7 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
         output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 2 * FDBDirectory.DEFAULT_BLOCK_SIZE);
-        assertEquals("[(1,0), (1,1)]", directoryCacheToString());
-    }
-
-    private String directoryCacheToString() {
-        return directory.getBlockCache().asMap().keySet().stream().sorted().collect(Collectors.toList()).toString();
+        assertEquals(List.of(Pair.of(1L, 0), Pair.of(1L, 1)), directoryCacheKeys());
     }
 
     @Test
@@ -109,22 +114,20 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         IndexInput blocks = directory.openChecksumInput(FILE_NAME, IOContext.READONCE);
         output = new FDBIndexOutput(FILE_NAME_TWO, directory);
         output.setExpectedBytes((PrefetchableBufferedChecksumIndexInput) blocks, 50 * FDBDirectory.DEFAULT_BLOCK_SIZE);
-        assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9)]",
-                directoryCacheToString());
+        assertEquals(IntStream.range(0, 10).mapToObj(i -> Pair.of(1L, i)).collect(Collectors.toList()),
+                directoryCacheKeys());
         byte[] fooey = new byte[FDBDirectory.DEFAULT_BLOCK_SIZE];
         blocks.readBytes(fooey, 0, fooey.length); // 1 block (refresh)
-        assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10)]",
-                directoryCacheToString());
+        assertEquals(IntStream.range(0, 11).mapToObj(i -> Pair.of(1L, i)).collect(Collectors.toList()),
+                directoryCacheKeys());
         blocks.readBytes(fooey, 0, fooey.length); // next block, no fetch
         blocks.readBytes(fooey, 0, fooey.length); // another block, no fetch
-        assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10), (1,11), " +
-                     "(1,12)]",
-                directoryCacheToString());
+        assertEquals(IntStream.range(0, 13).mapToObj(i -> Pair.of(1L, i)).collect(Collectors.toList()),
+                directoryCacheKeys());
         fooey = new byte[10 * FDBDirectory.DEFAULT_BLOCK_SIZE];
         blocks.readBytes(fooey, 0, fooey.length); // another block, no fetch
-        assertEquals("[(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (1,7), (1,8), (1,9), (1,10), (1,11), " +
-                     "(1,12), (1,13), (1,14), (1,15), (1,16), (1,17), (1,18), (1,19), (1,20), (1,21), (1,22)]",
-                directoryCacheToString());
+        assertEquals(IntStream.range(0, 23).mapToObj(i -> Pair.of(1L, i)).collect(Collectors.toList()),
+                directoryCacheKeys());
     }
 
     @Test

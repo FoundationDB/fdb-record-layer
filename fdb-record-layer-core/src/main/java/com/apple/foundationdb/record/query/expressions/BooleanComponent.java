@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -78,6 +79,7 @@ public interface BooleanComponent extends QueryComponent {
      * @param queryComponent the {@link QueryComponent} as the root of the search
      * @return a stream of pairs of {@link ComponentWithComparison} and associated {@link Comparisons.Comparison}s
      */
+    @API(API.Status.INTERNAL)
     @Nonnull
     static Stream<Pair<String, List<Comparisons.ComparisonWithParameter>>> groupedComparisons(@Nonnull final QueryComponent queryComponent) {
         final Stream<BooleanComponent> booleanComponents = BooleanComponent.topBooleanComponents(queryComponent);

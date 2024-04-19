@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.SetMultimap;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Set;

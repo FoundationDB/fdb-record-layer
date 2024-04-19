@@ -28,11 +28,11 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
@@ -88,7 +88,7 @@ public abstract class WindowedValue extends AbstractValue {
     }
 
     @Nonnull
-    protected Pair<List<Value>, List<Value>> splitNewChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    protected NonnullPair<List<Value>, List<Value>> splitNewChildren(@Nonnull final Iterable<? extends Value> newChildren) {
         // We need to split the partitioning and the argument columns by position.
         final Iterator<? extends Value> newChildrenIterator = newChildren.iterator();
 
@@ -96,7 +96,7 @@ public abstract class WindowedValue extends AbstractValue {
                 ImmutableList.<Value>copyOf(Iterators.limit(newChildrenIterator, partitioningValues.size()));
         final var newArgumentValues =
                 ImmutableList.<Value>copyOf(newChildrenIterator);
-        return Pair.of(newPartitioningValues, newArgumentValues);
+        return NonnullPair.of(newPartitioningValues, newArgumentValues);
     }
 
     @Nonnull

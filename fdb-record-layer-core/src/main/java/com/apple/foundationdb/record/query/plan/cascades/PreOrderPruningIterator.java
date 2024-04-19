@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import org.apache.commons.lang3.tuple.MutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -48,12 +46,10 @@ import java.util.function.Predicate;
 public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Iterator<T> {
 
     @Nonnull
-    private final Deque<Pair<Iterable<? extends T>, Integer>> stack;
+    private final Deque<Iterator<? extends  T>> stack;
 
     @Nonnull
     private final Predicate<T> descendIntoChildrenPredicate;
-
-    private static final int INITIAL_POSITION = -1;
 
     private PreOrderPruningIterator(@Nonnull final T treeLike) {
         this(treeLike, ignored -> true);
@@ -65,7 +61,7 @@ public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Ite
         // this is the only list allocation done to put the root in the stack.
         // all the remaining lists added to the stack are references to children
         // lists (copy by reference).
-        stack.push(MutablePair.of(ImmutableList.of(treeLike.getThis()), INITIAL_POSITION));
+        stack.push(ImmutableList.of(treeLike.getThis()).iterator());
         this.descendIntoChildrenPredicate = descendIntoChildrenPredicate;
     }
 
@@ -76,9 +72,7 @@ public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Ite
                 return false;
             }
             final var top = Verify.verifyNotNull(stack.peekLast());
-            final var currentLevelIndex = top.getRight();
-            final var currentLevelItemsCount = Iterables.size(top.getLeft());
-            if (currentLevelIndex + 1 < currentLevelItemsCount) {
+            if (top.hasNext()) {
                 return true;
             } else {
                 // pop the stack, and continue doing so, until we either find a next element
@@ -96,16 +90,10 @@ public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Ite
             throw new NoSuchElementException("no more elements");
         }
         final var top = Verify.verifyNotNull(stack.peekLast());
-        final var currentIndexPosition = top.getRight();
-        final var currentLevelItems = top.getLeft();
-        final var nextItemIndex = currentIndexPosition + 1;
-
         // mark the next item as the current one in this stack frame, note that
-        // the position must be valid because hasNext() is called first, and hasNext()
-        // makes sure that, if there is a next element, it modifies the stack index such
-        // that incrementing it would lead to finding that next element correctly.
-        final var result = Iterables.get(currentLevelItems, nextItemIndex);
-        top.setValue(nextItemIndex);
+        // the iterator must have another element because hasNext() is called first, and hasNext()
+        // makes sure that, the top iterator in the stack always has a next element.
+        final var result = top.next();
 
         // test whether we should descend into the children of the current node or prune them
         // and continue to the next unexplored node in pre-order.
@@ -114,7 +102,7 @@ public final class PreOrderPruningIterator<T extends TreeLike<T>> implements Ite
 
             // descend immediately to the children (if any) so to conform to pre-order DFS semantics.
             if (!Iterables.isEmpty(resultChildren)) {
-                stack.add(MutablePair.of(resultChildren, INITIAL_POSITION));
+                stack.add(resultChildren.iterator());
             }
         }
         return result;

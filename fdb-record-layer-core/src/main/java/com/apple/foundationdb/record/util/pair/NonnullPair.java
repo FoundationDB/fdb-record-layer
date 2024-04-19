@@ -75,6 +75,11 @@ public class NonnullPair<L, R> implements Pair<L, R> {
         return pair.hashCode();
     }
 
+    @Override
+    public String toString() {
+        return pair.toString();
+    }
+
     /**
      * Create a new {@link Pair} where both elements are not null.
      *
