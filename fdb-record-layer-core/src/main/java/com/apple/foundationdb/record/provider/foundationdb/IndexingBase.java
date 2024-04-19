@@ -556,8 +556,8 @@ public abstract class IndexingBase {
             if (indexRange == null) {
                 // Here: no un-scrubbed index range was left for this call. We will
                 // erase the 'ranges' data to allow a fresh index re-scrubbing.
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info(KeyValueLogMessage.build("Reset scrubber's index range")
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug(KeyValueLogMessage.build("Reset scrubber's index range")
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .toString());
                 }
@@ -567,8 +567,8 @@ public abstract class IndexingBase {
                 if (recordRange == null) {
                     // Here: no un-scrubbed records range was left for this call. We will
                     // erase the 'ranges' data to allow a fresh records re-scrubbing.
-                    if (LOGGER.isInfoEnabled()) {
-                        LOGGER.info(KeyValueLogMessage.build("Reset scrubber's records range")
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(KeyValueLogMessage.build("Reset scrubber's records range")
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
                                 .toString());
                     }
