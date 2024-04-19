@@ -313,7 +313,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index complexPartitionedIndex(final Map<String, String> options) {
+    static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
                         function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
