@@ -81,10 +81,8 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -94,13 +92,6 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LucenePartitioner {
-    /**
-     * partition error reasons.
-     */
-    public enum PartitionFailureReason {
-        NO_METADATA,
-        INCONSISTENT_METADATA
-    }
 
     private static final FDBStoreTimer.Waits WAIT_LOAD_LUCENE_PARTITION_METADATA = FDBStoreTimer.Waits.WAIT_LOAD_LUCENE_PARTITION_METADATA;
     private static final Logger LOGGER = LoggerFactory.getLogger(LucenePartitioner.class);
@@ -571,17 +562,7 @@ public class LucenePartitioner {
         if (!isPartitioningEnabled()) {
             return CompletableFuture.completedFuture(null);
         }
-        return assignPartitionInternal(groupingKey, toPartitionKey(record), false)
-                .exceptionally(exception -> {
-                    Throwable cause = exception.getCause();
-                    if (cause instanceof RecordCoreException) {
-                        Map<String, Object> logMessageKeys = ((RecordCoreException) cause).getLogInfo();
-                        if (logMessageKeys.get(LogMessageKeys.REASON.toString()) == PartitionFailureReason.NO_METADATA) {
-                            return null;
-                        }
-                    }
-                    throw new CompletionException(cause);
-                });
+        return assignPartitionInternal(groupingKey, toPartitionKey(record), false);
     }
 
     /**
@@ -614,7 +595,6 @@ public class LucenePartitioner {
      *                          create when <code>true</code>. This parameter should be set to <code>true</code> when
      *                          inserting a document, and <code>false</code> when deleting.
      * @return partition metadata future
-     * @throws RecordCoreException if <code>createIfNotExists</code> is <code>false</code> and no suitable partition is found
      */
     @Nonnull
     private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> assignPartitionInternal(@Nonnull Tuple groupingKey,
@@ -633,15 +613,10 @@ public class LucenePartitioner {
             if (targetPartition.isEmpty()) {
                 return getOldestPartition(groupingKey).thenApply(oldestPartition -> {
                     if (oldestPartition == null) {
-                        if (!createIfNotExists) {
-                            throw new RecordCoreException(
-                                    "Partition metadata not found",
-                                    LogMessageKeys.PARTITIONING_KEY,
-                                    partitioningKey,
-                                    LogMessageKeys.REASON,
-                                    PartitionFailureReason.NO_METADATA);
-                        } else {
+                        if (createIfNotExists) {
                             return newPartitionMetadata(partitioningKey, 0);
+                        } else {
+                            return null;
                         }
                     } else {
                         return oldestPartition;
