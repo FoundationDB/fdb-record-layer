@@ -355,6 +355,13 @@ message PArithmeticValue {
       MOD_DL = 87;
       MOD_DF = 88;
       MOD_DD = 89;
+
+      BITOR_II = 90;
+      BITOR_LL = 91;
+      BITAND_II = 92;
+      BITAND_LL = 93;
+      BITXOR_II = 94;
+      BITXOR_LL = 95;
   }
 
   optional PPhysicalOperator operator = 1;
