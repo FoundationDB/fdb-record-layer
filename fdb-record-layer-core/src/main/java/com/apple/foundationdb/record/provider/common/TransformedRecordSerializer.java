@@ -37,6 +37,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
@@ -95,15 +96,18 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected final boolean compressWhenSerializing;
     protected final int compressionLevel;
     protected final boolean encryptWhenSerializing;
+    protected final double writeValidationRatio;
 
     protected TransformedRecordSerializer(@Nonnull RecordSerializer<M> inner,
                                           boolean compressWhenSerializing,
                                           int compressionLevel,
-                                          boolean encryptWhenSerializing) {
+                                          boolean encryptWhenSerializing,
+                                          double writeValidationRatio) {
         this.inner = inner;
         this.compressWhenSerializing = compressWhenSerializing;
         this.compressionLevel = compressionLevel;
         this.encryptWhenSerializing = encryptWhenSerializing;
+        this.writeValidationRatio = writeValidationRatio;
     }
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
@@ -198,6 +202,10 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         throw new RecordSerializationException("this serializer cannot encrypt");
     }
 
+    private boolean shouldValidateSerialization() {
+        return writeValidationRatio >= 1.0 || (writeValidationRatio > 0.0 && ThreadLocalRandom.current().nextDouble() < writeValidationRatio);
+    }
+
     @Nonnull
     @Override
     public byte[] serialize(@Nonnull RecordMetaData metaData,
@@ -239,6 +247,10 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         byte[] serialized = new byte[size];
         serialized[0] = (byte) code;
         System.arraycopy(state.data, state.offset, serialized, 1, state.length);
+
+        if (shouldValidateSerialization()) {
+            validateSerialization(metaData, recordType, rec, serialized, timer);
+        }
 
         return serialized;
     }
@@ -332,7 +344,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
-        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing);
+        return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio);
     }
 
     @Nonnull
@@ -382,6 +394,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         protected boolean compressWhenSerializing;
         protected int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
         protected boolean encryptWhenSerializing;
+        protected double writeValidationRatio;
 
         protected Builder(@Nonnull RecordSerializer<M> inner) {
             this.inner = inner;
@@ -396,6 +409,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * @param compressWhenSerializing <code>true</code> if records should be compressed and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
+        @Nonnull
         public Builder<M> setCompressWhenSerializing(boolean compressWhenSerializing) {
             this.compressWhenSerializing = compressWhenSerializing;
             return this;
@@ -414,6 +428,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * @return this <code>Builder</code>
          * @see Deflater
          */
+        @Nonnull
         public Builder<M> setCompressionLevel(int level) {
             this.compressionLevel = level;
             return this;
@@ -431,8 +446,26 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
          * @param encryptWhenSerializing <code>true</code> if records should be encrypted and <code>false</code> otherwise
          * @return this <code>Builder</code>
          */
+        @Nonnull
         public Builder<M> setEncryptWhenSerializing(boolean encryptWhenSerializing) {
             this.encryptWhenSerializing = encryptWhenSerializing;
+            return this;
+        }
+
+        /**
+         * Allows the user to specify a portion of serializations that will be validated.
+         * Every validated serialization will call {@link RecordSerializer#validateSerialization(RecordMetaData, RecordType, Message, byte[], StoreTimer)}
+         * to ensure that data that has been serialized can be deserialized back to the original
+         * record. If the ratio is less than or equal to 0.0, no record serializations will be
+         * validated. If the ratio is greater than or equal to 1.0, all serializations will be
+         * validated. Otherwise, a random sampling of records will be selected.
+         *
+         * @param writeValidationRatio what ratio of record serializations should be validated
+         * @return this <code>Builder</code>
+         */
+        @Nonnull
+        public Builder<M> setWriteValidationRatio(double writeValidationRatio) {
+            this.writeValidationRatio = writeValidationRatio;
             return this;
         }
 
@@ -452,7 +485,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                     inner,
                     compressWhenSerializing,
                     compressionLevel,
-                    encryptWhenSerializing
+                    encryptWhenSerializing,
+                    writeValidationRatio
             );
         }
     }
