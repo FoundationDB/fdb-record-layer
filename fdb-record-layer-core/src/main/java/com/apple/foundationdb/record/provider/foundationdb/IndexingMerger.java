@@ -102,6 +102,10 @@ public class IndexingMerger {
                         // Here: no errors
                         return handleSuccess(mergeControl);
                     }
+                    if (mergeControl == null) {
+                        // Here: very early exception that has nothing to do with the merge
+                        throw common.getRunner().getDatabase().mapAsyncToSyncException(e);
+                    }
                     if (0 > failureCountLimit.decrementAndGet()) {
                         // Here: too many retries, unconditionally give up
                         giveUpMerging(mergeControl, e);
