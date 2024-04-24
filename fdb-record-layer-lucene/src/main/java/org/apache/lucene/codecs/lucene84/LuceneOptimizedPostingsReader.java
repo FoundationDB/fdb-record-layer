@@ -21,6 +21,7 @@ package org.apache.lucene.codecs.lucene84;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
+import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PostingsReaderBase;
@@ -1990,7 +1991,9 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
 
     @Override
     public void checkIntegrity() throws IOException {
-        // Should this checksum verification be skipped for fdb?
+        if (!LuceneOptimizedPostingsFormat.shouldAllowCheckDataIntegrity()) {
+            return;
+        }
         if (docIn != null) {
             CodecUtil.checksumEntireFile(docIn.get());
         }
