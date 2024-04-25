@@ -23,11 +23,14 @@ package com.apple.foundationdb.record.provider.common;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * A converter between a Protobuf record and a byte string stored in one or more values in the FDB key-value store.
@@ -95,6 +98,34 @@ public interface RecordSerializer<M extends Message> {
      */
     @Nonnull
     RecordSerializer<Message> widen();
+
+    /**
+     * Validation method that will attempt to deserialize a record and validate it matches the original format. This
+     * can be used during serializer development to ensure that the record can deserialize all of the data that
+     * it writes, and that the original record is recovered correctly.
+     *
+     * @param metaData the store's meta-data
+     * @param recordType the record type of the message
+     * @param rec the record to validate
+     * @param serialized the serialized bytes
+     * @param timer a timer used to instrument deserialization
+     */
+    default void validateSerialization(@Nonnull RecordMetaData metaData, @Nonnull RecordType recordType, @Nonnull M rec, @Nonnull byte[] serialized, @Nullable StoreTimer timer) {
+        Tuple primaryKey = null;
+        M deserialized;
+        try {
+            FDBStoredRecordBuilder<M> recordBuilder = FDBStoredRecord.<M>newBuilder()
+                    .setRecordType(recordType)
+                    .setRecord(rec);
+            primaryKey = recordType.getPrimaryKey().evaluateMessageSingleton(recordBuilder, rec).toTuple();
+            deserialized = deserialize(metaData, primaryKey, serialized, timer);
+        } catch (Exception e) {
+            throw new RecordSerializationValidationException("cannot deserialize record", recordType, primaryKey, e);
+        }
+        if (!Objects.equals(rec, deserialized)) {
+            throw new RecordSerializationValidationException("record serialization mismatch", recordType, primaryKey);
+        }
+    }
 
     /**
      * Instrumentation events related to record serialization.
