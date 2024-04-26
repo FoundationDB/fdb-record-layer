@@ -50,10 +50,11 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                                              boolean compressWhenSerializing,
                                              int compressionLevel,
                                              boolean encryptWhenSerializing,
+                                             double writeValidationRatio,
                                              @Nullable String cipherName,
                                              @Nullable Key encryptionKey,
                                              @Nullable SecureRandom secureRandom) {
-        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing);
+        super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio);
         this.cipherName = cipherName;
         this.encryptionKey = encryptionKey;
         this.secureRandom = secureRandom;
@@ -166,12 +167,14 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         }
 
         @Override
+        @Nonnull
         public Builder<M> setCompressWhenSerializing(boolean compressWhenSerializing) {
             super.setCompressWhenSerializing(compressWhenSerializing);
             return this;
         }
 
         @Override
+        @Nonnull
         public Builder<M> setCompressionLevel(int level) {
             super.setCompressionLevel(level);
             return this;
@@ -187,8 +190,22 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @return this <code>Builder</code>
          */
         @Override
+        @Nonnull
         public Builder<M> setEncryptWhenSerializing(boolean encryptWhenSerializing) {
             super.setEncryptWhenSerializing(encryptWhenSerializing);
+            return this;
+        }
+
+        /**
+         * {@inheritDoc}
+         *
+         * @param writeValidationRatio what ratio of record serializations should be validated
+         * @return this <code>Builder</code>
+         */
+        @Override
+        @Nonnull
+        public Builder<M> setWriteValidationRatio(final double writeValidationRatio) {
+            super.setWriteValidationRatio(writeValidationRatio);
             return this;
         }
 
@@ -283,6 +300,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                     compressWhenSerializing,
                     compressionLevel,
                     encryptWhenSerializing,
+                    writeValidationRatio,
                     cipherName,
                     encryptionKey,
                     secureRandom
