@@ -1111,7 +1111,7 @@ public class LucenePartitioner {
     }
 
     public static boolean isPrefixOlderThanPartition(@Nonnull final Tuple prefix, @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
-        return getPartitionKey(partitionInfo).compareTo(Tuple.fromBytes(ByteArrayUtil.strinc(prefix.pack()))) >= 0;
+        return ByteArrayUtil.compareUnsigned(getPartitionKey(partitionInfo).pack(), ByteArrayUtil.strinc(prefix.pack())) >= 0;
     }
 
     /**
