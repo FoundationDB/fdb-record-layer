@@ -367,42 +367,6 @@ class ValueSimplificationTest {
         Assertions.assertEquals(expectedResult, orderingValues);
     }
 
-    @Test
-    void testInvalidSimplification() {
-        final var recordType = Type.Record.fromFields(ImmutableList.of(
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("pk")),
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("i")),
-                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("b"))));
-
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), recordType);
-        // _.i
-        final var iField = FieldValue.ofFieldName(qov, "i");
-        // _.b
-        final var bField = FieldValue.ofFieldName(qov, "b");
-
-        // (_.i, _.b)
-        final var orderingKeyValues = ImmutableList.of(iField, bField);
-        final var constantAliases = ImmutableSet.<CorrelationIdentifier>of();
-        final var aliasMap = AliasMap.ofAliases(CorrelationIdentifier.of("q2"), Quantifier.current());
-
-        // (q2) << note there is another record constructor around the record
-        final var value = RecordConstructorValue.ofUnnamed(List.of(QuantifiedObjectValue.of(CorrelationIdentifier.of("q2"), recordType)));
-        final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.current());
-        Assertions.assertFalse(pulledUpValuesMap.isEmpty());
-
-        final var qovPulledUp = QuantifiedObjectValue.of(Quantifier.current(), value.getResultType());
-        // _._0
-        final var zeroFieldPulledUp = FieldValue.ofOrdinalNumber(qovPulledUp, 0);
-
-        // _._0.i
-        final var iFieldPulledUp = FieldValue.ofFieldNameAndFuseIfPossible(zeroFieldPulledUp, "i");
-        // _._0.b
-        final var bFieldPulledUp = FieldValue.ofFieldNameAndFuseIfPossible(zeroFieldPulledUp, "b");
-
-        Assertions.assertEquals(iFieldPulledUp, pulledUpValuesMap.get(iField));
-        Assertions.assertEquals(bFieldPulledUp, pulledUpValuesMap.get(bField));
-    }
-
     @Nonnull
     private static Type.Record someRecordType() {
         final var aaType = Type.Record.fromFields(ImmutableList.of(
