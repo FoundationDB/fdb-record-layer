@@ -746,15 +746,16 @@ public class LucenePartitioner {
      * @param start The continuation at which to resume rebalancing, as returned from a previous call to
      * {@code rebalancePartitions}.
      * @param documentCount max number of documents to move in each transaction
+     * @param logMessages {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner} additional log messages
      * @return a continuation at which to resume rebalancing in another call to {@code rebalancePartitions}
      */
     @Nonnull
-    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start, int documentCount) {
+    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start, int documentCount, RepartitioningLogMessages logMessages) {
         // This function will iterate the grouping keys
         final KeyExpression rootExpression = state.index.getRootExpression();
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
-            return processPartitionRebalancing(Tuple.from(), documentCount).thenApply(result -> {
+            return processPartitionRebalancing(Tuple.from(), documentCount, logMessages).thenApply(result -> {
                 if (result.getLeft() > 0) {
                     // we did something, repeat
                     return RecordCursorStartContinuation.START;
@@ -784,7 +785,7 @@ public class LucenePartitioner {
             return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
                 if (cursorResult.hasNext()) {
                     final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
-                    return processPartitionRebalancing(groupingKey, documentCount)
+                    return processPartitionRebalancing(groupingKey, documentCount, logMessages)
                             .thenCompose(repartitionResult -> {
                                 if (repartitionResult.getLeft() > 0) {
                                     // we did something, stop so we can create a new transaction
@@ -812,10 +813,13 @@ public class LucenePartitioner {
      *
      * @param groupingKey grouping key
      * @param repartitionDocumentCount max number of documents to move in each transaction
+     * @param logMessages {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner} additional log messages
      * @return {@code true} future if there is more repartitioning to be done in this group
      */
     @Nonnull
-    public CompletableFuture<Pair<Integer, Integer>> processPartitionRebalancing(@Nonnull final Tuple groupingKey, int repartitionDocumentCount) {
+    public CompletableFuture<Pair<Integer, Integer>> processPartitionRebalancing(@Nonnull final Tuple groupingKey,
+                                                                                 int repartitionDocumentCount,
+                                                                                 RepartitioningLogMessages logMessages) {
         if (repartitionDocumentCount <= 0) {
             throw new IllegalArgumentException("number of documents to move can't be zero");
         }
@@ -838,6 +842,11 @@ public class LucenePartitioner {
                     // get the N oldest documents in the partition (note N = (count of docs to move) + 1, since we need
                     // the (N+1)th doc's timestamp to update the partition's "from" field.
                     final int count = 1 + Math.min(repartitionDocumentCount, indexPartitionHighWatermark);
+                    logMessages
+                            .setPartitionId(partitionInfo.getId())
+                            .setPartitionKey(getPartitionKey(partitionInfo))
+                            .setRepartitionDocCount(count);
+
                     long startTimeNanos = System.nanoTime();
                     LuceneRecordCursor luceneRecordCursor = getOldestNDocuments(partitionInfo, groupingKey, count);
 
@@ -1204,6 +1213,38 @@ public class LucenePartitioner {
                     "startPartition=" + startPartition +
                     ", canHaveMatches=" + canHaveMatches +
                     '}';
+        }
+    }
+
+    /**
+     * encapsulate and manage additional log messages when repartitioning.
+     */
+    static class RepartitioningLogMessages {
+        List<Object>    logMessages;
+
+        public RepartitioningLogMessages(int partitionId, Tuple partitionKey, int repartitionDocCount) {
+            logMessages = Arrays.asList(
+                    LogMessageKeys.PARTITION_ID,
+                    partitionId,
+                    LogMessageKeys.PARTITIONING_KEY,
+                    partitionKey,
+                    LogMessageKeys.INDEX_REPARTITION_DOCUMENT_COUNT,
+                    repartitionDocCount);
+        }
+
+        public RepartitioningLogMessages setPartitionId(int partitionId) {
+            logMessages.set(1, partitionId);
+            return this;
+        }
+
+        public RepartitioningLogMessages setPartitionKey(Tuple partitionKey) {
+            logMessages.set(3, partitionKey);
+            return this;
+        }
+
+        public RepartitioningLogMessages setRepartitionDocCount(int repartitionDocCount) {
+            logMessages.set(5, repartitionDocCount);
+            return this;
         }
     }
 }

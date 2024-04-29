@@ -415,11 +415,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final int repartitionDocumentCount = mergeControl.getRepartitionDocumentCount();
         final int maxDocumentsToMove = Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING));
         AtomicInteger maxIterations = new AtomicInteger(Math.max(1, maxDocumentsToMove / repartitionDocumentCount));
+        LucenePartitioner.RepartitioningLogMessages repartitioningLogMessages = new LucenePartitioner.RepartitioningLogMessages(-1, Tuple.from(), 0);
         return AsyncUtil.whileTrue(
                 () -> runner.runAsync(
                         context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
                                 storeBuilder.setContext(context).openAsync().thenCompose(store ->
-                                        getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount)
+                                        getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount, repartitioningLogMessages)
                                                 .thenApply(newContinuation -> {
                                                     if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
                                                         mergeControl.setRepartitionCapped(!newContinuation.isEnd());
@@ -428,7 +429,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                         continuation.set(newContinuation);
                                                         return true;
                                                     }
-                                                })))), state.context.getExecutor());
+                                                }))), repartitioningLogMessages.logMessages), state.context.getExecutor());
     }
 
     @Nonnull
