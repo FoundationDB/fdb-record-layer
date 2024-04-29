@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord;
 import com.apple.foundationdb.record.TestRecords1Proto.RecordTypeUnion;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
@@ -48,8 +49,10 @@ import java.util.List;
 import java.util.zip.Deflater;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -222,6 +225,40 @@ public class TransformedRecordSerializerTest {
     }
 
     @Test
+    public void incorrectUncompressedSize() {
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
+                .setCompressionLevel(9)
+                .setCompressWhenSerializing(true)
+                .setWriteValidationRatio(1.0)
+                .build();
+
+        final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
+                .setRecNo(1066L)
+                .setStrValueIndexed(SONNET_108)
+                .build();
+        byte[] serialized = serialize(serializer, simpleRecord);
+        assertTrue(isCompressed(serialized));
+        int innerSize = ByteBuffer.wrap(serialized, 2, Integer.BYTES).order(ByteOrder.BIG_ENDIAN).getInt();
+
+        RecordSerializer<Message> innerSerializer = serializer.untransformed();
+        byte[] innerSerialized = serialize(innerSerializer, simpleRecord);
+        assertEquals(innerSerialized.length, innerSize);
+        assertThat(innerSerialized.length, greaterThan(serialized.length));
+
+        updateSize(serialized, innerSize * 2);
+        RecordSerializationException tooSmallException = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+        assertThat(tooSmallException.getMessage(), containsString("decompressed record too small"));
+        assertThat(tooSmallException.getLogInfo(), both(hasEntry(LogMessageKeys.EXPECTED.toString(), (Object) (innerSize * 2))).and(hasEntry(LogMessageKeys.ACTUAL.toString(), innerSize)));
+
+        updateSize(serialized, innerSize / 2);
+        RecordSerializationException tooLargeException = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+        assertThat(tooLargeException.getMessage(), containsString("decompressed record too large"));
+        assertThat(tooLargeException.getLogInfo(), hasEntry(LogMessageKeys.EXPECTED.toString(), innerSize / 2));
+    }
+
+    @Test
     public void buildWithoutSettingEncryption() {
         assertThrows(RecordCoreArgumentException.class, () -> TransformedRecordSerializer.newDefaultBuilder().setEncryptWhenSerializing(true).build());
     }
@@ -296,6 +333,24 @@ public class TransformedRecordSerializerTest {
         assertThat(validationError.getMessage(), containsString("record serialization mismatch"));
 
         validateSerialization(serializer, simpleRecord.toBuilder().setNumValue2(43).build(), serialized);
+    }
+
+    private boolean isCompressed(byte[] serialized) {
+        byte headerByte = serialized[0];
+        return (headerByte & TransformedRecordSerializer.ENCODING_PROTO_MESSAGE_FIELD) == 0
+                && (headerByte & TransformedRecordSerializer.ENCODING_COMPRESSED) != 0;
+    }
+
+    private int getUncompressedSize(byte[] serialized) {
+        return ByteBuffer.wrap(serialized, 2, Integer.BYTES)
+                .order(ByteOrder.BIG_ENDIAN)
+                .getInt();
+    }
+
+    private void updateSize(byte[] serialized, int newSize) {
+        ByteBuffer.wrap(serialized, 2, Integer.BYTES)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putInt(newSize);
     }
 
     /**
