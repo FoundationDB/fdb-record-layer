@@ -467,7 +467,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         // delete old
         return AsyncUtil.whenAll(oldRecordFields.keySet().stream().map(t -> {
             try {
-                return tryDelete(Objects.requireNonNull(oldRecord), t, false);
+                return tryDelete(Objects.requireNonNull(oldRecord), t);
             } catch (IOException e) {
                 throw new RecordCoreException("Issue deleting", e)
                         .addLogInfo("record", Objects.requireNonNull(oldRecord).getPrimaryKey());
@@ -476,7 +476,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 // update new
                 AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> {
                     try {
-                        return tryDelete(Objects.requireNonNull(newRecord), entry.getKey(), true).thenCompose(countDeleted ->
+                        return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
                                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey()).thenApply(partitionId -> {
                                     try {
                                         writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
@@ -493,14 +493,40 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 }).collect(Collectors.toList())));
     }
 
-    private <M extends Message>  CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
-                                                                      @Nonnull Tuple groupingKey,
-                                                                      boolean deleteOnlyInWriteMode) throws IOException {
-        if (deleteOnlyInWriteMode && !state.store.isIndexWriteOnly(state.index)) {
+    /**
+     * convenience wrapper that calls {@link #tryDelete(FDBIndexableRecord, Tuple)} only if the index is in
+     * {@code WriteOnly} mode.
+     * This is usually needed when a record is inserted during an index build, but that
+     * record had already been added due to an explicit update earlier.
+     *
+     * @param record record to try and delete
+     * @param groupingKey grouping key
+     * @param <M> message
+     * @return count of deleted docs
+     * @throws IOException propagated by {@link #tryDelete(FDBIndexableRecord, Tuple)}
+     */
+    private <M extends Message> CompletableFuture<Integer> tryDeleteInWriteOnlyMode(@Nonnull FDBIndexableRecord<M> record,
+                                                                                    @Nonnull Tuple groupingKey) throws IOException {
+        if (!state.store.isIndexWriteOnly(state.index)) {
             // no op
             return CompletableFuture.completedFuture(0);
         }
+        return tryDelete(record, groupingKey);
+    }
 
+    /**
+     * Delete a given record if it is indexed.
+     * The record may not necessarily exist in the index, or it may need to be deleted by query ({@link #deleteDocument(Tuple, Integer, Tuple)}).
+     *
+     * @param record record to be deleted
+     * @param groupingKey grouping key
+     * @param <M> record message
+     * @return count of deleted docs: 1 indicates that the record has been deleted, 0 means that either no record was deleted or it was deleted by
+     * query.
+     * @throws IOException propagated from {@link #deleteDocument(Tuple, Integer, Tuple)}
+     */
+    private <M extends Message> CompletableFuture<Integer> tryDelete(@Nonnull FDBIndexableRecord<M> record,
+                                                                     @Nonnull Tuple groupingKey) throws IOException {
         // non-partitioned
         if (!partitioner.isPartitioningEnabled()) {
             return CompletableFuture.completedFuture(deleteDocument(groupingKey, null, record.getPrimaryKey()));
