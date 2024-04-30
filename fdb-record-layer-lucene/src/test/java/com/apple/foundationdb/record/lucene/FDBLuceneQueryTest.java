@@ -798,7 +798,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static Stream<Arguments> threadCount() {
         return Stream.concat(
-                Stream.of(1, 10).map(Arguments::of),
+                Stream.generate(() -> 1).limit(20).flatMap(i -> Stream.of(1, 10))
+                        .map(Arguments::of),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextInt(10) + 1)));
     }
@@ -808,11 +809,22 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         // limit the FJP size to try and force the # segments to exceed the # threads
-        factory.setExecutor(new ForkJoinPool(PARALLELISM,
+        final ForkJoinPool executor = new ForkJoinPool(PARALLELISM,
                 ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-                null, false));
+                null, false);
+        factory.setExecutor(executor);
         CountingThreadFactory threadFactory = new CountingThreadFactory();
         executorService = Executors.newFixedThreadPool(value, threadFactory);
+        Thread diagnostics = new Thread(() -> {
+            try {
+                Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+                System.out.println(executorService);
+                System.out.println(executor);
+            } catch (InterruptedException e) {
+                // just stop the thread
+            }
+        });
+        diagnostics.start();
         initializeFlat();
         for (int i = 0; i < 200; i++) {
             try (FDBRecordContext context = openContext()) {
@@ -840,9 +852,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
                         .map(FDBQueriedRecord::getPrimaryKey)
                         .map(t -> t.getLong(0))
-                        .asList().get();
+                        .asList()
+                        .get(2, TimeUnit.MINUTES);
                 assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
             }
+        } finally {
+            diagnostics.interrupt();
         }
     }
 
