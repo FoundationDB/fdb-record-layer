@@ -313,7 +313,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index complexPartitionedIndex(final Map<String, String> options) {
+    static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
                         function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
@@ -1723,12 +1723,14 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> findStartingPartitionTest() {
-        return Stream.of(true, false).map(Arguments::of);
+        return Stream.of(true, false).flatMap(isSynthetic ->
+                Stream.concat(Stream.of(1714058544895L), RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())))
+                        .map(startTime -> Arguments.of(isSynthetic, startTime)));
     }
 
     @ParameterizedTest
     @MethodSource
-    void findStartingPartitionTest(boolean isSynthetic) {
+    void findStartingPartitionTest(boolean isSynthetic, long startTime) {
 
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
@@ -1748,9 +1750,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Tuple groupKey = Tuple.from(1L);
             
             // timestamps present in partition keys
-            long time0 = System.currentTimeMillis();
-            long time1 = System.currentTimeMillis() + 1000;
-            long time2 = System.currentTimeMillis() + 2000;
+            long time0 = Math.abs(startTime);
+            long time1 = time0 + 1000;
+            long time2 = time0 + 2000;
             
             // timestamp not in partition keys, but within a partition
             long time1_2 = time1 + 500; // between time1 and time2

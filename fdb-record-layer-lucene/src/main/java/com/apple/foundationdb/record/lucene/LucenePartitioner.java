@@ -483,47 +483,6 @@ public class LucenePartitioner {
     }
 
     /**
-     * remove a deleted document from its partition metadata.
-     *
-     * @param oldRecord record to be deleted
-     * @param groupingKey grouping key
-     * @param <M> message
-     * @return partition id or <code>null</code> if partitioning isn't enabled on index
-     */
-    @Nonnull
-    public <M extends Message> CompletableFuture<Integer> removeFromAndSavePartitionMetadata(@Nonnull FDBIndexableRecord<M> oldRecord, @Nonnull Tuple groupingKey) {
-        if (!isPartitioningEnabled()) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return removeFromAndSavePartitionMetadata(groupingKey, toPartitionKey(oldRecord));
-    }
-
-    /**
-     * remove a document from a partition metadata and save to db.
-     * Note that only the document count is changed (decremented). <code>from</code> and <code>to</code> are unchanged, and remain valid.
-     *
-     * @param partitioningKey partitioning key
-     * @return assigned partition id
-     */
-    @Nonnull
-    private CompletableFuture<Integer> removeFromAndSavePartitionMetadata(@Nonnull Tuple groupingKey, @Nonnull final Tuple partitioningKey) {
-        return getPartitionInfoOrFail(groupingKey, partitioningKey).thenApply(assignedPartition -> {
-            // assignedPartition is not null here, otherwise the call above would have thrown an exception
-            LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = Objects.requireNonNull(assignedPartition).toBuilder();
-            // note that the to/from of the partition do not get updated, since that would require us to know what the next potential boundary
-            // value(s) are. The values, nonetheless, remain valid.
-            builder.setCount(assignedPartition.getCount() - 1);
-
-            if (builder.getCount() < 0) {
-                // should never happen
-                throw new RecordCoreException("Issue updating Lucene partition metadata (resulting count < 0)", LogMessageKeys.PARTITION_ID, assignedPartition.getId());
-            }
-            savePartitionMetadata(groupingKey, builder);
-            return assignedPartition.getId();
-        });
-    }
-
-    /**
      * create a partition metadata key.
      *
      * @param groupKey group key
@@ -574,7 +533,7 @@ public class LucenePartitioner {
         return assignPartitionInternal(groupingKey, partitioningKey, true).thenCompose(assignedPartitionInfo -> {
             // optimization: if assigned partition is full and doc to be added is older than the partition's `from` value,
             // we create a new partition for it, in order to avoid unnecessary re-balancing later.
-            if (assignedPartitionInfo.getCount() >= indexPartitionHighWatermark && isOlderThan(partitioningKey, assignedPartitionInfo) ) {
+            if (assignedPartitionInfo.getCount() >= indexPartitionHighWatermark && isOlderThan(partitioningKey, assignedPartitionInfo)) {
                 return getAllPartitionMetaInfo(groupingKey).thenApply(partitionInfos -> {
                     int maxPartitionId = partitionInfos.stream()
                             .map(LucenePartitionInfoProto.LucenePartitionInfo::getId)
@@ -589,15 +548,43 @@ public class LucenePartitioner {
     }
 
     /**
-     * get the partition metadata containing the given partitioning key or fail if not found.
+     * try to get the partition to which a given record belongs.
      *
-     * @param partitioningKey partitioning key
-     * @return partition metadata future
-     * @throws RecordCoreException if no partition is found
+     * @param record record
+     * @param groupingKey grouping key
+     * @param <M> message
+     * @return null future if no suitable partition exists, partition info otherwise
      */
     @Nonnull
-    private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionInfoOrFail(@Nonnull Tuple groupingKey, @Nonnull Tuple partitioningKey) {
-        return assignPartitionInternal(groupingKey, partitioningKey, false);
+    <M extends Message> CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> tryGetPartitionInfo(
+            @Nonnull FDBIndexableRecord<M> record,
+            @Nonnull Tuple groupingKey) {
+        if (!isPartitioningEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return assignPartitionInternal(groupingKey, toPartitionKey(record), false);
+    }
+
+    /**
+     * decrement the doc count of a partition, and save its partition metadata.
+     *
+     * @param groupingKey grouping key
+     * @param partitionInfo partition metadata
+     * @param amount amount to subtract from the doc count
+     */
+    void decrementCountAndSave(@Nonnull Tuple groupingKey,
+                               @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo,
+                               int amount) {
+        LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = Objects.requireNonNull(partitionInfo).toBuilder();
+        // note that the to/from of the partition do not get updated, since that would require us to know what the next potential boundary
+        // value(s) are. The values, nonetheless, remain valid.
+        builder.setCount(partitionInfo.getCount() - amount);
+
+        if (builder.getCount() < 0) {
+            // should never happen
+            throw new RecordCoreException("Issue updating Lucene partition metadata (resulting count < 0)", LogMessageKeys.PARTITION_ID, partitionInfo.getId());
+        }
+        savePartitionMetadata(groupingKey, builder);
     }
 
     /**
@@ -608,7 +595,6 @@ public class LucenePartitioner {
      *                          create when <code>true</code>. This parameter should be set to <code>true</code> when
      *                          inserting a document, and <code>false</code> when deleting.
      * @return partition metadata future
-     * @throws RecordCoreException if <code>createIfNotExists</code> is <code>false</code> and no suitable partition is found
      */
     @Nonnull
     private CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> assignPartitionInternal(@Nonnull Tuple groupingKey,
@@ -627,10 +613,10 @@ public class LucenePartitioner {
             if (targetPartition.isEmpty()) {
                 return getOldestPartition(groupingKey).thenApply(oldestPartition -> {
                     if (oldestPartition == null) {
-                        if (!createIfNotExists) {
-                            throw new RecordCoreException("Partition metadata not found", LogMessageKeys.PARTITIONING_KEY, partitioningKey);
-                        } else {
+                        if (createIfNotExists) {
                             return newPartitionMetadata(partitioningKey, 0);
+                        } else {
+                            return null;
                         }
                     } else {
                         return oldestPartition;
