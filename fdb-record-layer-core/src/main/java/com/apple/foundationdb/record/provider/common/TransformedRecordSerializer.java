@@ -175,6 +175,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         int compressedLength;
         try {
             compressor.setInput(state.data, state.offset, state.length);
+            compressor.finish(); // necessary to include checksum
             compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
         } finally {
             compressor.end();

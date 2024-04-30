@@ -33,6 +33,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** The `TransformedRecordSerializer` now validates that compressed data decompresses to the expected size [(Issue #2689)](https://github.com/FoundationDB/fdb-record-layer/issues/2689)
+* **Feature** The `TransformedRecordSerializer` now includes checksums in compressed data that is validated during decompression [(Issue #2689)](https://github.com/FoundationDB/fdb-record-layer/issues/2691)
 * **Feature** Updated the set of known protocol versions for client log event parsing to include FDB 7.3 [(Issue #2682)](https://github.com/FoundationDB/fdb-record-layer/issues/2682)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
