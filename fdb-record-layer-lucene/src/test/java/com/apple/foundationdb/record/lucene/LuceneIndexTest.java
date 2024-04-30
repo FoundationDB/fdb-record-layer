@@ -1723,9 +1723,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> findStartingPartitionTest() {
-        Random r = ThreadLocalRandom.current();
         return Stream.of(true, false).flatMap(isSynthetic ->
-                Stream.of(1714058544895L, Math.abs(r.nextLong()))
+                Stream.concat(Stream.of(1714058544895L), RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())))
                         .map(startTime -> Arguments.of(isSynthetic, startTime)));
     }
 
@@ -1751,9 +1750,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Tuple groupKey = Tuple.from(1L);
             
             // timestamps present in partition keys
-            long time0 = startTime;
-            long time1 = startTime + 1000;
-            long time2 = startTime + 2000;
+            long time0 = Math.abs(startTime);
+            long time1 = time0 + 1000;
+            long time2 = time0 + 2000;
             
             // timestamp not in partition keys, but within a partition
             long time1_2 = time1 + 500; // between time1 and time2
