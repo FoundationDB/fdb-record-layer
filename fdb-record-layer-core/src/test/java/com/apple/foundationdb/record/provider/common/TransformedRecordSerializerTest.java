@@ -52,9 +52,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -192,6 +194,53 @@ public class TransformedRecordSerializerTest {
 
         logMetrics("metrics with successful compression (sonnet 108)",
                 "raw_length", rawLength, "compressed_length", serialized.length);
+    }
+
+    @Test
+    public void decompressWithoutAdler() {
+        final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
+                .setCompressWhenSerializing(true)
+                .setCompressionLevel(Deflater.BEST_COMPRESSION)
+                .setWriteValidationRatio(1.0)
+                .build();
+
+        final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1215L).setStrValueIndexed(SONNET_108).build();
+        byte[] serialized = serialize(serializer, simpleRecord);
+        assertThat("flag indicating checksum should be present in serialized data", serialized[8] & 1, not(equalTo(0)));
+        assertTrue(isCompressed(serialized));
+
+        // A bug meant that we previously weren't including the Adler-32 checksum in compressed data. Simulate
+        // that behavior here by compressing the record, without including the checksum.
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/2691
+        Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
+        byte[] withoutAdler = new byte[serialized.length];
+        System.arraycopy(serialized, 0, withoutAdler, 0, 6);
+        try {
+            byte[] underlying = serialize(serializer.untransformed(), simpleRecord);
+            deflater.setInput(underlying);
+            // Bug was here: this should call deflater.finish() to ensure the checksum is added
+            deflater.deflate(withoutAdler, 6, withoutAdler.length - 6, Deflater.SYNC_FLUSH);
+            assertEquals(underlying.length, deflater.getBytesRead());
+        } finally {
+            deflater.end();
+        }
+        assertThat("flag indicating checksum should be absent in data without checksum", withoutAdler[8] & 1, equalTo(0));
+
+        // The checksum goes at the end, so validate that the data all match except for at the end
+        boolean checksumDifferent = false;
+        for (int i = 0; i < serialized.length; i++) {
+            if (i != 8) {
+                if (i < serialized.length - 4) {
+                    assertEquals(serialized[i], withoutAdler[i], "byte " + i + " should match with and without checksum");
+                } else {
+                    checksumDifferent |= (serialized[i] != withoutAdler[i]);
+                }
+            }
+        }
+        assertTrue(checksumDifferent, "Checksum footer should differ in different serializations");
+
+        // Data without checksum should still deserialize into the original record
+        validateSerialization(serializer, simpleRecord, withoutAdler);
     }
 
     @Test
