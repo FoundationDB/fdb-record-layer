@@ -112,4 +112,8 @@ public final class LuceneRecordContextProperties {
      * assume that merge will not be performed during IO but in a background process.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_USE_CONCURRENT_MERGE_SCHEDULER = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.useConcurrentMergeScheduler", false);
+    /**
+     * Use "default transaction priority" during merge. The default of this prop is "true" because merge over multiple transactions may be holding back user operations.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_USE_DEFAULT_PRIORITY_DURING_MERGE = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.useDefaultPriorityDuringMerge", false);
 }

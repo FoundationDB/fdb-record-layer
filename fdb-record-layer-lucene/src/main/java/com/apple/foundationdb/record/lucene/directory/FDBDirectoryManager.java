@@ -40,6 +40,8 @@ import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -319,7 +321,14 @@ public class FDBDirectoryManager implements AutoCloseable {
             sizeQuotaBytes =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
             deferredControl.setSizeQuotaBytes(sizeQuotaBytes);
         }
-        return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
+        boolean useDefaultPriorityDuringMerge =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_DEFAULT_PRIORITY_DURING_MERGE), true);
+        if (useDefaultPriorityDuringMerge) {
+            final FDBRecordContextConfig.Builder contextBuilder = state.context.getConfig().toBuilder();
+            contextBuilder.setPriority(FDBTransactionPriority.DEFAULT);
+            return AgilityContext.agile(state.context, contextBuilder, timeQuotaMillis, sizeQuotaBytes);
+        } else {
+            return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
+        }
     }
 
     @Nonnull

@@ -356,12 +356,12 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     }
 
 
-    private class FailCommitsAgilityContext extends AgilityContext.Agile {
+    private static class FailCommitsAgilityContext extends AgilityContext.Agile {
         private final Object indexSubspaceKey;
         private int commitCount = 0;
 
         public FailCommitsAgilityContext(FDBRecordContext callerContext, final Object indexSubspaceKey) {
-            super(callerContext, 1L, 1L);
+            super(callerContext, null, 1L, 1L);
             this.indexSubspaceKey = indexSubspaceKey;
         }
 
