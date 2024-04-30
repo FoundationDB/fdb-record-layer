@@ -172,9 +172,14 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         // return the uncompressed value because it's pointless to compress
         // if we actually increase the amount of data.
         Deflater compressor = new Deflater(compressionLevel);
-        compressor.setInput(state.data, state.offset, state.length);
-        int compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
-        compressor.end();
+        int compressedLength;
+        try {
+            compressor.setInput(state.data, state.offset, state.length);
+            compressor.finish(); // necessary to include checksum
+            compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
+        } finally {
+            compressor.end();
+        }
         if (compressedLength == compressed.length - 5) {
             increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
             state.compressed = false;
@@ -272,9 +277,21 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         byte[] decompressed = new byte[decompressedLength];
 
         Inflater decompressor = new Inflater();
-        decompressor.setInput(state.data, state.offset + 5, state.length - 5);
-        decompressor.inflate(decompressed);
-        decompressor.end();
+        try {
+            decompressor.setInput(state.data, state.offset + 5, state.length - 5);
+            int actualDecompressedSize = decompressor.inflate(decompressed);
+            if (actualDecompressedSize < decompressedLength) {
+                throw new RecordSerializationException("decompressed record too small")
+                        .addLogInfo(LogMessageKeys.EXPECTED, decompressedLength)
+                        .addLogInfo(LogMessageKeys.ACTUAL, actualDecompressedSize);
+            } else if (decompressor.getRemaining() > 0) {
+                throw new RecordSerializationException("decompressed record too large")
+                        .addLogInfo(LogMessageKeys.EXPECTED, decompressedLength);
+            }
+        } finally {
+            decompressor.end();
+        }
+
         state.setDataArray(decompressed);
 
         if (timer != null) {

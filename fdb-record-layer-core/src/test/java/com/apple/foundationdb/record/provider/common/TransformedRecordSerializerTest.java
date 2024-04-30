@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord;
 import com.apple.foundationdb.record.TestRecords1Proto.RecordTypeUnion;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
@@ -48,11 +49,16 @@ import java.util.List;
 import java.util.zip.Deflater;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -161,7 +167,7 @@ public class TransformedRecordSerializerTest {
         assertEquals(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
                 storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION));
 
-        logMetrics("metrics with failed compression");
+        logMetrics("metrics with eschewed compression");
 
         // There should definitely be compression from a record like this
         MySimpleRecord largeRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(Strings.repeat("foo", 1000)).build();
@@ -171,7 +177,7 @@ public class TransformedRecordSerializerTest {
                 greaterThan(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION)));
         assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
         int rawLength = largeUnionRecord.toByteArray().length;
-        assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
+        assertEquals(rawLength, getUncompressedSize(serialized));
 
         logMetrics("metrics with successful compression (repeated foo)",
                 "raw_length", rawLength, "compressed_length", serialized.length);
@@ -182,7 +188,7 @@ public class TransformedRecordSerializerTest {
         serialized = serialize(serializer, mediumRecord);
         assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
         rawLength = mediumUnionRecord.toByteArray().length;
-        assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
+        assertEquals(rawLength, getUncompressedSize(serialized));
 
         logMetrics("metrics with successful compression (sonnet 108)",
                 "raw_length", rawLength, "compressed_length", serialized.length);
@@ -190,9 +196,12 @@ public class TransformedRecordSerializerTest {
 
     @Test
     public void unknownCompressionVersion() {
-        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
+                .setCompressWhenSerializing(true)
+                .build();
         MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
         byte[] serialized = serialize(serializer, simpleRecord);
+        assertTrue(isCompressed(serialized));
         serialized[1] += 1; // Bump the compression version to an unknown value.
 
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
@@ -219,6 +228,40 @@ public class TransformedRecordSerializerTest {
                 () -> validateSerialization(serializer, simpleRecord, serialized));
         assertThat(validationException.getMessage(), containsString("cannot deserialize record"));
         assertThat(validationException.getCause().getMessage(), containsString("decompression error"));
+    }
+
+    @Test
+    public void incorrectUncompressedSize() {
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
+                .setCompressionLevel(9)
+                .setCompressWhenSerializing(true)
+                .setWriteValidationRatio(1.0)
+                .build();
+
+        final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
+                .setRecNo(1066L)
+                .setStrValueIndexed(SONNET_108)
+                .build();
+        byte[] serialized = serialize(serializer, simpleRecord);
+        assertTrue(isCompressed(serialized));
+        int innerSize = ByteBuffer.wrap(serialized, 2, Integer.BYTES).order(ByteOrder.BIG_ENDIAN).getInt();
+
+        RecordSerializer<Message> innerSerializer = serializer.untransformed();
+        byte[] innerSerialized = serialize(innerSerializer, simpleRecord);
+        assertEquals(innerSerialized.length, innerSize);
+        assertThat(innerSerialized.length, greaterThan(serialized.length));
+
+        updateSize(serialized, innerSize * 2);
+        RecordSerializationException tooSmallException = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+        assertThat(tooSmallException.getMessage(), containsString("decompressed record too small"));
+        assertThat(tooSmallException.getLogInfo(), both(hasEntry(LogMessageKeys.EXPECTED.toString(), (Object) (innerSize * 2))).and(hasEntry(LogMessageKeys.ACTUAL.toString(), innerSize)));
+
+        updateSize(serialized, innerSize / 2);
+        RecordSerializationException tooLargeException = assertThrows(RecordSerializationException.class,
+                () -> deserialize(serializer, Tuple.from(1066L), serialized));
+        assertThat(tooLargeException.getMessage(), containsString("decompressed record too large"));
+        assertThat(tooLargeException.getLogInfo(), hasEntry(LogMessageKeys.EXPECTED.toString(), innerSize / 2));
     }
 
     @Test
@@ -296,6 +339,66 @@ public class TransformedRecordSerializerTest {
         assertThat(validationError.getMessage(), containsString("record serialization mismatch"));
 
         validateSerialization(serializer, simpleRecord.toBuilder().setNumValue2(43).build(), serialized);
+    }
+
+    /**
+     * Validate that we catch 1 bit flips in compression.
+     */
+    @Test
+    public void corruptAnyBit() {
+        final TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
+                .setCompressWhenSerializing(true)
+                .setCompressionLevel(9)
+                .setWriteValidationRatio(1.0)
+                .build();
+        final MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
+                .setRecNo(1415L)
+                .setStrValueIndexed(SONNET_108 + "\n" + SONNET_108)
+                .build();
+        byte[] serialized = serialize(serializer, simpleRecord);
+        assertTrue(isCompressed(serialized));
+
+        // Serializer inserts: 1 header + 1 version + 4 length bytes
+        // Compressed blob begin at position 6
+        for (int i = 6; i < serialized.length; i++) {
+            for (int b = 0; b < Byte.SIZE; b++) {
+                byte mask = (byte) (1 << b);
+                serialized[i] ^= mask;
+
+                try {
+                    // If validateSerialization passes, then flipping the bit does not change
+                    // the underlying result, so do not flag this as a problem
+                    validateSerialization(serializer, simpleRecord, serialized);
+                } catch (RecordSerializationValidationException err) {
+                    assertNotNull(err.getCause());
+                    assertThat(err.getCause(), instanceOf(RecordSerializationException.class));
+                    assertThat(err.getCause().getMessage(), either(containsString("decompression error"))
+                            .or(containsString("decompressed record too small"))
+                            .or(containsString("decompressed record too large"))
+                    );
+                }
+
+                serialized[i] ^= mask;
+            }
+        }
+    }
+
+    private boolean isCompressed(byte[] serialized) {
+        byte headerByte = serialized[0];
+        return (headerByte & TransformedRecordSerializer.ENCODING_PROTO_MESSAGE_FIELD) == 0
+                && (headerByte & TransformedRecordSerializer.ENCODING_COMPRESSED) != 0;
+    }
+
+    private int getUncompressedSize(byte[] serialized) {
+        return ByteBuffer.wrap(serialized, 2, Integer.BYTES)
+                .order(ByteOrder.BIG_ENDIAN)
+                .getInt();
+    }
+
+    private void updateSize(byte[] serialized, int newSize) {
+        ByteBuffer.wrap(serialized, 2, Integer.BYTES)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putInt(newSize);
     }
 
     /**
