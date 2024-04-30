@@ -178,7 +178,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                         aContext.ensureActive().clear(fileLockKey);
                                         logSelf(isRecovery ? "FileLock: Cleared in Recovery path" : "FileLock: Cleared");
                                     } else if (! isRecovery) {
-                                        throw new AlreadyClosedException("FileLock: Expected lock during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
+                                        throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
                                 }
                             });
