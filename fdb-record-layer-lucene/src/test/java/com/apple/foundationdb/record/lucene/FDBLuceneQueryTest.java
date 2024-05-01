@@ -71,6 +71,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -89,9 +91,11 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
@@ -132,6 +136,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(FDBLuceneQueryTest.class);
     // The fork/join pool parallelism factor (the number of active threads in the pool).
     private static final int PARALLELISM = 8;
 
@@ -394,7 +399,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-
     @Test
     void testQueryWithStopWords() {
         try (FDBRecordContext context = openContext()) {
@@ -423,6 +427,74 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             assertPrimaryKeys("text:(+morn* +the)", false, Set.of(1L, 2L, 3L));
             assertPrimaryKeys("text:(+morn* the)", false, Set.of(1L, 2L, 3L));
         }
+    }
+
+    /**
+     * Test that lucene doesn't break whene there's unicode in the text.
+     * <p>
+     *     This test is not intending to test the behavior of querying with unicode, just that having it doesn't break
+     *     other queries.
+     * </p>
+     */
+    @Test
+    void testQueryWithUnicode() {
+        List<StringBuilder> allBuilders = new ArrayList<>();
+        final String beginningWord = "banana";
+        final String endWord = "catamaran";
+        BiConsumer<StringBuilder, String> addWord = (stringBuilder, word) -> stringBuilder.append(" ").append(word).append(" ");
+        StringBuilder sb = new StringBuilder();
+        addWord.accept(sb, beginningWord);
+        allBuilders.add(sb);
+        int skipped = 0;
+        for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
+            if (Character.isSupplementaryCodePoint(i)) {
+                sb.append(Character.highSurrogate(i));
+                sb.append(Character.lowSurrogate(i));
+            } else if (Character.isDefined(i) && Character.getType(i) != Character.PRIVATE_USE
+                    && !Character.isSurrogate((char) i)) {
+                sb.append((char) i);
+            } else {
+                skipped++;
+            }
+            if (sb.length() > 50_000) {
+                addWord.accept(sb, endWord);
+                sb = new StringBuilder();
+                addWord.accept(sb, beginningWord);
+                allBuilders.add(sb);
+            }
+        }
+        addWord.accept(allBuilders.get(allBuilders.size() - 1), endWord);
+        List<String> allTexts = allBuilders.stream().map(StringBuilder::toString).collect(Collectors.toList());
+        LOGGER.debug("Skipped: " + skipped + "/" + Character.MAX_CODE_POINT);
+        LOGGER.debug("AllTexts (" + allTexts.size() + "): " + allTexts.stream().map(text -> String.valueOf(text.length())).collect(Collectors.joining(", ")));
+        long id = 1L;
+        for (final String text : allTexts) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                        .setDocId(id++)
+                        .setGroup(1)
+                        .setText(text)
+                        .build();
+                recordStore.saveRecord(document1);
+                TestRecordsTextProto.SimpleDocument document2 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                        .setDocId(id++)
+                        .setGroup(1)
+                        .setText(beginningWord + " Good morning the Mr Tian, would you like a " + endWord)
+                        .build();
+                recordStore.saveRecord(document2);
+                context.commit();
+            }
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            assertPrimaryKeys("text:(" + beginningWord + ")", false,
+                    LongStream.range(1, id).boxed().collect(Collectors.toSet()));
+            assertPrimaryKeys("text:(" + endWord + ")", false,
+                    LongStream.range(1, id).boxed().collect(Collectors.toSet()));
+        }
+
     }
 
     @ParameterizedTest
