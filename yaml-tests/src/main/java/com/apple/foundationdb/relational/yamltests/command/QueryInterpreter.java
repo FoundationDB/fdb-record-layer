@@ -73,7 +73,7 @@ import java.util.stream.Collectors;
  *      SELECT * FROM foo WHERE foo.a > %% !r [2, 9] %%
  *}</pre>
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
- * */
+ */
 public final class QueryInterpreter {
     /**
      * The original query string with embedded parameter injections.
@@ -203,10 +203,6 @@ public final class QueryInterpreter {
     }
 
     private List<Pair<String, Parameter>> getInjections(@Nonnull String query) {
-
-
-
-
 
         final var lst = new ArrayList<Pair<String, Parameter>>();
         int cursor = 0;

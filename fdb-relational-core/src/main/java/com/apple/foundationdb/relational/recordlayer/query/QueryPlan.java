@@ -273,11 +273,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNoNulls, continuationMetadata)
             );
             final Struct continuationInfo = parsedContinuation == ContinuationImpl.BEGIN ? null :
-                new ImmutableRowStruct(new ArrayRow(
-                        parsedContinuation.getExecutionState(),
-                        parsedContinuation.getVersion(),
-                        parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
-                ), continuationMetadata);
+                    new ImmutableRowStruct(new ArrayRow(
+                            parsedContinuation.getExecutionState(),
+                            parsedContinuation.getVersion(),
+                            parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
+                    ), continuationMetadata);
 
             return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
                     explain(),

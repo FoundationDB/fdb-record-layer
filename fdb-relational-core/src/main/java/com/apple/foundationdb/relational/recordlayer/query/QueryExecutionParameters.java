@@ -310,11 +310,11 @@ public interface QueryExecutionParameters {
 
         @Override
         public String toString() {
-            return parameterName != null
-                   ? "?" + parameterName
-                   : (unnamedParameterIndex != null
-                      ? "?" + unnamedParameterIndex : "∅") + ":" +
-                     literalObject + "@" + tokenIndex;
+            return parameterName != null ?
+                    "?" + parameterName :
+                    (unnamedParameterIndex != null ?
+                    "?" + unnamedParameterIndex : "∅") + ":" +
+                    literalObject + "@" + tokenIndex;
         }
 
         @Nonnull

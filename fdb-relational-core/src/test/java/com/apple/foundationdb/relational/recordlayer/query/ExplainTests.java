@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -124,7 +125,7 @@ public class ExplainTests {
                             .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
                             .hasColumn("PLAN_HASH", -1635569052);
                     final var continuationInfo = resultSet.getStruct(4);
-                    org.junit.jupiter.api.Assertions.assertNotNull((continuationInfo));
+                    org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                     final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                     assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                     assertStruct.hasValue("VERSION", 1);
@@ -153,7 +154,7 @@ public class ExplainTests {
                             .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
                             .hasColumn("PLAN_HASH", -1635569052);
                     final var continuationInfo = resultSet.getStruct(4);
-                    org.junit.jupiter.api.Assertions.assertNotNull((continuationInfo));
+                    org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                     final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                     assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                     assertStruct.hasValue("VERSION", 1);
@@ -182,7 +183,7 @@ public class ExplainTests {
                             .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                             .hasColumn("PLAN_HASH", -1635569052);
                     final var continuationInfo = resultSet.getStruct(4);
-                    org.junit.jupiter.api.Assertions.assertNotNull((continuationInfo));
+                    org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                     final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                     assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                     assertStruct.hasValue("VERSION", 1);
