@@ -27,7 +27,9 @@ import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -703,6 +705,26 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
         }
     }
+
+
+    @Test
+    void luceneTransactionPriorityVerificationTest() {
+        // Assert the expected priorities for user context and agility context
+        try (FDBRecordContext userContext = openContext()) {
+            final FDBTransactionPriority userPriority = userContext.getPriority();
+            final FDBTransactionPriority agilePriority = userPriority == FDBTransactionPriority.DEFAULT ? FDBTransactionPriority.BATCH : FDBTransactionPriority.DEFAULT;
+            final FDBRecordContextConfig.Builder contextBuilder = userContext.getConfig().toBuilder();
+            contextBuilder.setPriority(agilePriority);
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, contextBuilder, 2, 10000);
+            agilityContext.apply(context -> {
+                assertEquals(agilePriority, context.getPriority());
+                return CompletableFuture.completedFuture(null);
+            }).join();
+            assertEquals(userPriority, userContext.getPriority());
+            agilityContext.flushAndClose();
+        }
+    }
+
 
     @SuppressWarnings("serial")
     private static class FailException extends RuntimeException {
