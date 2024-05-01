@@ -477,12 +477,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         .setText(text)
                         .build();
                 recordStore.saveRecord(document1);
-                TestRecordsTextProto.SimpleDocument document2 = TestRecordsTextProto.SimpleDocument.newBuilder()
-                        .setDocId(id++)
-                        .setGroup(1)
-                        .setText(beginningWord + " Good morning the Mr Tian, would you like a " + endWord)
-                        .build();
-                recordStore.saveRecord(document2);
                 context.commit();
             }
         }
