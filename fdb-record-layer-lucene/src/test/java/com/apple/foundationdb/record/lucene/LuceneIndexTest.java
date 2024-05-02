@@ -1723,9 +1723,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> findStartingPartitionTest() {
-        return Stream.of(true, false).flatMap(isSynthetic ->
-                Stream.concat(Stream.of(1714058544895L), RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextLong())))
-                        .map(startTime -> Arguments.of(isSynthetic, startTime)));
+        return Stream.concat(
+                Stream.of(true, false).map(isSynthetic -> Arguments.of(isSynthetic, 1714058544895L)),
+                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextBoolean(), random.nextLong())));
     }
 
     @ParameterizedTest
