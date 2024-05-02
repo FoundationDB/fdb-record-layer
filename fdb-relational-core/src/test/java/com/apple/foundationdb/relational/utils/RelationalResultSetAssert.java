@@ -206,4 +206,7 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         }
     }
 
+    public static RelationalResultSetAssert assertThat(RelationalResultSet resultSet) {
+        return new RelationalResultSetAssert(resultSet);
+    }
 }

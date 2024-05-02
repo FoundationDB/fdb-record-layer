@@ -313,8 +313,8 @@ public interface QueryExecutionParameters {
             return parameterName != null ?
                     "?" + parameterName :
                     (unnamedParameterIndex != null ?
-                    "?" + unnamedParameterIndex : "∅") + ":" +
-                    literalObject + "@" + tokenIndex;
+                            "?" + unnamedParameterIndex : "∅") + ":" +
+                            literalObject + "@" + tokenIndex;
         }
 
         @Nonnull

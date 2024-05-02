@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 
 public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
@@ -222,11 +223,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private Set<String> computeIndexes() {
         final Set<String> result = new TreeSet<>();
 
-        for (final var table : getTables()) {
-            for (final var index : table.getIndexes()) {
-                result.add(index.getName());
-            }
-        }
+        // TODO: There are few index types that we currently don't handle
+        // Namely, universal, multi-type, and synthetic indexes. Once those are handled, we
+        // should be able to replace this with logic that gets the indexes from the
+        // schema template directly instead of converting it to meta-data.
+        final RecordMetaData metaData = toRecordMetadata();
+        metaData.getAllIndexes().stream()
+                .map(com.apple.foundationdb.record.metadata.Index::getName)
+                .forEach(result::add);
+
         return result;
     }
 
@@ -245,9 +250,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             result.set(0, indexSet.size()); // set all to '1'.
             return result;
         }
-        final var allExists = indexSet.containsAll(indexNames.get());
+        final Set<String> indexNamesToCheck = indexNames.get();
+        final var allExists = indexSet.containsAll(indexNamesToCheck);
         if (!allExists) {
-            throw new RelationalException("could not find some of the provided index names ", ErrorCode.INVALID_SCHEMA_TEMPLATE);
+            final Set<String> missingIndexes = indexNamesToCheck.stream()
+                    .filter(Predicate.not(indexSet::contains))
+                    .collect(ImmutableSet.toImmutableSet());
+            throw new RelationalException("could not find some of the provided index names ", ErrorCode.INVALID_SCHEMA_TEMPLATE)
+                    .addContext("missingIndexes", missingIndexes);
         }
         int i = 0;
         for (final var index : indexSet) { // sorted
