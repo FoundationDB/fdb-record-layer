@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Lock;
@@ -35,10 +36,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,7 +62,7 @@ class FDBDirectoryLockTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @BooleanSource
     void testFileLock(boolean useAgile) throws IOException {
         try (FDBRecordContext context = fdb.openContext()) {
             AgilityContext agilityContext =
@@ -85,6 +87,31 @@ class FDBDirectoryLockTest {
             assertTrue(e.getMessage().contains(alreadyLockedMessage));
             lock2.ensureValid();
             lock2.close();
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,true", "true,false", "false,true", "false,false"})
+    void testFileLockClose(boolean useAgile, boolean abortAgilityContext) throws IOException {
+        try (FDBRecordContext context = fdb.openContext()) {
+            AgilityContext agilityContext =
+                    useAgile ?
+                    AgilityContext.agile(context, 1000, 100_0000) :
+                    AgilityContext.nonAgile(context);
+
+            FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+            String lockName = "file.lock";
+            final Lock lock1 = directory.obtainLock(lockName);
+            lock1.ensureValid();
+            if (abortAgilityContext) {
+                agilityContext.abortAndClose();
+                assertTrue(agilityContext.isClosed());
+            } else {
+                assertFalse(agilityContext.isClosed());
+            }
+            lock1.close();
+            agilityContext.flushAndClose();
+            context.commit();
         }
     }
 }
