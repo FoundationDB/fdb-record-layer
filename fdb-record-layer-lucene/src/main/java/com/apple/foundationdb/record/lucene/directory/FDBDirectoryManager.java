@@ -115,7 +115,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
         // This agilityContext will be used to determine/iterate grouping keys and partitions. The time gap between calls might
         // be too long for a non-agile context.
-        final AgilityContext agilityContext = getAgilityContext(true);
+        final AgilityContext agilityContext = getAgilityContext(true, false);
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
             // Here: empty grouping keys tuple
@@ -172,7 +172,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
-        final AgilityContext agilityContext = getAgilityContext(true);
+        final AgilityContext agilityContext = getAgilityContext(true, true);
         try {
             mergeIndexWithContext(analyzerWrapper, groupingKey, partitionId, agilityContext);
         } finally {
@@ -281,7 +281,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
-        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false));
+        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false, false));
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
@@ -302,7 +302,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         return mapKey;
     }
 
-    private AgilityContext getAgilityContext(boolean useAgilityContext) {
+    private AgilityContext getAgilityContext(boolean useAgilityContext, boolean allowDefaultPriority) {
         final IndexDeferredMaintenanceControl deferredControl = state.store.getIndexDeferredMaintenanceControl();
         if (!useAgilityContext || Boolean.TRUE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT))) {
             // Avoid potential retries:
@@ -321,7 +321,7 @@ public class FDBDirectoryManager implements AutoCloseable {
             sizeQuotaBytes =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
             deferredControl.setSizeQuotaBytes(sizeQuotaBytes);
         }
-        boolean useDefaultPriorityDuringMerge =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_DEFAULT_PRIORITY_DURING_MERGE), true);
+        boolean useDefaultPriorityDuringMerge = allowDefaultPriority && Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_DEFAULT_PRIORITY_DURING_MERGE), true);
         if (useDefaultPriorityDuringMerge) {
             final FDBRecordContextConfig.Builder contextBuilder = state.context.getConfig().toBuilder();
             contextBuilder.setPriority(FDBTransactionPriority.DEFAULT);

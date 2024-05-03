@@ -707,12 +707,13 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
 
-    @Test
-    void luceneTransactionPriorityVerificationTest() {
+    @ParameterizedTest
+    @BooleanSource
+    void luceneTransactionPriorityVerificationTest(boolean usePriorityBatch) {
         // Assert the expected priorities for user context and agility context
         try (FDBRecordContext userContext = openContext()) {
             final FDBTransactionPriority userPriority = userContext.getPriority();
-            final FDBTransactionPriority agilePriority = userPriority == FDBTransactionPriority.DEFAULT ? FDBTransactionPriority.BATCH : FDBTransactionPriority.DEFAULT;
+            final FDBTransactionPriority agilePriority = usePriorityBatch ? FDBTransactionPriority.BATCH : FDBTransactionPriority.DEFAULT;
             final FDBRecordContextConfig.Builder contextBuilder = userContext.getConfig().toBuilder();
             contextBuilder.setPriority(agilePriority);
             final AgilityContext agilityContext = AgilityContext.agile(userContext, contextBuilder, 2, 10000);
