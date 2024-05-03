@@ -110,6 +110,7 @@ class FDBDirectoryLockTest {
                 assertFalse(agilityContext.isClosed());
             }
             lock1.close();
+            directory.close();
             agilityContext.flushAndClose();
             context.commit();
         }
