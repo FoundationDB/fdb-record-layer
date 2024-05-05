@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintena
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
@@ -82,6 +83,15 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.state = state;
         this.key = key;
         this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext);
+        this.agilityContext = agilityContext;
+        this.mergeDirectoryCount = mergeDirectoryCount;
+    }
+
+    @VisibleForTesting
+    public FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory, Tuple key, int mergeDirectoryCount, final AgilityContext agilityContext) {
+        this.state = state;
+        this.key = key;
+        this.directory = directory;
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
