@@ -1954,7 +1954,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void chaosMergeAndUpdateTest() throws InterruptedException, IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
         final Index index = indexConsumerPair.getLeft();
         assertNotNull(index);
@@ -1975,28 +1975,22 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 try (FDBRecordContext context = openContext(contextProps)) {
                     schemaSetup.accept(context);
                     recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                    boolean inserted = false;
-                    while (!inserted) {
-                        ComplexDocument cd = ComplexDocument.newBuilder()
-                                .setGroup(1)
-                                .setDocId(i + 1000L)
-                                .setIsSeen(true)
-                                .setText("A word about what I want to say")
-                                .setTimestamp(timestamp + i)
-                                .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
-                                .build();
+                    ComplexDocument cd = ComplexDocument.newBuilder()
+                            .setGroup(1)
+                            .setDocId(i + 1000L)
+                            .setIsSeen(true)
+                            .setText("A word about what I want to say")
+                            .setTimestamp(timestamp + i)
+                            .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
+                            .build();
+                    try {
                         Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                        try {
-                            commit(context);
-                            insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp));
-                            inserted = true;
-                        } catch (Exception e) {
-                            // commit failed due to conflict with other thread. Continue trying to create docs.
-                            context.ensureActive();
-                            System.out.println("----- not committed");
-                        }
+                        commit(context);
+                        insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp + i));
+                    } catch (Exception e) {
+                        // commit failed due to conflict with other thread. Continue trying to create docs.
+                        LOGGER.debug("couldn't commit for key {}", (1000L + i));
                     }
-
                 }
                 // after first record is committed, signal to merger record to start attempting to merge
                 firstRecordCommitted.compareAndSet(false, true);
