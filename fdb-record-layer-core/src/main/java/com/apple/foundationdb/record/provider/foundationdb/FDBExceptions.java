@@ -144,6 +144,16 @@ public class FDBExceptions {
     }
 
     /**
+     * Transaction failed due to a lock already taken.
+     */
+    @SuppressWarnings("serial")
+    public static class FDBStoreLockTakenException extends RecordCoreRetriableTransactionException {
+        public FDBStoreLockTakenException(String message, Exception cause) {
+            super(message, cause);
+        }
+    }
+
+    /**
      * An exception that should be retried by the caller because is stems from a transient condition in FDB.
      * @see FDBException#isRetryable
      */

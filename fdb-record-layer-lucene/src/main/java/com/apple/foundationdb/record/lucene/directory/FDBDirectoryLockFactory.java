@@ -32,9 +32,12 @@ import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockFactory;
+import org.apache.lucene.store.LockObtainFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -53,9 +56,14 @@ public final class FDBDirectoryLockFactory extends LockFactory {
     }
 
     @Override
-    public Lock obtainLock(final Directory dir, final String lockName) {
+    public Lock obtainLock(final Directory dir, final String lockName) throws IOException {
         // dir is ignored
-        return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
+        try {
+            return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
+        } catch (FDBDirectoryLockException ex) {
+            // Wrap in a Lucene-compatible exception (that extends IOException)
+            throw new LockObtainFailedException(ex.getMessage(), ex);
+        }
     }
 
     protected static class FDBDirectoryLock extends Lock {
@@ -165,7 +173,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (existingTimeStamp > (nowMillis - timeWindowMilliseconds) &&
                     existingTimeStamp < (nowMillis + timeWindowMilliseconds)) {
                 // Here: this lock is valid
-                throw new RecordCoreException("FileLock: Lock failed: already locked by another entity")
+                throw new FDBDirectoryLockException("FileLock: Lock failed: already locked by another entity")
                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                 LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                                 LuceneLogMessageKeys.LOCK_DIRECTORY, this);
@@ -239,6 +247,13 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                         LogMessageKeys.KEY, ByteArrayUtil2.loggable(fileLockKey)));
             }
 
+        }
+    }
+
+    public static class FDBDirectoryLockException extends RecordCoreException {
+        private static final long serialVersionUID = 1;
+        public FDBDirectoryLockException(@Nonnull final String msg) {
+            super(msg);
         }
     }
 }

@@ -61,6 +61,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -778,6 +779,11 @@ public class LuceneIndexTestUtils {
                 .build()) {
             indexBuilder.mergeIndex();
         }
+    }
+
+    public static void rebalancePartitions(final FDBRecordStore recordStore, final Index index) throws ExecutionException, InterruptedException {
+        LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+        indexMaintainer.rebalancePartitions().get();
     }
 
     /**
