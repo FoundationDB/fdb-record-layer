@@ -250,8 +250,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
     }
 
+    /**
+     * An exception class thrown when obtaining the lock failed.
+     */
+    @SuppressWarnings("serial")
     public static class FDBDirectoryLockException extends RecordCoreException {
-        private static final long serialVersionUID = 1;
         public FDBDirectoryLockException(@Nonnull final String msg) {
             super(msg);
         }

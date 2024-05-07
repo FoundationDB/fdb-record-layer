@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import org.apache.lucene.store.LockObtainFailedException;
 
-
+/**
+ * Utility class for converting Lucene Exceptions to Record layer ones.
+ */
 public class LuceneExceptions {
     private static final Object[] EMPTY_KEYS_AND_VALUES = new Object[0];
 
@@ -56,5 +58,6 @@ public class LuceneExceptions {
         return new RecordCoreException(message, ex).addLogInfo(logInfo).addLogInfo(additionalLogInfo);
     }
 
-    private LuceneExceptions() {}
+    private LuceneExceptions() {
+    }
 }
