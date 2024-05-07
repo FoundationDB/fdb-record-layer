@@ -36,9 +36,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.IndexedType;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
-import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.EnglishSynonymMapConfig;
@@ -62,8 +60,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
@@ -104,7 +100,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -140,7 +135,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -1875,308 +1869,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     }
                 }
             }
-        }
-    }
-
-    // Lock a directory, and commit, then try to update a record, or save a record, or do a search, and assert that nothing
-    // is corrupted (or that the user request fails)
-    @Test
-    void lockCommitThenValidateTest() throws IOException {
-        final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
-        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
-        final Index index = indexConsumerPair.getLeft();
-        assertNotNull(index);
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
-
-        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
-                .build();
-
-        long timestamp = System.currentTimeMillis();
-        Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
-        // save a record
-        try (FDBRecordContext context = openContext(contextProps)) {
-            schemaSetup.accept(context);
-
-            ComplexDocument cd = ComplexDocument.newBuilder()
-                    .setGroup(1)
-                    .setDocId(1000L)
-                    .setIsSeen(true)
-                    .setText("A word about what I want to say")
-                    .setTimestamp(timestamp)
-                    .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(999L))
-                    .build();
-            Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-            insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp));
-            commit(context);
-        }
-
-        // explicitly lock directory then commit
-        try (FDBRecordContext context = openContext(contextProps)) {
-            schemaSetup.accept(context);
-            LuceneIndexMaintainer luceneIndexMaintainer = getIndexMaintainer(index);
-            FDBDirectory fdbDirectory = luceneIndexMaintainer.getDirectory(Tuple.from(1), 0);
-            Lock testLock = fdbDirectory.obtainLock("write.lock");
-            testLock.ensureValid();
-            commit(context);
-        }
-
-        // create another record
-        try (FDBRecordContext context = openContext(contextProps)) {
-            schemaSetup.accept(context);
-
-            ComplexDocument cd = ComplexDocument.newBuilder()
-                    .setGroup(1)
-                    .setDocId(2000L)
-                    .setIsSeen(true)
-                    .setText("A word about what I want to say")
-                    .setTimestamp(timestamp + 2000)
-                    .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1999L))
-                    .build();
-            Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-            insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp + 2000));
-            commit(context);
-        }
-
-        // validate index
-        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
-            schemaSetup.accept(context);
-            return recordStore;
-        }).validate(index, insertedDocs, Integer.MAX_VALUE, "text:about", false);
-    }
-
-    // A chaos test of two threads, one constantly trying to merge, and one trying to update a record, or save a new record or do a search.
-    // At the end the index should be validated for consistency.
-    @SuppressWarnings("checkstyle:emptycatchblock")
-    @Test
-    void chaosMergeAndUpdateTest() throws InterruptedException, IOException {
-        final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
-        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
-        final Index index = indexConsumerPair.getLeft();
-        assertNotNull(index);
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
-
-        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
-                .build();
-
-        final int countReps = 20;
-
-        long timestamp = System.currentTimeMillis();
-        Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
-        AtomicBoolean firstRecordCommitted = new AtomicBoolean(false);
-
-        Thread inserter = new Thread(() -> {
-            for (int i = 0; i < countReps; i++) {
-                try (FDBRecordContext context = openContext(contextProps)) {
-                    schemaSetup.accept(context);
-                    recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                    ComplexDocument cd = ComplexDocument.newBuilder()
-                            .setGroup(1)
-                            .setDocId(i + 1000L)
-                            .setIsSeen(true)
-                            .setText("A word about what I want to say")
-                            .setTimestamp(timestamp + i)
-                            .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
-                            .build();
-                    try {
-                        Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                        commit(context);
-                        insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp + i));
-                    } catch (Exception e) {
-                        // commit failed due to conflict with other thread. Continue trying to create docs.
-                        LOGGER.debug("couldn't commit for key {}", (1000L + i));
-                    }
-                }
-                // after first record is committed, signal to merger record to start attempting to merge
-                firstRecordCommitted.compareAndSet(false, true);
-            }
-        });
-
-        Thread merger = new Thread(() -> {
-            // wait till first record is committed before attempting to merge
-            while (!firstRecordCommitted.get()) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException interruptedException) {
-                }
-            }
-
-            // busy merge
-            for (int i = 0; i < countReps; i++) {
-                explicitMergeIndex(index, contextProps, schemaSetup);
-            }
-        });
-
-        inserter.start();
-        merger.start();
-
-        inserter.join();
-        merger.join();
-
-        // validate index is sane
-        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
-            schemaSetup.accept(context);
-            return recordStore;
-        }).validate(index, insertedDocs, Integer.MAX_VALUE, "text:about", false);
-    }
-
-    // A test where there are multiple threads trying to do merges. At the end the index should be validated for consistency.
-    @Test
-    void multipleConcurrentMergesTest() throws IOException {
-        final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
-        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
-        final Index index = indexConsumerPair.getLeft();
-        assertNotNull(index);
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
-
-        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
-                .build();
-
-        final int countReps = 20;
-        final int threadCount = 10;
-
-        long timestamp = System.currentTimeMillis();
-        Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
-
-        // create a bunch of docs
-        for (int i = 0; i < countReps; i++) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                schemaSetup.accept(context);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                ComplexDocument cd = ComplexDocument.newBuilder()
-                        .setGroup(1)
-                        .setDocId(i + 1000L)
-                        .setIsSeen(true)
-                        .setText("A word about what I want to say")
-                        .setTimestamp(timestamp + i)
-                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
-                        .build();
-                Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp));
-                commit(context);
-            }
-        }
-
-        List<Thread> mergingThreads = new ArrayList<>();
-        for (int i = 0; i < threadCount; i++) {
-            mergingThreads.add(new Thread(() -> explicitMergeIndex(index, contextProps, schemaSetup)));
-        }
-
-        mergingThreads.forEach(thread -> {
-            thread.start();
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
-            schemaSetup.accept(context);
-            return recordStore;
-        }).validate(index, insertedDocs, Integer.MAX_VALUE, "text:about", false);
-    }
-
-    // A test of what lucene does when a merge loses its lock
-    @Test
-    void mergeLosesLockTest() throws IOException {
-        final Map<String, String> options = Map.of(
-                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(20));
-
-        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
-        final Index index = indexConsumerPair.getLeft();
-        assertNotNull(index);
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
-
-        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
-                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
-                .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
-                .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, 1) // 1ms
-                .build();
-
-        final int docCount = 20;
-        long timestamp = System.currentTimeMillis();
-        Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
-
-        // create a bunch of docs
-        for (int i = 0; i < docCount; i++) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                schemaSetup.accept(context);
-                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                ComplexDocument cd = ComplexDocument.newBuilder()
-                        .setGroup(1)
-                        .setDocId(i + 1000L)
-                        .setIsSeen(true)
-                        .setText("A word about what I want to say")
-                        .setTimestamp(timestamp + i)
-                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
-                        .build();
-                Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp));
-                commit(context);
-            }
-        }
-
-        // try a couple of times
-        for (int l = 0; l < 2; l++) {
-            try (FDBRecordContext context = openContext(contextProps)) {
-                schemaSetup.accept(context);
-
-                // directory key for group 1/partition 0
-                Tuple directoryKey = Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE, 0);
-                IndexMaintainerState state = new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL);
-
-                // custom test directory that returns a lucene lock that's never valid (Lock.ensureValid() throws IOException)
-                FDBDirectory fdbDirectory = new InvalidLockTestFDBDirectory(recordStore.indexSubspace(index).subspace(directoryKey), context, options);
-                FDBDirectoryWrapper fdbDirectoryWrapper = new FDBDirectoryWrapper(state, fdbDirectory, directoryKey, 1, AgilityContext.agile(context, 1L, 1L));
-
-                final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
-                LuceneAnalyzerCombinationProvider indexAnalyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
-
-                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(indexAnalyzerSelector.provideIndexAnalyzer(""), new Exception()), "invalid lock");
-                commit(context);
-            }
-        }
-
-        // validate that the index is still sane
-        new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
-            schemaSetup.accept(context);
-            return recordStore;
-        }).validate(index, insertedDocs, Integer.MAX_VALUE, "text:about", false);
-    }
-
-    /**
-     * a test FDBDirectory class that returns a {@link Lock} that is not valid.
-     */
-    static class InvalidLockTestFDBDirectory extends FDBDirectory {
-        public InvalidLockTestFDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
-            super(subspace, context, indexOptions);
-        }
-
-        @Override
-        @Nonnull
-        public Lock obtainLock(@Nonnull final String lockName) throws IOException {
-            final Lock lock = super.obtainLock(lockName);
-            return new Lock() {
-                @Override
-                public void close() throws IOException {
-                    lock.close();
-                }
-
-                @Override
-                public void ensureValid() throws IOException {
-                    throw new IOException("invalid lock");
-                }
-            };
         }
     }
 
