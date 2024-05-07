@@ -455,7 +455,7 @@ public abstract class IndexingBase {
                         return AsyncUtil.DONE;
                     }
                     if (continuedBuild && shouldAllowTakeoverContinue(indexingTypeStamp, savedStamp)) {
-                        // Special case: partly built with multi target, but may be continued indexing on its own
+                        // Special case: partly built by another indexing method, but may be continued indexing on its own
                         store.saveIndexingTypeStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
                     }

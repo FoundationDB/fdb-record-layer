@@ -56,6 +56,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -2127,6 +2128,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final DesiredAction ifReadable;
         private final boolean allowUniquePendingState;
         private final boolean allowTakeoverContinue;
+        private final Set<TakeroverTypes> allowedTakeoverSet;
         private final long checkIndexingMethodFrequencyMilliseconds;
         private final boolean mutualIndexing;
         private final List<Tuple> mutualIndexingBoundaries;
@@ -2146,6 +2148,15 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Possible conversion from one indexing method to another.
+         */
+        public enum TakeroverTypes {
+            MULTI_TARGET_TO_SINGLE, // Allow a single target indexing continuation when the index was partly built with other indexes (as multi target)
+            MUTUAL_TO_SINGLE, // Allow a single target indexing continuation when the index was partly built as mutual indexing (either single or multi target)
+            // TODO:  TO_MUTUAL - either single or multi target to mutual indexing
+        }
+
+        /**
          * Create a policy for the indexing session.
          * @param sourceIndex Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index
          * @param sourceIndexSubspaceKey if non-null, overrides the sourceIndex param
@@ -2156,6 +2167,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param ifReadable desired action if the existing index state is READABLE (i.e. already built)
          * @param allowUniquePendingState if false, forbid {@link IndexState#READABLE_UNIQUE_PENDING} state
          * @param allowTakeoverContinue if true and possible, allow indexing continuation of a different indexing method
+         * @param allowedTakeoverSet if non-null, allow a subset of indexing type conversion (non-null overrides allowTakeoverContinue)
          * @param mutualIndexing if true, use mutual indexing (i.e., index in a way that allows other processes to cooperatively build the index)
          * @param mutualIndexingBoundaries if present, use this predefined list of ranges. Else, split ranges by shards
          * @param allowUnblock if true, allow unblocking
@@ -2166,7 +2178,8 @@ public class OnlineIndexer implements AutoCloseable {
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
                                DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
-                               boolean allowUniquePendingState, boolean allowTakeoverContinue, long checkIndexingMethodFrequencyMilliseconds,
+                               boolean allowUniquePendingState, boolean allowTakeoverContinue, Set<TakeroverTypes> allowedTakeoverSet,
+                               long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
                                boolean allowUnblock, String allowUnblockId,
                                long initialMergesCountLimit,
@@ -2180,6 +2193,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.ifReadable = ifReadable;
             this.allowUniquePendingState = allowUniquePendingState;
             this.allowTakeoverContinue = allowTakeoverContinue;
+            this.allowedTakeoverSet = allowedTakeoverSet;
             this.checkIndexingMethodFrequencyMilliseconds = checkIndexingMethodFrequencyMilliseconds;
             this.mutualIndexing = mutualIndexing;
             this.mutualIndexingBoundaries = mutualIndexingBoundaries;
@@ -2252,6 +2266,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setIfReadable(ifReadable)
                     .allowUniquePendingState(allowUniquePendingState)
                     .allowTakeoverContinue(allowTakeoverContinue)
+                    .allowTakeoverContinue(allowedTakeoverSet)
                     .checkIndexingStampFrequencyMilliseconds(checkIndexingMethodFrequencyMilliseconds)
                     .setMutualIndexing(mutualIndexing)
                     .setMutualIndexingBoundaries(mutualIndexingBoundaries)
@@ -2319,13 +2334,24 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, allow - in some specific cases - to continue building an index that was partly built by a different indexing method.
-         * (See {@link Builder#allowTakeoverContinue(boolean)}).
+         * (See {@link Builder#allowTakeoverContinue(Set)} and {@link Builder#allowTakeoverContinue(boolean)}).
          * @param newMethod the new (attempting to continue) indexing method
          * @param oldMethod the old (previously used) indexing method
          * @return true if allowed
          */
         public boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp.Method newMethod,
                                                    IndexBuildProto.IndexBuildIndexingStamp.Method oldMethod) {
+            if (allowedTakeoverSet != null) {
+                if (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                    if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
+                        return allowedTakeoverSet.contains(TakeroverTypes.MULTI_TARGET_TO_SINGLE);
+                    }
+                    if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
+                        return allowedTakeoverSet.contains(TakeroverTypes.MUTUAL_TO_SINGLE);
+                    }
+                }
+                return false;
+            }
             return allowTakeoverContinue &&
                    // Takeover is allowed only in certain cases
                    (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS &&
@@ -2394,6 +2420,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniqueuPendingState = false;
             private boolean doAllowTakeoverContinue = false;
+            private Set<TakeroverTypes> allowedTakeoverSet = null;
             private long checkIndexingStampFrequency = 60_000;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
@@ -2549,11 +2576,29 @@ public class OnlineIndexer implements AutoCloseable {
              * <li>"Single index by records" may continue a multi index session.</li>
              * <li>"Single index by records" may continue a mutually built session.</li>
              *  </ul>
+             *  This function may be too general; {@link #allowTakeoverContinue(Set)} supports allowing a subset of these conversions.
+             *  Note - if {@link #allowTakeoverContinue(Set)} is called with a non-null argument, it will override this function's argument.
              * @param allow if true, allow takeover.
              * @return this builder
              */
             public Builder allowTakeoverContinue(boolean allow) {
                 this.doAllowTakeoverContinue = allow;
+                return this;
+            }
+
+            /**
+             * In some special cases, an indexing method is allowed to continue building an index that was partly
+             * built by another method. If the other indexing session is still running, a "takeover" may cause it to fail.
+             * Note that it goes one way - once there is a "takeover", there is no way to continue building with the previous method.
+             *  Usage exmaple:
+             *  {@code builder.allowTakeoverContinue(EnumSet.of(TakeroverTypes.MULTI_TARGET_TO_SINGLE, TakeroverTypes.BY_INDEX_TO_BY_RECORDS));}
+             *  Note - If called with a non-null argument, it will override {@link #allowTakeoverContinue(boolean)}
+             *
+             * @param allowedSet - the types of conversion to allow. Null or empty set will allow no conversion.
+             * @return this builder
+             */
+            public Builder allowTakeoverContinue(@Nullable Set<TakeroverTypes> allowedSet) {
+                this.allowedTakeoverSet = allowedSet;
                 return this;
             }
 
@@ -2678,7 +2723,8 @@ public class OnlineIndexer implements AutoCloseable {
                 }
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
-                        doAllowUniqueuPendingState, doAllowTakeoverContinue, checkIndexingStampFrequency,
+                        doAllowUniqueuPendingState, doAllowTakeoverContinue, allowedTakeoverSet,
+                        checkIndexingStampFrequency,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
                         initialMergesCountLimit, reverseScanOrder);
             }
