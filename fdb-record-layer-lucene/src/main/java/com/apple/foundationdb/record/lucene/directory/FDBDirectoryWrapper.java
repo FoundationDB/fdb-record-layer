@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
@@ -45,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -291,19 +294,30 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return writer;
     }
 
+    void tryClose(Closeable closeable, String what) {
+        try {
+            closeable.close();
+        } catch (Exception ex) {
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn(KeyValueLogMessage.of("close failed for " + what,
+                        LogMessageKeys.AGILITY_CONTEXT, agilityContext), ex);
+            }
+        }
+    }
+
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
         if (writer != null) {
-            writer.close();
+            tryClose(writer, "writer");
             writer = null;
             writerAnalyzerId = null;
             if (writerReader != null) {
-                writerReader.close();
+                tryClose(writerReader, "writerReader");
                 writerReader = null;
             }
         }
-        directory.close();
+        tryClose(directory, "directory");
     }
 
     public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, final Exception exceptionAtCreation) throws IOException {

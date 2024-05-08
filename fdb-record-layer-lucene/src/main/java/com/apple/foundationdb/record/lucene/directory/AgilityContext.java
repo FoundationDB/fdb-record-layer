@@ -452,8 +452,8 @@ public interface AgilityContext {
 
         @Override
         public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
-            // No recovery for a single user transaction
-            return CompletableFuture.completedFuture(null);
+            // Best effort - skip ensureOpen, ignore exceptions.
+            return function.apply(callerContext).exceptionally(ex -> null);
         }
 
         @Override
