@@ -66,6 +66,10 @@ public class FDBRecordStoreConcurrentTestBase {
     protected KeySpacePath path;
     protected FDBStoreTimer timer = new FDBStoreTimer();
 
+    public FDBRecordStoreConcurrentTestBase(@Nullable KeySpacePath path) {
+        this.path = path;
+    }
+
     public boolean useCascadesPlanner() {
         return useCascadesPlanner;
     }
@@ -120,11 +124,10 @@ public class FDBRecordStoreConcurrentTestBase {
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         final FDBRecordContextConfig config = contextConfig(props).setTimer(timer).build();
-        FDBRecordContext context = fdb.openContext(config);
-        return context;
+        return fdb.openContext(config);
     }
 
-    private FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
+    FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         UUID transactionUuid = UUID.randomUUID();
         @Nullable String testMethod = MDC.get(TestMdcExtension.TEST_METHOD);
         String transactionId = (testMethod == null) ? transactionUuid.toString() : (testMethod + "_" + transactionUuid);

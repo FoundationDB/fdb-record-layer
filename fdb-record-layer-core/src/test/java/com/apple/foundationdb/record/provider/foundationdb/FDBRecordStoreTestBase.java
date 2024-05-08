@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -28,8 +27,6 @@ import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -39,16 +36,10 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
-import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
-import com.apple.foundationdb.test.TestMdcExtension;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.test.Tags;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -58,13 +49,10 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.provider.Arguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -76,6 +64,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @Tag(Tags.RequiresFDB)
 public abstract class FDBRecordStoreTestBase {
+    private final FDBRecordStoreConcurrentTestBase concurrentTestBase;
+
     @RegisterExtension
     protected final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
@@ -95,15 +85,7 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public FDBRecordStoreTestBase(@Nullable KeySpacePath path) {
-        this.path = path;
-    }
-
-    @BeforeEach
-    void initDatabaseAndPath() {
-        fdb = dbExtension.getDatabase();
-        if (path == null) {
-            path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-        }
+        concurrentTestBase = new FDBRecordStoreConcurrentTestBase(path);
     }
 
     @Nonnull
@@ -137,42 +119,59 @@ public abstract class FDBRecordStoreTestBase {
         void open(FDBRecordContext context) throws Exception;
     }
 
-    public FDBRecordContext openContext() {
-        return openContext(RecordLayerPropertyStorage.getEmptyInstance());
+    // ------------- methods delegating to concurrentTestBase
+
+    @BeforeEach
+    void initDatabaseAndPath() {
+        concurrentTestBase.initDatabaseAndPath();
+
+        // copies of values in concurrentTestBase for
+        // some of the non-delegating, local methods of this class
+        this.timer = concurrentTestBase.timer;
+        this.fdb = concurrentTestBase.fdb;
+        this.path = concurrentTestBase.path;
     }
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
-        return openContext(props.toBuilder());
+        return concurrentTestBase.openContext(props.toBuilder());
     }
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        final FDBRecordContextConfig config = contextConfig(props).setTimer(timer).build();
-        FDBRecordContext context = fdb.openContext(config);
-        return context;
+        return concurrentTestBase.openContext(props);
     }
 
     private FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        UUID transactionUuid = UUID.randomUUID();
-        @Nullable String testMethod = MDC.get(TestMdcExtension.TEST_METHOD);
-        String transactionId = (testMethod == null) ? transactionUuid.toString() : (testMethod + "_" + transactionUuid);
-        ImmutableMap<String, String> mdcContext = ImmutableMap.<String, String>builder()
-                .put("uuid", transactionId)
-                .putAll(MDC.getCopyOfContextMap())
-                .build();
-
-        return FDBRecordContextConfig.newBuilder()
-                .setTransactionId(transactionId)
-                .setTimer(timer)
-                .setMdcContext(mdcContext)
-                .setTrackOpen(true)
-                .setSaveOpenStackTrace(true)
-                .setReportConflictingKeys(true)
-                .setRecordContextProperties(addDefaultProps(props).build());
+        return concurrentTestBase.contextConfig(props);
     }
 
     // By default, do not set any props by default, but leave open for sub-classes to extend
     protected RecordLayerPropertyStorage.Builder addDefaultProps(RecordLayerPropertyStorage.Builder props) {
-        return props;
+        return concurrentTestBase.addDefaultProps(props);
+    }
+
+    @Nonnull
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+        return concurrentTestBase.getStoreBuilder(context, metaData);
+    }
+
+    protected void createOrOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+        Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = concurrentTestBase.createOrOpenRecordStore(context, metaData);
+        recordStore = recordStoreQueryPlannerPair.getLeft();
+        planner = recordStoreQueryPlannerPair.getRight();
+    }
+
+    public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
+        concurrentTestBase.setupPlanner(recordStore, indexTypes);
+    }
+
+    public void commit(FDBRecordContext context) {
+        concurrentTestBase.commit(context);
+    }
+
+    // -------------
+
+    public FDBRecordContext openContext() {
+        return openContext(RecordLayerPropertyStorage.getEmptyInstance());
     }
 
     @Nonnull
@@ -185,19 +184,6 @@ public abstract class FDBRecordStoreTestBase {
         return new Index(COUNT_UPDATES_INDEX_NAME, new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT_UPDATES);
     }
 
-    @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
-        return FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
-                .setKeySpacePath(path)
-                .setContext(context)
-                .setMetaDataProvider(metaData);
-    }
-
-    protected void createOrOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
-        recordStore = getStoreBuilder(context, metaData).createOrOpen();
-        setupPlanner(null);
-    }
 
     protected void uncheckedOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
         recordStore = getStoreBuilder(context, metaData).uncheckedOpen();
@@ -208,40 +194,6 @@ public abstract class FDBRecordStoreTestBase {
         this.useCascadesPlanner = useCascadesPlanner;
     }
 
-    public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (useCascadesPlanner) {
-            planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-            if (Debugger.getDebugger() == null) {
-                Debugger.setDebugger(new DebuggerWithSymbolTables());
-            }
-            Debugger.setup();
-        } else {
-            if (indexTypes == null) {
-                indexTypes = PlannableIndexTypes.DEFAULT;
-            }
-            planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
-        }
-    }
-
-    public void commit(FDBRecordContext context) {
-        try {
-            context.commit();
-            if (logger.isInfoEnabled()) {
-                KeyValueLogMessage msg = KeyValueLogMessage.build("committing transaction");
-                msg.addKeysAndValues(timer.getKeysAndValues());
-                msg.addKeyAndValue(LogMessageKeys.TRANSACTION_ID, context.getTransactionId());
-                logger.info(msg.toString());
-            }
-        } catch (FDBExceptions.FDBStoreTransactionConflictException conflictException) {
-            List<Range> conflictRanges = context.getNotCommittedConflictingKeys();
-            if (conflictRanges != null && !conflictRanges.isEmpty()) {
-                conflictException.addLogInfo("conflict_ranges", conflictRanges);
-            }
-            throw conflictException;
-        } finally {
-            timer.reset();
-        }
-    }
 
     public static ByteString byteString(int... ints) {
         byte[] bytes = new byte[ints.length];
