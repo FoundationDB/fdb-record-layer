@@ -39,13 +39,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Utf8;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,7 +147,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private ConcurrentNavigableMap<byte[], Integer> localVersionCache;
     @Nonnull
-    private ConcurrentNavigableMap<byte[], Pair<MutationType, byte[]>> versionMutationCache;
+    private ConcurrentNavigableMap<byte[], NonnullPair<MutationType, byte[]>> versionMutationCache;
     @Nonnull
     private final FDBRecordContextConfig config;
     private final long timeoutMillis;
@@ -1288,8 +1288,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nullable
     public byte[] addVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value) {
-        Pair<MutationType, byte[]> valuePair = Pair.of(mutationType, value);
-        Pair<MutationType, byte[]> existingPair = versionMutationCache.put(key, valuePair);
+        NonnullPair<MutationType, byte[]> valuePair = NonnullPair.of(mutationType, value);
+        NonnullPair<MutationType, byte[]> existingPair = versionMutationCache.put(key, valuePair);
         return existingPair != null ? existingPair.getRight() : null;
     }
 
@@ -1307,18 +1307,18 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nullable
     public byte[] removeVersionMutation(@Nonnull byte[] key) {
-        Pair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
+        NonnullPair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
         return existingValue != null ? existingValue.getRight() : null;
     }
 
     @Nullable
     public byte[] updateVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value,
                                         @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {
-        Pair<MutationType, byte[]> valuePair = Pair.of(mutationType, value);
+        NonnullPair<MutationType, byte[]> valuePair = NonnullPair.of(mutationType, value);
         return versionMutationCache.merge(key, valuePair, (origPair, newPair) -> {
             if (origPair.getLeft().equals(newPair.getLeft())) {
                 byte[] newValue = remappingFunction.apply(origPair.getRight(), newPair.getRight());
-                return newValue == null ? null : Pair.of(origPair.getLeft(), newValue);
+                return newValue == null ? null : NonnullPair.of(origPair.getLeft(), newValue);
             } else {
                 throw new RecordCoreArgumentException("cannot update mutation type for versionstamp operation");
             }

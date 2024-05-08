@@ -55,13 +55,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -262,7 +262,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nonnull
-    private Pair<Integer, Integer> estimateSize(@Nullable Tuple groupingKey, @Nonnull Map<String, List<Integer>> positionMap, @Nonnull Tuple groupedKey) {
+    private NonnullPair<Integer, Integer> estimateSize(@Nullable Tuple groupingKey, @Nonnull Map<String, List<Integer>> positionMap, @Nonnull Tuple groupedKey) {
         final int idSize = groupedKey.pack().length;
         final int subspaceSize = getIndexSubspace().getKey().length + (groupingKey != null ? groupingKey.pack().length : 0);
         int keySize = 0;
@@ -276,7 +276,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                 valueSize += varIntSize(idSize) + idSize + varIntSize(listSize) + listSize;
             }
         }
-        return Pair.of(keySize, valueSize);
+        return NonnullPair.of(keySize, valueSize);
     }
 
     @Nonnull
@@ -298,7 +298,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         final Map<String, List<Integer>> positionMap = tokenizer.tokenizeToMap(text, recordTokenizerVersion, TextTokenizer.TokenizerMode.INDEX);
         final StoreTimer.Event indexUpdateEvent = remove ? FDBStoreTimer.Events.DELETE_INDEX_ENTRY : FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
         if (LOGGER.isDebugEnabled()) {
-            final Pair<Integer, Integer> estimatedSize = estimateSize(groupingKey, positionMap, groupedKey);
+            final NonnullPair<Integer, Integer> estimatedSize = estimateSize(groupingKey, positionMap, groupedKey);
             KeyValueLogMessage msg = KeyValueLogMessage.build("performed text tokenization",
                                         LogMessageKeys.REMOVE, remove,
                                         LogMessageKeys.TEXT_SIZE, text.length(),

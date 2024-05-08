@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRule;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.record.util.pair.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

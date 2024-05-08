@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.provider.common.text;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.text.Collator;
@@ -42,7 +42,7 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
 
     private static final String DEFAULT_LOCALE = "";
 
-    private Map<Pair<String, Integer>, TextCollatorJRE> collators = new ConcurrentHashMap<>();
+    private Map<NonnullPair<String, Integer>, TextCollatorJRE> collators = new ConcurrentHashMap<>();
 
     /**
      * Get the singleton instance of this registry.
@@ -65,9 +65,9 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     @Override
     @Nonnull
     public TextCollator getTextCollator(@Nonnull String locale, int strength) {
-        return MapUtils.computeIfAbsent(collators, Pair.of(locale, strength), key -> {
+        return MapUtils.computeIfAbsent(collators, NonnullPair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
-                                      Collator.getInstance() :
+                                      Collator.getInstance(Locale.ROOT) :
                                       // Some minimal consistency between BCP 47 and C-like identifiers.
                                       Collator.getInstance(Locale.forLanguageTag(locale.replace("_", "-")));
             collator.setStrength(strength);

@@ -31,10 +31,11 @@ import com.apple.foundationdb.record.provider.foundationdb.layers.interning.High
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -111,14 +112,14 @@ class HighContentionAllocatorTest {
         try (FDBRecordContext context = database.openContext()) {
             HighContentionAllocator hca = new HighContentionAllocator(context, path);
 
-            List<CompletableFuture<Pair<Long, String>>> allocationOperations = new ArrayList<>();
+            List<CompletableFuture<NonnullPair<Long, String>>> allocationOperations = new ArrayList<>();
             for (int i = 0; i < 50; i++) {
                 String storedValue = "allocate-" + i;
-                allocationOperations.add(hca.allocate(storedValue).thenApply(id -> Pair.of(id, storedValue)));
+                allocationOperations.add(hca.allocate(storedValue).thenApply(id -> NonnullPair.of(id, storedValue)));
             }
 
             allocated = AsyncUtil.getAll(allocationOperations).join().stream()
-                    .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+                    .collect(Collectors.toMap(NonnullPair::getLeft, NonnullPair::getRight));
             assertThat("every allocation operation has a distinct value", allocated.entrySet(), hasSize(50));
             validateAllocation(context, hca, allocated);
             context.commit();

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -50,7 +51,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -158,7 +158,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Pair<Quantifier, List<Placeholder>> constructSelectWhereAndPlaceholders(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final GraphExpansion baseExpansion) {
+    private NonnullPair<Quantifier, List<Placeholder>> constructSelectWhereAndPlaceholders(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final GraphExpansion baseExpansion) {
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
@@ -223,7 +223,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(baseExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return Pair.of(Quantifier.forEach(Reference.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
+        return NonnullPair.of(Quantifier.forEach(Reference.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
     }
 
     @Nonnull
@@ -275,8 +275,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Pair<SelectExpression, List<CorrelationIdentifier>> constructSelectHaving(@Nonnull final Quantifier groupByQun,
-                                                                                      @Nonnull final List<Placeholder> selectWherePlaceholders) {
+    private NonnullPair<SelectExpression, List<CorrelationIdentifier>> constructSelectHaving(@Nonnull final Quantifier groupByQun,
+                                                                                             @Nonnull final List<Placeholder> selectWherePlaceholders) {
         // the grouping value in GroupByExpression comes first (if set).
         @Nullable final var groupingValueReference =
                 (groupByQun.getRangesOver().get() instanceof GroupByExpression && ((GroupByExpression)groupByQun.getRangesOver().get()).getGroupingValue() == null)
@@ -319,7 +319,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         } else {
             finalPlaceholders = placeholderAliases.build();
         }
-        return Pair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), finalPlaceholders);
+        return NonnullPair.of(selectHavingGraphExpansionBuilder.build().buildSelect(), finalPlaceholders);
     }
 
     @Nonnull

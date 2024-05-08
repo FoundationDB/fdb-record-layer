@@ -3902,7 +3902,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexingTypeStampAsync(Index index) {
-        byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
+        byte[] stampKey = OnlineIndexer.indexBuildTypeSubspace(this, index).pack();
         return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
             if (serializedStamp == null) {
                 return null;
@@ -3930,7 +3930,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.INTERNAL)
     public void saveIndexingTypeStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        byte[] stampKey = IndexingBase.indexBuildTypeSubspace(this, index).pack();
+        byte[] stampKey = OnlineIndexer.indexBuildTypeSubspace(this, index).pack();
         ensureContextActive().set(stampKey, stamp.toByteArray());
     }
 

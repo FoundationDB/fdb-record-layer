@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -356,12 +356,12 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     }
 
 
-    private class FailCommitsAgilityContext extends AgilityContext.Agile {
+    private static class FailCommitsAgilityContext extends AgilityContext.Agile {
         private final Object indexSubspaceKey;
         private int commitCount = 0;
 
         public FailCommitsAgilityContext(FDBRecordContext callerContext, final Object indexSubspaceKey) {
-            super(callerContext, 1L, 1L);
+            super(callerContext, null, 1L, 1L);
             this.indexSubspaceKey = indexSubspaceKey;
         }
 

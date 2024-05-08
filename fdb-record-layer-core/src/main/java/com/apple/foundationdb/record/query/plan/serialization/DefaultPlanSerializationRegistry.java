@@ -24,11 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
@@ -43,7 +43,9 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
     public static final PlanSerializationRegistry INSTANCE = new DefaultPlanSerializationRegistry();
     private static final String TYPE_URL_PREFIX = "c.a.fdb.types";
 
+    @Nonnull
     private final Map<Class<? extends Message>, PlanDeserializer<? extends Message, ?>> fromProtoClassDeserializerMap;
+    @Nonnull
     private final Map<String, Class<? extends Message>> fromProtoTypeUrlClassMap;
 
     public DefaultPlanSerializationRegistry() {
@@ -80,7 +82,7 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
     }
 
     @SuppressWarnings("unchecked")
-    private Pair<Map<Class<? extends Message>, PlanDeserializer<? extends Message, ?>>, Map<String, Class<? extends Message>>> loadFromProtoMethodMaps() {
+    private NonnullPair<Map<Class<? extends Message>, PlanDeserializer<? extends Message, ?>>, Map<String, Class<? extends Message>>> loadFromProtoMethodMaps() {
         final Iterable<PlanDeserializer<? extends Message, ?>> planDeserializers =
                 (Iterable<PlanDeserializer<? extends Message, ?>>)(Object)ServiceLoaderProvider.load(PlanDeserializer.class);
 
@@ -107,7 +109,7 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
                     }
                     fromProtoTypeUrlClassMapBuilder.put(getTypeUrl(protoMessageDescriptor), protoMessageClass);
                 });
-        return Pair.of(fromProtoClassDeserializerMapBuilder.build(), fromProtoTypeUrlClassMapBuilder.build());
+        return NonnullPair.of(fromProtoClassDeserializerMapBuilder.build(), fromProtoTypeUrlClassMapBuilder.build());
     }
 
     @Nonnull

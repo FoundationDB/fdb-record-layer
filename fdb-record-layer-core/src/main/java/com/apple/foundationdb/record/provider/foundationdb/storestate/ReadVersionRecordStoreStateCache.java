@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

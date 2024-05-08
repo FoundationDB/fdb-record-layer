@@ -28,12 +28,12 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -206,7 +206,7 @@ public class GraphExpansion {
             final var resultPlaceHolders = Lists.newArrayList(deDupPlaceholders);
             final var localPlaceHolderPairs =
                     IntStream.range(0, deDupPlaceholders.size())
-                            .mapToObj(i -> Pair.of(deDupPlaceholders.get(i), i))
+                            .mapToObj(i -> NonnullPair.of(deDupPlaceholders.get(i), i))
                             .filter(placeholderWithIndex -> localPredicates.stream()
                                     .flatMap(predicate -> predicate.narrowMaybe(PredicateWithValueAndRanges.class).stream())
                                     .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))

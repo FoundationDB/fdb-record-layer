@@ -27,7 +27,9 @@ import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -36,6 +38,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomUtils;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -46,9 +49,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -306,34 +312,60 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                 byte[] val = Tuple.from(i, RobertFrost, 0).pack();
                 switch (method) {
                     case Set:
-                        Assertions.assertThrows(FailException.class, () ->
+                        assertThrows(FailException.class, () ->
                                 agilityContext.set(unwritableKey, val)
                         );
                         break;
                     case Apply:
-                        final CompletionException completionException = Assertions.assertThrows(CompletionException.class, () ->
-                                agilityContext.apply(innerContext -> innerContext.ensureActive()
-                                        .get(key).thenApply(oldVal -> {
-                                            if (oldVal == null) {
+                        if (i == 0) {
+                            final CompletionException completionException = Assertions.assertThrows(CompletionException.class, () -> {
+                                try {
+                                    agilityContext.apply(innerContext -> innerContext.ensureActive()
+                                            .get(key).thenApply(oldVal -> {
+                                                if (oldVal == null) {
+                                                    innerContext.ensureActive().set(key, val);
+                                                } else {
+                                                    final Tuple oldTuple = Tuple.fromBytes(oldVal);
+                                                    innerContext.ensureActive().set(key,
+                                                            TupleHelpers.subTuple(oldTuple, 0, 2)
+                                                                    .add(oldTuple.getLong(2) + 1)
+                                                                    .pack());
+                                                }
+                                                throw new FailException();
+                                            })).join();
+                                } catch (Exception ex) {
+                                    agilityContext.abortAndClose();
+                                    throw ex;
+                                }
+                            });
+                            assertThat(completionException.getCause(), Matchers.instanceOf(FailException.class));
+                        } else {
+                            Assertions.assertThrows(RecordCoreStorageException.class, () ->
+                                    agilityContext.apply(innerContext -> innerContext.ensureActive()
+                                            .get(key).thenApply(oldVal -> {
                                                 innerContext.ensureActive().set(key, val);
-                                            } else {
-                                                final Tuple oldTuple = Tuple.fromBytes(oldVal);
-                                                innerContext.ensureActive().set(key,
-                                                        TupleHelpers.subTuple(oldTuple, 0, 2)
-                                                                .add(oldTuple.getLong(2) + 1)
-                                                                .pack());
-                                            }
-                                            throw new FailException();
-                                        })).join()
-                        );
-                        assertThat(completionException.getCause(), Matchers.instanceOf(FailException.class));
+                                                return oldVal;
+                                            })).join());
+                        }
                         break;
                     case Accept:
-                        Assertions.assertThrows(FailException.class, () ->
-                                agilityContext.accept(innerContext -> {
-                                    innerContext.ensureActive().set(key, val);
-                                    throw new FailException();
-                                }));
+                        if (i == 0) {
+                            Assertions.assertThrows(FailException.class, () -> {
+                                try {
+                                    agilityContext.accept(innerContext -> {
+                                        innerContext.ensureActive().set(key, val);
+                                        throw new FailException();
+                                    });
+                                } catch (Exception ex) {
+                                    agilityContext.abortAndClose();
+                                    throw ex;
+                                }
+                            });
+                        } else {
+                            Assertions.assertThrows(RecordCoreStorageException.class, () ->
+                                    agilityContext.accept(innerContext ->
+                                        innerContext.ensureActive().set(key, val)));
+                        }
                         break;
                     default:
                         throw new AssertionError("Unexpected enum value " + method);
@@ -342,26 +374,16 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                     napTime(2); // enforce minimal processing time
                 }
             }
+            // Here: we shouldn't have committed anything yet, since everything fails
             assertThat(timer.getCount(limitType.timerEvent), Matchers.equalTo(0));
-
-            // we shouldn't have committed anything yet, since everything fails
             try (FDBRecordContext validationContext = openContext(insertProps)) {
                 for (int i = 0; i < loopCount; i++) {
                     byte[] key = subspace.pack(Tuple.from(2023, i));
-                    assertNull(validationContext.ensureActive().get(key).join());
+                    final byte[] value = validationContext.ensureActive().get(key).join();
+                    assertNull(value);
                 }
             }
             agilityContext.flushAndClose();
-        }
-        try (FDBRecordContext context = openContext(insertProps)) {
-            final Subspace subspace = path.toSubspace(context);
-            for (int i = 0; i < loopCount; i++) {
-                byte[] key = subspace.pack(Tuple.from(2023, i));
-                final byte[] bytes = context.ensureActive().get(key).join();
-                final Tuple retTuple = Tuple.fromBytes(bytes);
-                assertEquals(i, retTuple.getLong(0));
-                assertEquals(RobertFrost, retTuple.getString(1));
-            }
         }
     }
 
@@ -419,6 +441,84 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void testAgilityContextRecoveryPath() {
+        AtomicInteger refInt = new AtomicInteger(0);
+        final byte[] keyAborted;
+        final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
+        byte[] packedValue = value.pack();
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = getAgilityContext(context, true);
+            final Subspace subspace = path.toSubspace(context);
+            keyAborted = subspace.pack(Tuple.from(2023, 3));
+            agilityContext.set(keyAborted, packedValue);
+            agilityContext.abortAndClose();
+            IntStream range = IntStream.rangeClosed(1, 10);
+            range.parallel().forEach(i -> {
+                if (i == 7) {
+                    agilityContext.applyInRecoveryPath(aContext -> {
+                        Assertions.assertNotNull(aContext);
+                        refInt.addAndGet(100);
+                        return CompletableFuture.completedFuture(null);
+                    }).join();
+                } else {
+                    Assertions.assertThrows(RecordCoreStorageException.class,
+                            () -> agilityContext.apply(aContext -> {
+                                refInt.set(i);
+                                return CompletableFuture.completedFuture(null);
+                            }).join());
+                }
+            });
+            assertEquals(100, refInt.get());
+            context.commit();
+        }
+    }
+
+    @Test
+    void testAgilityContextRecoveryPath2() {
+        final Tuple value = Tuple.from(800, "Green eggs and ham", 0);
+        final Tuple successTuple = Tuple.from(prefix, "yes");
+        final Tuple abortedTuple = Tuple.from(prefix, "abort");
+        final Tuple failTuple = Tuple.from(prefix, "no");
+        byte[] packedValue = value.pack();
+        try (FDBRecordContext context = openContext()) {
+            final AgilityContext agilityContext = getAgilityContext(context, true);
+            final Subspace subspace = path.toSubspace(context);
+            byte[] keyAborted = subspace.pack(abortedTuple);
+            byte[] keySucceeds = subspace.pack(successTuple);
+            byte[] keyFails = subspace.pack(failTuple);
+            agilityContext.set(keyAborted, packedValue);
+            agilityContext.abortAndClose();
+            IntStream range = IntStream.rangeClosed(1, 10);
+            range.parallel().forEach(i -> {
+                if (i == 7) {
+                    agilityContext.applyInRecoveryPath(aContext -> {
+                        Assertions.assertNotNull(aContext);
+                        context.ensureActive().set(keySucceeds, packedValue);
+                        return CompletableFuture.completedFuture(null);
+                    }).join();
+                } else {
+                    Assertions.assertThrows(RecordCoreStorageException.class,
+                            () -> agilityContext.apply(aContext -> {
+                                context.ensureActive().set(keyFails, packedValue);
+                                return CompletableFuture.completedFuture(null);
+                            }).join());
+                    Assertions.assertThrows(RecordCoreStorageException.class,
+                            () -> agilityContext.set(keyFails, packedValue));
+                }
+            });
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            byte[] keyAborted = subspace.pack(abortedTuple);
+            byte[] keySucceeds = subspace.pack(successTuple);
+            byte[] keyFails = subspace.pack(failTuple);
+            assertEquals(value, Tuple.fromBytes(context.ensureActive().get(keySucceeds).join()));
+            assertNull(context.ensureActive().get(keyAborted).join());
+            assertNull(context.ensureActive().get(keyFails).join());
+        }
+    }
 
     @ParameterizedTest
     @BooleanSource
@@ -493,6 +593,139 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             }
         }
     }
+
+    @Test
+    void testAutoCommitVersionStampOuterSleep() throws InterruptedException {
+        final byte[] key;
+        try (FDBRecordContext userContext = openContext()) {
+            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(1).pack());
+                firstOperation.set(context);
+            });
+            Thread.sleep(5);
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA), Matchers.equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(0));
+            // Here: after this operation, the first auto-context should be committed
+            AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(3).pack());
+                secondOperation.set(context);
+            });
+            agilityContext.flush();
+            MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
+        }
+    }
+
+    @Test
+    void testAutoCommitVersionStampOuterSleepUseApply() throws InterruptedException {
+        final byte[] key;
+        try (FDBRecordContext userContext = openContext()) {
+            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            agilityContext.apply(context -> context.ensureActive()
+                    .get(key).thenApply(oldVal -> {
+                        context.ensureActive().set(key, Tuple.from(1).pack());
+                        firstOperation.set(context);
+                        return oldVal;
+                    })).join();
+            Thread.sleep(5);
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA), Matchers.equalTo(0));
+            assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(0));
+            // Here: after this operation, the first auto-context should be committed
+            AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
+            agilityContext.apply(context -> context.ensureActive()
+                    .get(key).thenApply(oldVal -> {
+                        context.ensureActive().set(key, Tuple.from(3).pack());
+                        secondOperation.set(context);
+                        return oldVal;
+                    })).join();
+            agilityContext.flush();
+            MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
+        }
+    }
+
+    @Test
+    void testAutoCommitVersionStampInnerSleep() {
+        final byte[] key;
+        try (FDBRecordContext userContext = openContext()) {
+            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(1).pack());
+                firstOperation.set(context);
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                // Here: after this "slow" operation, the first auto-context should be committed
+            });
+            AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
+            agilityContext.accept(context -> {
+                context.ensureActive().set(key, Tuple.from(3).pack());
+                secondOperation.set(context);
+            });
+            agilityContext.flush();
+            MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
+        }
+    }
+
+    @Test
+    void testAutoCommitVersionStampInnerSleepUseApply() {
+        final byte[] key;
+        try (FDBRecordContext userContext = openContext()) {
+            key = this.path.toSubspace(userContext).pack(Tuple.from(prefix, "a").pack());
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, 2, 10000);
+            AtomicReference<FDBRecordContext> firstOperation = new AtomicReference<>();
+            agilityContext.apply(context -> context.ensureActive()
+                    .get(key).thenApply(oldVal -> {
+                        context.ensureActive().set(key, Tuple.from(1).pack());
+                        firstOperation.set(context);
+                        try {
+                            Thread.sleep(5);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        // Here: after this "slow" operation, the first auto-context should be committed
+                        return oldVal;
+                    })).join();
+            AtomicReference<FDBRecordContext> secondOperation = new AtomicReference<>();
+            agilityContext.apply(context -> context.ensureActive()
+                    .get(key).thenApply(oldVal -> {
+                        context.ensureActive().set(key, Tuple.from(3).pack());
+                        secondOperation.set(context);
+                        return oldVal;
+                    })).join();
+            agilityContext.flush();
+            MatcherAssert.assertThat(secondOperation.get().getCommittedVersion(), Matchers.greaterThan(firstOperation.get().getCommittedVersion()));
+        }
+    }
+
+
+    @ParameterizedTest
+    @BooleanSource
+    void luceneTransactionPriorityVerificationTest(boolean usePriorityBatch) {
+        // Assert the expected priorities for user context and agility context
+        try (FDBRecordContext userContext = openContext()) {
+            final FDBTransactionPriority userPriority = userContext.getPriority();
+            final FDBTransactionPriority agilePriority = usePriorityBatch ? FDBTransactionPriority.BATCH : FDBTransactionPriority.DEFAULT;
+            final FDBRecordContextConfig.Builder contextBuilder = userContext.getConfig().toBuilder();
+            contextBuilder.setPriority(agilePriority);
+            final AgilityContext agilityContext = AgilityContext.agile(userContext, contextBuilder, 2, 10000);
+            agilityContext.apply(context -> {
+                assertEquals(agilePriority, context.getPriority());
+                return CompletableFuture.completedFuture(null);
+            }).join();
+            assertEquals(userPriority, userContext.getPriority());
+            agilityContext.flushAndClose();
+        }
+    }
+
 
     @SuppressWarnings("serial")
     private static class FailException extends RuntimeException {

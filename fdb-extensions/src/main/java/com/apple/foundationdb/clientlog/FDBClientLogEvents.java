@@ -67,9 +67,10 @@ public class FDBClientLogEvents {
     public static final long PROTOCOL_VERSION_7_0 = 0x0FDB00B070010001L;
     public static final long PROTOCOL_VERSION_7_1 = 0x0FDB00B071010000L;
     public static final long PROTOCOL_VERSION_7_2 = 0x0FDB00B072000000L;
+    public static final long PROTOCOL_VERSION_7_3 = 0x0FDB00B073000000L;
     private static final long[] SUPPORTED_PROTOCOL_VERSIONS = {
             PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2, PROTOCOL_VERSION_6_3,
-            PROTOCOL_VERSION_7_0, PROTOCOL_VERSION_7_1, PROTOCOL_VERSION_7_2
+            PROTOCOL_VERSION_7_0, PROTOCOL_VERSION_7_1, PROTOCOL_VERSION_7_2, PROTOCOL_VERSION_7_3
     };
 
     //                    0               1         2         3         4         5         6         7

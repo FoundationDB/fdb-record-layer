@@ -23,6 +23,10 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -45,12 +49,17 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -61,17 +70,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.ENGINEER_JOKE;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.WAYLON;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTest.complexPartitionedIndex;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.NGRAM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.QUERY_ONLY_SYNONYM_LUCENE_INDEX;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
@@ -88,6 +107,8 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
@@ -143,6 +164,262 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         String[] allFiles = listFiles(index);
         assertTrue(allFiles.length < 12);
+    }
+
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
+    @Test
+    void luceneOnlineIndexingTestWithRecordUpdates() throws IOException {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(2));
+
+        Index index = complexPartitionedIndex(options);
+        disableIndex(index, COMPLEX_DOC);
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .build();
+
+        long startTime = System.currentTimeMillis();
+
+        long docId_1 = 1623L;
+        long docId_2 = 1547L;
+        long docId_3 = 2222L;
+        long docId_4 = 899L;
+        Tuple primaryKey_1 = Tuple.from(1, docId_1);
+        Tuple primaryKey_2 = Tuple.from(1, docId_2);
+        Tuple primaryKey_3 = Tuple.from(1, docId_3);
+        Tuple primaryKey_4 = Tuple.from(1, docId_4);
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            recordStore.saveRecord(createComplexDocument(docId_1, WAYLON, 1, startTime));
+            recordStore.saveRecord(createComplexDocument(docId_2, WAYLON, 1, startTime + 1000));
+            recordStore.saveRecord(createComplexDocument(docId_3, WAYLON + " who?", 1, startTime + 2000));
+            recordStore.saveRecord(createComplexDocument(docId_4, ENGINEER_JOKE, 1, startTime + 3000));
+            context.commit();
+        }
+
+        // do not index any records and leave the index writeOnly
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            final RuntimeException stopBuildException = new RuntimeException("stop build");
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setInitialLimit(1)
+                    .setConfigLoader(config -> {
+                        throw stopBuildException;
+                    })
+                    .build()) {
+                assertTrue(recordStore.isIndexDisabled(index));
+                final RuntimeException thrown = assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(true));
+                assertSame(stopBuildException, thrown);
+            }
+        }
+
+        final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            return recordStore;
+        });
+
+        final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionMeta = luceneIndexTestValidator.getPartitionMeta(index, Tuple.from(1L));
+        assertTrue(partitionMeta.isEmpty());
+
+        // update a record; no partition information exist yet
+        // this will succeed
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            assertTrue(recordStore.isIndexWriteOnly(index));
+            recordStore.saveRecord(createComplexDocument(docId_1, ENGINEER_JOKE, 1, startTime));
+            context.commit();
+        }
+
+        // validate a new partition meta has been created
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = luceneIndexTestValidator.getPartitionMeta(index, Tuple.from(1));
+        assertEquals(1, partitionInfos.size());
+        assertEquals(1, partitionInfos.get(0).getCount());
+        assertEquals(Tuple.from(startTime).addAll(primaryKey_1), LucenePartitioner.getPartitionKey(partitionInfos.get(0)));
+        assertEquals(Tuple.from(startTime).addAll(primaryKey_1), LucenePartitioner.getToTuple(partitionInfos.get(0)));
+
+        // update another record; partition information exist, but the record isn't indexed yet
+        // this will also succeed
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            assertTrue(recordStore.isIndexWriteOnly(index));
+            recordStore.saveRecord(createComplexDocument(docId_2, ENGINEER_JOKE, 1, startTime + 1_000));
+            // update record a second time
+            recordStore.saveRecord(createComplexDocument(docId_1, ENGINEER_JOKE + " XANADU", 1, startTime));
+            context.commit();
+        }
+
+        // validate partition meta has been correctly updated
+        partitionInfos = luceneIndexTestValidator.getPartitionMeta(index, Tuple.from(1));
+        assertEquals(1, partitionInfos.size());
+        assertEquals(2, partitionInfos.get(0).getCount());
+        assertEquals(Tuple.from(startTime).addAll(primaryKey_1), LucenePartitioner.getPartitionKey(partitionInfos.get(0)));
+        assertEquals(Tuple.from(startTime + 1_000).addAll(primaryKey_2), LucenePartitioner.getToTuple(partitionInfos.get(0)));
+
+        // finish the indexing process
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                assertTrue(recordStore.isIndexWriteOnly(index));
+                indexBuilder.buildIndex(true);
+            }
+        }
+
+        // validate index is sane
+        luceneIndexTestValidator.validate(
+                index,
+                Map.of(
+                        Tuple.from(1), Map.of(
+                                primaryKey_4, Tuple.from(startTime + 3_000),
+                                primaryKey_3, Tuple.from(startTime + 2_000),
+                                primaryKey_2, Tuple.from(startTime + 1_000),
+                                primaryKey_1, Tuple.from(startTime)
+                        )
+                ),
+                2,
+                "*:*");
+
+        // validate that the records that were updated actually got updated
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+
+            LuceneScanQuery query = (LuceneScanQuery)LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:software", null, 1);
+            try (RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(
+                    index,
+                    query,
+                    null,
+                    ExecuteProperties.newBuilder().build().asScanProperties(false))) {
+                List<IndexEntry> entries = indexEntryCursor.asList().join();
+
+                assertEquals(3, entries.size());
+                assertEquals(Set.of(primaryKey_4, primaryKey_2, primaryKey_1), entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
+            }
+
+            query = (LuceneScanQuery)LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:XANADU", null, 1);
+            try (RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(
+                    index,
+                    query,
+                    null,
+                    ExecuteProperties.newBuilder().build().asScanProperties(false))) {
+                List<IndexEntry> entries = indexEntryCursor.asList().join();
+
+                assertEquals(1, entries.size());
+                assertEquals(Set.of(primaryKey_1), entries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
+            }
+        }
+    }
+
+    @Test
+    void luceneOnlineIndexingTestWithAllRecordUpdates() {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(2));
+
+        // store time field
+        Index index = new Index("Complex$partitioned",
+                concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                        function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")),
+                        function(LuceneFunctionNames.LUCENE_STORED, field("time")))
+                        .groupBy(field("group")),
+                LuceneIndexTypes.LUCENE,
+                options);
+
+        disableIndex(index, COMPLEX_DOC);
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
+                .build();
+
+        Random random = ThreadLocalRandom.current();
+
+        int docCount = 5;
+        Map<Long, Long> primaryKeyToTimestamp = new HashMap<>();
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            for (int i = 0; i < docCount; i++) {
+                long docId = random.nextInt(1000) + 1000;
+                long timestamp = random.nextInt(100) + 1;
+                primaryKeyToTimestamp.put(docId, timestamp);
+                recordStore.saveRecord(createComplexDocument(docId, ENGINEER_JOKE, 1, timestamp));
+            }
+            context.commit();
+        }
+
+        AtomicInteger counter = new AtomicInteger(0);
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setInitialLimit(1)
+                    .setConfigLoader(old -> {
+                        try (final FDBRecordContext context2 = fdb.openContext(context.getConfig())) {
+                            rebuildIndexMetaData(context2, COMPLEX_DOC, index);
+                            for (Map.Entry<Long, Long> entry : primaryKeyToTimestamp.entrySet()) {
+                                TestRecordsTextProto.ComplexDocument doc = TestRecordsTextProto.ComplexDocument.newBuilder()
+                                        .setDocId(entry.getKey())
+                                        .setTimestamp(entry.getValue())
+                                        .setGroup(1)
+                                        .setTime(counter.getAndIncrement())
+                                        .build();
+                                recordStore.saveRecord(doc);
+                            }
+                            if (counter.get() == 2 * docCount) { // on the "second" iteration
+                                // add a new doc
+                                TestRecordsTextProto.ComplexDocument doc = TestRecordsTextProto.ComplexDocument.newBuilder()
+                                        .setDocId(100)
+                                        .setGroup(1)
+                                        .setText("extra record")
+                                        .setTimestamp(200)
+                                        .setTime(Math.pow(docCount, 2) - 1)
+                                        .build();
+                                recordStore.saveRecord(doc);
+                            }
+                            context2.commit();
+                        }
+                        return old.toBuilder()
+                                .setMaxLimit(1)
+                                .setMaxRetries(Integer.MAX_VALUE)
+                                .build();
+                    }).build()) {
+                indexBuilder.buildIndex();
+            }
+        }
+
+        try (final FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+
+            assertTrue(recordStore.isIndexReadable(index));
+
+            // search for docs with Math.pow(docCount, 2) - docCount < time < Math.pow(docCount, 2)
+            // which should return all docs, if their updates completed successfully during index build
+            LuceneScanQuery query = new LuceneScanQueryParameters(
+                    Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
+                    new LuceneQuerySearchClause(LuceneQueryType.QUERY, "time:[" + (Math.pow(docCount, 2) - docCount) + " TO " + Math.pow(docCount, 2) + "]", false),
+                    new Sort(new SortField("timestamp", SortField.Type.LONG, false)),
+                    List.of("time"),
+                    List.of(LuceneIndexExpressions.DocumentFieldType.DOUBLE),
+                    null).bind(recordStore, index, EvaluationContext.EMPTY);
+
+            try (RecordCursor<IndexEntry> indexEntryCursor = recordStore.scanIndex(
+                    index,
+                    query,
+                    null,
+                    ExecuteProperties.newBuilder().build().asScanProperties(false))) {
+                List<IndexEntry> entries = indexEntryCursor.asList().join();
+
+                // find all 6 documents
+                assertEquals(6, entries.size());
+            }
+        }
     }
 
     @Test

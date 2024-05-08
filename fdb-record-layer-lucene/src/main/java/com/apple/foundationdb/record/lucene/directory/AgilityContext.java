@@ -51,8 +51,12 @@ public interface AgilityContext {
         return new NonAgile(callerContext);
     }
 
+    static AgilityContext agile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        return new Agile(callerContext, contextBuilder, timeQuotaMillis, sizeQuotaBytes);
+    }
+
     static AgilityContext agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
-        return new Agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
+        return agile(callerContext, null, timeQuotaMillis, sizeQuotaBytes);
     }
 
     /**
@@ -194,9 +198,9 @@ public interface AgilityContext {
         private long prevCommitCheckTime;
         private boolean closed = false;
 
-        protected Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        protected Agile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
-            contextConfigBuilder = callerContext.getConfig().toBuilder();
+            contextConfigBuilder = contextBuilder != null ? contextBuilder : callerContext.getConfig().toBuilder();
             contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
             database = callerContext.getDatabase();
             this.timeQuotaMillis = timeQuotaMillis;
@@ -316,6 +320,7 @@ public interface AgilityContext {
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             ensureOpen();
+            commitIfNeeded();
             final long stamp = lock.readLock();
             boolean successfulCreate = false;
             try {
@@ -363,6 +368,7 @@ public interface AgilityContext {
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
             ensureOpen();
+            commitIfNeeded();
             final long stamp = lock.readLock();
             try {
                 createIfNeeded();

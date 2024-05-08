@@ -30,10 +30,10 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResu
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -236,12 +236,12 @@ class StringInterningLayerTest {
         Map<String, Long> allocations;
         try (FDBRecordContext context = database.openContext()) {
             StringInterningLayer interningLayer = new StringInterningLayer(testSubspace);
-            List<CompletableFuture<Pair<String, Long>>> futures = IntStream.range(0, 50)
+            List<CompletableFuture<NonnullPair<String, Long>>> futures = IntStream.range(0, 50)
                     .mapToObj(i -> String.format("intern-%d", i))
-                    .map(value -> interningLayer.intern(context, value).thenApply(interned -> Pair.of(value, interned.getValue())))
+                    .map(value -> interningLayer.intern(context, value).thenApply(interned -> NonnullPair.of(value, interned.getValue())))
                     .collect(Collectors.toList());
             allocations = AsyncUtil.getAll(futures).join().stream()
-                    .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));
+                    .collect(Collectors.toMap(NonnullPair::getLeft, NonnullPair::getRight));
 
             for (int i = 0; i < 50; i++) {
                 String toIntern = "intern-" + i;
@@ -253,16 +253,16 @@ class StringInterningLayerTest {
 
     @Test
     void testConcurrentAddSameValue() {
-        List<CompletableFuture<Pair<String, ResolverResult>>> futures = new ArrayList<>();
+        List<CompletableFuture<NonnullPair<String, ResolverResult>>> futures = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
             futures.add(
                     database.runAsync(context -> {
                         StringInterningLayer interningLayer = new StringInterningLayer(testSubspace);
                         return interningLayer.intern(context, "same-string");
-                    }).thenApply(value -> Pair.of("same-string", value))
+                    }).thenApply(value -> NonnullPair.of("same-string", value))
             );
         }
-        final Set<Pair<String, ResolverResult>> allocationSet = new HashSet<>(AsyncUtil.getAll(futures).join());
+        final Set<NonnullPair<String, ResolverResult>> allocationSet = new HashSet<>(AsyncUtil.getAll(futures).join());
 
         assertThat("only one value is allocated", allocationSet, hasSize(1));
         ResolverResult allocated = allocationSet.stream().findFirst().get().getRight();

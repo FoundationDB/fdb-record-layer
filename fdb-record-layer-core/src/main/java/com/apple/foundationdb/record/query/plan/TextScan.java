@@ -43,11 +43,12 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -286,19 +287,19 @@ public class TextScan implements PlanHashable {
             }
         }
 
-        PriorityQueue<Pair<Integer, Iterator<Integer>>> minQueue = new PriorityQueue<>(positionLists.size(), Comparator.comparingInt(Pair::getLeft));
+        PriorityQueue<NonnullPair<Integer, Iterator<Integer>>> minQueue = new PriorityQueue<>(positionLists.size(), Comparator.comparingInt(Pair::getLeft));
         int max = Integer.MIN_VALUE;
         for (List<Integer> positionList : positionLists) {
             Iterator<Integer> positionIterator = positionList.iterator();
             int value = positionIterator.next();
             max = Math.max(max, value);
-            minQueue.add(Pair.of(value, positionIterator));
+            minQueue.add(NonnullPair.of(value, positionIterator));
         }
 
         while (true) {
             // Pop the smallest position off of the queue and check to see
             // if it is within maxDistance of the current largest value.
-            Pair<Integer, Iterator<Integer>> minElem = minQueue.poll();
+            NonnullPair<Integer, Iterator<Integer>> minElem = minQueue.poll();
             int min = minElem.getLeft();
             if (max - min <= maxDistance) {
                 // Current span is within maximum allowed. Return true.
@@ -310,7 +311,7 @@ public class TextScan implements PlanHashable {
                 // new associated value.
                 int nextValue = minIterator.next();
                 max = Math.max(max, nextValue);
-                minQueue.add(Pair.of(nextValue, minIterator));
+                minQueue.add(NonnullPair.of(nextValue, minIterator));
             } else {
                 // Exhausted one of the position lists. We didn't find a span that
                 // was less than or equal to the maximum allowed span.

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.test.Tags;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -33,7 +32,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -125,7 +123,6 @@ class BlockingInAsyncDetectionTest {
 
     private void callAsyncBlocking(FDBDatabase database, boolean shouldTimeOut) {
         final CompletableFuture<Long> incomplete = new CompletableFuture<>();
-        final Function<FDBStoreTimer.Wait, Pair<Long, TimeUnit>> existingTimeouts = database.getAsyncToSyncTimeout();
 
         try {
             database.setAsyncToSyncTimeout(200L, TimeUnit.MILLISECONDS);
@@ -140,8 +137,6 @@ class BlockingInAsyncDetectionTest {
             } else {
                 throw e;
             }
-        } finally {
-            database.setAsyncToSyncTimeout(existingTimeouts);
         }
     }
 

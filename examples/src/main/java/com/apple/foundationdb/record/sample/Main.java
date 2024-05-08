@@ -53,7 +53,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,6 +62,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -245,6 +245,7 @@ public class Main {
                             .setRequiredResults(Collections.singletonList(field("item_name")))
                             .setFilter(Query.field("vendor_id").equalsParameter("vid"))
                             .build());
+                    Map<String, List<String>> results = new ConcurrentHashMap<>();
                     return store.executeQuery(outerPlan)
                             // Step 1: Get all of the vendors and initiate a query for items with their vendor ID.
                             .mapPipelined(record -> {
@@ -252,13 +253,12 @@ public class Main {
                                 return innerPlan.execute(store, EvaluationContext.forBinding("vid", vendor.getVendorId()))
                                         .map(innerRecord -> SampleProto.Item.newBuilder().mergeFrom(innerRecord.getRecord()).getItemName())
                                         .asList()
-                                        .thenApply(list -> Pair.of(vendor.getVendorName(), list));
+                                        .thenAccept(list -> results.put(vendor.getVendorName(), list));
                             }, 10)
-                            .asList()
 
-                            // Step 2: Collect the results of the subqueries and package them as a map.
-                            .thenApply((List<Pair<String, List<String>>> list) ->
-                                    list.stream().collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
+                            // Step 2: Get the count to consume the entire cursor, then return the result map
+                            .getCount()
+                            .thenApply(ignore -> results);
                 })));
 
         namesToItems.forEach((String name, List<String> items) -> LOGGER.info("    Result -> Vendor Name: {}, Item names: {}", name, items));

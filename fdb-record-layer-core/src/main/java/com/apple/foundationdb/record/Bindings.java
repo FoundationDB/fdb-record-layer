@@ -22,9 +22,9 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison.PBindingKind;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -156,8 +156,8 @@ public class Bindings {
     }
 
     @Nonnull
-    public List<Pair<String, Object>> asMappingList() {
-        final ImmutableList.Builder<Pair<String, Object>> resultBuilder = ImmutableList.builder();
+    public List<Map.Entry<String, Object>> asMappingList() {
+        final ImmutableList.Builder<Map.Entry<String, Object>> resultBuilder = ImmutableList.builder();
         values.forEach((key, value) -> resultBuilder.add(Pair.of(key, value)));
         if (parent != null) {
             resultBuilder.addAll(parent.asMappingList());

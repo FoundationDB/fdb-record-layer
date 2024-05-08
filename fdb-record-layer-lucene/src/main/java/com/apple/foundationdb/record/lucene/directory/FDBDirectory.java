@@ -45,6 +45,8 @@ import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedStoredFieldsFor
 import com.apple.foundationdb.record.lucene.codec.PrefetchableBufferedChecksumIndexInput;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.util.pair.ComparablePair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -54,7 +56,6 @@ import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.ByteBuffersDataInput;
 import org.apache.lucene.store.ByteBuffersDataOutput;
@@ -158,7 +159,7 @@ public class FDBDirectory extends Directory  {
 
     private final AtomicLong fileSequenceCounter;
 
-    private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
+    private final Cache<ComparablePair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
     private final boolean compressionEnabled;
     private final boolean encryptionEnabled;
@@ -331,12 +332,12 @@ public class FDBDirectory extends Directory  {
         agilityContext.set(key, value);
     }
 
-    Stream<Pair<Long, byte[]>> getAllFieldInfosStream() {
+    Stream<NonnullPair<Long, byte[]>> getAllFieldInfosStream() {
         return asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
                 agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList()))
                 .stream()
-                .map(keyValue -> Pair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
+                .map(keyValue -> NonnullPair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
 
     public static boolean isSegmentInfo(String name) {
@@ -483,7 +484,7 @@ public class FDBDirectory extends Directory  {
             return exceptionalFuture;
         }
         final long id = reference.getId();
-        return agilityContext.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(Pair.of(id, block), ignore -> {
+        return agilityContext.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(ComparablePair.of(id, block), ignore -> {
                     if (sharedCache == null) {
                         return readData(id, block);
                     }
@@ -999,7 +1000,7 @@ public class FDBDirectory extends Directory  {
         return new PrefetchableBufferedChecksumIndexInput(openInput(name, context));
     }
 
-    Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> getBlockCache() {
+    Cache<ComparablePair<Long, Integer>, CompletableFuture<byte[]>> getBlockCache() {
         return blockCache;
     }
 

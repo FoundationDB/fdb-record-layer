@@ -21,25 +21,50 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Lucene: FileLock should handle close as a possible recovery path [(Issue #2692)](https://github.com/FoundationDB/fdb-record-layer/issues/2692)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Lucene: merges should run in default transaction priority [(Issue #2696)](https://github.com/FoundationDB/fdb-record-layer/issues/2696)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The default collation order is now based on the root locale instead of the system default. Users relying on a specific locale should update any indexes using ta collation function to include the locale in the function arguments before updating [(Issue #2678)](https://github.com/FoundationDB/fdb-record-layer/issues/2678)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.494.0
+
+* **Bug fix** LuceneIndexTest.findStartingPartitionTest(false) false to decode tuple [(Issue #2684)](https://github.com/FoundationDB/fdb-record-layer/issues/2684)
+* **Bug fix** Graceful Degradation breaks when index is being built [(Issue #2668)](https://github.com/FoundationDB/fdb-record-layer/issues/2668)
+* **Feature** Add logging information to the runner used when repartitioning [(Issue #2685)](https://github.com/FoundationDB/fdb-record-layer/issues/2685)
+* **Feature** The `TransformedRecordSerializer` now validates that compressed data decompresses to the expected size [(Issue #2689)](https://github.com/FoundationDB/fdb-record-layer/issues/2689)
+* **Feature** The `TransformedRecordSerializer` now includes checksums in compressed data that is validated during decompression [(Issue #2689)](https://github.com/FoundationDB/fdb-record-layer/issues/2691)
+* **Feature** Updated the set of known protocol versions for client log event parsing to include FDB 7.3 [(Issue #2682)](https://github.com/FoundationDB/fdb-record-layer/issues/2682)
+
+### 3.4.492.0
+
+* **Bug fix** IndexingMerger: protect form early "open store" exception [(Issue #2676)](https://github.com/FoundationDB/fdb-record-layer/issues/2676)
+* **Performance**  LuceneOptimizedPostingsReader: skip checkIntegrity when dis-allowed  [(Issue #2666)](https://github.com/FoundationDB/fdb-record-layer/issues/2666)
+* **Feature** Index Scrubber: convert "reset range" log message from info to debug [(Issue #2664)](https://github.com/FoundationDB/fdb-record-layer/issues/2664)
+* **Feature** Record serializers now have a new default method that allows for validating bytes can be deserialized back to their original message [(Issue #2680)](https://github.com/FoundationDB/fdb-record-layer/issues/2680)
+
+### 3.4.491.0
+
+* **Feature** Agility Context: check/commit context before the user operation [(Issue #2626)](https://github.com/FoundationDB/fdb-record-layer/issues/2626)
+* **Feature** AgilityContext: add applyInRecoveryPath test [(Issue #2636)](https://github.com/FoundationDB/fdb-record-layer/issues/2636)
+* **Feature** Select Partition based on query filter [(Issue #2616)](https://github.com/FoundationDB/fdb-record-layer/issues/2616)
+
+### 3.4.490.0
+
 
 ### 3.4.489.0
 

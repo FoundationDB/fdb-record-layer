@@ -21,19 +21,18 @@
 package com.apple.foundationdb.record.provider.common;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.UnknownFieldSet;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +106,7 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         try {
             final Descriptors.Descriptor unionDescriptor = metaData.getUnionDescriptor();
             final DynamicMessage unionMessage = deserializeUnion(unionDescriptor, primaryKey, serialized, metaData.getVersion());
-            return getUnionField(unionMessage, primaryKey).getRight();
+            return getUnionField(unionMessage, primaryKey).getValue();
         } finally {
             if (timer != null) {
                 timer.recordSinceNanoTime(Events.DESERIALIZE_PROTOBUF_RECORD, startTime);
@@ -155,8 +154,8 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
     }
 
     @Nonnull
-    protected Pair<Descriptors.FieldDescriptor, DynamicMessage> getUnionField(@Nonnull final DynamicMessage unionMessage,
-                                                                              @Nonnull final Tuple primaryKey) {
+    protected Map.Entry<Descriptors.FieldDescriptor, DynamicMessage> getUnionField(@Nonnull final DynamicMessage unionMessage,
+                                                                                   @Nonnull final Tuple primaryKey) {
         final Map.Entry<Descriptors.FieldDescriptor, Object> entry = unionMessage.getAllFields().entrySet().iterator().next();
         final DynamicMessage message = (DynamicMessage)entry.getValue();
         if (!message.getUnknownFields().asMap().isEmpty()) {
@@ -167,7 +166,7 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
                         LogMessageKeys.UNKNOWN_FIELDS, message.getUnknownFields().asMap().keySet()));
             }
         }
-        return new ImmutablePair<>(entry.getKey(), message);
+        return Pair.of(entry.getKey(), message);
     }
 
     @Nonnull
