@@ -51,6 +51,8 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -456,6 +458,17 @@ public abstract class IndexingBase {
                     }
                     if (continuedBuild && shouldAllowTakeoverContinue(indexingTypeStamp, savedStamp)) {
                         // Special case: partly built by another indexing method, but may be continued indexing on its own
+                        if (savedStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)) {
+                            // Here: throw an exception if there is an active mutil
+                            final String mainIndexName = savedStamp.getTargetIndex(0);
+                            // Note: For protection, never takeover a part of an active multi-target session. This leads to a certain inconsistency, where - if buildIndex is called with
+                            // useSyncLock = false - we may continue without checking sync lock, but not perform a takeover.
+                            return throwIfSyncedLock(mainIndexName, store, indexingTypeStamp, savedStamp)
+                                    .thenCompose(ignore -> {
+                                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
+                                        return AsyncUtil.DONE;
+                                    });
+                        }
                         store.saveIndexingTypeStamp(index, indexingTypeStamp);
                         return AsyncUtil.DONE;
                     }
@@ -492,6 +505,23 @@ public abstract class IndexingBase {
                 .setBlockID("")
                 .setBlockExpireEpochMilliSeconds(0)
                 .build();
+    }
+
+    CompletableFuture<Void> throwIfSyncedLock(String mainIndexName, FDBRecordStore store, IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        final Index mainIndex = store.getRecordMetaData().getIndex(mainIndexName);
+        final Subspace mainLockSubspace = indexBuildLockSubspace(store, mainIndex);
+        return SynchronizedSession.checkActiveSessionExists(store.ensureContextActive(), mainLockSubspace)
+                        .thenApply(hasActiveSession -> {
+                            if (Boolean.TRUE.equals(hasActiveSession)) {
+                                throw new SynchronizedSessionLockedException("Failed to takeover indexing while part of a multi-target with an existing session in progress")
+                                        .addLogInfo(LogMessageKeys.SUBSPACE, mainLockSubspace)
+                                        .addLogInfo(LogMessageKeys.MAIN_INDEX, mainIndexName)
+                                        .addLogInfo(LogMessageKeys.EXPECTED, PartlyBuiltException.stampToString(newStamp))
+                                        .addLogInfo(LogMessageKeys.ACTUAL, PartlyBuiltException.stampToString(savedStamp));
+                            }
+                            return null;
+                        });
+
     }
 
     @Nonnull
