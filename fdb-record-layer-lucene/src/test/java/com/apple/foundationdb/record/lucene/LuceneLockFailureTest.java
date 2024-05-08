@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -38,8 +37,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.index.IndexWriter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -53,8 +50,6 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_T
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createComplexDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSimpleDocument;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.openRecordStore;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 
@@ -75,9 +70,9 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
     private void openStoreWithPrefixes(final FDBRecordContext context, final String document, final Index index) {
         this.recordStore = openRecordStore(context, path, metaDataBuilder -> {
+//            metaDataBuilder.getRecordType(document)
+//                    .setPrimaryKey(concat(recordType(), Key.Expressions.concatenateFields("score", "doc_id")));
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
-            metaDataBuilder.getRecordType(document)
-                    .setPrimaryKey(concat(recordType(), Key.Expressions.concatenateFields("score", "doc_id")));
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);
         });
@@ -159,17 +154,22 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     @Test
     void testDeleteWhere() throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
             // Take the lock
             directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
-            recordStore.deleteRecordsWhere(SIMPLE_DOC, Query.field("group").equalsValue(1));
+            context.commit();
+        }
+        try (final FDBRecordContext context = openContext()) {
+            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
+                    recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(2)));
         }
     }
 
