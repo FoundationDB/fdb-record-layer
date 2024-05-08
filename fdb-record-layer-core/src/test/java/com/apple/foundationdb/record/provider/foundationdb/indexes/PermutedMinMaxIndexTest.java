@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.ScanProperties;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -53,7 +55,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -714,7 +720,6 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "coveringIndexScan[min={0}]")
     @BooleanSource
     void coveringIndexScan(boolean min) {
-        final String functionName = min ? FunctionNames.MIN : FunctionNames.MAX;
         final RecordMetaDataHook hook = hook(min);
 
         try (FDBRecordContext context = openContext()) {
@@ -759,18 +764,88 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
+    @ParameterizedTest(name = "aggregateIndexScanWithPermutedSizeTwo[min={0}]")
+    @BooleanSource
+    void aggregateIndexScanWithPermutedSizeTwo(boolean min) {
+        // Index on: str_value_indexed, min/max(num_value_unique), num_value_2, num_value_3_indexed
+        final GroupingKeyExpression groupingKeyExpression = Key.Expressions.field("num_value_unique")
+                .groupBy(Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed"));
+        final RecordMetaDataHook hook = hook(min, groupingKeyExpression, 2);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            final String strValueParam = "str_value";
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.field("str_value_indexed").equalsParameter(strValueParam))
+                    .setRequiredResults(List.of(Key.Expressions.field("num_value_2"), Key.Expressions.field("num_value_3_indexed")))
+                    .build();
+            RecordQueryPlan plan = ((RecordQueryPlanner)planner).planCoveringAggregateIndex(query, INDEX_NAME);
+            assertNotNull(plan);
+            assertTrue(plan.hasIndexScan(INDEX_NAME));
+
+            Map<NonnullPair<Integer, Integer>, Long> yesExtrema = new HashMap<>();
+            Map<NonnullPair<Integer, Integer>, Long> noExtrema = new HashMap<>();
+            for (int i = 0; i < 100; i++) {
+                int numValue2 = i % 3;
+                int numValue3 = i % 5;
+                String strValue = i % 2 == 0 ? "yes" : "no";
+                saveRecord(i, strValue, numValue2, numValue3);
+
+                // Collect extrema values in the appropriate map
+                Map<NonnullPair<Integer, Integer>, Long> extrema = strValue.equals("yes") ? yesExtrema : noExtrema;
+                NonnullPair<Integer, Integer> key = NonnullPair.of(numValue2, numValue3);
+                long unique = i;
+                extrema.compute(key, (k, existing) -> existing == null ? unique : (min ? Math.min(unique, existing) : Math.max(unique, existing)));
+            }
+
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            final BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator = (indexEntry, simpleRecord) -> {
+                assertTrue(simpleRecord.hasNumValue2());
+                assertEquals(((Number)indexEntry.getKeyValue(2)).intValue(), simpleRecord.getNumValue2());
+                assertTrue(simpleRecord.hasNumValue3Indexed());
+                assertEquals(((Number)indexEntry.getKeyValue(3)).intValue(), simpleRecord.getNumValue3Indexed());
+            };
+            final Function<TestRecords1Proto.MySimpleRecord, NonnullPair<Integer, Integer>> extractor = simpleRecord -> NonnullPair.of(simpleRecord.getNumValue2(), simpleRecord.getNumValue3Indexed());
+
+            List<Pair<NonnullPair<Integer, Integer>, Long>> results = executePermutedIndexScan(plan, index, EvaluationContext.forBinding(strValueParam, "yes"), validator, extractor);
+            assertThat(results, hasSize(yesExtrema.size()));
+            assertThat(results, containsInAnyOrder(yesExtrema.entrySet().stream().map(entry -> Pair.of(entry.getKey(), entry.getValue())).toArray()));
+
+            results = executePermutedIndexScan(plan, index, EvaluationContext.forBinding(strValueParam, "no"), validator, extractor);
+            assertThat(results, hasSize(noExtrema.size()));
+            assertThat(results, containsInAnyOrder(noExtrema.entrySet().stream().map(entry -> Pair.of(entry.getKey(), entry.getValue())).toArray()));
+
+            results = executePermutedIndexScan(plan, index, EvaluationContext.forBinding(strValueParam, "maybe"), validator, extractor);
+            assertThat(results, empty());
+
+            commit(context);
+        }
+
+    }
+
     private List<Pair<Long, Long>> executePermutedIndexScan(@Nonnull RecordQueryPlan plan, @Nonnull Index index, @Nullable EvaluationContext evaluationContext) {
+        return executePermutedIndexScan(plan, index, evaluationContext,
+                (indexEntry, simple) -> {
+                    assertTrue(simple.hasNumValue2());
+                    assertEquals(((Number)indexEntry.getKeyValue(2)).intValue(), simple.getNumValue2());
+                },
+                simple -> (long) simple.getNumValue2());
+    }
+
+    @Nonnull
+    private <T> List<Pair<T, Long>> executePermutedIndexScan(@Nonnull RecordQueryPlan plan, @Nonnull Index index, @Nullable EvaluationContext evaluationContext,
+                                                             @Nonnull BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator,
+                                                             @Nonnull Function<TestRecords1Proto.MySimpleRecord, T> extractor) {
         return plan.execute(recordStore, evaluationContext == null ? EvaluationContext.EMPTY : evaluationContext)
                 .map(rec -> {
                     assertEquals(index, rec.getIndex());
                     TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
-                    assertTrue(simple.hasNumValue2());
-                    long numValue2 = simple.getNumValue2();
+                    validator.accept(rec.getIndexEntry(), simple);
                     Tuple indexKey = rec.getIndexEntry().getKey();
                     assertNotNull(indexKey);
-                    assertEquals(numValue2, indexKey.getLong(2));
-                    return Pair.of(numValue2, indexKey.getLong(1));
+                    return Pair.of(extractor.apply(simple), indexKey.getLong(1));
                 })
                 .asList()
                 .join();
