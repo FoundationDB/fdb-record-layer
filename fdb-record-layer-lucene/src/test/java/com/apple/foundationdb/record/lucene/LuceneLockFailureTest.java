@@ -154,7 +154,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternally(SIMPLE_INDEX, context);
+            grabLockExternally(COMPLEX_PARTITIONED, context);
             context.commit();
         }
         try (final FDBRecordContext context = openContext()) {
