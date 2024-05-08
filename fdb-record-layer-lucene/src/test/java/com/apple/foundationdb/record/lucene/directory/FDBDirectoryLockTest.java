@@ -93,26 +93,29 @@ class FDBDirectoryLockTest {
     @ParameterizedTest
     @CsvSource({"true,true", "true,false", "false,true", "false,false"})
     void testFileLockClose(boolean useAgile, boolean abortAgilityContext) throws IOException {
-        try (FDBRecordContext context = fdb.openContext()) {
-            AgilityContext agilityContext =
-                    useAgile ?
-                    AgilityContext.agile(context, 1000, 100_0000) :
-                    AgilityContext.nonAgile(context);
+        // Run multiple times to verify that a new lock can be obtained
+        for (int i = 0; i < 3; i++) {
+            try (FDBRecordContext context = fdb.openContext()) {
+                AgilityContext agilityContext =
+                        useAgile ?
+                        AgilityContext.agile(context, 1000, 100_0000) :
+                        AgilityContext.nonAgile(context);
 
-            FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
-            String lockName = "file.lock";
-            final Lock lock1 = directory.obtainLock(lockName);
-            lock1.ensureValid();
-            if (abortAgilityContext) {
-                agilityContext.abortAndClose();
-                assertTrue(agilityContext.isClosed());
-            } else {
-                assertFalse(agilityContext.isClosed());
+                FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+                String lockName = "file.lock";
+                final Lock lock1 = directory.obtainLock(lockName);
+                lock1.ensureValid();
+                if (abortAgilityContext) {
+                    agilityContext.abortAndClose();
+                    assertTrue(agilityContext.isClosed());
+                } else {
+                    assertFalse(agilityContext.isClosed());
+                }
+                lock1.close();
+                directory.close();
+                agilityContext.flushAndClose();
+                context.commit();
             }
-            lock1.close();
-            directory.close();
-            agilityContext.flushAndClose();
-            context.commit();
         }
     }
 }
