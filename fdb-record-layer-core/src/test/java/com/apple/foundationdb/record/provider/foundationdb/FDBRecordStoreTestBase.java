@@ -132,14 +132,6 @@ public abstract class FDBRecordStoreTestBase {
         this.path = concurrentTestBase.path;
     }
 
-    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
-        return concurrentTestBase.openContext(props.toBuilder());
-    }
-
-    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        return concurrentTestBase.openContext(props);
-    }
-
     private FDBRecordContextConfig.Builder contextConfig(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         return concurrentTestBase.contextConfig(props);
     }
@@ -168,6 +160,14 @@ public abstract class FDBRecordStoreTestBase {
         concurrentTestBase.commit(context);
     }
 
+    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
+        return concurrentTestBase.openContext(props.toBuilder());
+    }
+
+    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
+        return concurrentTestBase.openContext(props);
+    }
+
     // -------------
 
     public FDBRecordContext openContext() {
@@ -183,7 +183,6 @@ public abstract class FDBRecordStoreTestBase {
     public static Index globalCountUpdatesIndex() {
         return new Index(COUNT_UPDATES_INDEX_NAME, new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT_UPDATES);
     }
-
 
     protected void uncheckedOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
         recordStore = getStoreBuilder(context, metaData).uncheckedOpen();
