@@ -778,7 +778,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 },
                 rec -> Tuple.from(rec.getNumValueUnique()),
                 reverse,
-                (useCascadesPlanner || omitPrimaryKeyInOrdering) ? TestHelpers::assertDiscardedNone : (cx -> TestHelpers.assertDiscardedAtMost(79, cx))));
+                (isUseCascadesPlanner() || omitPrimaryKeyInOrdering) ? TestHelpers::assertDiscardedNone : (cx -> TestHelpers.assertDiscardedAtMost(79, cx))));
     }
 
     enum InAsOrUnionMode {
@@ -1055,7 +1055,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 },
                 rec -> Tuple.from(rec.getNumValueUnique()),
                 reverse,
-                (useCascadesPlanner || (omitPrimaryKeyInOrdering && inAsOrUnionMode != InAsOrUnionMode.NONE)) ? TestHelpers::assertDiscardedNone : (cx -> TestHelpers.assertDiscardedAtMost(79, cx))));
+                (isUseCascadesPlanner() || (omitPrimaryKeyInOrdering && inAsOrUnionMode != InAsOrUnionMode.NONE)) ? TestHelpers::assertDiscardedNone : (cx -> TestHelpers.assertDiscardedAtMost(79, cx))));
     }
 
     /**

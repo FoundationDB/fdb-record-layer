@@ -74,8 +74,7 @@ public abstract class FDBRecordStoreTestBase {
 
     protected FDBDatabase fdb;
     protected FDBRecordStore recordStore;
-    protected FDBStoreTimer timer = new FDBStoreTimer();
-    protected boolean useCascadesPlanner = false;
+    protected FDBStoreTimer timer;
     protected QueryPlanner planner;
     @Nullable
     protected KeySpacePath path;
@@ -86,6 +85,7 @@ public abstract class FDBRecordStoreTestBase {
 
     public FDBRecordStoreTestBase(@Nullable KeySpacePath path) {
         concurrentTestBase = new FDBRecordStoreConcurrentTestBase(path);
+        this.timer = concurrentTestBase.timer;
     }
 
     @Nonnull
@@ -121,13 +121,20 @@ public abstract class FDBRecordStoreTestBase {
 
     // ------------- methods delegating to concurrentTestBase
 
+    public boolean isUseCascadesPlanner() {
+        return concurrentTestBase.useCascadesPlanner;
+    }
+
+    public void setUseCascadesPlanner(boolean value) {
+        concurrentTestBase.setUseCascadesPlanner(value);
+    }
+
     @BeforeEach
     void initDatabaseAndPath() {
         concurrentTestBase.initDatabaseAndPath();
 
         // copies of values in concurrentTestBase for
         // some of the non-delegating, local methods of this class
-        this.timer = concurrentTestBase.timer;
         this.fdb = concurrentTestBase.fdb;
         this.path = concurrentTestBase.path;
     }
@@ -138,7 +145,7 @@ public abstract class FDBRecordStoreTestBase {
 
     // By default, do not set any props by default, but leave open for sub-classes to extend
     protected RecordLayerPropertyStorage.Builder addDefaultProps(RecordLayerPropertyStorage.Builder props) {
-        return concurrentTestBase.addDefaultProps(props);
+        return props;
     }
 
     @Nonnull
@@ -153,22 +160,26 @@ public abstract class FDBRecordStoreTestBase {
     }
 
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        concurrentTestBase.setupPlanner(recordStore, indexTypes);
+        this.planner = concurrentTestBase.setupPlanner(recordStore, indexTypes);
     }
 
     public void commit(FDBRecordContext context) {
         concurrentTestBase.commit(context);
     }
 
+    // -------------
+
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
-        return concurrentTestBase.openContext(props.toBuilder());
+        return openContext(props.toBuilder());
     }
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        return concurrentTestBase.openContext(props);
+        final FDBRecordContextConfig config = contextConfig(props)
+                .setTimer(timer)
+                .setRecordContextProperties(addDefaultProps(props).build())
+                .build();
+        return fdb.openContext(config);
     }
-
-    // -------------
 
     public FDBRecordContext openContext() {
         return openContext(RecordLayerPropertyStorage.getEmptyInstance());
@@ -188,11 +199,6 @@ public abstract class FDBRecordStoreTestBase {
         recordStore = getStoreBuilder(context, metaData).uncheckedOpen();
         setupPlanner(null);
     }
-
-    public void setUseCascadesPlanner(boolean useCascadesPlanner) {
-        this.useCascadesPlanner = useCascadesPlanner;
-    }
-
 
     public static ByteString byteString(int... ints) {
         byte[] bytes = new byte[ints.length];

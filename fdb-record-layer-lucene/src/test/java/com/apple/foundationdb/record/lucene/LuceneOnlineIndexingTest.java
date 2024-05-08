@@ -117,7 +117,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
     }

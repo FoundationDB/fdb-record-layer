@@ -1354,7 +1354,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     ))
                     .setRequiredResults(List.of(field("stats").nest("start_date"), field("stats").nest("hometown"), field("id"), field("name")))
                     .build();
-            if (!useCascadesPlanner && !orQueryParams.shouldNormalizeNestedFields()) {
+            if (!isUseCascadesPlanner() && !orQueryParams.shouldNormalizeNestedFields()) {
                 RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planQuery(query));
                 assertThat(rce.getMessage(), containsString("Cannot sort without appropriate index"));
                 return;
@@ -1365,10 +1365,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town1]"))),
                                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town2]")))
                         ),
-                        useCascadesPlanner ? concat(field("stats").nest("start_date"), field("name"), field("stats").nest("hometown"), field("id")) : concat(field("stats").nest("start_date"), field("name"), primaryKey("RestaurantReviewer")));
+                        isUseCascadesPlanner() ? concat(field("stats").nest("start_date"), field("name"), field("stats").nest("hometown"), field("id")) : concat(field("stats").nest("start_date"), field("name"), primaryKey("RestaurantReviewer")));
             assertMatchesExactly(plan, planMatcher);
             assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
-            if (useCascadesPlanner) {
+            if (isUseCascadesPlanner()) {
                 assertEquals(orQueryParams.isSortReverse() ? 1539265987 : 1539265954, plan.planHash(CURRENT_LEGACY));
                 assertEquals(orQueryParams.isSortReverse() ? 1716902313 : 1722622371, plan.planHash(CURRENT_FOR_CONTINUATION));
             } else {
@@ -1407,13 +1407,13 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     .build();
             final RecordQueryPlan plan = planQuery(query);
             final BindingMatcher<? extends RecordQueryPlan> planMatcher;
-            if (useCascadesPlanner || (orQueryParams.shouldOmitPrimaryKeyInOrderingKey() && orQueryParams.shouldNormalizeNestedFields())) {
+            if (isUseCascadesPlanner() || (orQueryParams.shouldOmitPrimaryKeyInOrderingKey() && orQueryParams.shouldNormalizeNestedFields())) {
                 planMatcher = unionPlanMatcher(orQueryParams,
                         List.of(
                                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town1]"))),
                                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 0, EQUALS $town2]")))
                         ),
-                        useCascadesPlanner ? concat(field("stats").nest("start_date"), field("stats.hometown"), field("name"), field("id")) : concat(field("stats").nest("start_date"), field("name"), primaryKey("RestaurantReviewer")));
+                        isUseCascadesPlanner() ? concat(field("stats").nest("start_date"), field("stats.hometown"), field("name"), field("id")) : concat(field("stats").nest("start_date"), field("name"), primaryKey("RestaurantReviewer")));
             } else if (orQueryParams.shouldNormalizeNestedFields()) {
                 planMatcher = filterPlan(
                         indexPlan()
@@ -1439,7 +1439,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
             assertMatchesExactly(plan, planMatcher);
             assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
-            if (useCascadesPlanner) {
+            if (isUseCascadesPlanner()) {
                 assertEquals(orQueryParams.isSortReverse() ? 1541112037 : 1541112004, plan.planHash(CURRENT_LEGACY));
                 assertEquals(orQueryParams.isSortReverse() ? 1718748363 : 1724468421, plan.planHash(CURRENT_FOR_CONTINUATION));
             } else {
@@ -1577,10 +1577,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + value2Param + ", EQUALS $" + strValue1Param + "]"))),
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + value2Param + ", EQUALS $" + strValue2Param + "]")))
-        ), useCascadesPlanner ? concatenateFields("num_value_3_indexed", "str_value_indexed", "rec_no") : concatenateFields("num_value_3_indexed", "rec_no"));
+        ), isUseCascadesPlanner() ? concatenateFields("num_value_3_indexed", "str_value_indexed", "rec_no") : concatenateFields("num_value_3_indexed", "rec_no"));
         assertMatchesExactly(plan, planMatcher);
         assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
-        if (useCascadesPlanner) {
+        if (isUseCascadesPlanner()) {
             assertEquals(orQueryParams.isSortReverse() ? 973132101L : 973132068L, plan.planHash(CURRENT_LEGACY));
             assertEquals(orQueryParams.isSortReverse() ? 1977118987L : 1982839045L, plan.planHash(CURRENT_FOR_CONTINUATION));
         } else {
@@ -1657,7 +1657,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
         orQueryParams.setPlannerConfiguration(this);
 
-        if (!useCascadesPlanner && !orQueryParams.shouldOmitPrimaryKeyInOrderingKey()) {
+        if (!isUseCascadesPlanner() && !orQueryParams.shouldOmitPrimaryKeyInOrderingKey()) {
             RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planQuery(query));
             assertThat(rce.getMessage(), containsString("Cannot sort without appropriate index"));
             return;
@@ -1666,10 +1666,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + strValue1Param + "]"))),
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + strValue2Param + "]")))
-        ), useCascadesPlanner ? concatenateFields("num_value_2", "str_value_indexed", "num_value_3_indexed", "rec_no") : concatenateFields("num_value_2", "num_value_3_indexed", "rec_no"));
+        ), isUseCascadesPlanner() ? concatenateFields("num_value_2", "str_value_indexed", "num_value_3_indexed", "rec_no") : concatenateFields("num_value_2", "num_value_3_indexed", "rec_no"));
         assertMatchesExactly(plan, planMatcher);
         assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
-        if (useCascadesPlanner) {
+        if (isUseCascadesPlanner()) {
             assertEquals(orQueryParams.isSortReverse() ? 1380802846L : 1380802813L, plan.planHash(CURRENT_LEGACY));
             assertEquals(orQueryParams.isSortReverse() ? -1854530652L : -1848810594L, plan.planHash(CURRENT_FOR_CONTINUATION));
         } else {
@@ -1755,7 +1755,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             orQueryParams.setPlannerConfiguration(this);
             final RecordQueryPlan plan = planQuery(query);
             final KeyExpression expectedComparisonKey;
-            if (useCascadesPlanner) {
+            if (isUseCascadesPlanner()) {
                 if (sortKeyContainsPrimaryKey) {
                     expectedComparisonKey = concatenateFields("num_value_2", "rec_no", "num_value_3_indexed");
                 } else {
@@ -1773,7 +1773,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
             final int legacyHash = plan.planHash(CURRENT_LEGACY);
             final int continuationHash = plan.planHash(CURRENT_FOR_CONTINUATION);
-            if (useCascadesPlanner) {
+            if (isUseCascadesPlanner()) {
                 if (sortKeyContainsPrimaryKey) {
                     assertEquals(orQueryParams.isSortReverse() ? 951372169L : 951372136L, legacyHash);
                     assertEquals(orQueryParams.isSortReverse() ? 477401359L : 483121417L, continuationHash);

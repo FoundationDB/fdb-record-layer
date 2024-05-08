@@ -57,7 +57,7 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
             hook.apply(builder);
         }
         metaData = builder.getRecordMetaData();
-        planner = useCascadesPlanner ?
+        planner = isUseCascadesPlanner() ?
                   new CascadesPlanner(metaData, new RecordStoreState(null, null)) :
                   new RecordQueryPlanner(metaData, new RecordStoreState(null, null));
     }

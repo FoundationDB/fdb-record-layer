@@ -123,7 +123,11 @@ public class FDBRecordStoreConcurrentTestBase {
     }
 
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        final FDBRecordContextConfig config = contextConfig(props).setTimer(timer).build();
+        final FDBRecordContextConfig config = contextConfig(props)
+                .setTimer(timer)
+                .setRecordContextProperties(addDefaultProps(props).build())
+                .build();
+
         return fdb.openContext(config);
     }
 
@@ -142,8 +146,7 @@ public class FDBRecordStoreConcurrentTestBase {
                 .setMdcContext(mdcContext)
                 .setTrackOpen(true)
                 .setSaveOpenStackTrace(true)
-                .setReportConflictingKeys(true)
-                .setRecordContextProperties(addDefaultProps(props).build());
+                .setReportConflictingKeys(true);
     }
 
     protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
