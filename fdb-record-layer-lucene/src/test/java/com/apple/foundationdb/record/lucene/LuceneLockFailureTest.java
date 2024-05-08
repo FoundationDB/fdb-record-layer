@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTest
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.LockObtainFailedException;
@@ -62,22 +64,6 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
-
-    private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
-    }
-
-    private void openStoreWithPrefixes(final FDBRecordContext context, final String document, final Index index) {
-        this.recordStore = openRecordStore(context, path, metaDataBuilder -> {
-//            metaDataBuilder.getRecordType(document)
-//                    .setPrimaryKey(concat(recordType(), Key.Expressions.concatenateFields("score", "doc_id")));
-            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
-            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(document, index);
-        });
-    }
 
     @Test
     void testAddDocument() throws IOException {
@@ -142,25 +128,41 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             recordStore.deleteAllRecords();
             context.commit();
         }
+
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            // DeleteAll should have cleared the locks, so we should be able to take one again
+            grabLockExternally(SIMPLE_INDEX, context);
+            context.commit();
+        }
     }
 
     @Test
     void testDeleteWhere() throws IOException {
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 1));
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternally(COMPLEX_PARTITIONED, context);
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1);
             context.commit();
         }
+
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
-                    recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(2)));
+            // DeleteWhere does not check the locks, but deletes the entire group's keyspace
+            recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(1));
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            // DeleteWhere should have cleared the locks, so we should be able to take one again
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1);
+            context.commit();
         }
     }
 
@@ -187,10 +189,10 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testPartition() throws IOException {
+    void testRebalance() throws IOException {
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            // partition size is 10 for tests
+            // partition size is 10
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createComplexDocument(6666L + i, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
             }
@@ -199,30 +201,32 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternally(COMPLEX_PARTITIONED, context);
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            // This fails since the merge tries to take a lock
-            // TODO: Why does this not fail?
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
+            // This fails since the repartition tries to take a lock
+            // The exception here is the RecordCore wrapper around the Lucene exception
+            Assertions.assertThrows(RecordCoreException.class, () ->
                     LuceneIndexTestUtils.rebalancePartitions(recordStore, COMPLEX_PARTITIONED));
         }
     }
+
     @Test
     void testLockTwice() throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternally(COMPLEX_PARTITIONED, context);
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            grabLockExternally(SIMPLE_INDEX, context);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            // The exception here is the Lucene IOException
             Assertions.assertThrows(LockObtainFailedException.class, () ->
-                    grabLockExternally(COMPLEX_PARTITIONED, context));
+                    grabLockExternally(SIMPLE_INDEX, context));
             context.commit();
         }
     }
@@ -230,6 +234,28 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     private void grabLockExternally(final Index index, final FDBRecordContext context) throws IOException {
         final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions());
         directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+    }
+
+    private void grabLockExternallyForPartition(final Index index, final FDBRecordContext context, int partition) throws IOException {
+        final Subspace partitionSubspace = recordStore.indexSubspace(index).subspace(Tuple.from(partition, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+        final FDBDirectory directory = new FDBDirectory(partitionSubspace, context, index.getOptions());
+        directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+    }
+
+    // Open the store with the type and index
+    private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
+        this.recordStore = pair.getLeft();
+        this.planner = pair.getRight();
+    }
+
+    // Open the store for the type and index, and set the prefixes for the type such that deleteWhere can be run
+    private void openStoreWithPrefixes(final FDBRecordContext context, final String document, final Index index) {
+        this.recordStore = openRecordStore(context, path, metaDataBuilder -> {
+            TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(document, index);
+        });
     }
 }
 

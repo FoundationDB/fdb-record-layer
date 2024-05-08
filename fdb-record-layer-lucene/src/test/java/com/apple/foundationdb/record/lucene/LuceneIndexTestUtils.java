@@ -781,9 +781,18 @@ public class LuceneIndexTestUtils {
         }
     }
 
-    public static void rebalancePartitions(final FDBRecordStore recordStore, final Index index) throws ExecutionException, InterruptedException {
+    public static void rebalancePartitions(final FDBRecordStore recordStore, final Index index) throws Exception {
         LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
-        indexMaintainer.rebalancePartitions().get();
+        try {
+            indexMaintainer.rebalancePartitions().get();
+        } catch (ExecutionException e) {
+            if (e.getCause() != null) {
+                // strip the wrapper to get to the actual cause of the exception
+                throw (Exception)e.getCause();
+            } else {
+                throw e;
+            }
+        }
     }
 
     /**
