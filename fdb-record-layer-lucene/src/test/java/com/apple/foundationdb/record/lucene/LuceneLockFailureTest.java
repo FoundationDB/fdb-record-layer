@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.store.LockObtainFailedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -82,9 +83,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     void testAddDocument() throws IOException {
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
-            // Take the lock
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(SIMPLE_INDEX, context);
             // Try to add a document - this would fail as the lock is taken by a different directory
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2)));
@@ -102,9 +101,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
-            // Take the lock in a second transaction and a separate directory
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(SIMPLE_INDEX, context);
             // This fails since the default directory is trying to take a second lock
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     recordStore.deleteRecord(Tuple.from(doc.getDocId())));
@@ -122,9 +119,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
-            // Take the lock
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(SIMPLE_INDEX, context);
             // This fails since the default directory is trying to take a second lock
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     recordStore.updateRecord(doc.toBuilder().setText("Blah").build()));
@@ -142,9 +137,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
-            // Take the lock
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(SIMPLE_INDEX, context);
             // Delete all just deletes the index, not through Lucene
             recordStore.deleteAllRecords();
             context.commit();
@@ -161,9 +154,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
-            // Take the lock
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(SIMPLE_INDEX, context);
             context.commit();
         }
         try (final FDBRecordContext context = openContext()) {
@@ -183,9 +174,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(SIMPLE_INDEX), context, SIMPLE_INDEX.getOptions());
-            // Take the lock, commit the transaction (with the lock) to make the merge fail later
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(SIMPLE_INDEX, context);
             context.commit();
         }
 
@@ -210,9 +199,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(COMPLEX_PARTITIONED), context, COMPLEX_PARTITIONED.getOptions());
-            // Take the lock, commit the transaction (with the lock) to make the merge fail later
-            directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+            grabLockExternally(COMPLEX_PARTITIONED, context);
             context.commit();
         }
 
@@ -223,6 +210,26 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     LuceneIndexTestUtils.rebalancePartitions(recordStore, COMPLEX_PARTITIONED));
         }
+    }
+    @Test
+    void testLockTwice() throws IOException {
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            grabLockExternally(COMPLEX_PARTITIONED, context);
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            Assertions.assertThrows(LockObtainFailedException.class, () ->
+                    grabLockExternally(COMPLEX_PARTITIONED, context));
+            context.commit();
+        }
+    }
+
+    private void grabLockExternally(final Index index, final FDBRecordContext context) throws IOException {
+        final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions());
+        directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
     }
 }
 
