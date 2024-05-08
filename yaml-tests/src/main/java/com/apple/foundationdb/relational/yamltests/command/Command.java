@@ -32,7 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
 import org.apache.logging.log4j.LogManager;
@@ -73,7 +73,7 @@ public abstract class Command {
             return new Command(lineNumber) {
                 @Override
                 public void invoke(@Nonnull RelationalConnection connection,
-                                   @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
+                                   @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException {
                     logger.debug("⏳ Loading template '{}'", value);
                     // current connection should be __SYS/catalog
                     // save schema template
@@ -94,7 +94,7 @@ public abstract class Command {
             return new Command(lineNumber) {
                 @Override
                 public void invoke(@Nonnull RelationalConnection connection,
-                                   @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
+                                   @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException {
                     logger.debug("⏳ Setting schema state '{}'", value);
                     StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
                     SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson((String) value);
@@ -125,5 +125,5 @@ public abstract class Command {
     }
 
     public abstract void invoke(@Nonnull final RelationalConnection connection,
-                                @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException;
+                                @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException;
 }

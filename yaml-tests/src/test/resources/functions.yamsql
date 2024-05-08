@@ -18,22 +18,14 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists function_tests_schema_template
-    - query: create schema template function_tests_schema_template
-        create type as struct T(T1 integer)
-        create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 integer array, a6 T, a7 float, a8 double, a9 bytes, primary key(a1))
-        create table B(b1 bigint, b2 double, primary key(b1, b2))
-        create type as struct U(T1 integer, A string, B double)
-        create table C(c1 bigint, st U, primary key(c1))
-    - query: drop database if exists /FRL/FUNCTION_YAML
-    - query: create database /FRL/FUNCTION_YAML
-    - query: create schema /FRL/FUNCTION_YAML/FUNCTION_SCHEMA with template function_tests_schema_template
+schema_template:
+    create type as struct T(T1 integer)
+    create table A(a1 bigint, a2 integer, a3 string, a4 boolean, a5 integer array, a6 T, a7 float, a8 double, a9 bytes, primary key(a1))
+    create table B(b1 bigint, b2 double, primary key(b1, b2))
+    create type as struct U(T1 integer, A string, B double)
+    create table C(c1 bigint, st U, primary key(c1))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
+config:
   steps:
     # TODO a5 integer array add support
     # TODO a7 float add insert support
@@ -43,7 +35,6 @@ setup:
     - query: insert into C values (1, (2, 'b', 2.0)), (2, (3, 'c', 3.0)), (3, (4, 'd', 4.0)), (4, null)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
   tests:
     -
       - query: select greatest(a3, '0'), greatest(a3, '1'), greatest(a3, '2'), greatest(a3, null) from A
@@ -139,7 +130,6 @@ test_block:
           {{ _0: 1, _1: 1.0, _2: 'a', _3: true}}]
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/FUNCTION_YAML?schema=FUNCTION_SCHEMA"
   preset: single_repetition_ordered
   tests:
     -
@@ -157,12 +147,6 @@ test_block:
       - query: update C set st = coalesce(st, (5, 'e', 5.0)) where c1 = 4 returning "new".st
       - unorderedResult: [
             {{ T1: 5, A: 'e', B: 5.0}}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/FUNCTION_YAML
-    - query: drop schema template function_tests_schema_template
 ...
 
 

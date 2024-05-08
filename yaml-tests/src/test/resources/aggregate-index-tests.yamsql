@@ -18,29 +18,21 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists aggregate_index_tests_template
-    - query: create schema template aggregate_index_tests_template
-        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-        create index mv1 as select sum(col2) from t1 group by col1
-        create index mv6 as select max_ever(col2) from t1 group by col1
-        create index mv8 as select col1, max(col2) from t1 group by col1 order by col1
-        create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
-        create index mv2 as select col1, col2 from t2 order by col1, col2
-        create index mv3 as select col1, col3 from t2 order by col1, col3
-        create index mv4 as select min_ever(col3) from T2 group by col1, col2
-        create index mv5 as select max_ever(col3) from t2 group by col1, col2
-        create index mv9 as select col1, max(col2), col3 from T2 group by col1, col3 order by col1, max(col2), col3
-        create index vi1 as select col1 from t1
-        create index mv7 as select min_ever(col3) from t2
-    - query: drop database if exists /FRL/AGG_IDX_YAML
-    - query: create database /FRL/AGG_IDX_YAML
-    - query: create schema /FRL/AGG_IDX_YAML/test with template aggregate_index_tests_template
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index mv1 as select sum(col2) from t1 group by col1
+    create index mv6 as select max_ever(col2) from t1 group by col1
+    create index mv8 as select col1, max(col2) from t1 group by col1 order by col1
+    create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+    create index mv2 as select col1, col2 from t2 order by col1, col2
+    create index mv3 as select col1, col3 from t2 order by col1, col3
+    create index mv4 as select min_ever(col3) from T2 group by col1, col2
+    create index mv5 as select max_ever(col3) from t2 group by col1, col2
+    create index mv9 as select col1, max(col2), col3 from T2 group by col1, col3 order by col1, max(col2), col3
+    create index vi1 as select col1 from t1
+    create index mv7 as select min_ever(col3) from t2
 ---
-setup:
-  connect: "jdbc:embed:/FRL/AGG_IDX_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 1),
@@ -68,7 +60,6 @@ setup:
                (9, 2, 1, 400)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/AGG_IDX_YAML?schema=TEST"
   tests:
     -
       - query: select col1, sum(col2) from T1 group by col1;
@@ -227,10 +218,4 @@ test_block:
       - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
       - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@c19 as LONG) && LESS_THAN_OR_EQUALS promote(@c12 as LONG)]] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
       - result: [{!l 15}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/AGG_IDX_YAML
-    - query: drop schema template aggregate_index_tests_template
 ...

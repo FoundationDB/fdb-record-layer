@@ -18,24 +18,16 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists aggregate_index_tests_template_count
-    - query: create schema template aggregate_index_tests_template_count
-          create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-          create index mv1 as select count(*) from t1
-          create index mv2 as select count(*) from t1 group by col2
-          create index mv3 as select count(col1) from t1
-          create index mv4 as select count(col1) from t1 group by col2
-          create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
-          create index mv5 as select col2 from t2
-    - query: drop database if exists /FRL/AGG_IDX_YAML_COUNT
-    - query: create database /FRL/AGG_IDX_YAML_COUNT
-    - query: create schema /FRL/AGG_IDX_YAML_COUNT/test with template aggregate_index_tests_template_count
+schema_template:
+      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+      create index mv1 as select count(*) from t1
+      create index mv2 as select count(*) from t1 group by col2
+      create index mv3 as select count(col1) from t1
+      create index mv4 as select count(col1) from t1 group by col2
+      create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
+      create index mv5 as select col2 from t2
 ---
-setup:
-  connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT?schema=TEST"
+config:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 1),
@@ -44,7 +36,6 @@ setup:
                (4, 12, 2)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT?schema=TEST"
   tests:
     -
       - query: select * from t1
@@ -69,8 +60,7 @@ test_block:
       - explainContains: "AggregateIndexScan(Index(MV4 <,> BY_GROUP)"
       - result: [{1}, {1}]
 ---
-setup:
-  connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT?schema=TEST"
+config:
   steps:
     - query: INSERT INTO T2
         VALUES (1, 10, 1, 11),
@@ -79,7 +69,6 @@ setup:
                (4, 12, 2, 20)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/AGG_IDX_YAML_COUNT?schema=TEST"
   tests:
     -
       - query: select * from t2
@@ -103,10 +92,4 @@ test_block:
       - query: select count(col1) from t2 group by col2
       - explainContains: "AGGREGATE BY (count("
       - result: [{1}, {1}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/AGG_IDX_YAML_COUNT
-    - query: drop schema template aggregate_index_tests_template_count
 ...

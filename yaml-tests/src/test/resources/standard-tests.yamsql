@@ -18,19 +18,11 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists standard_tests_template
-    - query: create schema template standard_tests_template
-        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-        create index i1 as select col1 from t1
-    - query: drop database if exists /FRL/STANDARD_YAML
-    - query: create database /FRL/STANDARD_YAML
-    - query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index i1 as select col1 from t1
 ---
-setup:
-  connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 1),
@@ -48,7 +40,6 @@ setup:
                (13, 20, 13)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
   tests:
     -
       - query: select id, case when col1 = 10 then 100
@@ -97,10 +88,4 @@ test_block:
     -
       - query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
       - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template standard_tests_template
-    - query: drop database /FRL/STANDARD_YAML
 ...

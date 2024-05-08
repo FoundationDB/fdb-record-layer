@@ -196,9 +196,14 @@ public final class QueryInterpreter {
     }
 
     private QueryInterpreter(@Nonnull Map.Entry<?, ?> queryCommand) {
-        final var linedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(queryCommand, "query configuration").getKey();
-        this.query = Matchers.string(Matchers.notNull(queryCommand, "query configuration").getValue());
-        this.lineNumber = linedObject.getStartMark().getLine() + 1;
+        this(((CustomYamlConstructor.LinedObject) Matchers.notNull(queryCommand, "query configuration").getKey())
+                        .getStartMark().getLine() + 1,
+                Matchers.string(Matchers.notNull(queryCommand, "query configuration").getValue()));
+    }
+
+    QueryInterpreter(int lineNumber, @Nonnull String query) {
+        this.query = query;
+        this.lineNumber = lineNumber;
         this.injections = getInjections(query);
     }
 

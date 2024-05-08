@@ -18,19 +18,11 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists in_predicate_schema_template
-    - query: create schema template in_predicate_schema_template
-        create type as struct ts(sa bigint, sb bigint)
-        create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
-    - query: drop database if exists /FRL/IN_PREDICATE_DB
-    - query: create database /FRL/IN_PREDICATE_DB
-    - query: create schema /FRL/IN_PREDICATE_DB/IN_PREDICATE_SCHEMA with template in_predicate_schema_template
+schema_template:
+    create type as struct ts(sa bigint, sb bigint)
+    create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
+config:
   steps:
     - query: INSERT INTO TA
         VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),
@@ -47,7 +39,6 @@ setup:
                (9, 0, 8.90, false, 'doe', (9, 90))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
   tests:
     -
       # LONG value matched against IN list of only LONG values
@@ -150,7 +141,6 @@ test_block:
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.
 test_block:
-  connect: "jdbc:embed:/FRL/IN_PREDICATE_DB?schema=IN_PREDICATE_SCHEMA"
   tests:
       -
         # LONG value matched against IN list of LONG and DOUBLE values
@@ -184,10 +174,4 @@ test_block:
         # Complex (STRUCT) left type matched against IN list
         - query: select a, e from ta where f in (34, 23)
         - error: "XX000"
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/IN_PREDICATE_DB
-    - query: drop schema template in_predicate_schema_template
 ...

@@ -18,23 +18,14 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists bytes_tests_schema_template
-    - query: create schema template bytes_tests_schema_template
-        create table lb(a bigint, b bytes, primary key(a))
-    - query: drop database if exists /FRL/BYTES_YAML
-    - query: create database /FRL/BYTES_YAML
-    - query: create schema /FRL/BYTES_YAML/BYTES_SCHEMA with template bytes_tests_schema_template
+schema_template:
+    create table lb(a bigint, b bytes, primary key(a))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
+config:
   steps:
     - query: insert into lb values (1, x'deadbeef'), (2, b64'yv4='), (3, null);
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
   tests:
     -
       - query: select b from lb
@@ -65,7 +56,6 @@ test_block:
       - unorderedResult: [ { 1 }, { 2 } ]
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/BYTES_YAML?schema=BYTES_SCHEMA"
   options:
     check_cache: false
   tests:
@@ -77,10 +67,4 @@ test_block:
       # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)
       - query: select x'0ff1ce' from lb where a = 1
       - result: [ {x'0ff1ce'}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/BYTES_YAML
-    - query: drop schema template bytes_tests_schema_template
 ...

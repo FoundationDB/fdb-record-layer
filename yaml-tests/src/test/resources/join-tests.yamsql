@@ -18,22 +18,14 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists join_tests_template
-    - query: create schema template join_tests_template
-        create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
-        create table dept(id bigint, name string, primary key(id))
-        create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
-        create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
-        create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
-    - query: drop database if exists /FRL/JOIN_YAML
-    - query: create database /FRL/JOIN_YAML
-    - query: create schema /FRL/JOIN_YAML/test with template join_tests_template
+schema_template:
+    create table emp(id bigint, fname string, lname string, dept_id bigint, primary key(id))
+    create table dept(id bigint, name string, primary key(id))
+    create table project(id bigint, name string, dsc string, emp_id bigint, primary key(id))
+    create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
+    create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO EMP
         VALUES (1, 'Jack', 'Williams', 1),
@@ -58,7 +50,6 @@ setup:
     - query: INSERT INTO B VALUES (4, 0, 0, 200)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/JOIN_YAML?schema=TEST"
   tests:
     -
       - query: select ida from a where exists (select ida from a where ida = 1);
@@ -104,10 +95,4 @@ test_block:
       - unorderedResult: [{"Engineering", "OLAP"},
                           {"Sales", "Feedback"},
                           {"Marketing", "SEO"}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/JOIN_YAML
-    - query: drop schema template join_tests_template
 ...

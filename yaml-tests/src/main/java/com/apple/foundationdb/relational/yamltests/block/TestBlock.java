@@ -23,10 +23,10 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
-import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 
@@ -160,7 +160,7 @@ public class TestBlock extends Block {
      * <ul>
      *     <li>Using a preset config. See {@link TestBlockOptions#setWithPreset}</li>
      *     <li>Using an Options map. See {@link TestBlockOptions#setWithOptionsMap}</li>
-     *     <li>Using the {@link com.apple.foundationdb.relational.yamltests.YamlRunner.YamlExecutionContext}. See {@link TestBlockOptions#setWithExecutionContext}</li>
+     *     <li>Using the {@link YamlExecutionContext}. See {@link TestBlockOptions#setWithExecutionContext}</li>
      * </ul>
      */
     private static class TestBlockOptions {
@@ -221,7 +221,7 @@ public class TestBlock extends Block {
             setOptionConnectionLifecycle(optionsMap);
         }
 
-        private void setWithExecutionContext(@Nonnull YamlRunner.YamlExecutionContext executionContext) {
+        private void setWithExecutionContext(@Nonnull YamlExecutionContext executionContext) {
             // Use the system-provided seed if that is available from the context.
             executionContext.getSeed().ifPresent(s -> seed = Matchers.longValue(s));
             if (executionContext.isNightly()) {
@@ -281,7 +281,7 @@ public class TestBlock extends Block {
         }
     }
 
-    TestBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
+    TestBlock(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
         super(((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "test_block").getKey()).getStartMark().getLine() + 1, executionContext);
         final var testsMap = Matchers.map(Matchers.firstEntry(document, "test_block").getValue());
         setConnectPath(testsMap.getOrDefault(BLOCK_CONNECT, null));
@@ -297,6 +297,7 @@ public class TestBlock extends Block {
         options.setWithExecutionContext(executionContext);
         setupTests(Matchers.notNull(testsMap.get(TEST_BLOCK_TESTS), "‼️ tests not found at line " + lineNumber));
         Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
+        executionContext.registerBlock(this);
     }
 
     @Override
@@ -316,7 +317,7 @@ public class TestBlock extends Block {
     private void executeInNonParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) {
         if (options.connectionLifecycle == ConnectionLifecycle.BLOCK) {
             // resort to the default implementation of execute.
-            super.execute(testsToExecute);
+            executeExecutables(testsToExecute);
         } else if (options.connectionLifecycle == ConnectionLifecycle.TEST) {
             testsToExecute.forEach(t -> {
                 if (failureException.get() != null) {

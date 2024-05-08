@@ -18,21 +18,13 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists select_a_star_template
-    - query: create schema template select_a_star_template
-        CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
-        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-        create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-        create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
-    - query: drop database if exists /FRL/SELECT_A_STAR_YAML
-    - query: create database /FRL/SELECT_A_STAR_YAML
-    - query: create schema /FRL/SELECT_A_STAR_YAML/test with template select_a_star_template
+schema_template:
+    CREATE TYPE AS STRUCT S(S1 bigint, S2 bigint)
+    create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+    create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+    create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
 ---
-setup:
-  connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO A
         VALUES (1, 10, 1),
@@ -44,7 +36,6 @@ setup:
                (3, 20, (6, 60))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/SELECT_A_STAR_YAML?schema=TEST"
   tests:
     -
       - query: select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
@@ -109,10 +100,4 @@ test_block:
 #      - result: [{A1: 1 , A2: 10, A3: 1, 1},
 #                 {A1: 2, A2: 10, A3: 2, 2},
 #                 {A1: 3, A2: 10, A3: 3, 3}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template select_a_star_template
-    - query: drop database /FRL/SELECT_A_STAR_YAML
 ...

@@ -29,8 +29,8 @@ import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
@@ -103,7 +103,7 @@ public abstract class QueryConfig {
         return query;
     }
 
-    abstract void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException;
+    abstract void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException;
 
     void checkError(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
         final var diffMessage = String.format("‼️ statement failed with the following error at line %s:%n" +
@@ -136,7 +136,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
@@ -167,7 +167,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
                 logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 resultSet.next();
@@ -223,7 +223,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
                     Matchers.printRemaining((ErrorCapturingResultSet) actual, resultSetPrettyPrinter);
@@ -270,7 +270,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
                     reportTestFailure(String.format("‼️ Expected count value %d, but got %d at line %d",
@@ -291,7 +291,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
                 logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 resultSet.next();
@@ -307,7 +307,7 @@ public abstract class QueryConfig {
     private static QueryConfig getNoCheckConfig(@Nullable Object value, int lineNumber) {
         return new QueryConfig(null, value, lineNumber) {
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException {
+            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
                 if (actual instanceof RelationalResultSet) {
                     final var resultSet = (RelationalResultSet) actual;
                     // slurp

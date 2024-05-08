@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
 
 import org.apache.logging.log4j.LogManager;
@@ -73,7 +73,7 @@ public class QueryExecutor {
         this.parameters = parameters;
     }
 
-    public Continuation execute(@Nonnull RelationalConnection connection, @Nonnull YamlRunner.YamlExecutionContext executionContext,
+    public Continuation execute(@Nonnull RelationalConnection connection, @Nonnull YamlExecutionContext executionContext,
                                 @Nonnull QueryConfig config, @Nullable Continuation continuation, boolean checkCache)
             throws RelationalException, SQLException {
         Continuation continuationAfter = ContinuationImpl.END;

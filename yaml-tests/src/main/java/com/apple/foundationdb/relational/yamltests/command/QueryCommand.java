@@ -28,8 +28,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -80,13 +80,21 @@ public class QueryCommand extends Command {
         }
     }
 
+    public QueryCommand(int lineNumber, @Nonnull String singleExecutableCommand) {
+        super(lineNumber);
+        if (Debugger.getDebugger() != null) {
+            Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
+        }
+        queryInterpreter = new QueryInterpreter(lineNumber, singleExecutableCommand);
+    }
+
     @Override
     public void invoke(@Nonnull final RelationalConnection connection,
-                       @Nonnull YamlRunner.YamlExecutionContext executionContext) throws SQLException, RelationalException {
+                       @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException {
         invoke(connection, executionContext, false, null, false);
     }
 
-    public void invoke(@Nonnull final RelationalConnection connection, @Nonnull YamlRunner.YamlExecutionContext executionContext,
+    public void invoke(@Nonnull final RelationalConnection connection, @Nonnull YamlExecutionContext executionContext,
                        boolean checkCache, @Nullable Random random, boolean runAsPreparedStatement) throws SQLException, RelationalException {
         enableCascadesDebugger();
         boolean queryHasRun = false;

@@ -18,22 +18,14 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists versions_tests_template
-    - query: create schema template versions_tests_template
-        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-        create index i1 as select col1 from t1
-        create index version_index as select "__ROW_VERSION" from t1
-        create index grouped_version_index as select col1, "__ROW_VERSION" from t1 order by col1, "__ROW_VERSION"
-        with options (store_row_versions=true)
-    - query: drop database if exists /FRL/VERSIONS_YAML
-    - query: create database /FRL/VERSIONS_YAML
-    - query: create schema /FRL/VERSIONS_YAML/test with template versions_tests_template
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index i1 as select col1 from t1
+    create index version_index as select "__ROW_VERSION" from t1
+    create index grouped_version_index as select col1, "__ROW_VERSION" from t1 order by col1, "__ROW_VERSION"
+    with options (store_row_versions=true)
 ---
-setup:
-  connect: "jdbc:embed:/FRL/VERSIONS_YAML?schema=TEST"
+config:
   steps:
     # Insert the odd rows first
     - query: INSERT INTO T1 VALUES
@@ -54,7 +46,6 @@ setup:
           (12, 20, 12)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/VERSIONS_YAML?schema=TEST"
   tests:
     -
       - query: select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;
@@ -125,10 +116,4 @@ test_block:
 #      # Should be able to execute as a single index scan. See: TODO (Combine scan ranges to execute certain OR queries with a single scan)
 #      - explain: "map(Index(GROUPED_VERSION_INDEX ([10, Versionstamp(\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00 0)],>)[(version(T1) as __ROW_VERSION, $T1.COL1 as COL1, $T1.ID as ID)])"
 #      - result: [{__ROW_VERSION: !not_null _, COL1: 10, ID: 1}, {__ROW_VERSION: !not_null _, COL1: 10, ID: 3}, {__ROW_VERSION: !not_null _, COL1: 10, ID: 5}, {__ROW_VERSION: !not_null _, COL1: 10, ID: 2}, {__ROW_VERSION: !not_null _, COL1: 10, ID: 4}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 7}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 9}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 11}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 13}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 6}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 8}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 10}, {__ROW_VERSION: !not_null _, COL1: 20, ID: 12}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/VERSIONS_YAML
-    - query: drop schema template versions_tests_template
 ...

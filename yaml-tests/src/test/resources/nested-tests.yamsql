@@ -18,22 +18,14 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists standard_tests_template
-    - query: create schema template standard_tests_template
-        CREATE TYPE AS STRUCT s1(a bigint, b bigint)
-        CREATE TYPE AS STRUCT s2(c bigint, d bigint)
-        CREATE TYPE AS STRUCT s3(e s1, f s2)
-        create table t1(id bigint, g bigint, h s3, primary key(id))
-        create table t2(id bigint, g bigint, h s3, primary key(id))
-    - query: drop database if exists /FRL/STANDARD_YAML
-    - query: create database /FRL/STANDARD_YAML
-    - query: create schema /FRL/STANDARD_YAML/test with template standard_tests_template
+schema_template:
+    CREATE TYPE AS STRUCT s1(a bigint, b bigint)
+    CREATE TYPE AS STRUCT s2(c bigint, d bigint)
+    CREATE TYPE AS STRUCT s3(e s1, f s2)
+    create table t1(id bigint, g bigint, h s3, primary key(id))
+    create table t2(id bigint, g bigint, h s3, primary key(id))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO T1
               VALUES (1, 2, ((3, 4), (5, 6))),
@@ -43,7 +35,6 @@ setup:
               (10, 20, ((null, null), null))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/STANDARD_YAML?schema=TEST"
   tests:
     -
       - query: select * from t1;
@@ -54,10 +45,4 @@ test_block:
       - query: select * from t2;
       - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
                  {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/STANDARD_YAML
-    - query: drop schema template standard_tests_template
 ...

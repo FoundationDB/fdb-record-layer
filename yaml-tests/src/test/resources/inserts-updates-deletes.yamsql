@@ -18,21 +18,13 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists inserts_updates_deletes_template
-    - query: create schema template inserts_updates_deletes_template
-        create type as struct S(S1 bigint, S2 bigint)
-        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-        create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
-        create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
-    - query: drop database if exists /FRL/INSERTS_UPDATES_DELETES_YAML
-    - query: create database /FRL/INSERTS_UPDATES_DELETES_YAML
-    - query: create schema /FRL/INSERTS_UPDATES_DELETES_YAML/test with template inserts_updates_deletes_template
+schema_template:
+    create type as struct S(S1 bigint, S2 bigint)
+    create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+    create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
+    create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/INSERTS_UPDATES_DELETES_YAML?schema=TEST"
   preset: single_repetition_ordered
   tests:
     -
@@ -113,10 +105,4 @@ test_block:
       - result: [{ B1: 10, B2: 22, B3: { 5, 41 } },
                  { B1: 20, B2: 22, B3: { 6, 51 } },
                  { B1: 30, B2: 22, B3: { 7, 61 } } ]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/INSERTS_UPDATES_DELETES_YAML
-    - query: drop schema template inserts_updates_deletes_template
 ...

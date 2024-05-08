@@ -18,7 +18,7 @@
 # limitations under the License.
 
 ---
-setup:
+config:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists field_index_tests_proto_template
@@ -28,7 +28,7 @@ setup:
     - query: create schema /FRL/FIELD_INDEX_PROTO_YAML/test with template FIELD_INDEX_TESTS_PROTO_TEMPLATE
     - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/FIELD_INDEX_PROTO_YAML\", \"template_name\": \"FIELD_INDEX_TESTS_PROTO_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"
 ---
-setup:
+config:
   connect: "jdbc:embed:/FRL/FIELD_INDEX_PROTO_YAML?schema=TEST"
   steps:
     - query: INSERT INTO "MyTable"
@@ -100,7 +100,7 @@ test_block:
       - query: select * from (select * from (select * from "MyTable") as x where ID = 14) as y;
       - result: [{ID: !l 14, COL1: !l 10, COL31: !null _, COL32: !l 45, COL2: !l 1}]
 ---
-destruct:
+config:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template field_index_tests_proto_template

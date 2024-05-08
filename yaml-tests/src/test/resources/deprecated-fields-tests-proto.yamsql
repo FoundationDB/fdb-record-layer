@@ -18,16 +18,16 @@
 # limitations under the License.
 
 ---
-setup:
+config:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
   - query: drop schema template deprecated_fields_tests_template
   - query: drop database /FRL/DEPRECATED_FIELDS_YAML
   - query: create database /FRL/DEPRECATED_FIELDS_YAML
-  - load: schema template DEPRECATED_FIELDS_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.deprecatedfields.DeprecatedFieldsTestsProto
+  - load schema template: schema template DEPRECATED_FIELDS_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.deprecatedfields.DeprecatedFieldsTestsProto
   - query: create schema /FRL/DEPRECATED_FIELDS_YAML/test with template deprecated_fields_tests_template
 ---
-setup:
+config:
   connect: "jdbc:embed:/FRL/DEPRECATED_FIELDS_YAML?schema=TEST"
   steps:
     - query: INSERT INTO T1
@@ -61,7 +61,7 @@ test_block:
       - query: select * from (select * from (select * from (select * from T1  where COL1 > 10) as x) as y) as z;
       - result: [{COL1: !l 11, !l 11}, {COL1: !l 12, !l 12}, {COL1: !l 13, !l 13}]
 ---
-destruct:
+config:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template deprecated_fields_tests_template

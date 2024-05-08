@@ -24,9 +24,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-import com.apple.foundationdb.relational.yamltests.YamlRunner;
-import com.apple.foundationdb.relational.yamltests.command.Command;
-import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,7 +36,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -67,14 +64,14 @@ public abstract class Block {
 
     int lineNumber;
     @Nonnull
-    YamlRunner.YamlExecutionContext executionContext;
+    YamlExecutionContext executionContext;
     @Nonnull
     protected final AtomicReference<RuntimeException> failureException = new AtomicReference<>(null);
     URI connectPath;
     @Nonnull
     List<Consumer<RelationalConnection>> executables = new ArrayList<>();
 
-    Block(int lineNumber, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
+    Block(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         this.lineNumber = lineNumber;
         this.executionContext = executionContext;
     }
@@ -86,11 +83,9 @@ public abstract class Block {
     /**
      * Executes the executables from the parsed block in a single connection.
      */
-    public void execute() {
-        execute(executables);
-    }
+    public abstract void execute();
 
-    protected void execute(@Nonnull Collection<Consumer<RelationalConnection>> list) {
+    protected final void executeExecutables(@Nonnull Collection<Consumer<RelationalConnection>> list) {
         connectToDatabaseAndExecute(connection -> list.forEach(t -> {
             if (failureException.get() != null) {
                 logger.trace("⚠️ Aborting test as one of the test has failed.");
@@ -107,9 +102,12 @@ public abstract class Block {
      */
     void setConnectPath(@Nullable Object connectObject) {
         if (connectObject == null) {
-            Assert.failUnchecked("Illegal Format: Connect not provided in block at line " + lineNumber);
+            this.connectPath = URI.create(executionContext.getOnlyConnectionPath());
+        } else if (connectObject instanceof Integer) {
+            this.connectPath = URI.create(executionContext.getConnectionPath((Integer) connectObject));
+        } else {
+            this.connectPath = URI.create(Matchers.string(connectObject));
         }
-        this.connectPath = URI.create(Matchers.string(connectObject));
     }
 
     /**
@@ -131,15 +129,14 @@ public abstract class Block {
         }
     }
 
-    public static boolean isConfigBlock(@Nonnull Object document) {
+    public static boolean isManualConfigBlock(@Nonnull Object document) {
         final var blockObject = Matchers.map(document);
         if (blockObject.size() != 1) {
             return false;
         }
         final var entry = Matchers.firstEntry(blockObject, "config");
         final var key = ((CustomYamlConstructor.LinedObject) entry.getKey()).getObject();
-        return blockObject.size() == 1 && (key.equals(ConfigBlock.CONFIG_BLOCK_SETUP) ||
-                key.equals(ConfigBlock.CONFIG_BLOCK_DESTRUCT));
+        return blockObject.size() == 1 && key.equals(ConfigBlock.ManualConfigBlock.MANUAL_CONFIG);
     }
 
     public static boolean isTestBlock(@Nonnull Object document) {
@@ -152,20 +149,29 @@ public abstract class Block {
         return blockObject.size() == 1 && key.equals(TestBlock.TEST_BLOCK);
     }
 
+    public static boolean isDefineTemplateBlock(@Nonnull Object document) {
+        final var blockObject = Matchers.map(document);
+        if (blockObject.size() != 1) {
+            return false;
+        }
+        final var entry = Matchers.firstEntry(blockObject, "config");
+        final var key = ((CustomYamlConstructor.LinedObject) entry.getKey()).getObject();
+        return blockObject.size() == 1 && key.equals(ConfigBlock.SchemaTemplateBlock.DEFINE_TEMPLATE_BLOCK);
+    }
+
     /**
      * Looks at the block to determine if its one of the valid blocks. If it is, parses it to that one.
      *
      * @param document a region in the file
      * @param executionContext information needed to carry out the execution
-     *
-     * @return a parsed block
      */
-    @Nonnull
-    public static Block parse(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
-        if (isConfigBlock(document)) {
-            return new ConfigBlock(document, executionContext);
+    public static void parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        if (isManualConfigBlock(document)) {
+            new ConfigBlock.ManualConfigBlock(document, executionContext);
         } else if (isTestBlock(document)) {
-            return new TestBlock(document, executionContext);
+            new TestBlock(document, executionContext);
+        } else if (isDefineTemplateBlock(document)) {
+            new ConfigBlock.SchemaTemplateBlock(document, executionContext);
         } else {
             throw new RuntimeException("Cannot recognize the type of block");
         }
@@ -173,56 +179,5 @@ public abstract class Block {
 
     public Optional<RuntimeException> getFailureExceptionIfPresent() {
         return failureException.get() == null ? Optional.empty() : Optional.of(failureException.get());
-    }
-
-    /**
-     * Implementation of block that serves the purpose of creating the 'environment' needed to run the {@link TestBlock}
-     * that follows it. In essence, it consists of a `connectPath` that is required to connect to a database and an
-     * ordered list of `steps` to execute. A `step` is nothing but a query to be executed, translating to a special
-     * {@link QueryCommand} that executes but doesn't verify anything.
-     * <p>
-     * The failure handling in case of {@link ConfigBlock} is straight-forward. It {@code throws} downstream exceptions
-     * and errors to handled in the consumer. The rationale for this is that if the {@link ConfigBlock} fails at step,
-     * there is no guarantee **as of now** that some following {@link Block} can run independent of this failure.
-     */
-    public static class ConfigBlock extends Block {
-
-        public static final String CONFIG_BLOCK_SETUP = "setup";
-        public static final String CONFIG_BLOCK_STEPS = "steps";
-        public static final String CONFIG_BLOCK_DESTRUCT = "destruct";
-
-        private ConfigBlock(@Nonnull Object document, @Nonnull YamlRunner.YamlExecutionContext executionContext) {
-            super((((CustomYamlConstructor.LinedObject) Matchers.firstEntry(document, "config").getKey()).getStartMark().getLine() + 1), executionContext);
-            final var configMap = Matchers.map(Matchers.firstEntry(document, "config").getValue());
-            setConnectPath(configMap.getOrDefault(BLOCK_CONNECT, null));
-            final var steps = getSteps(configMap.getOrDefault(CONFIG_BLOCK_STEPS, null));
-            for (final var step : steps) {
-                Assert.thatUnchecked(Matchers.map(step).size() == 1, "Illegal Format: A configuration step should be a single command");
-                final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step)));
-                executables.add(connection -> {
-                    try {
-                        resolvedCommand.invoke(connection, executionContext);
-                    } catch (Exception e) {
-                        failureException.set(new RuntimeException(String.format("‼️ Error executing config step at line %d",
-                                resolvedCommand.getLineNumber()), e));
-                    }
-                });
-            }
-        }
-
-        private List<?> getSteps(Object steps) {
-            if (steps == null) {
-                Assert.failUnchecked("Illegal Format: No steps provided in block at line " + lineNumber);
-            }
-            return Matchers.arrayList(steps);
-        }
-
-        @Override
-        public void execute() {
-            super.execute();
-            if (getFailureExceptionIfPresent().isPresent()) {
-                throw getFailureExceptionIfPresent().get();
-            }
-        }
     }
 }

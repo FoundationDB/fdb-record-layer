@@ -18,18 +18,10 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists like_tests_schema_template
-    - query: create schema template like_tests_schema_template
-        create table A(a1 string, primary key(a1))
-    - query: drop database if exists /FRL/LIKE_YAML
-    - query: create database /FRL/LIKE_YAML
-    - query: create schema /FRL/LIKE_YAML/LIKE_SCHEMA with template like_tests_schema_template
+schema_template:
+    create table A(a1 string, primary key(a1))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
+config:
   steps:
     - query: insert into A values
         (null),
@@ -50,7 +42,6 @@ setup:
 ---
 # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:
-  connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
   preset: single_repetition_parallelized
   tests:
     -
@@ -101,7 +92,6 @@ test_block:
 ---
 # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:
-  connect: "jdbc:embed:/FRL/LIKE_YAML?schema=LIKE_SCHEMA"
   options:
     repetition: 1
     check_cache: false
@@ -163,12 +153,4 @@ test_block:
           {'مدرسة'},
           {'^$'},
           {'\\||%'} ]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/LIKE_YAML
-    - query: drop schema template like_tests_schema_template
 ...
-
-

@@ -18,18 +18,10 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists prepared_statement_tests_template
-    - query: create schema template prepared_statement_tests_template
-        create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
-    - query: drop database if exists /FRL/PREPARED_YAML
-    - query: create database /FRL/PREPARED_YAML
-    - query: create schema /FRL/PREPARED_YAML/PREPARED_SCHEMA with template prepared_statement_tests_template
+schema_template:
+    create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
 ---
-setup:
-  connect: "jdbc:embed:/FRL/PREPARED_YAML?schema=PREPARED_SCHEMA"
+config:
   steps:
     - query: INSERT INTO TA
         VALUES (1, 2.01, true, 151, [3, 4, 5], 'captain america'),
@@ -44,7 +36,6 @@ setup:
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/PREPARED_YAML?schema=PREPARED_SCHEMA"
   tests:
     -
       # with random range parameter
@@ -110,7 +101,6 @@ test_block:
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/PREPARED_YAML?schema=PREPARED_SCHEMA"
   preset: single_repetition_ordered
   options:
     # insert statements do not take parameter
@@ -121,16 +111,9 @@ test_block:
       - count: 1
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/PREPARED_YAML?schema=PREPARED_SCHEMA"
   preset: multi_repetition_ordered
   tests:
     -
       - query: update ta set e = !! [10, 100, 1000] !! where a = 1 returning "new".e
       - result: [{[10, 100, 1000]}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/PREPARED_YAML
-    - query: drop schema template prepared_statement_tests_template
 ...

@@ -18,19 +18,11 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists primary_key_tests_template
-    - query: create schema template primary_key_tests_template
-        CREATE TYPE AS STRUCT s1(a bigint, b bigint, q bigint, z bigint)
-        create table t1(id s1, g bigint, primary key(id.a, id.b))
-    - query: drop database if exists /FRL/PRIMARY_KEY_YAML
-    - query: create database /FRL/PRIMARY_KEY_YAML
-    - query: create schema /FRL/PRIMARY_KEY_YAML/test with template primary_key_tests_template
+schema_template:
+    CREATE TYPE AS STRUCT s1(a bigint, b bigint, q bigint, z bigint)
+    create table t1(id s1, g bigint, primary key(id.a, id.b))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/PRIMARY_KEY_YAML?schema=TEST"
   preset: single_repetition_ordered
   tests:
     -
@@ -50,10 +42,4 @@ test_block:
       - query: select * from t1;
       - result: [{{1, 2, 3, 4}, 5},
                  {{1, 3, 30, 40}, 50}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/PRIMARY_KEY_YAML
-    - query: drop schema template primary_key_tests_template
 ...

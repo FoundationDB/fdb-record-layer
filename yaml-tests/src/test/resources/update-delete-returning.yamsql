@@ -18,19 +18,11 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists update_returning_template
-    - query: create schema template update_returning_template
-        create type as struct S(S1 bigint, S2 bigint)
-        create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
-    - query: drop database if exists /FRL/UPDATE_RETURNING_YAML
-    - query: create database /FRL/UPDATE_RETURNING_YAML
-    - query: create schema /FRL/UPDATE_RETURNING_YAML/test with template update_returning_template
+schema_template:
+    create type as struct S(S1 bigint, S2 bigint)
+    create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/UPDATE_RETURNING_YAML?schema=TEST"
   preset: single_repetition_ordered
   options:
     connection_lifecycle: block
@@ -161,10 +153,4 @@ test_block:
       - result: [ { A1: 1, A2: 1000, A3: 10 },
                   { A1: 2, A2: 1500, A3: 20 },
                   { A1: 3, A2: 2000, A3: 30 } ]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/UPDATE_RETURNING_YAML
-    - query: drop schema template update_returning_template
 ...

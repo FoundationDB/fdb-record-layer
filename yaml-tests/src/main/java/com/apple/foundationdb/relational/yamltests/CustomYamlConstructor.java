@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.ConfigBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
@@ -51,9 +51,9 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
 
         //blocks
-        requireLineNumber.add(Block.ConfigBlock.CONFIG_BLOCK_SETUP);
-        requireLineNumber.add(Block.ConfigBlock.CONFIG_BLOCK_DESTRUCT);
+        requireLineNumber.add(ConfigBlock.ManualConfigBlock.MANUAL_CONFIG);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
+        requireLineNumber.add(ConfigBlock.SchemaTemplateBlock.DEFINE_TEMPLATE_BLOCK);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);

@@ -18,34 +18,26 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists orderby_tests_schema_template_1
-    - query: create schema template orderby_tests_schema_template_1
-        create table t1(a bigint, b bigint, c bigint, primary key(a))
-        create index i1 as select b, c from t1 order by b
-        create index i2 as select b, c from t1 order by c
-        create index i3 as select b, c from t1 order by c, b
-        CREATE TYPE AS STRUCT st_1(a bigint, b bigint)
-        create table t2(p bigint, q st_1, primary key(p))
-        create index i4 as select q.b, q.a from t2 order by q.a
-        create index i5 as select q.b, q.a from t2 order by q.b, q.a
-        create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
-        create index i6 as select d, c, b, a from t3 order by a, b, c, d
-        CREATE TYPE AS STRUCT st_2(ast st_1)
-        CREATE TYPE AS STRUCT st_3(bst st_2)
-        CREATE TYPE AS STRUCT st_4(cst st_3)
-        CREATE TYPE AS STRUCT st_5(dst st_4)
-        CREATE TYPE AS STRUCT st_6(est st_5)
-        create table t4(p bigint, q st_6, primary key(p))
-        create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
-    - query: drop database if exists /FRL/ORDERBY_YAML
-    - query: create database /FRL/ORDERBY_YAML
-    - query: create schema /FRL/ORDERBY_YAML/ORDERBY_SCHEMA_1 with template orderby_tests_schema_template_1
+schema_template:
+    create table t1(a bigint, b bigint, c bigint, primary key(a))
+    create index i1 as select b, c from t1 order by b
+    create index i2 as select b, c from t1 order by c
+    create index i3 as select b, c from t1 order by c, b
+    CREATE TYPE AS STRUCT st_1(a bigint, b bigint)
+    create table t2(p bigint, q st_1, primary key(p))
+    create index i4 as select q.b, q.a from t2 order by q.a
+    create index i5 as select q.b, q.a from t2 order by q.b, q.a
+    create table t3(a bigint, b bigint, c bigint, d bigint, p bigint, primary key(p))
+    create index i6 as select d, c, b, a from t3 order by a, b, c, d
+    CREATE TYPE AS STRUCT st_2(ast st_1)
+    CREATE TYPE AS STRUCT st_3(bst st_2)
+    CREATE TYPE AS STRUCT st_4(cst st_3)
+    CREATE TYPE AS STRUCT st_5(dst st_4)
+    CREATE TYPE AS STRUCT st_6(est st_5)
+    create table t4(p bigint, q st_6, primary key(p))
+    create index i7 as select q.est.dst.cst.bst.ast.a, q.est.dst.cst.bst.ast.b from t4 order by q.est.dst.cst.bst.ast.a
 ---
-setup:
-  connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
+config:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 5),
@@ -97,7 +89,6 @@ setup:
                (9, ((((((0, 9)))))))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/ORDERBY_YAML?schema=ORDERBY_SCHEMA_1"
   tests:
     -
       - query: select b, c from t1 order by b, b
@@ -241,10 +232,4 @@ test_block:
       - query: select b from t1 order by c desc
       - explain: "map(map(Covering(Index(I2 <,> REVERSE) -> [A: KEY[2], B: VALUE[0], C: KEY[0]])[($q37.B as B, $q37.C as C)])[($q5.B as B)])"
       - result: [ {5}, {6}, {7}, {8}, {9}, {10}, {3}, {4}, {1}, {2} ]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/ORDERBY_YAML
-    - query: drop schema template orderby_tests_schema_template_1
 ...

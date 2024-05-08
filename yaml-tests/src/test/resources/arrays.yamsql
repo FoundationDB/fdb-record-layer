@@ -18,26 +18,18 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists arrays_template
-    - query: create schema template arrays_template
-        create table A(pk integer, x integer array, primary key(pk))
-        create table B(pk integer, x string array, primary key(pk))
-        create table C(pk integer, x double array, primary key(pk))
-        CREATE TYPE AS STRUCT S(f integer)
-        create table D(pk integer, x S array, primary key(pk))
-        CREATE TYPE AS STRUCT T(x integer, y double)
-        create table E(pk integer, x T array, primary key(pk))
-        CREATE TYPE AS STRUCT U(x integer, y double, z integer array)
-        create table F(pk integer, x U array, primary key(pk))
-    - query: drop database if exists /FRL/ARRAYS_YAML
-    - query: create database /FRL/ARRAYS_YAML
-    - query: create schema /FRL/ARRAYS_YAML/test with template arrays_template
+schema_template:
+    create table A(pk integer, x integer array, primary key(pk))
+    create table B(pk integer, x string array, primary key(pk))
+    create table C(pk integer, x double array, primary key(pk))
+    CREATE TYPE AS STRUCT S(f integer)
+    create table D(pk integer, x S array, primary key(pk))
+    CREATE TYPE AS STRUCT T(x integer, y double)
+    create table E(pk integer, x T array, primary key(pk))
+    CREATE TYPE AS STRUCT U(x integer, y double, z integer array)
+    create table F(pk integer, x U array, primary key(pk))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/ARRAYS_YAML?schema=TEST"
   preset: single_repetition_ordered
   tests:
     -
@@ -72,10 +64,4 @@ test_block:
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: UPDATE D SET X = [(11), (12), (13)] WHERE PK = 1 RETURNING "new".X
       - result: [{[{F: 11}, {F: 12}, {F: 13}]}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template arrays_template
-    - query: drop database /FRL/ARRAYS_YAML
 ...

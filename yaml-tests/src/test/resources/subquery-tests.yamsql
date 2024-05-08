@@ -18,24 +18,16 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists subquery_tests_template
-    - query: create schema template subquery_tests_template
-        create table a(ida integer, x integer, primary key(ida))
-        create table x(idx integer, y integer, primary key(idx))
-        CREATE TYPE AS STRUCT s(f integer)
-        create table r(idr integer, nr s array, primary key(idr))
-        create table b(idb integer, q integer, r integer, primary key(idb))
-        create index ib as select q from b
-        create index ir as select sq.f from r, (select f from r.nr) sq;
-    - query: drop database if exists /FRL/SUBQUERY_YAML
-    - query: create database /FRL/SUBQUERY_YAML
-    - query: create schema /FRL/SUBQUERY_YAML/test with template subquery_tests_template
+schema_template:
+    create table a(ida integer, x integer, primary key(ida))
+    create table x(idx integer, y integer, primary key(idx))
+    CREATE TYPE AS STRUCT s(f integer)
+    create table r(idr integer, nr s array, primary key(idr))
+    create table b(idb integer, q integer, r integer, primary key(idb))
+    create index ib as select q from b
+    create index ir as select sq.f from r, (select f from r.nr) sq;
 ---
-setup:
-  connect: "jdbc:embed:/FRL/SUBQUERY_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
     - query: INSERT INTO X VALUES (4, 10), (5, 20), (6, 30)
@@ -43,7 +35,6 @@ setup:
     - query: INSERT INTO B VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/SUBQUERY_YAML?schema=TEST"
   tests:
     -
       # non correlated subquery, resolving alias should be fine.
@@ -83,10 +74,4 @@ test_block:
       # correlations inside aggregations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
       - result: [{1}, {2}, {3}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template subquery_tests_template
-    - query: drop database /FRL/SUBQUERY_YAML
 ...

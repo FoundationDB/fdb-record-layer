@@ -18,25 +18,17 @@
 # limitations under the License.
 
 ---
-setup:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop schema template if exists groupby_tests_template
-    - query: create schema template groupby_tests_template
-        create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-        create index i1 as select col1 from t1
-        create type as struct st1(y bigint, z bigint)
-        create type as struct st2(w bigint, x bigint)
-        create type as struct st3(u st2, v st1)
-        create type as struct st4(s bigint, t bigint)
-        create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
-        create index i2 as select r.v.z from nested order by r.v.z
-    - query: drop database if exists /FRL/GB_YAML
-    - query: create database /FRL/GB_YAML
-    - query: create schema /FRL/GB_YAML/test with template groupby_tests_template
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index i1 as select col1 from t1
+    create type as struct st1(y bigint, z bigint)
+    create type as struct st2(w bigint, x bigint)
+    create type as struct st3(u st2, v st1)
+    create type as struct st4(s bigint, t bigint)
+    create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
+    create index i2 as select r.v.z from nested order by r.v.z
 ---
-setup:
-  connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
+config:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 1),
@@ -63,7 +55,6 @@ setup:
                (8, (327, 8), ((5, 15), (10, 140)))
 ---
 test_block:
-  connect: "jdbc:embed:/FRL/GB_YAML?schema=TEST"
   tests:
     -
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
@@ -165,10 +156,4 @@ test_block:
     -
       - query: select COUNT(col1) from T1;
       - result: [{!l 13}]
----
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  steps:
-    - query: drop database /FRL/GB_YAML
-    - query: drop schema template groupby_tests_template
 ...

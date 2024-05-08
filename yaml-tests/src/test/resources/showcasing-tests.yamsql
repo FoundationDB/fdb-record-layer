@@ -18,39 +18,38 @@
 # limitations under the License.
 
 # you can add comments like this one to your scripts.
-# the file is split into "documents", each document can either be a config block or a test block.
-#   - config block: This can be either a `setup` block or a `destruct` block. The motive of these block is to
-#      "setup" and "clean" the environment needed to run the test blocks. Hence, the first block of the file should
-#       be the `setup` block, while the last one should be `destruct`. A file can have multiple `setup` blocks
-#       to change the environment as needed to run multiple test blocks. Config block consist of a list of commands.
-#   - test block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
+#
+# The file is split into "documents" wherein each document is describes a block. A type of block exhibits a unique
+# functional behavior. At the top-level, there are 2 types of blocks:
+#   - config_block: These blocks are used to control the environment needed to run the test blocks. For instance, they
+#       are used to "setup", "populate" and "destruct" the databases and tables. A file can have multiple of these to
+#       `tweak` the environment as needed by the testing block.
+#   - test_block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
+#
+# The config block can be of the following types:
+#   - schema_template: This block carries the definition of the template based on which the database and schemas are setup
+#       automatically on the execution for the following `test_block` to use. Note that a file can have multiple of these
+#       blocks, each creating a database and schema with a different name scheme. Consequently, cleaning up of multiple
+#       of these blocks happens after all the blocks in the file has been executed, in the order of their definition.
+#       That is, 1st `schema_template` gets cleaned first, then second, then third and so on.
+#   - config: This block gives more flexibility to the tester to setup the tests. Compared to `schema_template`, which are
+#       opaque as to how and where schemas are created, `config` config block gives the tester the option to execute
+#       whatever statements they want in whichever location.
 ---
-setup:
-  # First entry in a block should be `connect` that defines where to execute the block.
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
-  # the config block defines the list of steps that sets up the environment. Each step is a command of the form
-  # <cmd>: <value> (pay attention to spaces). Valid commands are `load schema template`, `set schema state` and `query`.
-  # In the following, we use the `query` command to run the DDL statements to set up our testing environment. Note that
-  # the commands in config block are not tested for results - they are expected to succeed as they are for `setting up`
-  # the testing environment and not the actual test.
-  steps:
-    - query: drop schema template if exists test_template
-    # Here we use SQL to create the schema template.
-    - query: create schema template test_template
-       create table t1(id bigint, col1 bigint, primary key(id))
-       create table t2(col1 bigint, primary key(col1))
-       create table t3(col1 bigint, col2 string, primary key(col1))
-    # Alternatively, you can directly load the schema template from a pre-crafted proto buf
-    # file that you put in main/resources. For example:
-    # load: schema template STANDARD_TESTS_TEMPLATE from com.apple.foundationdb.relational.yamltests.generated.standardtest.StandardTestsProto
-    # check standard-tests-proto.yaml and standard_tests.proto for more information.
-    - query: drop database if exists /FRL/YOUSSEF
-    - query: create database /FRL/YOUSSEF
-    - query: create schema /FRL/YOUSSEF/test with template test_template
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
+    create table t2(col1 bigint, primary key(col1))
+    create table t3(col1 bigint, col2 string, primary key(col1))
 ---
-setup:
-  # Another setup block to fill the data in database created above.
-  connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
+# Even after the table is setup using the `schema_template` block, we need the `config` block to fill up the data in the table.
+config:
+  # `connect` tells the block which database to connect to execute the statements. The locations created by `schema_template`
+  # are random and hence the tester do not know them. These are available via 1-based indexes in connect. For instance,
+  # the above template definition has table at position 1. `config` creations are not indexed and those locations can be
+  # accessed through providing fully-qualified URI String to `connect`.
+  #
+  # `connect` is default and defaults to 1. Value 0 has a special meaning and depicts connection to the catalog.
+  connect: 1
   # We are inserting an array of three rows, each containing two columns
   # note the `table` configuration is very important
   # also note the casing of your table names.
@@ -59,9 +58,9 @@ setup:
 ---
 test_block:
   # This defines the test block which contains actual test.
-  # First entry in a block should be `connect`. That's true for even test_blocks
-  # required.
-  connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST"
+  #
+  # Omitting `connect` since we want to connect to location indexed at `1`, which is default.
+  #
   # preset defines one of the preset configurations that determines how the tests are run. There are 6 presets available
   # to choose from:
   #   1. single_repetition_ordered: Each test is run exactly once, in the order they are written. Cache is not checked.
@@ -102,21 +101,25 @@ test_block:
       - result: [{30, 40}]
       - result: [{50, 60}]
 ---
-# Another setup document to "change" the testing environment
-setup:
+# Another config block to "change" the testing environment. But doing it configly this time.
+config:
+  # connecting to the catalog.
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
-    - query: drop schema template if exists test_template_nested
     # Here is a more complex schema template with nesting to show how to deal with nested
     # data.
+    - query: drop schema template if exists test_template_nested
     - query: create schema template test_template_nested
              CREATE TYPE AS STRUCT s1(col1 bigint, col2 string)
              CREATE TYPE AS STRUCT s2(col3 s1, col4 string)
              create table t1(id bigint, col5 s2, primary key(id))
              create table t2(id2 bigint, col6 s2 ARRAY, primary key(id2))
+    - query: drop database if exists /FRL/YOUSSEF
+    - query: create database /FRL/YOUSSEF
     - query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
 ---
-setup:
+config:
+  # connecting to the configly created location.
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
   steps:
     - query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
@@ -154,10 +157,11 @@ test_block:
       - query: select * from t1
       - result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
 ---
-# Final document, clean-up the environment.
-destruct:
-  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+# Cleaning up configly created location
+config:
+  connect: 0
   steps:
-    - query: drop schema template test_template
+    - query: drop schema template test_template_nested
     - query: drop database /FRL/YOUSSEF
 ...
+# Note that we do not need to clean-up location created from `schema_template`. The interpreter will delete it in the end.
