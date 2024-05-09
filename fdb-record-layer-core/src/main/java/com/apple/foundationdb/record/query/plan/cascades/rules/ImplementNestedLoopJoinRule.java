@@ -154,7 +154,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
 
-        var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getPlans());
+        var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getExpressions());
 
         if (outerQuantifier instanceof Quantifier.Existential) {
             outerRef = call.memoizePlans(
@@ -172,7 +172,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
                 Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
 
         var innerRef =
-                call.memoizeMemberPlans(innerReference, innerPartition.getPlans());
+                call.memoizeMemberPlans(innerReference, innerPartition.getExpressions());
 
         if (innerQuantifier instanceof Quantifier.Existential) {
             innerRef = call.memoizePlans(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),

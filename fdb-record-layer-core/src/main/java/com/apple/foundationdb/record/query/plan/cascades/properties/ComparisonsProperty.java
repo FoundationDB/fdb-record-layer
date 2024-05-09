@@ -23,10 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
@@ -47,7 +46,7 @@ import java.util.Set;
  * A property for collecting all {@link ScanComparisons} for the sub tree the property is evaluated on.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.Comparison>>, RelationalExpressionVisitorWithDefaults<Set<Comparisons.Comparison>> {
+public class ComparisonsProperty implements SimpleExpressionVisitor<Set<Comparisons.Comparison>> {
     @Nonnull
     @Override
     public Set<Comparisons.Comparison> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<Comparisons.Comparison>> childResults) {

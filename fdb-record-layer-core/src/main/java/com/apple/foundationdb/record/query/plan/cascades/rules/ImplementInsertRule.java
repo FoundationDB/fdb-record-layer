@@ -72,7 +72,7 @@ public class ImplementInsertRule extends CascadesRule<InsertExpression> {
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
-                        .build(call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()));
+                        .build(call.memoizeMemberPlans(innerReference, innerPlanPartition.getExpressions()));
         call.yieldExpression(insertExpression.toPlan(physicalQuantifier));
     }
 }

@@ -191,7 +191,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
-                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
+                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getExpressions()));
                     call.yieldExpression(RecordQueryInUnionPlan.from(newInnerQuantifier,
                                     inSources,
                                     ImmutableList.copyOf(satisfyingComparisonKeyValues),

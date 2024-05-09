@@ -22,12 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.PlanVisitorHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -84,13 +86,13 @@ import java.util.Optional;
  * This property is used by e.g. the implementation of set plans (e.g. distinct unions, intersections) to understand
  * if a stream of records originates from the same source (i.e. table) or not.
  */
-public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
-    public static final PlanProperty<Optional<List<Value>>> PRIMARY_KEY = new PrimaryKeyProperty();
+public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Value>>> {
+    public static final ExpressionProperty<Optional<List<Value>>> PRIMARY_KEY = new PrimaryKeyProperty();
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Optional<List<Value>>> createVisitor() {
-        return new PrimaryKeyVisitor();
+    public RelationalExpressionVisitor<Optional<List<Value>>> createVisitor() {
+        return PlanVisitorHelpers.toExpressionVisitor(new PrimaryKeyVisitor());
     }
 
     @Override

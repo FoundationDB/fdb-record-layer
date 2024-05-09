@@ -21,10 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
@@ -49,7 +48,7 @@ import java.util.Objects;
  * filter factor. Note that such a number can always be computed without actually materializing the CNF.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
+public class NormalizedResidualPredicateProperty implements SimpleExpressionVisitor<QueryPredicate> {
     @Nonnull
     private static final NormalizedResidualPredicateProperty INSTANCE = new NormalizedResidualPredicateProperty();
 

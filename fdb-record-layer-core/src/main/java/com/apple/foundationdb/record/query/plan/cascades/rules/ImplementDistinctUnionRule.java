@@ -203,7 +203,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getExpressions()))
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
