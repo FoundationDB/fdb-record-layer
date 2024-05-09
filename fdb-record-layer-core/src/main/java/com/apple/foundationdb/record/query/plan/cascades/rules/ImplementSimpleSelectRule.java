@@ -87,7 +87,7 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
         final var predicates = bindings.getAll(predicateMatcher);
 
         var resultValue = selectExpression.getResultValue();
-        var referenceBuilder = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
+        var referenceBuilder = call.memoizeMemberPlansBuilder(innerReference, planPartition.getExpressions());
 
         final var isSimpleResultValue =
                 resultValue instanceof QuantifiedObjectValue &&

@@ -81,12 +81,12 @@ public class ImplementFilterRule extends CascadesRule<LogicalFilterExpression> {
         final var innerQuantifier = bindings.get(quantifierMatcher);
 
         if (queryPredicates.stream().allMatch(QueryPredicate::isTautology)) {
-            call.yieldExpression(innerPlanPartition.getPlans());
+            call.yieldExpression(innerPlanPartition.getExpressions());
         } else {
             call.yieldExpression(new RecordQueryPredicatesFilterPlan(
                     Quantifier.physicalBuilder()
                             .morphFrom(innerQuantifier)
-                            .build(call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans())),
+                            .build(call.memoizeMemberPlans(innerReference, innerPlanPartition.getExpressions())),
                     queryPredicates.stream().map(QueryPredicate::toResidualPredicate).collect(ImmutableList.toImmutableList())));
         }
     }

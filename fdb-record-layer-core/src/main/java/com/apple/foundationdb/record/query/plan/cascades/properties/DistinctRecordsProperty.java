@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.PlanVisitorHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -76,13 +78,13 @@ import java.util.List;
 /**
  * An attribute used to indicate if a plan produces distinct records.
  */
-public class DistinctRecordsProperty implements PlanProperty<Boolean> {
-    public static final PlanProperty<Boolean> DISTINCT_RECORDS = new DistinctRecordsProperty();
+public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
+    public static final ExpressionProperty<Boolean> DISTINCT_RECORDS = new DistinctRecordsProperty();
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Boolean> createVisitor() {
-        return new DistinctRecordsVisitor();
+    public RelationalExpressionVisitor<Boolean> createVisitor() {
+        return PlanVisitorHelpers.toExpressionVisitor(new DistinctRecordsVisitor());
     }
 
     @Override

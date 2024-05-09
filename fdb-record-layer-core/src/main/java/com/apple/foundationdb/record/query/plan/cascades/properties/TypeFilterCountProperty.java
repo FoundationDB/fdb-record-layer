@@ -20,10 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
 
 import javax.annotation.Nonnull;
@@ -41,7 +40,7 @@ import java.util.List;
  * are aggressively pruned by the planner.
  * </p>
  */
-public class TypeFilterCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
+public class TypeFilterCountProperty implements SimpleExpressionVisitor<Integer> {
     private static final TypeFilterCountProperty INSTANCE = new TypeFilterCountProperty();
 
     @Nonnull

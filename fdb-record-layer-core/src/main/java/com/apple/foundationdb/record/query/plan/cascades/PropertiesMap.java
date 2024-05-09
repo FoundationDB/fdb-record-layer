@@ -57,11 +57,11 @@ import java.util.Set;
  */
 public class PropertiesMap {
     /**
-     * This set works a bit like an enumeration; it defines the domain of {@link PlanProperty}s that are being maintained
-     * by the properties map.
+     * This set works a bit like an enumeration; it defines the domain of {@link ExpressionProperty}s that are being
+     * maintained by the properties map.
      */
-    private static final Set<PlanProperty<?>> planProperties =
-            ImmutableSet.<PlanProperty<?>>builder()
+    private static final Set<ExpressionProperty<?>> expressionProperties =
+            ImmutableSet.<ExpressionProperty<?>>builder()
                     .add(OrderingProperty.ORDERING)
                     .add(DistinctRecordsProperty.DISTINCT_RECORDS)
                     .add(StoredRecordProperty.STORED_RECORD)
@@ -72,29 +72,25 @@ public class PropertiesMap {
      * A queue with plans whose properties have not been computed yet.
      */
     @Nonnull
-    private final Deque<RecordQueryPlan> toBeInsertedPlans;
+    private final Deque<RelationalExpression> toBeInsertedExpressions;
 
     /**
-     * Map from {@link RecordQueryPlan} to a map of {@link PlanProperty} to a computed property value.
+     * Map from {@link RelationalExpression} to a map of {@link ExpressionProperty} to a computed property value.
      */
     @Nonnull
-    private final Map<RecordQueryPlan, Map<PlanProperty<?>, ?>> planPropertiesMap;
+    private final Map<RelationalExpression, Map<ExpressionProperty<?>, ?>> expressionPropertiesMap;
 
     /**
-     * {@link SetMultimap} from a map of computed properties to a set of {@link RecordQueryPlan}.
+     * {@link SetMultimap} from a map of computed properties to a set of {@link RelationalExpression}.
      */
     @Nonnull
-    private final SetMultimap<Map<PlanProperty<?>, ?>, RecordQueryPlan> attributeGroupedPlansMap;
+    private final SetMultimap<Map<ExpressionProperty<?>, ?>, RelationalExpression> attributeGroupedExpressionsMap;
 
-    public PropertiesMap(@Nonnull Collection<? extends RelationalExpression> relationalExpressions) {
-        this.toBeInsertedPlans = new ArrayDeque<>();
-        this.planPropertiesMap = new LinkedIdentityMap<>();
-        this.attributeGroupedPlansMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
-        relationalExpressions
-                .stream()
-                .filter(relationalExpression -> relationalExpression instanceof RecordQueryPlan)
-                .map(relationalExpression -> (RecordQueryPlan)relationalExpression)
-                .forEach(this::add);
+    public PropertiesMap(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        this.toBeInsertedExpressions = new ArrayDeque<>();
+        this.expressionPropertiesMap = new LinkedIdentityMap<>();
+        this.attributeGroupedExpressionsMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
+        expressions.forEach(this::add);
     }
 
     /**
@@ -103,14 +99,14 @@ public class PropertiesMap {
      * must call this method to ensure that the internals of this object are up-to-date.
      */
     private void update() {
-        while (!toBeInsertedPlans.isEmpty()) {
-            final var recordQueryPlan = toBeInsertedPlans.pop();
-            final var attributeMapBuilder = ImmutableMap.<PlanProperty<?>, Object>builder();
-            for (final var planProperty : planProperties) {
-                attributeMapBuilder.put(planProperty, computePropertyValue(planProperty, recordQueryPlan));
+        while (!toBeInsertedExpressions.isEmpty()) {
+            final var expression = toBeInsertedExpressions.pop();
+            final var attributeMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
+            for (final var expressionProperty : expressionProperties) {
+                attributeMapBuilder.put(expressionProperty, computePropertyValue(expressionProperty, expression));
             }
             final var propertiesForPlanMap = attributeMapBuilder.build();
-            add(recordQueryPlan, propertiesForPlanMap);
+            add(expression, propertiesForPlanMap);
         }
     }
 
@@ -122,7 +118,7 @@ public class PropertiesMap {
      *         either stored in the properties map.
      */
     @Nullable
-    public Map<PlanProperty<?>, ?> getPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public Map<ExpressionProperty<?>, ?> getPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
         update();
         return getCurrentPropertiesForPlan(recordQueryPlan);
     }
@@ -130,64 +126,64 @@ public class PropertiesMap {
     /**
      * Returns the properties currently stored in the properties map for the given plan. Note that
      * {@link #update()} is not called prior to retrieving the properties.
-     * @param recordQueryPlan the plan
+     * @param expression the plan
      * @return a map of properties for the given plan, or {@code null} if the {@link  RecordQueryPlan} passed in is
      *         either not stored in the properties map or not yet stored in the map (it may be in the queue but is
      *         not yet processed).
      */
     @Nullable
-    public Map<PlanProperty<?>, ?> getCurrentPropertiesForPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
-        return planPropertiesMap.get(recordQueryPlan);
+    public Map<ExpressionProperty<?>, ?> getCurrentPropertiesForPlan(@Nonnull final RelationalExpression expression) {
+        return expressionPropertiesMap.get(expression);
     }
 
     /**
-     * Method to add a new {@link RecordQueryPlan} to this properties map. The plan is added to a queue that is
+     * Method to add a new {@link RelationalExpression} to this properties map. The plan is added to a queue that is
      * consumed upon read to lazily compute the properties of the plan passed in.
-     * @param recordQueryPlan new record query plan to be added
+     * @param expression new record query plan to be added
      */
-    public void add(@Nonnull final RecordQueryPlan recordQueryPlan) {
-        toBeInsertedPlans.add(recordQueryPlan);
+    public void add(@Nonnull final RelationalExpression expression) {
+        toBeInsertedExpressions.add(expression);
     }
 
     /**
      * Method to add a new {@link RecordQueryPlan} to this properties map using precomputed properties. That is
      * useful when the caller retrieved the plan from some other reference.
-     * @param recordQueryPlan new record query plan to be added
+     * @param expression new record query plan to be added
      * @param propertiesForPlanMap a map containing all managed properties for the {@link RecordQueryPlan} passed in
      */
-    public void add(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull final Map<PlanProperty<?>, ?> propertiesForPlanMap) {
-        Verify.verify(!planPropertiesMap.containsKey(recordQueryPlan));
-        planPropertiesMap.put(recordQueryPlan, propertiesForPlanMap);
-        attributeGroupedPlansMap.put(propertiesForPlanMap, recordQueryPlan);
+    public void add(@Nonnull final RelationalExpression expression, @Nonnull final Map<ExpressionProperty<?>, ?> propertiesForPlanMap) {
+        Verify.verify(!expressionPropertiesMap.containsKey(expression));
+        expressionPropertiesMap.put(expression, propertiesForPlanMap);
+        attributeGroupedExpressionsMap.put(propertiesForPlanMap, expression);
     }
 
     @Nonnull
-    private <P> P computePropertyValue(@Nonnull final PlanProperty<P> planProperty,
-                                       @Nonnull final RecordQueryPlan recordQueryPlan) {
-        final var propertyVisitor = planProperty.createVisitor();
-        return propertyVisitor.visit(recordQueryPlan);
+    private <P> P computePropertyValue(@Nonnull final ExpressionProperty<P> expressionProperty,
+                                       @Nonnull final RelationalExpression expression) {
+        final var propertyVisitor = expressionProperty.createVisitor();
+        return propertyVisitor.visit(expression);
     }
 
     public void clear() {
-        toBeInsertedPlans.clear();
-        planPropertiesMap.clear();
-        attributeGroupedPlansMap.clear();
+        toBeInsertedExpressions.clear();
+        expressionPropertiesMap.clear();
+        attributeGroupedExpressionsMap.clear();
     }
 
     /**
-     * Returns a map from {@link RecordQueryPlan} to a computed specific property value for a {@link PlanProperty}
+     * Returns a map from {@link RecordQueryPlan} to a computed specific property value for a {@link ExpressionProperty}
      * passed in.
-     * @param <P> the type parameter of the {@link  PlanProperty}
-     * @param planProperty the property the caller is interested in
+     * @param <P> the type parameter of the {@link  ExpressionProperty}
+     * @param expressionProperty the property the caller is interested in
      * @return a new map that holds a key/value for each plan that is currently being managed by this property map
-     *         to its {@link PlanProperty}'s value
+     *         to its {@link ExpressionProperty}'s value
      */
     @Nonnull
-    public <P> Map<RecordQueryPlan, P> getPlannerAttributeForAllPlans(@Nonnull final PlanProperty<P> planProperty) {
+    public <P> Map<RelationalExpression, P> getPlannerAttributeForAllPlans(@Nonnull final ExpressionProperty<P> expressionProperty) {
         update();
-        final var resultMap = new LinkedIdentityMap<RecordQueryPlan, P>();
-        for (final var entry : planPropertiesMap.entrySet()) {
-            resultMap.put(entry.getKey(), planProperty.narrowAttribute(entry.getValue().get(planProperty)));
+        final var resultMap = new LinkedIdentityMap<RelationalExpression, P>();
+        for (final var entry : expressionPropertiesMap.entrySet()) {
+            resultMap.put(entry.getKey(), expressionProperty.narrowAttribute(entry.getValue().get(expressionProperty)));
         }
 
         return resultMap;
@@ -197,12 +193,12 @@ public class PropertiesMap {
     @Nonnull
     public List<PlanPartition> getPlanPartitions() {
         update();
-        return PlanPartition.toPlanPartitions(Multimaps.asMap(attributeGroupedPlansMap));
+        return PlanPartition.toPlanPartitions(Multimaps.asMap(attributeGroupedExpressionsMap));
     }
 
     @Nonnull
-    public static Set<PlanProperty<?>> allAttributesExcept(final PlanProperty<?>... exceptAttributes) {
+    public static Set<ExpressionProperty<?>> allAttributesExcept(final ExpressionProperty<?>... exceptAttributes) {
         final var exceptAttributesSet = ImmutableSet.copyOf(Arrays.asList(exceptAttributes));
-        return ImmutableSet.copyOf(Sets.difference(planProperties, exceptAttributesSet));
+        return ImmutableSet.copyOf(Sets.difference(expressionProperties, exceptAttributesSet));
     }
 }

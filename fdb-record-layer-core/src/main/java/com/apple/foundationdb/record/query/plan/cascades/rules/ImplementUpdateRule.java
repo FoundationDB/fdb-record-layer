@@ -74,7 +74,7 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
         final var updateExpression = call.get(root);
 
         final var planPartitionReference =
-                call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
+                call.memoizeMemberPlans(innerReference, innerPlanPartition.getExpressions());
 
         final var distinctPlansReference =
                 call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));

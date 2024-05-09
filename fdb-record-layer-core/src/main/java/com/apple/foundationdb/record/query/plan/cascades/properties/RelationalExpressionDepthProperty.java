@@ -20,16 +20,15 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -42,7 +41,7 @@ import java.util.Set;
  * planner expression: that is, the smallest integer such that one of those types is exactly that many relational
  * planner expressions away from the root expression.
  */
-public class RelationalExpressionDepthProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
+public class RelationalExpressionDepthProperty implements SimpleExpressionVisitor<Integer> {
     public static final RelationalExpressionDepthProperty TYPE_FILTER_DEPTH = new RelationalExpressionDepthProperty(
             ImmutableSet.of(LogicalTypeFilterExpression.class, RecordQueryTypeFilterPlan.class));
     public static final RelationalExpressionDepthProperty DISTINCT_FILTER_DEPTH = new RelationalExpressionDepthProperty(

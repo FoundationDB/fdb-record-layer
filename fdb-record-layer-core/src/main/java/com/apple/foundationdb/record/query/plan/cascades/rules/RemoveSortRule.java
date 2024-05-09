@@ -84,7 +84,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
         if (requestedOrdering.isPreserve()) {
-            call.yieldExpression(innerPlanPartition.getPlans());
+            call.yieldExpression(innerPlanPartition.getExpressions());
             return;
         }
 
@@ -115,7 +115,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                     .stream()
                     .allMatch(value -> sortValuesSet.contains(value) || equalityBoundKeys.contains(value))) {
                 final var strictlySortedInnerPlans =
-                        innerPlanPartition.getPlans()
+                        innerPlanPartition.getExpressions()
                                 .stream()
                                 .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
@@ -125,7 +125,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final var resultExpressions = new LinkedIdentitySet<RelationalExpression>();
 
-        for (final var innerPlan : innerPlanPartition.getPlans()) {
+        for (final var innerPlan : innerPlanPartition.getExpressions()) {
             final boolean strictOrdered =
                     // Also a unique index if we have gone through declared fields.
                     strictlyOrderedIfUnique(innerPlan, requestedOrderingParts.size() + equalityBoundUnsorted);

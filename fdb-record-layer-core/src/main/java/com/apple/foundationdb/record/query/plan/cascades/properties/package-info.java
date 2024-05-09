@@ -38,7 +38,7 @@
  * </p>
  *
  * <p>
- * This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty}.
+ * This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor}.
  * </p>
  */
 package com.apple.foundationdb.record.query.plan.cascades.properties;

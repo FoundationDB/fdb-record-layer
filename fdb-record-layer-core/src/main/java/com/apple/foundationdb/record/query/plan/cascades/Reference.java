@@ -87,6 +87,7 @@ public class Reference implements Correlated<Reference>, Typed {
         this.members = members;
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
+        // TODO only insert members that are of the type of the planner target
         this.propertiesMap = new PropertiesMap(members);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
@@ -136,7 +137,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * @param newValue new value to replace existing members
      */
     public void pruneWith(@Nonnull RelationalExpression newValue) {
-        final Map<PlanProperty<?>, ?> propertiesForPlan;
+        final Map<ExpressionProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {
             propertiesForPlan = propertiesMap.getCurrentPropertiesForPlan((RecordQueryPlan)newValue);
         } else {
@@ -184,7 +185,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
+    private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
             final boolean containsInMemo = containsInMemo(newValue);
@@ -220,7 +221,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      */
-    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
+    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
         members.add(newValue);
@@ -374,8 +375,8 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
-        return propertiesMap.getPlannerAttributeForAllPlans(planProperty);
+    public <A> Map<RelationalExpression, A> getPlannerAttributeForMembers(@Nonnull final ExpressionProperty<A> expressionProperty) {
+        return propertiesMap.getPlannerAttributeForAllPlans(expressionProperty);
     }
 
     @Nonnull
@@ -389,7 +390,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
+    public <U> U acceptPropertyVisitor(@Nonnull SimpleExpressionVisitor<U> property) {
         if (property.shouldVisit(this)) {
             final List<U> memberResults = new ArrayList<>(members.size());
             for (RelationalExpression member : members) {

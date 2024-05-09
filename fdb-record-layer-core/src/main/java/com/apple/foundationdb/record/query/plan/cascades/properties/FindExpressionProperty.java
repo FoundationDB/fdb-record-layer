@@ -20,11 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,7 +40,7 @@ import java.util.Set;
 /**
  * A property that determines finds all occurrences of expressions of interest in a planner graph.
  */
-public class FindExpressionProperty implements ExpressionProperty<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>>, RelationalExpressionVisitorWithDefaults<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> {
+public class FindExpressionProperty implements SimpleExpressionVisitor<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> {
     private final Set<Class<? extends RelationalExpression>> expressionClasses;
 
     public FindExpressionProperty(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses) {

@@ -91,7 +91,7 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
         //
         final ImmutableList<Quantifier.Physical> newQuantifiers =
                 Streams.zip(planPartitionsByQuantifier.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getExpressions()))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 

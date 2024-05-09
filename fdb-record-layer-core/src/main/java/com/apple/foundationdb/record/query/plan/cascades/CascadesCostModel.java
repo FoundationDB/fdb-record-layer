@@ -77,10 +77,16 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
     @Override
     public int compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
+        if (!(a instanceof RecordQueryPlan) && !(b instanceof RecordQueryPlan)) {
+            // if both are not plans we just return the first non-plan
+            return -1;
+        }
+
+        // if one of them is a plan and the other one is not, the plan always wins
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }
-        if (!(a instanceof RecordQueryPlan) && b instanceof RecordQueryPlan) {
+        if (!(a instanceof RecordQueryPlan) /* && b instanceof RecordQueryPlan */) {
             return 1;
         }
 
@@ -90,8 +96,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB =
                 FindExpressionProperty.evaluate(interestingPlanClasses, b);
 
-        final Cardinalities cardinalitiesA = CardinalitiesProperty.evaluate(a);
-        final Cardinalities cardinalitiesB = CardinalitiesProperty.evaluate(b);
+        final Cardinalities cardinalitiesA = CardinalitiesProperty.evaluate((RecordQueryPlan)a);
+        final Cardinalities cardinalitiesB = CardinalitiesProperty.evaluate((RecordQueryPlan)b);
 
         //
         // Technically, both cardinalities at runtime must be the same. The question is if we can actually
@@ -249,7 +255,7 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
     private Cardinality maxOfMaxCardinalitiesOfAllDataAccesses(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
         return FindExpressionProperty.slice(planOpsMap, RecordQueryScanPlan.class, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class)
                 .stream()
-                .map(plan -> CardinalitiesProperty.evaluate(plan).getMaxCardinality())
+                .map(plan -> CardinalitiesProperty.evaluate((RecordQueryPlan)plan).getMaxCardinality())
                 .reduce(Cardinality.ofCardinality(0),
                         (l, r) -> {
                             if (l.isUnknown()) {

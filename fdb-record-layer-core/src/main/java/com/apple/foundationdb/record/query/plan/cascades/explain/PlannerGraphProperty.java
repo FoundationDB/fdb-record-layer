@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.Cluster;
@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Ed
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Node;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.PartialMatchEdge;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -64,7 +63,7 @@ import java.util.stream.Collectors;
  * Class to hold a graph for explain, optimization, and rewrite purposes.
  */
 @SuppressWarnings({"UnstableApiUsage"})
-public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, RelationalExpressionVisitorWithDefaults<PlannerGraph> {
+public class PlannerGraphProperty implements SimpleExpressionVisitor<PlannerGraph> {
 
     public static final int EMPTY_FLAGS                = 0x0000;
 
