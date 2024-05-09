@@ -91,6 +91,7 @@ public class LuceneIndexTestUtils {
     protected static final String TEXT_AND_BOOLEAN_INDEX_KEY = "text_and_boolean_index_key";
     protected static final String TEXT_AND_NUMBER_INDEX_KEY = "text_and_number_index_key";
     protected static final String SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY = "simple_text_with_auto_complete_key";
+    protected static final String EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY = "email_cjk_sym_text_with_auto_complete_key";
     protected static final String MAP_ON_VALUE_INDEX_KEY = "map_on_value_index_key";
     protected static final String SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY = "simple_text_suffixes_with_primary_key_segment_index_key";
     protected static final String COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY = "complex_grouped_with_primary_key_segment_index_key";
@@ -214,6 +215,11 @@ public class LuceneIndexTestUtils {
             SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD,
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of());
+
+    protected static final Index EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE = new Index("Email_cjk_sym_with_auto_complete",
+            SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD,
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, EmailCjkSynonymAnalyzer.UNIQUE_IDENTIFIER));
 
     protected static final Index MAP_ON_VALUE_INDEX = getMapOnValueIndexWithOption("Map$entry-value", ImmutableMap.of());
 
@@ -355,6 +361,21 @@ public class LuceneIndexTestUtils {
                             field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
                     ), LuceneIndexTypes.LUCENE,
                     ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+                            LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME,
+                            LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
+
+    protected static final Index JOINED_COMPLEX_MULTIPLE_EMAIL_CJK_SYM_INDEXES =
+            new Index("JoinedComplex$text_multipleEmailCJKSymIndexes",
+                    concat(
+                            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("is_seen"))),
+                            field("simple").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
+                            field("complex").nest(function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+                            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("score"))),
+                            field("complex").nest(function(LuceneFunctionNames.LUCENE_STORED, field("group"))),
+                            field("complex").nest(function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp")))
+                    ), LuceneIndexTypes.LUCENE,
+                    ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
+                            LuceneIndexOptions.LUCENE_ANALYZER_NAME_OPTION, EmailCjkSynonymAnalyzer.UNIQUE_IDENTIFIER,
                             LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME,
                             LuceneIndexOptions.OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED, "true"));
 
@@ -830,6 +851,7 @@ public class LuceneIndexTestUtils {
                 Map.entry(TEXT_AND_BOOLEAN_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
                 Map.entry(TEXT_AND_NUMBER_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
                 Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
+                Map.entry(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY, JOINED_COMPLEX_MULTIPLE_EMAIL_CJK_SYM_INDEXES),
                 Map.entry(MAP_ON_VALUE_INDEX_KEY, JOINED_COMPLEX_MAP_TEXT_INDEXES),
                 Map.entry(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_PRIMARY_KEY_SEGMENT_INDEXES),
                 Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY, JOINED_COMPLEX_MULTIPLE_TEXT_INDEXES),
@@ -855,6 +877,7 @@ public class LuceneIndexTestUtils {
                 Map.entry(TEXT_AND_BOOLEAN_INDEX_KEY, TEXT_AND_BOOLEAN_INDEX),
                 Map.entry(TEXT_AND_NUMBER_INDEX_KEY, TEXT_AND_NUMBER_INDEX),
                 Map.entry(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY, SIMPLE_TEXT_WITH_AUTO_COMPLETE),
+                Map.entry(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY, EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE),
                 Map.entry(MAP_ON_VALUE_INDEX_KEY, MAP_ON_VALUE_INDEX),
                 Map.entry(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY, SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX),
                 Map.entry(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY, COMPLEX_MULTIPLE_TEXT_INDEXES),
