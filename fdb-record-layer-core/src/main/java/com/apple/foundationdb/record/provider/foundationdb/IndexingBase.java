@@ -461,21 +461,21 @@ public abstract class IndexingBase {
                         throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
                     }
                     if (areSimilar(newStamp, savedStamp)) {
-                        // Similar stamp, replace with our one
+                        // Similar stamps, replace it
                         store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }
                     // Here: check if type conversion is allowed
                     if (continuedBuild && shouldAllowTypeConversionContinue(newStamp, savedStamp)) {
-                        // Special case: partly built by another indexing method, but may be continued indexing on its own
+                        // Special case: partly built by another indexing method, but may be continued with the current one
                         if (savedStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)) {
-                            // Here: throw an exception if there is an active multi-target session
-                            final String mainIndexName = savedStamp.getTargetIndex(0);
-                            if (!mainIndexName.equals(common.getPrimaryIndex().getName())) {
-                                // Note: For protection, avoid breaking an active multi-target session. This leads to a certain inconsistency, where - if buildIndex is called with
-                                // a false `useSyncLock` - we may continue without checking sync lock, but refuse a takeover. Maybe the right
-                                // way to handle it is to check (without locking) sync lock in these cases.
-                                return throwIfSyncedLock(mainIndexName, store, newStamp, savedStamp)
+                            // Here: throw an exception if there is an active multi-target session that includes this index
+                            final String otherPrimaryIndexName = savedStamp.getTargetIndex(0);
+                            if (!otherPrimaryIndexName.equals(common.getPrimaryIndex().getName())) {
+                                // Note: For protection, avoid breaking an active multi-target session. This leads to a certain
+                                // inconsistency for buildIndex that is called with a false `useSyncLock` - sync lock will be
+                                // checked during a method conversion, but not during a simple "same method" continue.
+                                return throwIfSyncedLock(otherPrimaryIndexName, store, newStamp, savedStamp)
                                         .thenCompose(ignore -> {
                                             store.saveIndexingTypeStamp(index, newStamp);
                                             return AsyncUtil.DONE;
@@ -485,7 +485,7 @@ public abstract class IndexingBase {
                         store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }
-                    // Here: conversion is not allowed, yet there might be a case of an index with no-records scanned.
+                    // Here: conversion is not allowed, yet there might be a case of a WRITE_ONLY index that hadn't scanned any records.
                     if (forceStampOverwrite) {  // and a continued Build
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, index)
@@ -515,15 +515,15 @@ public abstract class IndexingBase {
                 .build();
     }
 
-    CompletableFuture<Void> throwIfSyncedLock(String mainIndexName, FDBRecordStore store, IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        final Index mainIndex = store.getRecordMetaData().getIndex(mainIndexName);
-        final Subspace mainLockSubspace = indexBuildLockSubspace(store, mainIndex);
+    CompletableFuture<Void> throwIfSyncedLock(String otherIndexName, FDBRecordStore store, IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        final Index otherIndex = store.getRecordMetaData().getIndex(otherIndexName);
+        final Subspace mainLockSubspace = indexBuildLockSubspace(store, otherIndex);
         return SynchronizedSession.checkActiveSessionExists(store.ensureContextActive(), mainLockSubspace)
                         .thenApply(hasActiveSession -> {
                             if (Boolean.TRUE.equals(hasActiveSession)) {
                                 throw new SynchronizedSessionLockedException("Failed to takeover indexing while part of a multi-target with an existing session in progress")
                                         .addLogInfo(LogMessageKeys.SUBSPACE, mainLockSubspace)
-                                        .addLogInfo(LogMessageKeys.MAIN_INDEX, mainIndexName)
+                                        .addLogInfo(LogMessageKeys.PRIMARY_INDEX, otherIndexName)
                                         .addLogInfo(LogMessageKeys.EXPECTED, PartlyBuiltException.stampToString(newStamp))
                                         .addLogInfo(LogMessageKeys.ACTUAL, PartlyBuiltException.stampToString(savedStamp));
                             }
