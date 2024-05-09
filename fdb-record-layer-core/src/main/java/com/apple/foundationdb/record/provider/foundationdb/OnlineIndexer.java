@@ -53,6 +53,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -2591,14 +2592,14 @@ public class OnlineIndexer implements AutoCloseable {
              * built by another method. If the other indexing session is still running, a "takeover" may cause it to fail.
              * Note that it goes one way - once there is a "takeover", there is no way to continue building with the previous method.
              *  Usage exmaple:
-             *  {@code builder.allowTakeoverContinue(EnumSet.of(TakeroverTypes.MULTI_TARGET_TO_SINGLE, TakeroverTypes.BY_INDEX_TO_BY_RECORDS));}
+             *  {@code builder.allowTakeoverContinue(List.of(TakeroverTypes.MULTI_TARGET_TO_SINGLE, TakeroverTypes.BY_INDEX_TO_BY_RECORDS));}
              *  Note - If called with a non-null argument, it will override {@link #allowTakeoverContinue(boolean)}
              *
              * @param allowedSet - the types of conversion to allow. Null or empty set will allow no conversion.
              * @return this builder
              */
-            public Builder allowTakeoverContinue(@Nullable Set<TakeroverTypes> allowedSet) {
-                this.allowedTakeoverSet = allowedSet;
+            public Builder allowTakeoverContinue(@Nullable Collection<TakeroverTypes> allowedSet) {
+                this.allowedTakeoverSet = allowedSet == null ? null : EnumSet.copyOf(allowedSet);
                 return this;
             }
 
