@@ -19,7 +19,8 @@
  */
 
 /**
- * <h1>Relational JDBC Driver</h1>
+ * Relational JDBC Driver
+ *
  * The Relational JDBC URL starts with <code>jdbc:relational://</code>. We use the same JDBC URL format as mysql/postgres
  * JDBC drivers; i.e. <code>jdbc:relational://HOST[:PORT]</code> to specify the remote server and port. If no HOST+PORT
  * specified, then the URL refers to an `inprocess` server; i.e.. a server running in the current process which is
