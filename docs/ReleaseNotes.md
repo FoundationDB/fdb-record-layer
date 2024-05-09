@@ -17,29 +17,37 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Corrected field to index calculation resolving records from index entries with permuted min/max indexes [(Issue #2705)](https://github.com/FoundationDB/fdb-record-layer/issues/2705)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Lucene directory: treat close as a potential recovery path [(Issue #2707)](https://github.com/FoundationDB/fdb-record-layer/issues/2707)
-* **Bug fix** Lucene: FileLock should handle close as a possible recovery path [(Issue #2692)](https://github.com/FoundationDB/fdb-record-layer/issues/2692)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Lucene: merges should run in default transaction priority [(Issue #2696)](https://github.com/FoundationDB/fdb-record-layer/issues/2696)
+* **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** The default collation order is now based on the root locale instead of the system default. Users relying on a specific locale should update any indexes using ta collation function to include the locale in the function arguments before updating [(Issue #2678)](https://github.com/FoundationDB/fdb-record-layer/issues/2678)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.495.0
+
+* **Bug fix** Corrected field to index calculation resolving records from index entries with permuted min/max indexes [(Issue #2705)](https://github.com/FoundationDB/fdb-record-layer/issues/2705)
+* **Bug fix** Lucene directory: treat close as a potential recovery path [(Issue #2707)](https://github.com/FoundationDB/fdb-record-layer/issues/2707)
+* **Bug fix** Lucene: FileLock should handle close as a possible recovery path [(Issue #2692)](https://github.com/FoundationDB/fdb-record-layer/issues/2692)
+* **Performance** Lucene: merges should run in default transaction priority [(Issue #2696)](https://github.com/FoundationDB/fdb-record-layer/issues/2696)
+* **Breaking change** The default collation order is now based on the root locale instead of the system default. Users relying on a specific locale should update any indexes using ta collation function to include the locale in the function arguments before updating [(Issue #2678)](https://github.com/FoundationDB/fdb-record-layer/issues/2678)
 
 ### 3.4.494.0
 
