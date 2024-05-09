@@ -366,9 +366,21 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     }
 
     private void addFieldsForPermutedIndexEntry(@Nonnull List<Value> selectHavingFields, int groupingCount, @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
-        // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1))
-        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn-permuted, agg(coln+1), groupingColn-permuted+1, ..., groupingColn) VALUE()
-        // groupingCount                : n+1
+        // The selectHavingFields come in an order matching the original columns in the key expression. That is, if there are n grouping columns and m aggregate
+        // columns, we have fields like:
+        //
+        // select-having value structure: (groupingCol1, groupingCol2, ... groupingColn, agg(coln+1), ..., agg(coln+m))
+        //
+        // But the actual index transposes the aggregate values with the last permutedCount columns, so the actual key structure is:
+        //
+        // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn-permuted, agg(coln+1), ..., agg(coln+m), groupingColn-permuted+1, ..., groupingColn) VALUE()
+        //
+        // This function then needs to take the index from the first list and find its corresponding spot. That means that:
+        //
+        //  1. The first (groupingCount - permutedCount) columns preserve their position
+        //  2. The final permutedCount grouping columns need to be shifted over by the number of aggregate columns (typically 1)
+        //  3. The aggregate columns need to be shifted over permutedCount columns
+        //
         int permutedCount = getPermutedCount();
         int groupedCount = getColumnSize() - groupingCount;
 
@@ -380,10 +392,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                     // Grouping column after the permuted aggregate. Adjust by skipping over the grouped aggregate columns
                     havingIndex = i + groupedCount;
                 } else if (i >= groupingCount) {
-                    // One of the grouped aggregates. Adjust to remove the permuted columns
+                    // Aggregate column. Adjust by removing the permuted columns
                     havingIndex = i - permutedCount;
                 } else {
-                    // Column before the permuted aggregate. Preserve original index
+                    // Grouping column before the permuted aggregate. Preserve original index
                     havingIndex = i;
                 }
                 final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(havingIndex));
