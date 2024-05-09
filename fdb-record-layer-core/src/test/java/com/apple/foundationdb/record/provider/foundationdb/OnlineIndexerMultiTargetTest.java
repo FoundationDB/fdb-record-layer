@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -39,8 +40,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -851,11 +855,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         }
 
         // 4. sleep
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        snooze(2000);
 
         // 5. continue normally, the block should been have expired
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer)
@@ -866,5 +866,69 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         // validate
         assertAllValidated(indexes);
+    }
+
+    void snooze(int millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    void testForbidConversionOfActiveMultiTarget() throws InterruptedException {
+        // Do not let a conversion of few indexes of an active multi-target session
+        final int numRecords = 59;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        Semaphore sem = new Semaphore(1);
+        sem.acquire();
+        Thread t1 = new Thread(() -> {
+            // build index and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(4)
+                    .setConfigLoader(old -> {
+                        try {
+                            sem.acquire(); // pause until released
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        sem.release();
+                        return old;
+                    })
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        snooze(200); // let the other thread kick in.
+        // Try one index at a time
+        for (Index index : indexes) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                    .setIndex(index)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .allowTakeoverContinue(EnumSet.of(OnlineIndexer.IndexingPolicy.TakeroverTypes.MULTI_TARGET_TO_SINGLE)))
+                    .build()) {
+                assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+            }
+        }
+        // let the other thread finish indexing
+        sem.release();
+        t1.join();
+        // happy indexes assertion
+        assertReadable(indexes);
     }
 }
