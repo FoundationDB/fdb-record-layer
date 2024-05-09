@@ -70,7 +70,7 @@ public class FDBRecordStoreConcurrentTestBase {
         this.path = path;
     }
 
-    public boolean useCascadesPlanner() {
+    public boolean isUseCascadesPlanner() {
         return useCascadesPlanner;
     }
 
