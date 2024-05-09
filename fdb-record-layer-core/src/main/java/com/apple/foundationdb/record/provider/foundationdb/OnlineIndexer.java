@@ -2335,7 +2335,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * If true, allow - in some specific cases - to continue building an index that was partly built by a different indexing method.
-         * (See {@link Builder#allowTakeoverContinue(Set)} and {@link Builder#allowTakeoverContinue(boolean)}).
+         * (See {@link Builder#allowTakeoverContinue(Collection)} and {@link Builder#allowTakeoverContinue(boolean)}).
          * @param newMethod the new (attempting to continue) indexing method
          * @param oldMethod the old (previously used) indexing method
          * @return true if allowed
@@ -2577,8 +2577,8 @@ public class OnlineIndexer implements AutoCloseable {
              * <li>"Single index by records" may continue a multi index session.</li>
              * <li>"Single index by records" may continue a mutually built session.</li>
              *  </ul>
-             *  This function may be too general; {@link #allowTakeoverContinue(Set)} supports allowing a subset of these conversions.
-             *  Note - if {@link #allowTakeoverContinue(Set)} is called with a non-null argument, it will override this function's argument.
+             *  This function may be too general; {@link #allowTakeoverContinue(Collection)} supports allowing a subset of these conversions.
+             *  Note - if {@link #allowTakeoverContinue(Collection)} is called with a non-null argument, it will override this function's argument.
              * @param allow if true, allow takeover.
              * @return this builder
              */

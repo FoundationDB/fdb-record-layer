@@ -40,7 +40,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
@@ -920,7 +919,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .allowTakeoverContinue(EnumSet.of(OnlineIndexer.IndexingPolicy.TakeroverTypes.MULTI_TARGET_TO_SINGLE)))
+                            .allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeroverTypes.MULTI_TARGET_TO_SINGLE)))
                     .build()) {
                 assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
             }
