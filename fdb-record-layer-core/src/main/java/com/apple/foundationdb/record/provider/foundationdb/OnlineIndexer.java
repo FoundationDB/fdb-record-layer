@@ -2339,8 +2339,8 @@ public class OnlineIndexer implements AutoCloseable {
          * @param oldMethod the old (previously used) indexing method
          * @return true if allowed
          */
-        public boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp.Method newMethod,
-                                                   IndexBuildProto.IndexBuildIndexingStamp.Method oldMethod) {
+        public boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp.Method newMethod,
+                                                         IndexBuildProto.IndexBuildIndexingStamp.Method oldMethod) {
             if (allowedTakeoverSet != null) {
                 if (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                     if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {

@@ -432,66 +432,74 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
+    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
-            store.saveIndexingTypeStamp(index, indexingTypeStamp);
+            store.saveIndexingTypeStamp(index, newStamp);
             return AsyncUtil.DONE;
         }
         return store.loadIndexingTypeStampAsync(index)
                 .thenCompose(savedStamp -> {
                     if (savedStamp == null) {
-                        if (continuedBuild && indexingTypeStamp.getMethod() !=
+                        if (continuedBuild && newStamp.getMethod() !=
                                               IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                             // backward compatibility - maybe continuing an old BY_RECORD session
                             return isWriteOnlyButNoRecordScanned(store, index)
-                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp));
+                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp));
                         }
                         // Here: either not a continuedBuild (new session), or a BY_RECORD session (allowed to overwrite the null stamp)
-                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
+                        store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }
                     // Here: has non-null type stamp
-                    if (indexingTypeStamp.equals(savedStamp)) {
+                    if (newStamp.equals(savedStamp)) {
                         // A matching stamp is already there - One less thing to worry about
                         return AsyncUtil.DONE;
                     }
-                    if (continuedBuild && shouldAllowTakeoverContinue(indexingTypeStamp, savedStamp)) {
-                        // Special case: partly built by another indexing method, but may be continued indexing on its own
-                        if (savedStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)) {
-                            // Here: throw an exception if there is an active mutil
-                            final String mainIndexName = savedStamp.getTargetIndex(0);
-                            // Note: For protection, never takeover a part of an active multi-target session. This leads to a certain inconsistency, where - if buildIndex is called with
-                            // useSyncLock = false - we may continue without checking sync lock, but not perform a takeover.
-                            return throwIfSyncedLock(mainIndexName, store, indexingTypeStamp, savedStamp)
-                                    .thenCompose(ignore -> {
-                                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
-                                        return AsyncUtil.DONE;
-                                    });
-                        }
-                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
+                    if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
+                        // Indexing is blocked
+                        throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
+                    }
+                    if (areSimilar(newStamp, savedStamp)) {
+                        // Similar stamp, replace with our one
+                        store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }
+                    // Here: check if type conversion is allowed
+                    if (continuedBuild && shouldAllowTypeConversionContinue(newStamp, savedStamp)) {
+                        // Special case: partly built by another indexing method, but may be continued indexing on its own
+                        if (savedStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)) {
+                            // Here: throw an exception if there is an active multi-target session
+                            final String mainIndexName = savedStamp.getTargetIndex(0);
+                            if (!mainIndexName.equals(common.getPrimaryIndex().getName())) {
+                                // Note: For protection, avoid breaking an active multi-target session. This leads to a certain inconsistency, where - if buildIndex is called with
+                                // a false `useSyncLock` - we may continue without checking sync lock, but refuse a takeover. Maybe the right
+                                // way to handle it is to check (without locking) sync lock in these cases.
+                                return throwIfSyncedLock(mainIndexName, store, newStamp, savedStamp)
+                                        .thenCompose(ignore -> {
+                                            store.saveIndexingTypeStamp(index, newStamp);
+                                            return AsyncUtil.DONE;
+                                        });
+                            }
+                        }
+                        store.saveIndexingTypeStamp(index, newStamp);
+                        return AsyncUtil.DONE;
+                    }
+                    // Here: conversion is not allowed, yet there might be a case of an index with no-records scanned.
                     if (forceStampOverwrite) {  // and a continued Build
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, index)
                                 .thenCompose(noRecordScanned ->
-                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp,
+                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp,
                                         savedStamp, continuedBuild));
                     }
                     // fall down to exception
-                    throw newPartlyBuiltException(continuedBuild, savedStamp, indexingTypeStamp, index);
+                    throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
                 });
     }
 
-    private boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
-            return false;
-        }
-        if (areSimilar(newStamp, savedStamp)) {
-            return true;
-        }
-        return policy.shouldAllowTakeoverContinue(newStamp.getMethod(), savedStamp.getMethod());
+    private boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        return policy.shouldAllowTypeConversionContinue(newStamp.getMethod(), savedStamp.getMethod());
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
