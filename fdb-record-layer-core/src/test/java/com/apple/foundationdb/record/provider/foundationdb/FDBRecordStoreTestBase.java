@@ -101,11 +101,6 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         void open(FDBRecordContext context) throws Exception;
     }
 
-    // By default, do not set any props by default, but leave open for sub-classes to extend
-    protected RecordLayerPropertyStorage.Builder addDefaultProps(RecordLayerPropertyStorage.Builder props) {
-        return props;
-    }
-
     @Override
     protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
         Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = super.createOrOpenRecordStore(context, metaData);
@@ -116,18 +111,6 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
 
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         this.planner = super.setupPlanner(recordStore, indexTypes);
-    }
-
-    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage props) {
-        return openContext(props.toBuilder());
-    }
-
-    public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
-        final FDBRecordContextConfig config = contextConfig(props)
-                .setTimer(timer)
-                .setRecordContextProperties(addDefaultProps(props).build())
-                .build();
-        return fdb.openContext(config);
     }
 
     public FDBRecordContext openContext() {

@@ -37,8 +37,10 @@ import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.test.TestMdcExtension;
+import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +52,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Base class for concurrent tests for {@link FDBRecordStore}.
+ * Base class for tests of {@link FDBRecordStore}.
+ * This has better support for concurrently interacting with a single store in the database than {@link FDBRecordStoreTestBase}.
  */
+@Tag(Tags.RequiresFDB)
 public class FDBRecordStoreConcurrentTestBase {
     @RegisterExtension
     protected final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -125,7 +129,6 @@ public class FDBRecordStoreConcurrentTestBase {
     public FDBRecordContext openContext(@Nonnull final RecordLayerPropertyStorage.Builder props) {
         final FDBRecordContextConfig config = contextConfig(props)
                 .setTimer(timer)
-                .setRecordContextProperties(addDefaultProps(props).build())
                 .build();
 
         return fdb.openContext(config);
@@ -146,6 +149,7 @@ public class FDBRecordStoreConcurrentTestBase {
                 .setMdcContext(mdcContext)
                 .setTrackOpen(true)
                 .setSaveOpenStackTrace(true)
+                .setRecordContextProperties(addDefaultProps(props).build())
                 .setReportConflictingKeys(true);
     }
 
