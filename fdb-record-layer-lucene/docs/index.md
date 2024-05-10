@@ -26,13 +26,13 @@ If the grouping key generates the tuples (`group0`, `group1`, ... `group100`) th
 ```
 
 #### ungrouped, partitioned
-The partitioning adds a partition, it also adds adjacent metadata to manage the partitions, so if you have 13 partitions,
+The partitioning adds a partition, it also adds adjacent metadata to manage the partitions, so if you have 14 partitions,
 it would be something like this:
 ```
 [indexspace][0, t0, pk0] -> partition metadata for records between t0 and t1 (the primary key is added to deduplicate if needed)
 [indexspace][0, t1, pk1] -> partition metadata for records greater than t0 (the primary key is added to deduplicate if needed)
     ⋮
-[indexspace][0, t1, pk1] -> partition metadata for "most recent" partition
+[indexspace][0, t1, pk2] -> partition metadata for "most recent" partition
 [indexspace][1, 0] -> the data for the directory in the 0th partition 
 [indexspace][1, 1]
     ⋮
@@ -45,15 +45,15 @@ If both grouping and partitioning are enabled, the tuples are concatenated.
 [indexspace][g0, 0, t1, pk0]
 [indexspace][g0, 0, t2, pk1]
     ⋮
-[indexspace][g0, 0, t3, pk1]
+[indexspace][g0, 0, t3, pk2]
 [indexspace][g0, 1, 0]
 [indexspace][g0, 1, 1]
     ⋮
 [indexspace][g0, 1, 13]
-[indexspace][g0, 0, t0, pk0]
-[indexspace][g0, 0, t1, pk1]
+[indexspace][g0, 0, t0, pk3]
+[indexspace][g0, 0, t1, pk4]
     ⋮
-[indexspace][g0, 0, t2, pk1]
+[indexspace][g0, 0, t2, pk5]
 [indexspace][g0, 1, 0]
 [indexspace][g0, 1, 1]
     ⋮
