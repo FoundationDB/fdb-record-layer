@@ -31,6 +31,7 @@ import com.ibm.icu.text.Collator;
 import com.ibm.icu.util.ULocale;
 
 import javax.annotation.Nonnull;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -69,7 +70,7 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
     public TextCollator getTextCollator(@Nonnull String locale, int strength) {
         return MapUtils.computeIfAbsent(collators, NonnullPair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
-                                      Collator.getInstance() :
+                                      Collator.getInstance(ULocale.forLocale(Locale.ROOT)) :
                                       Collator.getInstance(new ULocale(locale));
             collator.setStrength(strength);
             return new TextCollatorICU(collator);

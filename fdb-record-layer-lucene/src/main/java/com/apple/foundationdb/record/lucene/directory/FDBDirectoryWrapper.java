@@ -41,6 +41,7 @@ import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
+import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -304,16 +305,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
-        if (writer != null) {
-            writer.close();
-            writer = null;
-            writerAnalyzerId = null;
-            if (writerReader != null) {
-                writerReader.close();
-                writerReader = null;
-            }
-        }
-        directory.close();
+        IOUtils.close(writer, writerReader, directory);
+        writer = null;
+        writerAnalyzerId = null;
+        writerReader = null;
     }
 
     public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, final Exception exceptionAtCreation) throws IOException {

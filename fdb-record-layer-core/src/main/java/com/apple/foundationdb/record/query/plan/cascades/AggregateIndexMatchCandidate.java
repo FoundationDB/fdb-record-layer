@@ -370,16 +370,20 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         // key structure                : KEY(groupingCol1, groupingCol2, ... groupingColn-permuted, agg(coln+1), groupingColn-permuted+1, ..., groupingColn) VALUE()
         // groupingCount                : n+1
         int permutedCount = getPermutedCount();
+        int groupedCount = getColumnSize() - groupingCount;
 
         for (int i = 0; i < selectHavingFields.size(); i++) {
             final Value keyValue = selectHavingFields.get(i);
             if (keyValue instanceof FieldValue) {
                 int havingIndex;
                 if (i >= groupingCount - permutedCount && i < groupingCount) {
-                    havingIndex = i + permutedCount;
+                    // Grouping column after the permuted aggregate. Adjust by skipping over the grouped aggregate columns
+                    havingIndex = i + groupedCount;
                 } else if (i >= groupingCount) {
+                    // One of the grouped aggregates. Adjust to remove the permuted columns
                     havingIndex = i - permutedCount;
                 } else {
+                    // Column before the permuted aggregate. Preserve original index
                     havingIndex = i;
                 }
                 final AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(havingIndex));

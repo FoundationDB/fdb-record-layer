@@ -21,28 +21,24 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -53,6 +49,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.common.base.Predicates;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -78,9 +75,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -93,11 +88,21 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private static final String MAX_UNIQUE_BY_2_3 = "maxNumValueUniqueBy2And3";
     @Nonnull
+    private static final String MAX_UNIQUE_BY_STR_VALUE_2_3 = "maxNumValueUniqueByStrValue2And3";
+    @Nonnull
     private static final GroupingKeyExpression UNIQUE_BY_2_3 = field("num_value_unique")
             .groupBy(concatenateFields("num_value_2", "num_value_3_indexed"));
+    @Nonnull
+    private static final GroupingKeyExpression UNIQUE_BY_STR_VALUE_2_3 = field("num_value_unique")
+            .groupBy(concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed"));
 
     private static Index maxUniqueBy2And3() {
         return new Index(MAX_UNIQUE_BY_2_3, UNIQUE_BY_2_3, IndexTypes.PERMUTED_MAX, Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
+    }
+
+    @Nonnull
+    private static Index maxUniqueByStrValueOrderBy2And3() {
+        return new Index(MAX_UNIQUE_BY_STR_VALUE_2_3, UNIQUE_BY_STR_VALUE_2_3, IndexTypes.PERMUTED_MAX, Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "2"));
     }
 
     @Nonnull
@@ -169,13 +174,11 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            assertThat(planner, instanceOf(CascadesPlanner.class));
-            CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
 
             // Issue a query equivalent to:
             //   SELECT num_value_2, num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord GROUP BY num_value_2, num_value_3_indexed ORDER BY num_value_2
-            QueryPlanResult result = cascadesPlanner.planGraph(() -> {
-                final var base = FDBSimpleQueryGraphTest.fullTypeScan(cascadesPlanner.getRecordMetaData(), "MySimpleRecord");
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var selectWhere = selectWhereQun(base, null);
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
@@ -183,10 +186,8 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_2", "num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
-            }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+            }, MAX_UNIQUE_BY_2_3);
 
-            assertNotNull(result);
-            RecordQueryPlan plan = result.getPlan();
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
                     RecordQueryPlanMatchers.aggregateIndexPlan()
                             .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.unbounded()))
@@ -226,25 +227,21 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            assertThat(planner, instanceOf(CascadesPlanner.class));
-            CascadesPlanner cascadesPlanner = (CascadesPlanner) planner;
 
             // Issue a query equivalent to:
             //   SELECT num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord WHERE num_value_2 = ?numValue2 GROUP BY num_value_3_indexed
             final String numValue2Param = "numValue2";
-            QueryPlanResult result = cascadesPlanner.planGraph(() -> {
-                final var base = FDBSimpleQueryGraphTest.fullTypeScan(cascadesPlanner.getRecordMetaData(), "MySimpleRecord");
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var num2Value = FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2");
-                final var selectWhere = selectWhereQun(base, new ValuePredicate(num2Value, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
+                final var selectWhere = selectWhereQun(base, num2Value.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_3_indexed", "m"));
                 return Reference.of(new LogicalSortExpression(List.of(), false, qun));
-            }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+            }, MAX_UNIQUE_BY_2_3);
 
-            assertNotNull(result);
-            RecordQueryPlan plan = result.getPlan();
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
                     RecordQueryPlanMatchers.aggregateIndexPlan()
                         .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.range("[EQUALS $" + numValue2Param + "]")))
@@ -277,26 +274,22 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            assertThat(planner, instanceOf(CascadesPlanner.class));
-            CascadesPlanner cascadesPlanner = (CascadesPlanner) planner;
 
             // Issue a query equivalent to:
             //   SELECT num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord WHERE num_value_2 = ?numValue2 GROUP BY num_value_3_indexed ORDER BY max(num_value_unique)
             final String numValue2Param = "numValue2";
-            QueryPlanResult result = cascadesPlanner.planGraph(() -> {
-                final var base = FDBSimpleQueryGraphTest.fullTypeScan(cascadesPlanner.getRecordMetaData(), "MySimpleRecord");
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var num2Value = FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2");
-                final var selectWhere = selectWhereQun(base, new ValuePredicate(num2Value, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
+                final var selectWhere = selectWhereQun(base, num2Value.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("m", "num_value_3_indexed"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
-            }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+            }, MAX_UNIQUE_BY_2_3);
 
-            assertNotNull(result);
-            RecordQueryPlan plan = result.getPlan();
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
                     RecordQueryPlanMatchers.aggregateIndexPlan()
                             .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.range("[EQUALS $" + numValue2Param + "]")))
@@ -327,27 +320,23 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            assertThat(planner, instanceOf(CascadesPlanner.class));
-            CascadesPlanner cascadesPlanner = (CascadesPlanner) planner;
 
             // Issue a query equivalent to:
             //   SELECT num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord WHERE num_value_2 = ?numValue2 GROUP BY num_value_3_indexed HAVING max(num_value_unique) < ?maxValue
             final String numValue2Param = "numValue2";
             final String maxValueParam = "maxValue";
-            QueryPlanResult result = cascadesPlanner.planGraph(() -> {
-                final var base = FDBSimpleQueryGraphTest.fullTypeScan(cascadesPlanner.getRecordMetaData(), "MySimpleRecord");
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var num2Value = FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2");
-                final var selectWhere = selectWhereQun(base, new ValuePredicate(num2Value, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
+                final var selectWhere = selectWhereQun(base, num2Value.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
-                final var qun = selectHaving(groupedByQun, new ValuePredicate(aggregateValueReference, new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
+                final var qun = selectHaving(groupedByQun, aggregateValueReference.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
                 return Reference.of(new LogicalSortExpression(List.of(), false, qun));
-            }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+            }, MAX_UNIQUE_BY_2_3);
 
-            assertNotNull(result);
-            RecordQueryPlan plan = result.getPlan();
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
                     RecordQueryPlanMatchers.aggregateIndexPlan()
                             .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.range("[EQUALS $" + numValue2Param + ", [LESS_THAN $" + maxValueParam + "]]")))
@@ -385,28 +374,24 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            assertThat(planner, instanceOf(CascadesPlanner.class));
-            CascadesPlanner cascadesPlanner = (CascadesPlanner) planner;
 
             // Issue a query equivalent to:
             //   SELECT num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord WHERE num_value_2 = ?numValue2 GROUP BY num_value_3_indexed HAVING max(num_value_unique) < ?maxValue ORDER BY max(num_value_unique)
             final String numValue2Param = "numValue2";
             final String maxValueParam = "maxValue";
-            QueryPlanResult result = cascadesPlanner.planGraph(() -> {
-                final var base = FDBSimpleQueryGraphTest.fullTypeScan(cascadesPlanner.getRecordMetaData(), "MySimpleRecord");
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var num2Value = FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2");
-                final var selectWhere = selectWhereQun(base, new ValuePredicate(num2Value, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
+                final var selectWhere = selectWhereQun(base, num2Value.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)));
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
-                final var qun = selectHaving(groupedByQun, new ValuePredicate(aggregateValueReference, new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
+                final var qun = selectHaving(groupedByQun, aggregateValueReference.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
-            }, Optional.of(Set.of(MAX_UNIQUE_BY_2_3)), IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+            }, MAX_UNIQUE_BY_2_3);
 
-            assertNotNull(result);
-            RecordQueryPlan plan = result.getPlan();
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
                     RecordQueryPlanMatchers.aggregateIndexPlan()
                             .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.range("[EQUALS $" + numValue2Param + ", [GREATER_THAN $" + maxValueParam + "]]")))
@@ -434,6 +419,80 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest
+    @BooleanSource
+    void maxUniqueFilterOnEntries(boolean reverse) throws Exception {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueByStrValueOrderBy2And3());
+        complexQuerySetup(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            // Issue a query equivalent to:
+            //   SELECT num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord WHERE str_value_indexed = ?strValue AND num_value_2 = ?numValue2 GROUP BY num_value_3_indexed ORDER BY max(num_value_unique)
+            final String strValueParam = "strValue";
+            final String numValue2Param = "numValue2";
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+                final var strValue = FieldValue.ofFieldName(base.getFlowedObjectValue(), "str_value_indexed");
+                final var num2Value = FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2");
+                final var selectWhereQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                                .addQuantifier(base)
+                                .addResultColumn(Column.unnamedOf(RecordConstructorValue.ofColumns(List.of(
+                                        Column.of(Optional.of("str_value_indexed"), strValue),
+                                        Column.of(Optional.of("num_value_2"), num2Value),
+                                        Column.of(Optional.of("num_value_3_indexed"), FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_3_indexed"))
+                                ))))
+                                .addResultColumn(Column.unnamedOf(base.getFlowedObjectValue()))
+                        .build()
+                        .buildSelect()
+                ));
+                final var groupedByQun = maxUniqueByGroupQun(selectWhereQun);
+
+                final var groupingValueRef = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
+                final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
+                final var selectHavingQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                        .addQuantifier(groupedByQun)
+                        .addPredicate(FieldValue.ofFieldNameAndFuseIfPossible(groupingValueRef, "str_value_indexed").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, strValueParam)))
+                        .addPredicate(FieldValue.ofFieldNameAndFuseIfPossible(groupingValueRef, "num_value_2").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)))
+                        .addResultColumn(Column.of(Optional.of("num_value_3_indexed"), FieldValue.ofFieldNameAndFuseIfPossible(groupingValueRef, "num_value_3_indexed")))
+                        .addResultColumn(Column.of(Optional.of("m"), aggregateValueReference))
+                        .build()
+                        .buildSelect()));
+                final AliasMap aliasMap = AliasMap.ofAliases(selectHavingQun.getAlias(), Quantifier.current());
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofOrdinalNumber(selectHavingQun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, selectHavingQun));
+            });
+
+
+            assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
+                    RecordQueryPlanMatchers.predicatesFilterPlan(
+                            RecordQueryPlanMatchers.aggregateIndexPlan()
+                                    .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.range("[EQUALS $" + strValueParam + "]")))
+                                    .and(reverse ? RecordQueryPlanMatchers.isReverse() : RecordQueryPlanMatchers.isNotReverse()))
+                    )
+            );
+            assertEquals(reverse ? 1391874976 : 1391874015, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(reverse ? -635229420 : -629688294, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+
+            for (int i = -1; i < 4; i++) {
+                final int nv2 = i;
+                for (String s : List.of("even", "odd", "neither")) {
+                    List<Tuple> queried = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2Param, nv2).set(strValueParam, s).build(), List.of("num_value_3_indexed", "m"));
+                    Map<Integer, Integer> expectedMaxes = expectedMaxesByNumValue3(x -> x == nv2, s::equals);
+                    List<Tuple> expectedTuples = expectedMaxes.entrySet().stream()
+                            .map(entry -> Tuple.from(entry.getKey(), entry.getValue()))
+                            .sorted(Comparator.comparingLong(t -> (reverse ? -1 * t.getLong(1) : t.getLong(1))))
+                            .collect(Collectors.toList());
+                    assertEquals(expectedTuples, queried);
+                }
+            }
+        }
+    }
+
     @Nonnull
     private List<Tuple> executeAndGetTuples(@Nonnull RecordQueryPlan plan, @Nonnull Bindings bindings, @Nonnull List<String> fieldNames)  {
         try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, bindings)) {
@@ -455,10 +514,19 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private static Map<Integer, Integer> expectedMaxesByNumValue3(Predicate<Integer> numValue2Filter) {
+        return expectedMaxesByNumValue3(numValue2Filter, Predicates.alwaysTrue());
+    }
+
+    @Nonnull
+    private static Map<Integer, Integer> expectedMaxesByNumValue3(Predicate<Integer> numValue2Filter, Predicate<String> strValueParam) {
         final Map<Integer, Integer> expectedMaxes = new HashMap<>();
         for (int i = 0; i < 100; i++) {
             int numValue2 = i % 3;
             if (!numValue2Filter.test(numValue2)) {
+                continue;
+            }
+            final String strValue = ((i & 1) == 0) ? "even" : "odd";
+            if (!strValueParam.test(strValue)) {
                 continue;
             }
             int numValue3 = i % 5;

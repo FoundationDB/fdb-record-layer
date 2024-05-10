@@ -88,18 +88,6 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         }
 
         @Override
-        public void close() {
-            fileLockClear();
-            flushAndClose();
-        }
-
-        private void flushAndClose() {
-            // always flush before declaring this object as closed. Else agilityContext may fail to commit, while this lock may skip retry
-            agilityContext.flush();
-            closed = true;
-        }
-
-        @Override
         public void ensureValid() {
             // ... and implement heartbeat
             if (closed) {
@@ -185,36 +173,18 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
-
-        private void fileLockClear() {
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
-                    agilityContext.apply(aContext ->
-                            aContext.ensureActive().get(fileLockKey)
-                                    .thenAccept(val -> {
-                                        synchronized (fileLockSetLock) {
-                                            fileLockCheckHeartBeat(val); // ensure valid
-                                            aContext.ensureActive().clear(fileLockKey);
-                                            logSelf("FileLock: Cleared");
-                                        }
-                                    })
-                    ));
-        }
-
-        protected void fileLockClearIfLocked() {
-            if (closed) {
-                // Here: the lock was already cleared and closed.
-                return;
-            }
-            // Here: the lock was not cleared in the regular path while the wrapping resource is being closed -
-            // clear the lock unconditionally if locked and matches uuid
+        private void fileLockClearFlushAndClose(boolean isRecovery) {
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
                             .thenAccept(val -> {
                                 synchronized (fileLockSetLock) {
                                     UUID existingUuid = fileLockValueToUuid(val);
                                     if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
+                                        // clear the lock if locked and matches uuid
                                         aContext.ensureActive().clear(fileLockKey);
-                                        logSelf("FileLock: Cleared in Recovery path");
+                                        logSelf(isRecovery ? "FileLock: Cleared in Recovery path" : "FileLock: Cleared");
+                                    } else if (! isRecovery) {
+                                        throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
                                 }
                             });
@@ -228,7 +198,26 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
-            flushAndClose();
+            // always flush before declaring this object as closed. Else agilityContext may fail to commit, while this lock may skip retry
+            agilityContext.flush();
+            closed = true;
+        }
+
+        protected void fileLockClearIfLocked() {
+            if (closed) {
+                // Here: the lock was already cleared and closed.
+                return;
+            }
+            // Here: the lock was not cleared in the regular path while the wrapping resource is being closed -
+            fileLockClearFlushAndClose(true);
+        }
+
+        @Override
+        public void close() {
+            if (closed) {
+                throw new AlreadyClosedException("Lock file is already closed. This=" + this);
+            }
+            fileLockClearFlushAndClose(false);
         }
 
         @Override
