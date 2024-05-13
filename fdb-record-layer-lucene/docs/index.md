@@ -42,22 +42,22 @@ it would be something like this:
 #### grouped, partitioned
 If both grouping and partitioning are enabled, the tuples are concatenated.
 ```
-[indexspace][g0, 0, t1, pk0]
-[indexspace][g0, 0, t2, pk1]
+[indexspace][group0, 0, t1, pk0] -> metadata for earliest partition in group0
+[indexspace][group0, 0, t2, pk1]
     ⋮
-[indexspace][g0, 0, t3, pk2]
-[indexspace][g0, 1, 0]
-[indexspace][g0, 1, 1]
+[indexspace][group0, 0, t3, pk2] -> metadata for most-recent partition in group0
+[indexspace][group0, 1, 0] -> data for partition 0 in group 0
+[indexspace][group0, 1, 1]
     ⋮
-[indexspace][g0, 1, 13]
-[indexspace][g0, 0, t0, pk3]
-[indexspace][g0, 0, t1, pk4]
+[indexspace][group0, 1, 13] -> data fro partition 13 in group 0
+[indexspace][group1, 0, t0, pk3] -> metadata for earliest partition in group1
+[indexspace][group1, 0, t1, pk4]
     ⋮
-[indexspace][g0, 0, t2, pk5]
-[indexspace][g0, 1, 0]
-[indexspace][g0, 1, 1]
+[indexspace][group1, 0, t2, pk5] -> metadata for most-recent partition in group1
+[indexspace][group1, 1, 0] -> data for partition 0 in group 1
+[indexspace][group1, 1, 1]
     ⋮
-[indexspace][g0, 1, 13]
+[indexspace][group1, 1, 8] -> data for partition 8 in group 1
 ```
 
 ### Within a Directory
@@ -83,11 +83,11 @@ The key is made up of the fixed `[1]`, followed by a tuple containing the filena
 
 #### Data Space
 ```
-[directory-subspace][2][1, 0] -> file content
-[directory-subspace][2][1, 1] -> file content
-[directory-subspace][2][2, 0] -> file content
-[directory-subspace][2][2, 1] -> file content
-[directory-subspace][2][2, 2] -> file content
+[directory-subspace][2][1, 0] -> first block-size bytes for the file with id=1
+[directory-subspace][2][1, 1] -> next block-size bytes for the file with id=1
+[directory-subspace][2][2, 0] -> first block-size bytes for the file with id=2
+[directory-subspace][2][2, 1] -> second block for the file with id=2
+[directory-subspace][2][2, 2] -> third block for the file with id=2
     ⋮
 ```
 Each file is broken into a bunch of blocks, of a fixed size.
@@ -109,8 +109,11 @@ mapping from the records primary key to the segment(s) that have that document. 
 The key is made up of the fixed `[4]`, followed by the primary key, followed by a tuple containing the `segmentId` and
 the `docId` within that segment.
 The `segmentId` is derived by creating a file reference for a fake `.pky` file for the segment.
+
 Note: A record may exist in multiple segments if the segment is in the process of being merged, or a merge failed part
-way through. Lucene will automatically clean this up at some point.
+way through. Lucene will automatically clean this up at some point. We don't know here which one is valid, but instead
+we have to consult the `IndexWriter` to get the list of valid segments, and use the segment listed here that is in the
+set of segments that the `IndexWriter` thinks exist.
 
 #### FieldInfos Subspace
 ```
