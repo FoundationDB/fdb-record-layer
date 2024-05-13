@@ -61,6 +61,17 @@ public class FunctionNames {
     /* Bitmap of matching positions */
     public static final String BITMAP_VALUE = "bitmap_value";
 
+    /* Arithmetic functions */
+    public static final String ADD = "add";
+    public static final String SUBTRACT = "subtract";
+    public static final String MULTIPLY = "multiply";
+    public static final String DIVIDE = "divide";
+    public static final String MOD = "mod";
+    public static final String BITAND = "bitand";
+    public static final String BITOR = "bitor";
+    public static final String BITXOR = "bitxor";
+    public static final String BITNOT = "bitnot";
+
     private FunctionNames() {
     }
 }

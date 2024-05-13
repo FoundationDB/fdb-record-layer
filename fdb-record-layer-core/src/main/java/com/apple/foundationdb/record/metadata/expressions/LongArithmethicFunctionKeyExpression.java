@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.metadata.expressions;
 
+import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -51,6 +52,8 @@ import java.util.function.UnaryOperator;
 public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression implements QueryableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Long-Arithmetic-Key-Expression-Function");
 
+    @Nonnull
+    private final String valueFunctionName;
     private final int minArguments;
     private final int maxArguments;
 
@@ -59,8 +62,15 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
     @Nullable
     private final BinaryOperator<Long> binaryOperator;
 
-    private LongArithmethicFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments, int minArguments, int maxArguments, @Nullable UnaryOperator<Long> unaryOperator, @Nullable BinaryOperator<Long> binaryOperator) {
+    private LongArithmethicFunctionKeyExpression(@Nonnull String name,
+                                                 @Nonnull KeyExpression arguments,
+                                                 @Nonnull String valueFunctionName,
+                                                 int minArguments,
+                                                 int maxArguments,
+                                                 @Nullable UnaryOperator<Long> unaryOperator,
+                                                 @Nullable BinaryOperator<Long> binaryOperator) {
         super(name, arguments);
+        this.valueFunctionName = valueFunctionName;
         this.minArguments = minArguments;
         this.maxArguments = maxArguments;
         this.unaryOperator = unaryOperator;
@@ -131,7 +141,7 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
             final Type targetType = Type.primitiveType(Type.TypeCode.LONG, argType.isNullable());
             argumentValues.add(PromoteValue.inject(argValue, targetType));
         }
-        BuiltInFunction<?> builtInFunction = FunctionCatalog.resolve(getName(), arguments.getColumnSize()).orElseThrow(() -> new RecordCoreArgumentException("unknown function", LogMessageKeys.FUNCTION, getName()));
+        BuiltInFunction<?> builtInFunction = FunctionCatalog.resolve(valueFunctionName, arguments.getColumnSize()).orElseThrow(() -> new RecordCoreArgumentException("unknown function", LogMessageKeys.FUNCTION, getName()));
         return (Value) builtInFunction.encapsulate(argumentValues);
     }
 
@@ -139,6 +149,7 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
      * Builder for {@link LongArithmethicFunctionKeyExpression}s.
      */
     public static class Builder extends FunctionKeyExpression.Builder {
+        private final String valueFunctionName;
         private final int minArguments;
         private final int maxArguments;
         @Nullable
@@ -146,8 +157,9 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
         @Nullable
         private final BinaryOperator<Long> binaryOperator;
 
-        private Builder(@Nonnull String functionName, int minArguments, int maxArguments, @Nullable UnaryOperator<Long> unaryOperator, @Nullable BinaryOperator<Long> binaryOperator) {
+        private Builder(@Nonnull String functionName, @Nonnull String valueFunctionName, int minArguments, int maxArguments, @Nullable UnaryOperator<Long> unaryOperator, @Nullable BinaryOperator<Long> binaryOperator) {
             super(functionName);
+            this.valueFunctionName = valueFunctionName;
             this.minArguments = minArguments;
             this.maxArguments = maxArguments;
             this.unaryOperator = unaryOperator;
@@ -157,7 +169,7 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
         @Nonnull
         @Override
         public FunctionKeyExpression build(@Nonnull final KeyExpression arguments) {
-            return new LongArithmethicFunctionKeyExpression(functionName, arguments, minArguments, maxArguments, unaryOperator, binaryOperator);
+            return new LongArithmethicFunctionKeyExpression(functionName, arguments, valueFunctionName, minArguments, maxArguments, unaryOperator, binaryOperator);
         }
 
         /**
@@ -170,7 +182,22 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
          */
         @Nonnull
         public static Builder unaryFunction(@Nonnull String name, @Nonnull UnaryOperator<Long> operator) {
-            return new Builder(name, 1, 1, operator, null);
+            return unaryFunction(name, name, operator);
+        }
+
+        /**
+         * Variant of {@link #unaryFunction(String, UnaryOperator)} that supports using an alternate name
+         * for the {@link BuiltInFunction} used by the planner. By default, the value name will be assumed
+         * to match the name of the function key expression.
+         *
+         * @param name the name of the function
+         * @param valueFunctionName the name of the associated {@link BuiltInFunction}
+         * @param operator a lambda representing function execution
+         * @return a new {@link Builder} of a unary arithmetic function expression
+         */
+        @Nonnull
+        public static Builder unaryFunction(@Nonnull String name, @Nonnull String valueFunctionName, @Nonnull UnaryOperator<Long> operator) {
+            return new Builder(name, valueFunctionName, 1, 1, operator, null);
         }
 
         /**
@@ -183,7 +210,22 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
          */
         @Nonnull
         public static Builder binaryFunction(@Nonnull String name, @Nonnull BinaryOperator<Long> operator) {
-            return new Builder(name, 2, 2, null, operator);
+            return binaryFunction(name, name, operator);
+        }
+
+        /**
+         * Variant of {@link #binaryFunction(String, BinaryOperator)} that supports using an alternate name
+         * for the {@link BuiltInFunction} used by the planner. By default, the value name will be assumed
+         * to match the name of the function key expression.
+         *
+         * @param name the name of the function
+         * @param valueFunctionName the name of the associated {@link BuiltInFunction}
+         * @param operator a lambda representing function execution
+         * @return a new {@link Builder} of a binary arithmetic function expression
+         */
+        @Nonnull
+        public static Builder binaryFunction(@Nonnull String name, @Nonnull String valueFunctionName, @Nonnull BinaryOperator<Long> operator) {
+            return new Builder(name, valueFunctionName, 2, 2, null, operator);
         }
 
         /**
@@ -196,7 +238,23 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
          */
         @Nonnull
         public static Builder bothFunction(@Nonnull String name, @Nonnull UnaryOperator<Long> unaryOperator, @Nonnull BinaryOperator<Long> binaryOperator) {
-            return new Builder(name, 1, 2, unaryOperator, binaryOperator);
+            return new Builder(name, name, 1, 2, unaryOperator, binaryOperator);
+        }
+
+        /**
+         * Variant of {@link #bothFunction(String, UnaryOperator, BinaryOperator)} that supports using an alternate name
+         * for the {@link BuiltInFunction} used by the planner. By default, the value name will be assumed
+         * to match the name of the function key expression.
+         *
+         * @param name the name of the function
+         * @param valueFunctionName the name of the associated {@link BuiltInFunction}
+         * @param unaryOperator the function to execute if a single argument is provided
+         * @param binaryOperator the function to execute if two arguments are provided
+         * @return a new {@link Builder} of a function that can be unary or binary
+         */
+        @Nonnull
+        public static Builder bothFunction(@Nonnull String name, @Nonnull String valueFunctionName, @Nonnull UnaryOperator<Long> unaryOperator, @Nonnull BinaryOperator<Long> binaryOperator) {
+            return new Builder(name, valueFunctionName, 1, 2, unaryOperator, binaryOperator);
         }
     }
 
@@ -207,14 +265,18 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
     public static class LongArithmethicFunctionKeyExpressionFactory implements FunctionKeyExpression.Factory {
         @Nonnull
         private static final List<FunctionKeyExpression.Builder> BUILDERS = ImmutableList.<FunctionKeyExpression.Builder>builder()
-                .add(Builder.binaryFunction("bitor", (l, r) -> l | r))
-                .add(Builder.binaryFunction("bitand", (l, r) -> l & r))
-                .add(Builder.binaryFunction("bitxor", (l, r) -> l ^ r))
-                .add(Builder.unaryFunction("bitnot", x -> ~x))
-                .add(Builder.binaryFunction("add", (l, r) -> l + r))
-                .add(Builder.bothFunction("subtract", x -> -x, (l, r) -> l - r))
-                .add(Builder.binaryFunction("multiply", (l, r) -> l * r))
-                .add(Builder.binaryFunction("divide", (l, r) -> l / r))
+                .add(Builder.binaryFunction(FunctionNames.ADD, (l, r) -> l + r))
+                .add(Builder.bothFunction("sub", x -> -x, (l, r) -> l - r))
+                .add(Builder.bothFunction(FunctionNames.SUBTRACT, "sub", x -> -x, (l, r) -> l - r))
+                .add(Builder.binaryFunction("mul", (l, r) -> l * r))
+                .add(Builder.binaryFunction(FunctionNames.MULTIPLY, "mul", (l, r) -> l * r))
+                .add(Builder.binaryFunction("div", (l, r) -> l / r))
+                .add(Builder.binaryFunction(FunctionNames.DIVIDE, "div", (l, r) -> l / r))
+                .add(Builder.binaryFunction(FunctionNames.MOD, (l, r) -> l % r))
+                .add(Builder.binaryFunction(FunctionNames.BITOR, (l, r) -> l | r))
+                .add(Builder.binaryFunction(FunctionNames.BITAND, (l, r) -> l & r))
+                .add(Builder.binaryFunction(FunctionNames.BITXOR, (l, r) -> l ^ r))
+                .add(Builder.unaryFunction(FunctionNames.BITNOT, x -> ~x))
                 .build();
 
         @Nonnull
