@@ -2,6 +2,7 @@
   <configuration default="false" name="ReplRunner" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="com.apple.foundationdb.record.query.plan.debug.ReplRunner" />
     <module name="fdb-record-layer.fdb-record-layer-core.test" />
+    <option name="PROGRAM_PARAMETERS" value="com.apple.foundationdb.record.provider.foundationdb.query.FDBPermutedMinMaxQueryTest selectMaxWithInOrderByMax" />
     <option name="VM_PARAMETERS" value="-Dorg.jline.terminal.dumb.color=true" />
     <method v="2">
       <option name="Make" enabled="true" />

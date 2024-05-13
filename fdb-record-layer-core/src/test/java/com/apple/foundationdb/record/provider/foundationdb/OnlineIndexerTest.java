@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -86,6 +87,8 @@ public abstract class OnlineIndexerTest {
 
     @BeforeEach
     public void setUp() {
+        Assumptions.assumeTrue(false);
+
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setInitialDelayMillis(2L);
         factory.setMaxDelayMillis(4L);

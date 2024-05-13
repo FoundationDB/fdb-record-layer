@@ -36,8 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -151,11 +149,14 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions =
                 PlanPartition.rollUpTo(
+                        innerReference.getPlanPartitions(),
+                        /*
                         innerReference.getPlanPartitions()
                                 .stream()
                                 .filter(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD) &&
                                                          planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent())
                                 .collect(ImmutableList.toImmutableList()),
+                         */
                         OrderingProperty.ORDERING);
 
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();

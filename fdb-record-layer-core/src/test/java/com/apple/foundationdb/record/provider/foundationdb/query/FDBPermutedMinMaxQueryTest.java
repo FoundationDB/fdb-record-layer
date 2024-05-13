@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -50,6 +51,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -69,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -306,6 +309,67 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 if (!expectedMaxes.isEmpty()) {
                     final List<Matcher<? super Tuple>> expectedTuples = expectedTuples(expectedMaxes, reverse);
                     assertThat(tupleResults, contains(expectedTuples));
+                }
+            }
+
+            commit(context);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void selectMaxWithInOrderByMax() throws Exception {
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
+        complexQuerySetup(hook);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setAttemptFailedInJoinAsUnionMaxSize(20)
+                    .build());
+
+            final var numValue2ListParam = "numValue2List";
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final var selectWhere = selectWhereQun(base, null);
+                final var groupedByQun = maxUniqueByGroupQun(selectWhere);
+
+                final var groupingValue = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
+                final var qun = selectHaving(groupedByQun,
+                        FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingValue, 0).withComparison(new Comparisons.ParameterComparison(Comparisons.Type.IN, numValue2ListParam)),
+                        List.of("num_value_2", "num_value_3_indexed", "m"));
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+            });
+
+            assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
+                    RecordQueryPlanMatchers.mapPlan(
+                            RecordQueryPlanMatchers.aggregateIndexPlan()
+                                    .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.equalities(ListMatcher.exactly(ScanComparisons.anyValueComparison()))))
+                                    .and(RecordQueryPlanMatchers.isReverse())
+                    )
+            ));
+            assertEquals(-1860954717, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(778443773, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+            for (int i = -1; i < 4; i++) {
+                final int nv2I = i;
+                final Map<Integer, Integer> maxesByI = expectedMaxesByNumValue3(nv2 -> nv2 == nv2I);
+                final List<Tuple> expectedTuplesByI = maxesByI.entrySet().stream()
+                        .map(entry -> Tuple.from(nv2I, entry.getKey(), entry.getValue()))
+                        .collect(Collectors.toList());
+                for (int j = -1; j < 4; j++) {
+                    final int nv2J = j;
+                    final Map<Integer, Integer> maxesByJ = expectedMaxesByNumValue3(nv2 -> nv2 == nv2J);
+                    final List<Tuple> expectedTuplesByJ = maxesByJ.entrySet().stream()
+                            .map(entry -> Tuple.from(nv2J, entry.getKey(), entry.getValue()))
+                            .collect(Collectors.toList());
+
+                    List<Integer> nv2List = ImmutableList.of(i, j);
+                    List<Tuple> queried = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2ListParam, nv2List).build(), ImmutableList.of("num_value_2", "num_value_3_indexed", "m"));
+                    List<Tuple> expected = Stream.concat(expectedTuplesByI.stream(), expectedTuplesByJ.stream())
+                            .sorted(Comparator.comparingLong(t -> -1L * t.getLong(2)))
+                            .distinct()
+                            .collect(Collectors.toList());
+                    assertEquals(expected, queried, () -> "entries should match when $" + numValue2ListParam + " = " + nv2List);
                 }
             }
 
