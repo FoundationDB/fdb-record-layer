@@ -61,6 +61,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -777,6 +778,20 @@ public class LuceneIndexTestUtils {
                 .setIndex(index)
                 .build()) {
             indexBuilder.mergeIndex();
+        }
+    }
+
+    public static void rebalancePartitions(final FDBRecordStore recordStore, final Index index) throws Exception {
+        LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
+        try {
+            indexMaintainer.rebalancePartitions().get();
+        } catch (ExecutionException e) {
+            if (e.getCause() != null) {
+                // strip the wrapper to get to the actual cause of the exception
+                throw (Exception)e.getCause();
+            } else {
+                throw e;
+            }
         }
     }
 
