@@ -77,7 +77,7 @@ public class Reference implements Correlated<Reference>, Typed {
     private final ConstraintsMap constraintsMap;
 
     @Nonnull
-    private final PropertiesMap propertiesMap;
+    private final ExpressionPropertiesMap<RelationalExpression> expressionPropertiesMap;
 
     private Reference() {
         this(new LinkedIdentitySet<>());
@@ -88,7 +88,7 @@ public class Reference implements Correlated<Reference>, Typed {
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
         // TODO only insert members that are of the type of the planner target
-        this.propertiesMap = new PropertiesMap(members);
+        this.expressionPropertiesMap = new PlanPropertiesMap(members);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
     }
@@ -139,8 +139,9 @@ public class Reference implements Correlated<Reference>, Typed {
     public void pruneWith(@Nonnull RelationalExpression newValue) {
         final Map<ExpressionProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {
-            propertiesForPlan = propertiesMap.getCurrentPropertiesForPlan((RecordQueryPlan)newValue);
+            propertiesForPlan = expressionPropertiesMap.getCurrentProperties(newValue);
         } else {
+            // TODO this should be an error since the plan cannot be planned
             propertiesForPlan = null;
         }
         clear();
@@ -156,9 +157,10 @@ public class Reference implements Correlated<Reference>, Typed {
      *         otherwise.
      */
     public boolean insertFrom(@Nonnull final RelationalExpression newValue, @Nonnull final Reference otherRef) {
+        // TODO should be if expression is a final expression
         if (newValue instanceof RecordQueryPlan) {
             final var propertiesForPlan =
-                    Objects.requireNonNull(otherRef.propertiesMap.getPropertiesForPlan((RecordQueryPlan)newValue));
+                    Objects.requireNonNull(otherRef.expressionPropertiesMap.getProperties(newValue));
 
             return insert(newValue, propertiesForPlan);
         }
@@ -221,16 +223,16 @@ public class Reference implements Correlated<Reference>, Typed {
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      */
-    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
+    private void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
         members.add(newValue);
         if (newValue instanceof RecordQueryPlan) {
             final var newRecordQueryPlan = (RecordQueryPlan)newValue;
             if (precomputedPropertiesMap != null) {
-                propertiesMap.add(newRecordQueryPlan, precomputedPropertiesMap);
+                expressionPropertiesMap.add(newRecordQueryPlan, precomputedPropertiesMap);
             } else {
-                propertiesMap.add(newRecordQueryPlan);
+                expressionPropertiesMap.add(newRecordQueryPlan);
             }
         }
     }
@@ -318,7 +320,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     public void clear() {
-        propertiesMap.clear();
+        expressionPropertiesMap.clear();
         members.clear();
     }
 
@@ -375,13 +377,23 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public <A> Map<RelationalExpression, A> getPlannerAttributeForMembers(@Nonnull final ExpressionProperty<A> expressionProperty) {
-        return propertiesMap.getPlannerAttributeForAllPlans(expressionProperty);
+    public <P> Map<RelationalExpression, P> propertyValueForExpressions(@Nonnull final ExpressionProperty<P> expressionProperty) {
+        return expressionPropertiesMap.propertyValueForExpressions(expressionProperty);
     }
 
     @Nonnull
-    public List<PlanPartition> getPlanPartitions() {
-        return propertiesMap.getPlanPartitions();
+    public List<ExpressionPartition<RelationalExpression>> computeExpressionPartitions() {
+        return expressionPropertiesMap.toExpressionPartitions();
+    }
+
+    @Nonnull
+    public <P> Map<RecordQueryPlan, P> propertyValueForPlans(@Nonnull final ExpressionProperty<P> expressionProperty) {
+        return expressionPropertiesMap.propertyValueForPlans(expressionProperty);
+    }
+
+    @Nonnull
+    public List<PlanPartition> computePlanPartitions() {
+        return expressionPropertiesMap.toPlanPartitions();
     }
 
     @Nonnull

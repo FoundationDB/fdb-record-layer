@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PropertiesMap;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -63,8 +63,8 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
 
     @Nonnull
     private static final BindingMatcher<Reference> intersectionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
-                    rollUpTo(any(intersectionLegPlanPartitionMatcher), PropertiesMap.allAttributesExcept(DISTINCT_RECORDS, ORDERING))));
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(STORED_RECORD),
+                    rollUpTo(any(intersectionLegPlanPartitionMatcher), PlanPropertiesMap.allAttributesExcept(DISTINCT_RECORDS, ORDERING))));
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =

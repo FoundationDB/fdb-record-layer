@@ -91,7 +91,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         final List<OrderingPart.RequestedOrderingPart> requestedOrderingParts = requestedOrdering.getOrderingParts();
         final Set<Value> sortValuesSet = requestedOrderingParts.stream().map(OrderingPart::getValue).collect(Collectors.toSet());
 
-        final Ordering ordering = innerPlanPartition.getAttributeValue(ORDERING);
+        final Ordering ordering = innerPlanPartition.getPropertyValue(ORDERING);
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundValues();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
@@ -108,7 +108,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             return;
         }
 
-        final boolean isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
+        final boolean isDistinct = innerPlanPartition.getPropertyValue(DISTINCT_RECORDS);
         if (isDistinct) {
             if (ordering.getOrderingSet()
                     .getSet()

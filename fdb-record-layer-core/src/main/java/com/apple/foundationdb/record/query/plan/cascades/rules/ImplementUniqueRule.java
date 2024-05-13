@@ -54,8 +54,8 @@ public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher = planPartitions(
-            where(planPartition -> planPartition.getAttributesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
-                                   && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
+            where(planPartition -> planPartition.getPropertyValuesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
+                                   && planPartition.getPropertyValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
                     rollUp(anyPlanPartitionMatcher)));
 
     @Nonnull

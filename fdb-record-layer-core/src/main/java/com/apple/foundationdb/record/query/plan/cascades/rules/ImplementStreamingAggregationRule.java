@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -90,10 +91,10 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
                                 AliasMap.emptyMap(), correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();
-        final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
+        final var planPartitions = PlanPartitions.rollUpTo(innerReference.computePlanPartitions(), OrderingProperty.ORDERING);
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ORDERING);
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
                 call.yieldExpression(implementGroupBy(call, planPartition, groupByExpression));
             }

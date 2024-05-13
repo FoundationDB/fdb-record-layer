@@ -62,7 +62,7 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.STORED_RECORD),
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
