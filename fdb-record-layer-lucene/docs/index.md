@@ -29,8 +29,8 @@ If the grouping key generates the tuples (`group0`, `group1`, ... `group100`) th
 The partitioning adds a partition, it also adds adjacent metadata to manage the partitions, so if you have 14 partitions,
 it would be something like this:
 ```
-[indexspace][0, t0, pk0] -> partition metadata for records between t0 and t1 (the primary key is added to deduplicate if needed)
-[indexspace][0, t1, pk1] -> partition metadata for records greater than t0 (the primary key is added to deduplicate if needed)
+[indexspace][0, t0, pk0] -> partition metadata for records between t0 (inclusive) and t1 (exclusive) (the primary key is added to deduplicate if needed)
+[indexspace][0, t1, pk1] -> partition metadata for records greater than t1 (the primary key is added to deduplicate if needed)
     ⋮
 [indexspace][0, t1, pk2] -> partition metadata for "most recent" partition
 [indexspace][1, 0] -> the data for the directory in the 0th partition 
