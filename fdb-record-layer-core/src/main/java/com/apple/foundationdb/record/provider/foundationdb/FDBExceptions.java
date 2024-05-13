@@ -145,6 +145,7 @@ public class FDBExceptions {
 
     /**
      * Transaction failed due to a lock already taken.
+     * A transaction that needs a lock to be obtained failed to get the lock as it is already taken by another instance.
      */
     @SuppressWarnings("serial")
     public static class FDBStoreLockTakenException extends RecordCoreRetriableTransactionException {

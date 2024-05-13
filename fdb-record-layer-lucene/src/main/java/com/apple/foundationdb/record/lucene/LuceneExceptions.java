@@ -21,17 +21,15 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
-import com.apple.foundationdb.util.LoggableKeysAndValues;
 import org.apache.lucene.store.LockObtainFailedException;
+
+import java.io.IOException;
 
 /**
  * Utility class for converting Lucene Exceptions to Record layer ones.
  */
 public class LuceneExceptions {
-    private static final Object[] EMPTY_KEYS_AND_VALUES = new Object[0];
-
     /**
      * Wrap the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
      * @param message the exception's message to use
@@ -39,23 +37,13 @@ public class LuceneExceptions {
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
      * @return the {@link RecordCoreException} that should be thrown
      */
-    public static RecordCoreException wrapException(String message, Exception ex, Object... additionalLogInfo) {
-        Object[] logInfo = EMPTY_KEYS_AND_VALUES;
-        if (ex instanceof LoggableKeysAndValues) {
-            // transfer existing log info to the new exception
-            logInfo = ((LoggableKeysAndValues<?>)ex).exportLogInfo();
-        }
-        if ((ex instanceof LockObtainFailedException) && (ex.getCause() instanceof FDBDirectoryLockFactory.FDBDirectoryLockException)) {
-            // Unwrap the underlying from the Lucene exception
-            FDBDirectoryLockFactory.FDBDirectoryLockException cause = (FDBDirectoryLockFactory.FDBDirectoryLockException)ex.getCause();
-            logInfo = cause.exportLogInfo();
+    public static RecordCoreException wrapException(String message, IOException ex, Object... additionalLogInfo) {
+        if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
-            return new FDBExceptions.FDBStoreLockTakenException(message, ex)
-                    .addLogInfo(logInfo)
-                    .addLogInfo(additionalLogInfo);
+            return new FDBExceptions.FDBStoreLockTakenException(message, ex).addLogInfo(additionalLogInfo);
         }
 
-        return new RecordCoreException(message, ex).addLogInfo(logInfo).addLogInfo(additionalLogInfo);
+        return new RecordCoreException(message, ex).addLogInfo(additionalLogInfo);
     }
 
     private LuceneExceptions() {

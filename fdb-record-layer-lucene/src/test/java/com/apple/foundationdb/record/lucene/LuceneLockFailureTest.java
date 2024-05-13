@@ -70,6 +70,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
             grabLockExternally(SIMPLE_INDEX, context);
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
             // Try to add a document - this would fail as the lock is taken by a different directory
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2)));
@@ -147,7 +152,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1);
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1, 0);
             context.commit();
         }
 
@@ -161,7 +166,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             // DeleteWhere should have cleared the locks, so we should be able to take one again
-            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1);
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1, 0);
             context.commit();
         }
     }
@@ -194,14 +199,14 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             // partition size is 10
             for (int i = 0; i < 50; i++) {
-                recordStore.saveRecord(createComplexDocument(6666L + i, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+                recordStore.saveRecord(createComplexDocument(6666L + i, ENGINEER_JOKE, 0, Instant.now().toEpochMilli()));
             }
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1);
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 0, 1);
             context.commit();
         }
 
@@ -209,8 +214,9 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             // This fails since the repartition tries to take a lock
             // The exception here is the RecordCore wrapper around the Lucene exception
-            Assertions.assertThrows(RecordCoreException.class, () ->
+            Exception ex = Assertions.assertThrows(RecordCoreException.class, () ->
                     LuceneIndexTestUtils.rebalancePartitions(recordStore, COMPLEX_PARTITIONED));
+            Assertions.assertTrue(ex.getCause() instanceof LockObtainFailedException);
         }
     }
 
@@ -236,8 +242,9 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
     }
 
-    private void grabLockExternallyForPartition(final Index index, final FDBRecordContext context, int partition) throws IOException {
-        final Subspace partitionSubspace = recordStore.indexSubspace(index).subspace(Tuple.from(partition, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
+    private void grabLockExternallyForPartition(final Index index, final FDBRecordContext context, int group, int partition) throws IOException {
+        // Path includes index path followed by group; partition metadata (1); partition number
+        final Subspace partitionSubspace = recordStore.indexSubspace(index).subspace(Tuple.from(group, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partition));
         final FDBDirectory directory = new FDBDirectory(partitionSubspace, context, index.getOptions());
         directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
     }
