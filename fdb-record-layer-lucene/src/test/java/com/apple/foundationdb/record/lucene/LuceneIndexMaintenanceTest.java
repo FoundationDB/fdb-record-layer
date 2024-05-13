@@ -79,6 +79,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -630,12 +631,19 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .validate(index, insertedDocs, Integer.MAX_VALUE, "text:about", false);
     }
 
+    static Stream<Arguments> mergeLosesLockTest() {
+        return Stream.concat(
+                Stream.of( 65).map(Arguments::of), // fixed 65% lock failure rate
+                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextInt(101)))); //  0-100%
+    }
+
     // A test of what lucene does when a merge loses its lock
-    @Test
-    void mergeLosesLockTest() throws IOException {
+    @ParameterizedTest
+    @MethodSource
+    void mergeLosesLockTest(int failurePercentage) throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
-                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(20));
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(200));
         Index index = complexPartitionedIndex(options);
 
         Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context ->
@@ -647,7 +655,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_TIME_QUOTA, 1) // 1ms
                 .build();
 
-        final int docCount = 20;
+        final int docCount = 100;
         Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
         // create a bunch of docs
         createComplexRecords(docCount, insertedDocs, contextProps, schemaSetup);
@@ -662,7 +670,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 IndexMaintainerState state = new IndexMaintainerState(recordStore, index, IndexMaintenanceFilter.NORMAL);
 
                 // custom test directory that returns a lucene lock that's never valid (Lock.ensureValid() throws IOException)
-                FDBDirectory fdbDirectory = new InvalidLockTestFDBDirectory(recordStore.indexSubspace(index).subspace(directoryKey), context, options);
+                FDBDirectory fdbDirectory = new InvalidLockTestFDBDirectory(recordStore.indexSubspace(index).subspace(directoryKey), context, options, failurePercentage);
                 FDBDirectoryWrapper fdbDirectoryWrapper = new FDBDirectoryWrapper(state, fdbDirectory, directoryKey, 1, AgilityContext.agile(context, 1L, 1L));
 
                 final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
@@ -682,8 +690,14 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      * a test FDBDirectory class that returns a {@link Lock} that is not valid.
      */
     static class InvalidLockTestFDBDirectory extends FDBDirectory {
-        public InvalidLockTestFDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
+        private final int percentFailure;
+
+        public InvalidLockTestFDBDirectory(@Nonnull Subspace subspace,
+                                           @Nonnull FDBRecordContext context,
+                                           @Nullable Map<String, String> indexOptions,
+                                           final int percentFailure) {
             super(subspace, context, indexOptions);
+            this.percentFailure = percentFailure;
         }
 
         @Override
@@ -698,7 +712,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
                 @Override
                 public void ensureValid() throws IOException {
-                    throw new IOException("invalid lock");
+                    // 0 <= 0-99 < 100
+                    if (ThreadLocalRandom.current().nextInt(100) < percentFailure) {
+                        throw new IOException("invalid lock");
+                    } else {
+                        lock.ensureValid();
+                    }
                 }
             };
         }
