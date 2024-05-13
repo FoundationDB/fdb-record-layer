@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -55,17 +57,22 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +81,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -92,10 +100,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests of indexes and queries on {@link com.apple.foundationdb.record.metadata.expressions.LongArithmethicFunctionKeyExpression}s.
@@ -441,6 +451,87 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
 
             commit(context);
         }
+    }
+
+    @Nonnull
+    static Stream<Arguments> basicFunctionPlans() {
+        final Stream<NonnullPair<String, Function<TestRecords1Proto.MySimpleRecord, Long>>> binaryFunctionNames = Stream.of(
+                NonnullPair.of(FunctionNames.ADD, msg -> (long)(msg.getNumValue2() + msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.SUBTRACT, msg -> (long)(msg.getNumValue2() - msg.getNumValue3Indexed())),
+                NonnullPair.of("sub", msg -> (long)(msg.getNumValue2() - msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.MULTIPLY, msg -> (long)(msg.getNumValue2() * msg.getNumValue3Indexed())),
+                NonnullPair.of("mul", msg -> (long)(msg.getNumValue2() * msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.DIVIDE, msg -> (long)(msg.getNumValue2() / msg.getNumValue3Indexed())),
+                NonnullPair.of("div", msg -> (long)(msg.getNumValue2() / msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.MOD, msg -> (long)(msg.getNumValue2() % msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.BITAND, msg -> (long)(msg.getNumValue2() & msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.BITOR, msg -> (long)(msg.getNumValue2() | msg.getNumValue3Indexed())),
+                NonnullPair.of(FunctionNames.BITXOR, msg -> (long)(msg.getNumValue2() ^ msg.getNumValue3Indexed()))
+        );
+        final Stream<NonnullPair<String, Function<TestRecords1Proto.MySimpleRecord, Long>>> unaryFunctionNames = Stream.of(
+                NonnullPair.of(FunctionNames.SUBTRACT, msg -> (long)(-1 * msg.getNumValue2())),
+                NonnullPair.of("sub", msg -> (long)(-1 * msg.getNumValue2())),
+                NonnullPair.of(FunctionNames.BITNOT, msg -> ~((long)msg.getNumValue2()))
+        );
+        return Stream.concat(
+                binaryFunctionNames.map(nameAndFunc -> Arguments.of(nameAndFunc.getLeft(), nameAndFunc.getRight(), false)),
+                unaryFunctionNames.map(nameAndFunc -> Arguments.of(nameAndFunc.getLeft(), nameAndFunc.getRight(), true))
+        );
+    }
+
+    @ParameterizedTest(name = "basicFunctionPlans[functionName={0}, unary={2}]")
+    @MethodSource
+    @DualPlannerTest
+    void basicFunctionPlans(@Nonnull String functionName, @Nonnull Function<TestRecords1Proto.MySimpleRecord, Long> msgFunction, boolean unary) {
+        final KeyExpression args = unary ? Key.Expressions.field("num_value_2") : Key.Expressions.concatenateFields("num_value_2", "num_value_3_indexed");
+        final KeyExpression expr = Key.Expressions.function(functionName, args);
+        final Index index = new Index("MySimpleRecord$binaryFunction", expr);
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+        final List<TestRecords1Proto.MySimpleRecord> data = setupSimpleRecordStore(hook,
+                (i, builder) -> builder.setRecNo(i).setNumValue2(i % 4).setNumValue3Indexed((i % 5) + 1));
+        final Map<Long, List<TestRecords1Proto.MySimpleRecord>> grouped = groupByFunctionExecution(msgFunction, data);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            final String param = "p";
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.keyExpression(expr).equalsParameter(param))
+                    .build();
+            if (useCascadesPlanner && unary) {
+                // The cascades planner does not currently support these unary functions.
+                // Once support is added, this assertion should be removed
+                RecordCoreException err = assertThrows(RecordCoreException.class, () -> planQuery(query));
+                assertThat(err.getMessage(), containsString("unknown function"));
+                return;
+            }
+            final RecordQueryPlan plan = planQuery(query);
+            assertMatchesExactly(plan, indexPlan().where(scanComparisons(range("[EQUALS $" + param + "]"))));
+
+            for (long val : grouped.keySet()) {
+                final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> iter = executeQuery(plan, Bindings.newBuilder().set(param, val).build())) {
+                    while (iter.hasNext()) {
+                        queried.add(TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(iter.next().getRecord()).build());
+                    }
+                }
+                assertThat(queried, containsInAnyOrder(grouped.get(val).toArray()));
+            }
+
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private Map<Long, List<TestRecords1Proto.MySimpleRecord>> groupByFunctionExecution(@Nonnull Function<TestRecords1Proto.MySimpleRecord, Long> func, @Nonnull List<TestRecords1Proto.MySimpleRecord> data) {
+        final Map<Long, List<TestRecords1Proto.MySimpleRecord>> grouped = new HashMap<>();
+        for (TestRecords1Proto.MySimpleRecord rec : data) {
+            long evaluated = func.apply(rec);
+            grouped.computeIfAbsent(evaluated, ignore -> new ArrayList<>())
+                    .add(rec);
+        }
+        return grouped;
     }
 
     private void assertQueryResults(@Nonnull List<TestRecords1Proto.MySimpleRecord> data,
