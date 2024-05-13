@@ -27,21 +27,21 @@ import javax.annotation.Nonnull;
 /**
  * Base interface to capture attributes for expressions.
  * An instance of this usually class serves as a key in maps much like an enum, but provides strong typing.
- * @param <A> the type representing the actual property
+ * @param <P> the type representing the actual property
  */
-public interface ExpressionProperty<A> {
+public interface ExpressionProperty<P> {
     /**
      * Method to narrow the type from {@link Object} to the declared type of the attribute. Note that
      * the caller must guarantee that the narrowing is well-defined and successful.
-     * @param object an object that actually is of dynamic type {@code A}
-     * @return the narrowed object of type {@code A}
+     * @param object an object that actually is of dynamic type {@code P}
+     * @return the narrowed object of type {@code P}
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    default A narrowAttribute(@Nonnull final Object object) {
-        return (A)object;
+    default P narrowAttribute(@Nonnull final Object object) {
+        return (P)object;
     }
 
     @Nonnull
-    RelationalExpressionVisitor<A> createVisitor();
+    RelationalExpressionVisitor<P> createVisitor();
 }

@@ -378,7 +378,7 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
 
         private Optional<List<Value>> evaluateForReference(@Nonnull Reference reference) {
             final var memberPrimaryKeysCollection =
-                    reference.getPlannerAttributeForMembers(PRIMARY_KEY).values();
+                    reference.propertyValueForPlans(PRIMARY_KEY).values();
 
             return commonPrimaryKeyValuesMaybeFromOptionals(memberPrimaryKeysCollection);
         }

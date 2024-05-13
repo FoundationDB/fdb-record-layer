@@ -86,7 +86,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final var sortValuesSet = ImmutableSet.copyOf(sortValues);
 
-        final var ordering = innerPlanPartition.getAttributeValue(ORDERING);
+        final var ordering = innerPlanPartition.getPropertyValue(ORDERING);
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundValues();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
@@ -104,7 +104,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             return;
         }
 
-        final var isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
+        final var isDistinct = innerPlanPartition.getPropertyValue(DISTINCT_RECORDS);
 
         if (isDistinct) {
             if (ordering.getOrderingSet()

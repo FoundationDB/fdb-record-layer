@@ -373,7 +373,7 @@ public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
 
         private boolean evaluateForReference(@Nonnull Reference reference) {
             final var memberDistinctRecordsCollection =
-                    reference.getPlannerAttributeForMembers(DISTINCT_RECORDS).values();
+                    reference.propertyValueForPlans(DISTINCT_RECORDS).values();
 
             return memberDistinctRecordsCollection
                     .stream()

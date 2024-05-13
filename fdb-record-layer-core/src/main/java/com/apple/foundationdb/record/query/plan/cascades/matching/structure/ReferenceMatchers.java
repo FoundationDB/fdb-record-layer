@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -78,7 +79,7 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
-                Extractor.of(Reference::getPlanPartitions, name -> "planPartitions(" + name + ")"),
+                Extractor.of(Reference::computePlanPartitions, name -> "planPartitions(" + name + ")"),
                 downstream);
     }
 
@@ -110,7 +111,7 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final Set<ExpressionProperty<?>> interestingAttributes) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
-                Extractor.of(planPartitions -> PlanPartition.rollUpTo(planPartitions, interestingAttributes), name -> "rolled up planPartitions(" + name + ")"),
+                Extractor.of(planPartitions -> PlanPartitions.rollUpTo(planPartitions, interestingAttributes), name -> "rolled up planPartitions(" + name + ")"),
                 downstream);
     }
 

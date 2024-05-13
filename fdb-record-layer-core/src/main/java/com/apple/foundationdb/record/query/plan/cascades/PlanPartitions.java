@@ -21,22 +21,35 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * A plan partition used for matching.
+ * A plan partition helpers.
  */
-public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
-    public PlanPartition(final Map<ExpressionProperty<?>, ?> propertyValuesMap, final Collection<RecordQueryPlan> plans) {
-        super(propertyValuesMap, plans);
+public class PlanPartitions {
+
+    private PlanPartitions() {
+        // do not instantiate
     }
 
     @Nonnull
-    public Set<RecordQueryPlan> getPlans() {
-        return getExpressions();
+    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final ExpressionProperty<?> rollupAttributes) {
+        return rollUpTo(planPartitions, ImmutableSet.of(rollupAttributes));
+    }
+
+    @Nonnull
+    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final Set<ExpressionProperty<?>> rollupAttributes) {
+        return ExpressionPartitions.rollUpTo(planPartitions, rollupAttributes, PlanPartition::new);
+    }
+
+    @Nonnull
+    public static List<PlanPartition> toPartitions(@Nonnull Map<Map<ExpressionProperty<?>, ?>, ? extends Set<RecordQueryPlan>> attributesToPlansMap) {
+        return ExpressionPartitions.toPartitions(attributesToPlansMap, PlanPartition::new);
     }
 }

@@ -52,7 +52,7 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(STORED_RECORD),
                     any(innerPlanPartitionMatcher)));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =

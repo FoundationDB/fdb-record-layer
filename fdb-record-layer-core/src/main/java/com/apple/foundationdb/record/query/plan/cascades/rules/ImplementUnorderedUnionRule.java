@@ -59,7 +59,7 @@ public class ImplementUnorderedUnionRule extends CascadesRule<LogicalUnionExpres
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(STORED_RECORD),
                     rollUp(any(unionLegPlanPartitionsMatcher))));
 
     @Nonnull
