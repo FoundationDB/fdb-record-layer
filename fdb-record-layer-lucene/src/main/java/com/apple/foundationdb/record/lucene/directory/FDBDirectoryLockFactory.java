@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.Lock;
@@ -56,6 +57,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
     public Lock obtainLock(final Directory dir, final String lockName) {
         // dir is ignored
         return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
+    }
+
+    @VisibleForTesting
+    public Lock obtainLock(final AgilityContext agilityContext, final byte[] fileLockKey, final String lockName) {
+        return new FDBDirectoryLock(agilityContext, lockName, fileLockKey, timeWindowMilliseconds);
     }
 
     protected static class FDBDirectoryLock extends Lock {

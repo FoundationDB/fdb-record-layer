@@ -168,7 +168,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     void selectMaxOrderByFirstGroup(boolean reverse) throws Exception {
-        Assumptions.assumeTrue(useCascadesPlanner);
+        Assumptions.assumeTrue(isUseCascadesPlanner());
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
         complexQuerySetup(hook);
 
@@ -268,7 +268,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     void selectMaxByGroupWithOrder(boolean reverse) throws Exception {
-        Assumptions.assumeTrue(useCascadesPlanner);
+        Assumptions.assumeTrue(isUseCascadesPlanner());
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
         complexQuerySetup(hook);
 
@@ -368,7 +368,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     void selectMaxGroupByWithPredicateAndOrderByOnMax(boolean reverse) throws Exception {
-        Assumptions.assumeTrue(useCascadesPlanner);
+        Assumptions.assumeTrue(isUseCascadesPlanner());
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
         complexQuerySetup(hook);
 
