@@ -892,8 +892,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         disableAll(indexes);
 
-        Semaphore sem = new Semaphore(1);
-        sem.acquire();
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
         Thread t1 = new Thread(() -> {
             // build index and pause halfway, allowing an active session test
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
@@ -901,11 +903,12 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                     .setLimit(4)
                     .setConfigLoader(old -> {
                         try {
-                            sem.acquire(); // pause until released
+                            startBuildingSemaphore.release();
+                            pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         }
-                        sem.release();
+                        pauseMutualBuildSemaphore.release();
                         return old;
                     })
                     .build()) {
@@ -913,19 +916,20 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             }
         });
         t1.start();
-        snooze(200); // let the other thread kick in.
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
         // Try one index at a time
         for (Index index : indexes) {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeroverTypes.MULTI_TARGET_TO_SINGLE)))
+                            .allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MULTI_TARGET_TO_SINGLE)))
                     .build()) {
                 assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
             }
         }
         // let the other thread finish indexing
-        sem.release();
+        pauseMutualBuildSemaphore.release();
         t1.join();
         // happy indexes assertion
         assertReadable(indexes);

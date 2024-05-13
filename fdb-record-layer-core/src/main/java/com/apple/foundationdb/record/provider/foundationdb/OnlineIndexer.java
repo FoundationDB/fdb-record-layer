@@ -2129,7 +2129,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final DesiredAction ifReadable;
         private final boolean allowUniquePendingState;
         private final boolean allowTakeoverContinue;
-        private final Set<TakeroverTypes> allowedTakeoverSet;
+        private final Set<TakeoverTypes> allowedTakeoverSet;
         private final long checkIndexingMethodFrequencyMilliseconds;
         private final boolean mutualIndexing;
         private final List<Tuple> mutualIndexingBoundaries;
@@ -2151,9 +2151,15 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Possible conversion from one indexing method to another.
          */
-        public enum TakeroverTypes {
-            MULTI_TARGET_TO_SINGLE, // Allow a single target indexing continuation when the index was partly built with other indexes (as multi target)
-            MUTUAL_TO_SINGLE, // Allow a single target indexing continuation when the index was partly built as mutual indexing (either single or multi target)
+        public enum TakeoverTypes {
+            /**
+             * Allow a single target indexing continuation when the index was partly built with other indexes (as multi target).
+             */
+            MULTI_TARGET_TO_SINGLE,
+            /**
+             * Allow a single target indexing continuation when the index was partly built as mutual indexing (either single or multi target).
+             */
+            MUTUAL_TO_SINGLE,
             // TODO:  TO_MUTUAL - either single or multi target to mutual indexing
         }
 
@@ -2179,7 +2185,7 @@ public class OnlineIndexer implements AutoCloseable {
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
                                DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
-                               boolean allowUniquePendingState, boolean allowTakeoverContinue, Set<TakeroverTypes> allowedTakeoverSet,
+                               boolean allowUniquePendingState, boolean allowTakeoverContinue, Set<TakeoverTypes> allowedTakeoverSet,
                                long checkIndexingMethodFrequencyMilliseconds,
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
                                boolean allowUnblock, String allowUnblockId,
@@ -2345,10 +2351,10 @@ public class OnlineIndexer implements AutoCloseable {
             if (allowedTakeoverSet != null) {
                 if (newMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                     if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
-                        return allowedTakeoverSet.contains(TakeroverTypes.MULTI_TARGET_TO_SINGLE);
+                        return allowedTakeoverSet.contains(TakeoverTypes.MULTI_TARGET_TO_SINGLE);
                     }
                     if (oldMethod == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS) {
-                        return allowedTakeoverSet.contains(TakeroverTypes.MUTUAL_TO_SINGLE);
+                        return allowedTakeoverSet.contains(TakeoverTypes.MUTUAL_TO_SINGLE);
                     }
                 }
                 return false;
@@ -2421,7 +2427,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniqueuPendingState = false;
             private boolean doAllowTakeoverContinue = false;
-            private Set<TakeroverTypes> allowedTakeoverSet = null;
+            private Set<TakeoverTypes> allowedTakeoverSet = null;
             private long checkIndexingStampFrequency = 60_000;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
@@ -2598,7 +2604,7 @@ public class OnlineIndexer implements AutoCloseable {
              * @param allowedSet - the types of conversion to allow. Null or empty set will allow no conversion.
              * @return this builder
              */
-            public Builder allowTakeoverContinue(@Nullable Collection<TakeroverTypes> allowedSet) {
+            public Builder allowTakeoverContinue(@Nullable Collection<TakeoverTypes> allowedSet) {
                 this.allowedTakeoverSet = allowedSet == null ? null : EnumSet.copyOf(allowedSet);
                 return this;
             }
