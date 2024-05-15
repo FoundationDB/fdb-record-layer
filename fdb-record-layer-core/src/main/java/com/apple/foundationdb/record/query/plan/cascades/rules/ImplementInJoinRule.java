@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -39,12 +40,15 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.SortedInComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.google.common.collect.HashMultimap;
@@ -230,19 +234,25 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
             final InSource inSource;
+            final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
             if (explodeCollectionValue instanceof LiteralValue<?>) {
                 final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                 if (literalValue instanceof List<?>) {
                     inSource = new SortedInValuesSource(
-                            CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                            bindingName,
                             (List<Object>)literalValue,
                             requestedOrderingPart.isReverse());
                 } else {
                     return ImmutableList.of();
                 }
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
-                inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                inSource = new SortedInParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId(),
+                        requestedOrderingPart.isReverse());
+            } else if (explodeCollectionValue instanceof ConstantObjectValue) {
+                inSource = new SortedInComparandSource(
+                        bindingName,
+                        new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue),
                         requestedOrderingPart.isReverse());
             } else {
                 return ImmutableList.of();
@@ -288,18 +298,21 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
                 final InSource inSource;
+                final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
                 if (explodeCollectionValue instanceof LiteralValue<?>) {
                     final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                     if (literalValue instanceof List<?>) {
                         inSource = new InValuesSource(
-                                CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                                bindingName,
                                 (List<Object>)literalValue);
                     } else {
                         return ImmutableList.of();
                     }
                 } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
-                    inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                    inSource = new InParameterSource(bindingName,
                             ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
+                } else if (explodeCollectionValue instanceof ConstantObjectValue) {
+                    inSource = new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue));
                 } else {
                     return ImmutableList.of();
                 }
