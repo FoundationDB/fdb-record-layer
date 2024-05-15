@@ -30,16 +30,20 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
+import com.google.protobuf.Message;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -65,79 +69,92 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
-    @Test
-    void testAddDocument() throws IOException {
+    @ParameterizedTest
+    @BooleanSource
+    void testAddDocument(boolean partitioned) throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            grabLockExternally(SIMPLE_INDEX, context);
+            openStore(partitioned, context);
+            grabLockExternally(partitioned, context, 2, 0);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStore(partitioned, context);
             // Try to add a document - this would fail as the lock is taken by a different directory
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
-                    recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2)));
+                    recordStore.saveRecord(createDocument(partitioned, 1623L, ENGINEER_JOKE, 2)));
         }
     }
 
-    @Test
-    void testDeleteDocument() throws IOException {
-        TestRecordsTextProto.SimpleDocument doc = createSimpleDocument(1623L, ENGINEER_JOKE, 2);
+    @ParameterizedTest
+    @BooleanSource
+    void testDeleteDocument(boolean partitioned) throws IOException {
+        Message doc = createDocument(partitioned, 1623L, ENGINEER_JOKE, 2);
+        Tuple primaryKey;
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStore(partitioned, context);
+            final FDBStoredRecord<Message> record = recordStore.saveRecord(doc);
+            primaryKey = record.getPrimaryKey();
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            grabLockExternally(partitioned, context, 2, 0);
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
+            // This fails since the default directory is trying to take a second lock
+            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () -> {
+                recordStore.deleteRecord(primaryKey);
+                context.commit();
+            });
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testUpdateDocument(boolean partitioned) throws IOException {
+        final Message doc = createDocument(partitioned, 6666L, ENGINEER_JOKE, 0);
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
             recordStore.saveRecord(doc);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            grabLockExternally(SIMPLE_INDEX, context);
+            openStore(partitioned, context);
+            grabLockExternally(partitioned, context, 0, 0);
             // This fails since the default directory is trying to take a second lock
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
-                    recordStore.deleteRecord(Tuple.from(doc.getDocId())));
+                    recordStore.updateRecord(updateDocument(partitioned, doc)));
         }
     }
 
-    @Test
-    void testUpdateDocument() throws IOException {
-        TestRecordsTextProto.SimpleDocument doc = createSimpleDocument(1623L, ENGINEER_JOKE, 2);
+    @ParameterizedTest
+    @BooleanSource
+    void testDeleteAll(boolean partitioned) throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStore(partitioned, context);
+            Message doc = createDocument(partitioned, 1623L, ENGINEER_JOKE, 2);
             recordStore.saveRecord(doc);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            grabLockExternally(SIMPLE_INDEX, context);
-            // This fails since the default directory is trying to take a second lock
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
-                    recordStore.updateRecord(doc.toBuilder().setText("Blah").build()));
-        }
-    }
-
-    @Test
-    void testDeleteAll() throws IOException {
-        try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            TestRecordsTextProto.SimpleDocument doc = createSimpleDocument(1623L, ENGINEER_JOKE, 2);
-            recordStore.saveRecord(doc);
-            context.commit();
-        }
-
-        try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            grabLockExternally(SIMPLE_INDEX, context);
+            openStore(partitioned, context);
+            grabLockExternally(partitioned, context, 2, 0);
             // Delete all just deletes the index, not through Lucene
             recordStore.deleteAllRecords();
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStore(partitioned, context);
             // DeleteAll should have cleared the locks, so we should be able to take one again
-            grabLockExternally(SIMPLE_INDEX, context);
+            grabLockExternally(partitioned, context, 2, 0);
             context.commit();
         }
     }
@@ -145,73 +162,73 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     @Test
     void testDeleteWhere() throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 1));
+            openStore(true, context);
+            recordStore.saveRecord(createDocument(true, 1623L, ENGINEER_JOKE, 1));
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1, 0);
+            openStore(true, context);
+            grabLockExternally(true, context, 1, 0);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            openStore(true, context);
             // DeleteWhere does not check the locks, but deletes the entire group's keyspace
             recordStore.deleteRecordsWhere(COMPLEX_DOC, Query.field("group").equalsValue(1));
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            openStore(true, context);
             // DeleteWhere should have cleared the locks, so we should be able to take one again
-            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 1, 0);
+            grabLockExternally(true, context, 1, 0);
             context.commit();
         }
     }
 
-    @Test
-    void testMerge() throws IOException {
+    @ParameterizedTest
+    @BooleanSource
+    void testMerge(boolean partitioned) throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
+            openStore(partitioned, context);
+            recordStore.saveRecord(createDocument(partitioned, 1623L, ENGINEER_JOKE, 2));
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
-            grabLockExternally(SIMPLE_INDEX, context);
+            openStore(partitioned, context);
+            grabLockExternally(partitioned, context, 2, 0);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+            openStore(partitioned, context);
             // This fails since the merge tries to take a lock
-            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
-                    LuceneIndexTestUtils.mergeSegments(recordStore, SIMPLE_INDEX));
+            Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () -> mergeSegments(partitioned));
         }
     }
 
     @Test
     void testRebalance() throws IOException {
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            openStore(true, context);
             // partition size is 10
             for (int i = 0; i < 50; i++) {
-                recordStore.saveRecord(createComplexDocument(6666L + i, ENGINEER_JOKE, 0, Instant.now().toEpochMilli()));
+                recordStore.saveRecord(createDocument(true, 6666L + i, ENGINEER_JOKE, 0));
             }
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
-            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, 0, 1);
+            openStore(true, context);
+            grabLockExternally(true, context, 0, 1);
             context.commit();
         }
 
         try (final FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+            openStore(true, context);
             // This fails since the repartition tries to take a lock
             // The exception here is the RecordCore wrapper around the Lucene exception
             Exception ex = Assertions.assertThrows(RecordCoreException.class, () ->
@@ -237,6 +254,38 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void openStore(boolean partitioned, FDBRecordContext context) {
+        if (partitioned) {
+            openStoreWithPrefixes(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
+        } else {
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_INDEX);
+        }
+    }
+
+    private Message createDocument(boolean partitioned, long docId, String text, int group) {
+        if (partitioned) {
+            return createComplexDocument(docId, text, group, Instant.now().toEpochMilli());
+        } else {
+            return createSimpleDocument(docId, text, group);
+        }
+    }
+
+    private Message updateDocument(boolean partitioned, Message doc) {
+        if (partitioned) {
+            return ((TestRecordsTextProto.ComplexDocument)doc).toBuilder().setText("Blah").build();
+        } else {
+            return ((TestRecordsTextProto.SimpleDocument)doc).toBuilder().setText("Blah").build();
+        }
+    }
+
+    private void grabLockExternally(boolean partitioned, FDBRecordContext context, int group, int partition) throws IOException {
+        if (partitioned) {
+            grabLockExternallyForPartition(COMPLEX_PARTITIONED, context, group, partition);
+        } else {
+            grabLockExternally(SIMPLE_INDEX, context);
+        }
+    }
+
     private void grabLockExternally(final Index index, final FDBRecordContext context) throws IOException {
         final FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions());
         directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
@@ -247,6 +296,14 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         final Subspace partitionSubspace = recordStore.indexSubspace(index).subspace(Tuple.from(group, LucenePartitioner.PARTITION_DATA_SUBSPACE).add(partition));
         final FDBDirectory directory = new FDBDirectory(partitionSubspace, context, index.getOptions());
         directory.obtainLock(IndexWriter.WRITE_LOCK_NAME);
+    }
+
+    private void mergeSegments(boolean partitioned) {
+        if (partitioned) {
+            LuceneIndexTestUtils.mergeSegments(recordStore, COMPLEX_PARTITIONED);
+        } else {
+            LuceneIndexTestUtils.mergeSegments(recordStore, SIMPLE_INDEX);
+        }
     }
 
     // Open the store with the type and index

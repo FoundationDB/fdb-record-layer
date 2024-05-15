@@ -540,8 +540,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     }
                     return countDeleted;
                 } catch (IOException e) {
-                    throw new RecordCoreException("Issue deleting", e)
-                            .addLogInfo("record", record.getPrimaryKey());
+                    throw LuceneExceptions.wrapException("Issue deleting", e, "record", record.getPrimaryKey());
                 }
             }
             return 0;
