@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -28,6 +27,7 @@ import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
@@ -247,9 +247,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
 
     /**
      * An exception class thrown when obtaining the lock failed.
+     * Note: This exception is a {@link RuntimeException} so that {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions#wrapException(Throwable)}
+     * does not wrap it but leave it as a pass-through.
      */
     @SuppressWarnings("serial")
-    public static class FDBDirectoryLockException extends RecordCoreException {
+    public static class FDBDirectoryLockException extends LoggableException {
         public FDBDirectoryLockException(@Nonnull final String msg) {
             super(msg);
         }
