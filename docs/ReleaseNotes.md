@@ -18,7 +18,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 ### NEXT_RELEASE
 
 * **Bug fix** Error messages reported when a store is missing a header now indicate whether the store has record or index data correctly [(Issue #2715)](https://github.com/FoundationDB/fdb-record-layer/issues/2715)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Missing Lucene error wrapper when index is partitioned [(Issue #2725)](https://github.com/FoundationDB/fdb-record-layer/issues/2725)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
