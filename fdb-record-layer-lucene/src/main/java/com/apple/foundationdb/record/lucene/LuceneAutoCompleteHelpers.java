@@ -382,6 +382,23 @@ public class LuceneAutoCompleteHelpers {
         return isPhraseSearch ? search.substring(1, search.length() - 1) : search;
     }
 
+    /*
+     * For auto-complete matches, use the index analyzer selector
+     * Returns an analyzerSelector for full text
+     */
+    @Nullable
+    public static <M extends Message> LuceneAnalyzerCombinationProvider getAutoCompletedMatchesAnalyzerSelector(@Nullable FDBQueriedRecord<M> queriedRecord) {
+        if (queriedRecord == null) {
+            return null;
+        }
+        final var indexEntry = queriedRecord.getIndexEntry();
+        if (!(indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry)) {
+            return null;
+        }
+        final var docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
+        return docIndexEntry.getAnalyzerSelector();
+    }
+
     @Nullable
     public static <M extends Message> LuceneAnalyzerCombinationProvider getAutoCompleteAnalyzerSelector(@Nullable FDBQueriedRecord<M> queriedRecord) {
         if (queriedRecord == null) {
@@ -392,11 +409,7 @@ public class LuceneAutoCompleteHelpers {
             return null;
         }
         final var docIndexEntry = (LuceneRecordCursor.ScoreDocIndexEntry)indexEntry;
-        final var autoCompleteAnalyzerSelector = docIndexEntry.getAutoCompleteAnalyzerSelector();
-        if (autoCompleteAnalyzerSelector == null) {
-            return null;
-        }
-        return autoCompleteAnalyzerSelector;
+        return docIndexEntry.getAutoCompleteAnalyzerSelector();
     }
 
     /**

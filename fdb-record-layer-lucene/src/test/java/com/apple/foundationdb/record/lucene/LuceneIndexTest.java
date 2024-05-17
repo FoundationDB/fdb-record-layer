@@ -155,6 +155,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_MAP_ON_VALUE_INDEX_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD;
@@ -4737,6 +4738,137 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompletePhraseSearchWithMixedCases(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(indexedType.isSynthetic() ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, indexedType.isSynthetic(), capitalizedAutoCaseCompletePhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"STateS of AMeri\"",
+                    ImmutableList.of("United States of America",
+                    "welcome to the United States of America"));
+            test.apply("\"THE oF ameri\"",
+                    ImmutableList.of("United States of America",
+                            "welcome to the United States of America",
+                            "United States is a country in the continent of America"));
+            test.apply("\"THE\"",
+                    ImmutableList.of("There is a country called Armenia"));
+
+            commit(context);
+        }
+    }
+
+    protected static final List<String> autoCompleteCJKPhrases = List.of(
+            "世上无难事",
+            "世上无English word",
+            "世の中に難しいことなんてない",
+            "シマス風ト雷ヲ",
+            "シマス風ト 시험@김치오랜",
+            "평가했다",
+            "세상에 어려운 일은 없다",
+            "用户@例子.广告",
+            "おいしい@すし.あど",
+            "オイシイ@スシ.アド",
+            "시험@김치오랜.광고"
+    );
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteCjkPhraseSearch(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"世上无\"",
+                    ImmutableList.of("世上无难事", "世上无English word"));
+            test.apply("\"世\"",
+                    ImmutableList.of("世上无难事", "世上无English word", "世の中に難しいことなんてない"));
+            test.apply("\"に難しい\"",
+                    ImmutableList.of("世の中に難しいことなんてない"));
+            test.apply("\"シマス\"",
+                    ImmutableList.of("シマス風ト雷ヲ", "シマス風ト 시험@김치오랜"));
+            test.apply("\"평가\"",
+                    ImmutableList.of("평가했다"));
+            test.apply("\"상에 어\"",
+                    ImmutableList.of("세상에 어려운 일은 없다"));
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteCjkEmailSearch(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"用户\"",
+                    ImmutableList.of("用户@例子.广告"));
+            test.apply("\"用户\\@\"",
+                    ImmutableList.of("用户@例子.广告"));
+            test.apply("\"い\\@すし\"",
+                    ImmutableList.of("おいしい@すし.あど"));
+            test.apply("\"シイ\\@スシ.\"",
+                    ImmutableList.of("オイシイ@スシ.アド"));
+            test.apply("\"시험@김\"",
+                    ImmutableList.of("시험@김치오랜.광고", "シマス風ト 시험@김치오랜"));
+
+            commit(context);
+        }
+    }
+
     private static final List<String> spellcheckWords = List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
 
     @ParameterizedTest
@@ -5810,6 +5942,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             "states have been united as a country",
             "all the states have been united as a country",
             "united states is a country in the continent of america"
+    );
+    protected static final List<String> capitalizedAutoCaseCompletePhrases = List.of(
+            "United States of America",
+            "welcome to the United States of America",
+            "United Kingdom, France, the States",
+            "The countries are United Kingdom, France, the States",
+            "States United as a country",
+            "all the States United as a country",
+            "States have been United as a country",
+            "all the States have been united as a country",
+            "United States is a country in the continent of America",
+            "There is a country called Armenia"
     );
 
     private void addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {

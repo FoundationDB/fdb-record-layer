@@ -65,6 +65,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -111,19 +112,21 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         final boolean phraseQueryNeeded = LuceneAutoCompleteHelpers.isPhraseSearch(searchArgument);
         final String searchKey = LuceneAutoCompleteHelpers.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
         final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+
+        // The analyzer used to construct the Lucene query should be the FULL_TEXT-index one in order to match how the text was indexed
         final var analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance()
-                        .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, fieldDerivationMap);
+                        .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldDerivationMap);
 
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
         final QueryParser parser = parserFactory.createMultiFieldQueryParser(fields.toArray(new String[0]),
-                analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
+                analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
 
 
         final var finalQuery = phraseQueryNeeded
                                ? buildQueryForPhraseMatching(parser, fields, searchKey)
-                               : buildQueryForTermsMatching(analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
+                               : buildQueryForTermsMatching(analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
@@ -309,16 +312,15 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         // Construct a query that is essentially:
         //  - in any field,
         //  - the phrase must occur (with possibly the last token in the phrase as a prefix)
+        final String lowercasedSearchKey = searchKey.toLowerCase(Locale.ROOT);
+        List<String> tokens = new ArrayList<>();
         String phrase = null;
-        String prefix = null;
-        final int prefixBegin = searchKey.lastIndexOf(" ");
+        String prefix = getQueryTokens(new AutoCompleteAnalyzer(), lowercasedSearchKey, tokens);
 
-        if (prefixBegin > -1) {
-            phrase = searchKey.substring(0, prefixBegin);
-        }
-
-        if (prefixBegin < searchKey.length() - 1) {
-            prefix = searchKey.substring(prefixBegin + 1);
+        if (!tokens.isEmpty()) {
+            final String lastToken = tokens.get(tokens.size() - 1);
+            final int phraseEnd = lowercasedSearchKey.lastIndexOf(lastToken.toLowerCase(Locale.ROOT)) + lastToken.length();
+            phrase = lowercasedSearchKey.substring(0, phraseEnd);
         }
 
         if (phrase == null && prefix == null) {

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.lucene.filter.AlphanumericLengthFilter;
+import com.apple.foundationdb.record.lucene.filter.CjkUnigramFilter;
 import com.apple.foundationdb.record.lucene.synonym.SynonymMapRegistryImpl;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
@@ -127,6 +129,7 @@ public class AlphanumericCjkAnalyzer extends StopwordAnalyzerBase {
         TokenStream result = new CJKWidthFilter(src);
         result = new LowerCaseFilter(result);
         result = new ASCIIFoldingFilter(result);
+        result = new CjkUnigramFilter(result);
         result = new AlphanumericLengthFilter(result, minTokenLength, getMaxTokenLength());
         result = new StopFilter(result, stopwords);
 
