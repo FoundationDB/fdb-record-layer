@@ -106,7 +106,7 @@ public final class LuceneRecordContextProperties {
     /**
      * Lucene file lock time window in milliseconds. If a file lock is older (or younger) than this value, the lock will be considered invalid.
      */
-    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.file.lock.window.milliseconds", (int)(TimeUnit.MINUTES.toMillis(10)));
+    public static final RecordLayerPropertyKey<Integer> LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.file.lock.window.milliseconds", (int)(TimeUnit.SECONDS.toMillis(20)));
     /**
      * Use concurrent merge scheduler. The default is now to assume deferred operations when available, and hence
      * assume that merge will not be performed during IO but in a background process.

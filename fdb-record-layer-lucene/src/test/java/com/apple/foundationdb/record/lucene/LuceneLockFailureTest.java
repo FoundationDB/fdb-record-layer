@@ -40,6 +40,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.google.protobuf.Message;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,9 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.createSi
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.openRecordStore;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
@@ -148,7 +152,12 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
             grabLockExternally(partitioned, context, 2, 0);
             // Delete all just deletes the index, not through Lucene
             recordStore.deleteAllRecords();
-            context.commit();
+            try {
+                context.commit();
+                fail("Commit should have failed");
+            } catch (final Exception ex) {
+                assertThat(ex, instanceOf(AlreadyClosedException.class));
+            }
         }
 
         try (final FDBRecordContext context = openContext()) {
