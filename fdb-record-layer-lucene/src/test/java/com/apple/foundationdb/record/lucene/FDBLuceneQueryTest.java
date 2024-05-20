@@ -804,7 +804,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Arguments.of(random.nextInt(10) + 1)));
     }
 
-    @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
+    @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}:[{index}]")
     @MethodSource("threadCount")
     void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
@@ -820,6 +820,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 Thread.sleep(TimeUnit.MINUTES.toMillis(1));
                 System.out.println(executorService);
                 System.out.println(executor);
+                Thread.getAllStackTraces().forEach((thread, stack) -> {
+                    System.out.println("ThreadDump: " + thread);
+                    for (final StackTraceElement stackTraceElement : stack) {
+                        System.out.println("  " + stackTraceElement);
+                    }
+                });
             } catch (InterruptedException e) {
                 // just stop the thread
             }
