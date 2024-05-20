@@ -40,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -59,6 +61,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,6 +72,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -316,8 +320,66 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    static class InComparisonCase {
+        @Nonnull
+        private final String name;
+        @Nonnull
+        private final Comparisons.Comparison comparison;
+        @Nonnull
+        private final Function<List<Integer>, Bindings> bindingsFunction;
+        private final int legacyPlanHash;
+        private final int continuationPlanHash;
+
+        protected InComparisonCase(@Nonnull String name, @Nonnull Comparisons.Comparison comparison, @Nonnull Function<List<Integer>, Bindings> bindingsFunction, @Nonnull int legacyPlanHash, int continuationPlanHash) {
+            this.name = name;
+            this.comparison = comparison;
+            this.bindingsFunction = bindingsFunction;
+            this.legacyPlanHash = legacyPlanHash;
+            this.continuationPlanHash = continuationPlanHash;
+        }
+
+        @Nonnull
+        Comparisons.Comparison getComparison() {
+            return comparison;
+        }
+
+        @Nonnull
+        Bindings getBindings(@Nonnull List<Integer> nv2List) {
+            return bindingsFunction.apply(nv2List);
+        }
+
+        int getLegacyPlanHash() {
+            return legacyPlanHash;
+        }
+
+        int getContinuationPlanHash() {
+            return continuationPlanHash;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    @Nonnull
+    static Stream<InComparisonCase> selectMaxWithInOrderByMax() {
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        return Stream.of(
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), -1860954717, 778443773),
+                new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(-1, -1)), nv2List -> {
+                    Assumptions.assumeTrue(nv2List.equals(List.of(-1, -1)));
+                    return Bindings.EMPTY_BINDINGS;
+                }, -1575680432, 1063718058),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -183599563, -1839168369)
+        );
+    }
+
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void selectMaxWithInOrderByMax() throws Exception {
+    @ParameterizedTest
+    @MethodSource
+    void selectMaxWithInOrderByMax(InComparisonCase inComparisonCase) throws Exception {
+        Assumptions.assumeTrue(useCascadesPlanner);
         final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
         complexQuerySetup(hook);
         try (FDBRecordContext context = openContext()) {
@@ -326,7 +388,6 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     .setAttemptFailedInJoinAsUnionMaxSize(20)
                     .build());
 
-            final var numValue2ListParam = "numValue2List";
             RecordQueryPlan plan = planGraph(() -> {
                 final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
                 final var selectWhere = selectWhereQun(base, null);
@@ -334,7 +395,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var groupingValue = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
                 final var qun = selectHaving(groupedByQun,
-                        FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingValue, 0).withComparison(new Comparisons.ParameterComparison(Comparisons.Type.IN, numValue2ListParam)),
+                        FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingValue, 0).withComparison(inComparisonCase.getComparison()),
                         List.of("num_value_2", "num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                 return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
@@ -347,8 +408,8 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                                     .and(RecordQueryPlanMatchers.isReverse())
                     )
             ));
-            assertEquals(-1860954717, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(778443773, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(inComparisonCase.getLegacyPlanHash(), plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             for (int i = -1; i < 4; i++) {
                 final int nv2I = i;
@@ -364,12 +425,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                             .collect(Collectors.toList());
 
                     List<Integer> nv2List = ImmutableList.of(i, j);
-                    List<Tuple> queried = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2ListParam, nv2List).build(), ImmutableList.of("num_value_2", "num_value_3_indexed", "m"));
+                    List<Tuple> queried = executeAndGetTuples(plan, inComparisonCase.getBindings(nv2List), ImmutableList.of("num_value_2", "num_value_3_indexed", "m"));
                     List<Tuple> expected = Stream.concat(expectedTuplesByI.stream(), expectedTuplesByJ.stream())
                             .sorted(Comparator.comparingLong(t -> -1L * t.getLong(2)))
                             .distinct()
                             .collect(Collectors.toList());
-                    assertEquals(expected, queried, () -> "entries should match when $" + numValue2ListParam + " = " + nv2List);
+                    assertEquals(expected, queried, () -> "entries should match when num_value_2 IN " + nv2List);
                 }
             }
 
