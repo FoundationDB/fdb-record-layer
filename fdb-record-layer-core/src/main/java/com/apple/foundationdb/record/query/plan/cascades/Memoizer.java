@@ -51,20 +51,21 @@ public interface Memoizer  {
 
         @Nonnull
         @Override
-        public Reference memoizeMemberPlans(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return Reference.from(plans);
+        public Reference memoizeMemberPlans(@Nonnull final Reference reference,
+                                            @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+            return Reference.ofPlans(plans);
         }
 
         @Nonnull
         @Override
         public Reference memoizePlans(@Nonnull final RecordQueryPlan... plans) {
-            return Reference.from(plans);
+            return Reference.ofPlans(plans);
         }
 
         @Nonnull
         @Override
         public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return Reference.from(plans);
+            return Reference.ofPlans(plans);
         }
 
         @Nonnull
@@ -76,17 +77,17 @@ public interface Memoizer  {
         @Nonnull
         @Override
         public ReferenceBuilder memoizeExpressionBuilder(@Nonnull final RelationalExpression expression) {
-            return memoizeBuilder(ImmutableList.of(expression));
+            return memoizeExpressionsBuilder(ImmutableList.of(expression));
         }
 
         @Nonnull
-        private ReferenceBuilder memoizeBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
+        private ReferenceBuilder memoizeExpressionsBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
             final var expressionsAsSet = new LinkedIdentitySet<>(expressions);
             return new ReferenceBuilder() {
                 @Nonnull
                 @Override
                 public Reference reference() {
-                    return Reference.from(expressions);
+                    return Reference.of(expressions, ImmutableList.of());
                 }
 
                 @Nonnull
@@ -100,19 +101,32 @@ public interface Memoizer  {
         @Nonnull
         @Override
         public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return memoizeBuilder(plans);
+            return memoizePlansBuilder(plans);
         }
 
         @Nonnull
         @Override
         public ReferenceBuilder memoizePlansBuilder(@Nonnull final RecordQueryPlan... plans) {
-            return memoizeBuilder(Arrays.asList(plans));
+            return memoizePlansBuilder(Arrays.asList(plans));
         }
 
         @Nonnull
         @Override
-        public ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return memoizeBuilder(plans);
+        public ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> recordQueryPlans) {
+            final var expressionsAsSet = new LinkedIdentitySet<>(recordQueryPlans);
+            return new ReferenceBuilder() {
+                @Nonnull
+                @Override
+                public Reference reference() {
+                    return Reference.ofPlans(recordQueryPlans);
+                }
+
+                @Nonnull
+                @Override
+                public Set<? extends RelationalExpression> members() {
+                    return expressionsAsSet;
+                }
+            };
         }
     };
 

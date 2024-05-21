@@ -86,7 +86,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     private final List<ScoreForRank> ranks;
 
     public RecordQueryScoreForRankPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<ScoreForRank> ranks) {
-        this(Quantifier.physical(Reference.of(plan)), ranks);
+        this(Quantifier.physical(Reference.ofPlan(plan)), ranks);
     }
 
     private RecordQueryScoreForRankPlan(@Nonnull final Quantifier.Physical inner,

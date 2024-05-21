@@ -71,11 +71,11 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     private final QueryComponent conjunctedFilter;
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
-        this(Quantifier.physical(Reference.of(inner)), filters);
+        this(Quantifier.physical(Reference.ofPlan(inner)), filters);
     }
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
-        this(Quantifier.physical(Reference.of(inner)), ImmutableList.of(filter));
+        this(Quantifier.physical(Reference.ofPlan(inner)), ImmutableList.of(filter));
     }
 
     public RecordQueryFilterPlan(@Nonnull Quantifier.Physical inner,

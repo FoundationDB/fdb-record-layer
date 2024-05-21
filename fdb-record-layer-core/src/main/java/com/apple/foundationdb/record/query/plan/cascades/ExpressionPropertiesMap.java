@@ -57,6 +57,12 @@ import java.util.Set;
  */
 public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
+     * Class object to do runtime type checks against as this is not Scala.
+     */
+    @Nonnull
+    private final Class<E> expressionClass;
+
+    /**
      * This set works a bit like an enumeration; it defines the domain of {@link ExpressionProperty}s that are being
      * maintained by the properties map.
      */
@@ -80,13 +86,21 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     @Nonnull
     private final SetMultimap<Map<ExpressionProperty<?>, ?>, E> propertyGroupedExpressionsMap;
 
-    public ExpressionPropertiesMap(@Nonnull final Set<ExpressionProperty<?>> trackedExpressionProperties,
-                                   @Nonnull final Collection<E> expressions) {
+    public ExpressionPropertiesMap(@Nonnull final Class<E> expressionClass,
+                                   @Nonnull final Set<ExpressionProperty<?>> trackedExpressionProperties,
+                                   @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        this.expressionClass = expressionClass;
         this.trackedExpressionProperties = ImmutableSet.copyOf(trackedExpressionProperties);
         this.toBeInsertedExpressions = new ArrayDeque<>();
         this.expressionPropertiesMap = new LinkedIdentityMap<>();
         this.propertyGroupedExpressionsMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
         expressions.forEach(this::add);
+    }
+
+    @Nonnull
+    private E narrow(@Nonnull final RelationalExpression expression) {
+        Verify.verify(expressionClass.isInstance(expression));
+        return expressionClass.cast(expression);
     }
 
     @Nonnull
@@ -119,7 +133,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      *         not stored in the properties map.
      */
     @Nullable
-    public Map<ExpressionProperty<?>, ?> getProperties(@Nonnull final E expression) {
+    public Map<ExpressionProperty<?>, ?> getProperties(@Nonnull final RelationalExpression expression) {
         update();
         return getCurrentProperties(expression);
     }
@@ -133,8 +147,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      *         not yet processed).
      */
     @Nullable
-    public Map<ExpressionProperty<?>, ?> getCurrentProperties(@Nonnull final E expression) {
-        return expressionPropertiesMap.get(expression);
+    public Map<ExpressionProperty<?>, ?> getCurrentProperties(@Nonnull final RelationalExpression expression) {
+        return expressionPropertiesMap.get(narrow(expression));
     }
 
     /**
@@ -142,8 +156,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * consumed upon read to lazily compute the properties of the plan passed in.
      * @param expression new expression to be added
      */
-    public void add(@Nonnull final E expression) {
-        toBeInsertedExpressions.add(expression);
+    public void add(@Nonnull final RelationalExpression expression) {
+        toBeInsertedExpressions.add(narrow(expression));
     }
 
     /**
@@ -152,10 +166,11 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * @param expression new record query plan to be added
      * @param propertiesForExpressionMap a map containing all managed properties for the expression passed in
      */
-    public void add(@Nonnull final E expression, @Nonnull final Map<ExpressionProperty<?>, ?> propertiesForExpressionMap) {
-        Verify.verify(!expressionPropertiesMap.containsKey(expression));
-        expressionPropertiesMap.put(expression, propertiesForExpressionMap);
-        propertyGroupedExpressionsMap.put(propertiesForExpressionMap, expression);
+    public void add(@Nonnull final RelationalExpression expression, @Nonnull final Map<ExpressionProperty<?>, ?> propertiesForExpressionMap) {
+        final E typedExpression = narrow(expression);
+        Verify.verify(!expressionPropertiesMap.containsKey(typedExpression));
+        expressionPropertiesMap.put(typedExpression, propertiesForExpressionMap);
+        propertyGroupedExpressionsMap.put(propertiesForExpressionMap, typedExpression);
     }
 
     @Nonnull

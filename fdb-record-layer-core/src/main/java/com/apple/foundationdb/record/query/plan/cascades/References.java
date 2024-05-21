@@ -63,6 +63,8 @@ public class References {
             if (reference.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
                 var allMembersSame = true;
                 final var translatedMembersBuilder = ImmutableList.<RelationalExpression>builder();
+                final var translatedFinalMembersBuilder = ImmutableList.<RelationalExpression>builder();
+
                 for (final var member : reference.getMembers()) {
                     var allChildTranslationsSame = true;
                     final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
@@ -105,11 +107,16 @@ public class References {
                         allMembersSame = false;
                     }
                     translatedMembersBuilder.add(translatedMember);
+                    if (reference.isFinal(member)) {
+                        translatedFinalMembersBuilder.add(translatedMember);
+                    }
                 }
                 if (allMembersSame) {
                     cachedTranslationsMap.put(reference, reference);
                 } else {
-                    cachedTranslationsMap.put(reference, Reference.from(translatedMembersBuilder.build()));
+                    cachedTranslationsMap.put(reference, Reference.of(reference.getOrigin(),
+                            translatedMembersBuilder.build(),
+                            translatedFinalMembersBuilder.build()));
                 }
             } else {
                 cachedTranslationsMap.put(reference, reference);

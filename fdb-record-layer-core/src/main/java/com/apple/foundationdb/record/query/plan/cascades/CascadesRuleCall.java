@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
+import com.apple.foundationdb.record.query.plan.cascades.Reference.Origin;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -310,7 +311,8 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 }
             }
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
-            final var newRef = Reference.of(expression);
+            // TODO the origin should come from the rule call itself
+            final var newRef = Reference.of(Origin.CANONICAL /* TODO: INITIAL */, expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
@@ -331,11 +333,10 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         return memoizePlans(Arrays.asList(plans));
     }
 
-    @SuppressWarnings("unchecked")
     @Nonnull
     @Override
     public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return memoizeExpressionsExactly(plans, Reference::from);
+        return memoizeExpressionsExactly(plans, Reference::ofPlans);
     }
 
     @Nonnull
@@ -345,8 +346,8 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     }
 
     @Nonnull
-    private Reference memoizeExpressionsExactly(@Nonnull final Collection<? extends RelationalExpression> expressions,
-                                                @Nonnull Function<Set<? extends RelationalExpression>, Reference> referenceCreator) {
+    private <E extends RelationalExpression> Reference memoizeExpressionsExactly(@Nonnull final Collection<E> expressions,
+                                                                                 @Nonnull Function<Set<E>, Reference> referenceCreator) {
         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.BEGIN)));
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
@@ -423,12 +424,12 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     @Override
     public ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return memoizeExpressionsBuilder(plans, Reference::from);
+        return memoizeExpressionsBuilder(plans, Reference::ofPlans);
     }
 
     @Nonnull
-    private ReferenceBuilder memoizeExpressionsBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions,
-                                                       @Nonnull Function<Set<? extends RelationalExpression>, Reference> refAction) {
+    private <E extends RelationalExpression> ReferenceBuilder memoizeExpressionsBuilder(@Nonnull final Collection<E> expressions,
+                                                                                        @Nonnull Function<Set<E>, Reference> refAction) {
         final var expressionSet = new LinkedIdentitySet<>(expressions);
         return new ReferenceBuilder() {
             @Nonnull

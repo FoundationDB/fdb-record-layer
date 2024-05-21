@@ -318,7 +318,7 @@ public class PlanStringRepresentationTest {
     private static Pair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
-        return Pair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
+        return Pair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.ofPlan(childPlan.getLeft())), resultValue),
                 String.format("map(%s[%s])", childPlan.getRight(), resultValue));
     }
 
