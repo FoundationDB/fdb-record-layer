@@ -205,7 +205,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(baseExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return NonnullPair.of(Quantifier.forEach(Reference.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
+        return NonnullPair.of(Quantifier.forEach(Reference.of(
+                GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
     }
 
     @Nonnull

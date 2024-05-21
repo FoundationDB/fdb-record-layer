@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -69,7 +70,12 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
+    private Origin origin;
+
+    @Nonnull
     private final LinkedIdentitySet<RelationalExpression> members;
+    @Nonnull
+    private final LinkedIdentitySet<RelationalExpression> finalMembers;
 
     @Nonnull
     private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
@@ -77,20 +83,33 @@ public class Reference implements Correlated<Reference>, Typed {
     private final ConstraintsMap constraintsMap;
 
     @Nonnull
-    private final ExpressionPropertiesMap<RelationalExpression> expressionPropertiesMap;
+    private final ExpressionPropertiesMap<? extends RelationalExpression> expressionPropertiesMap;
 
     private Reference() {
-        this(new LinkedIdentitySet<>());
+        this(Origin.CANONICAL /* TODO: INITIAL */, new LinkedIdentitySet<>(), new LinkedIdentitySet<>());
     }
 
-    private Reference(@Nonnull LinkedIdentitySet<RelationalExpression> members) {
-        this.members = members;
+    private Reference(@Nonnull final Origin origin,
+                      @Nonnull final Collection<? extends RelationalExpression> members,
+                      @Nonnull final Collection<? extends RelationalExpression> finalMembers) {
+        Verify.verify(members.containsAll(finalMembers));
+        //noinspection SuspiciousMethodCalls
+        Debugger.sanityCheck(() -> Verify.verify(members.containsAll(finalMembers)));
+        this.origin = origin;
+        this.members = new LinkedIdentitySet<>();
+        this.members.addAll(members);
+        this.finalMembers = new LinkedIdentitySet<>();
+        this.finalMembers.addAll(finalMembers);
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
-        // TODO only insert members that are of the type of the planner target
-        this.expressionPropertiesMap = new PlanPropertiesMap(members);
+        this.expressionPropertiesMap = origin.createPropertiesMap(finalMembers);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
+    }
+
+    @Nonnull
+    public Origin getOrigin() {
+        return origin;
     }
 
     /**
@@ -118,6 +137,10 @@ public class Reference implements Correlated<Reference>, Typed {
         throw new UngettableReferenceException("tried to dereference reference with " + members.size() + " members");
     }
 
+    public boolean isFinal(@Nonnull final RelationalExpression expression) {
+        return finalMembers.contains(expression);
+    }
+
     @Nonnull
     public ConstraintsMap getConstraintsMap() {
         return constraintsMap;
@@ -139,6 +162,7 @@ public class Reference implements Correlated<Reference>, Typed {
     public void pruneWith(@Nonnull RelationalExpression newValue) {
         final Map<ExpressionProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {
+            Verify.verify(isFinal(newValue));
             propertiesForPlan = expressionPropertiesMap.getCurrentProperties(newValue);
         } else {
             // TODO this should be an error since the plan cannot be planned
@@ -361,28 +385,30 @@ public class Reference implements Correlated<Reference>, Typed {
      * Re-reference members of this group, i.e., use a subset of members to from a new {@link Reference}.
      * Note that {@code this} group must not need exploration.
      *
-     * @param expressions a collection of expressions that all have to be members of this group
+     * @param members a collection of members that all have to be members of this group
      * @return a new explored {@link Reference}
      */
     @Nonnull
-    public Reference referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
+    public Reference referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> members) {
         Verify.verify(!needsExploration());
-        Verify.verify(getMembers().containsAll(expressions));
+        Debugger.sanityCheck(() -> Verify.verify(getMembers().containsAll(members)));
 
-        final var members = new LinkedIdentitySet<RelationalExpression>();
-        members.addAll(expressions);
-        final var newRef = new Reference(members);
+        final var finalMembers =
+                members.stream()
+                        .filter(this.finalMembers::contains)
+                        .collect(ImmutableList.toImmutableList());
+        final var newRef = new Reference(origin, members, finalMembers);
         newRef.getConstraintsMap().setExplored();
         return newRef;
     }
 
     @Nonnull
-    public <P> Map<RelationalExpression, P> propertyValueForExpressions(@Nonnull final ExpressionProperty<P> expressionProperty) {
+    public <P> Map<? extends RelationalExpression, P> propertyValueForExpressions(@Nonnull final ExpressionProperty<P> expressionProperty) {
         return expressionPropertiesMap.propertyValueForExpressions(expressionProperty);
     }
 
     @Nonnull
-    public List<ExpressionPartition<RelationalExpression>> computeExpressionPartitions() {
+    public List<? extends ExpressionPartition<? extends RelationalExpression>> computeExpressionPartitions() {
         return expressionPropertiesMap.toExpressionPartitions();
     }
 
@@ -609,27 +635,129 @@ public class Reference implements Correlated<Reference>, Typed {
                 .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
     }
 
+    @Nonnull
     public static Reference empty() {
         return new Reference();
     }
 
-    public static Reference of(@Nonnull RelationalExpression expression) {
-        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
+    @Nonnull
+    public static Reference ofPlan(@Nonnull RecordQueryPlan recordQueryPlan) {
+        return ofFinal(Origin.CANONICAL, recordQueryPlan);
+    }
+
+    @Nonnull
+    public static Reference ofPlans(@Nonnull RecordQueryPlan... recordQueryPlans) {
+        return ofPlans(Arrays.asList(recordQueryPlans));
+    }
+
+    @Nonnull
+    public static Reference ofPlans(@Nonnull Collection<? extends RecordQueryPlan> recordQueryPlans) {
+        return of(Origin.CANONICAL, recordQueryPlans, recordQueryPlans);
+    }
+
+    @Nonnull
+    public static Reference ofFinal(@Nonnull final Origin origin, @Nonnull final RelationalExpression expression) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(expression);
-        members.add(expression);
-        return new Reference(members);
+        return new Reference(origin, ImmutableList.of(expression), ImmutableList.of(expression));
     }
 
-    public static Reference from(@Nonnull RelationalExpression... expressions) {
-        return from(Arrays.asList(expressions));
+    @Nonnull
+    public static Reference of(@Nonnull final RelationalExpression expression) {
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(expression);
+        return new Reference(Origin.CANONICAL /* TODO: INITIAL */, ImmutableList.of(expression), ImmutableList.of());
     }
 
-    public static Reference from(@Nonnull Collection<? extends RelationalExpression> expressions) {
-        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
+    @Nonnull
+    public static Reference of(@Nonnull RelationalExpression... expressions) {
+        return of(Arrays.asList(expressions));
+    }
+
+    @Nonnull
+    public static Reference of(@Nonnull final Collection<? extends RelationalExpression> expressions) {
+        return of(Origin.CANONICAL /* TODO: INITIAL */, expressions, ImmutableList.of());
+    }
+
+    @Nonnull
+    public static Reference of(@Nonnull final Collection<? extends RelationalExpression> expressions,
+                               @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
         expressions.forEach(Debugger::registerExpression);
-        members.addAll(expressions);
-        return new Reference(members);
+        return new Reference(Origin.CANONICAL /* TODO: INITIAL */, expressions, finalExpressions);
+    }
+
+    @Nonnull
+    public static Reference of(@Nonnull final Origin origin, @Nonnull final RelationalExpression expression) {
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(expression);
+        return new Reference(origin, ImmutableList.of(expression), ImmutableList.of());
+    }
+
+    @Nonnull
+    public static Reference of(@Nonnull final Origin origin,
+                               @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        return of(origin, expressions, ImmutableList.of());
+    }
+
+    @Nonnull
+    public static Reference of(@Nonnull final Origin origin,
+                               @Nonnull final Collection<? extends RelationalExpression> expressions,
+                               @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
+        expressions.forEach(Debugger::registerExpression);
+        return new Reference(origin, expressions, finalExpressions);
+    }
+
+    @Nonnull
+    public static Reference ofAny(@Nonnull final RelationalExpression expression) {
+        if (expression instanceof RecordQueryPlan) {
+            return ofPlan((RecordQueryPlan)expression);
+        } else {
+            return of(Origin.CANONICAL, expression);
+        }
+    }
+
+    @Nonnull
+    public static Reference ofMixed(@Nonnull final Collection<? extends RelationalExpression> expressions) {
+        final var finalExpressions =
+                expressions
+                        .stream()
+                        .filter(expression -> expression instanceof RecordQueryPlan)
+                        .collect(ImmutableList.toImmutableList());
+        return of(Origin.CANONICAL, expressions, finalExpressions);
+    }
+
+    /**
+     * Enum to hold information the context of this reference. Do not permute the order
+     * of the enum entries as there is a dependency on their relative {@link #ordinal()} in the logic.
+     */
+    public enum Origin {
+        /**
+         * The {@link Reference} is tagged with {@code INITIAL} iff it was created outside the Cascades planner.
+         */
+        INITIAL(members -> new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(), members)),
+        /**
+         * The {@link Reference} is tagged with {@code CANONICAL} iff it was created by the Cascades planner and is
+         * the direct result of the canonicalization of a query graph.
+         */
+        CANONICAL(PlanPropertiesMap::new),
+        /**
+         * The {@link Reference} is tagged with {@code PHYSICAL} iff it was created by the Cascades planner and it
+         * the direct result of the physical planning of a query. All final {@link RelationalExpression}s contained in
+         * references of this origin are by convention also {@link RecordQueryPlan}s.
+         */
+        PHYSICAL(PlanPropertiesMap::new);
+
+        @Nonnull
+        private final Function<Collection<? extends RelationalExpression>, ExpressionPropertiesMap<? extends RelationalExpression>> propertiesMapCreator;
+
+        Origin(@Nonnull final Function<Collection<? extends RelationalExpression>, ExpressionPropertiesMap<? extends RelationalExpression>> propertiesMapCreator) {
+            this.propertiesMapCreator = propertiesMapCreator;
+        }
+
+        @Nonnull
+        public ExpressionPropertiesMap<? extends RelationalExpression> createPropertiesMap(@Nonnull final Collection<? extends RelationalExpression> members) {
+            return propertiesMapCreator.apply(members);
+        }
     }
 
     /**

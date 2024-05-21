@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
@@ -52,8 +53,8 @@ public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> 
                     .add(PrimaryKeyProperty.PRIMARY_KEY)
                     .build();
 
-    public PlanPropertiesMap(@Nonnull Collection<RecordQueryPlan> plans) {
-        super(expressionProperties, plans);
+    public PlanPropertiesMap(@Nonnull Collection<? extends RelationalExpression> plans) {
+        super(RecordQueryPlan.class, expressionProperties, plans);
     }
 
     @Nonnull

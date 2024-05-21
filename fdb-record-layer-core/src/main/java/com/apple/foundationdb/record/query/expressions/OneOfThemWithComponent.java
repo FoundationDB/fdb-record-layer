@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.google.common.collect.ImmutableList;
@@ -108,7 +108,8 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.of(
+                ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
         final GraphExpansion graphExpansion = getChild().expand(childBase, outerQuantifierSupplier, Collections.emptyList());
         final SelectExpression selectExpression =
                 GraphExpansion.ofOthers(GraphExpansion.builder().addQuantifier(childBase).build(), graphExpansion)

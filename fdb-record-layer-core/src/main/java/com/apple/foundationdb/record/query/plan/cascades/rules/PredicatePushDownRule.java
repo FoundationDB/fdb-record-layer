@@ -125,7 +125,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         }
 
         final var newRangesOverReference =
-                call.memoizeReference(Reference.from(newBelowExpressions));
+                call.memoizeReference(Reference.of(newBelowExpressions));
 
         final var newPushQuantifier = Quantifier.forEachBuilder()
                 .withAlias(pushQuantifier.getAlias())

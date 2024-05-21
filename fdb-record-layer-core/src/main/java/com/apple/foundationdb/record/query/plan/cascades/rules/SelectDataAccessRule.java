@@ -175,7 +175,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
 
                 final var dataAccessQuantifier = Quantifier.forEachBuilder()
                         .withAlias(matchedAlias)
-                        .build(call.memoizeReference(Reference.from(dataAccessExpressions)));
+                        .build(call.memoizeReference(Reference.ofMixed(dataAccessExpressions)));
                 
                 final var compensatedDataAccessExpression =
                         GraphExpansion.builder()

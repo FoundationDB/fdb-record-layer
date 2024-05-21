@@ -472,11 +472,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public static Physical fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PPhysicalQuantifier physicalQuantifierProto) {
-            final ImmutableList.Builder<RelationalExpression> membersBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<RecordQueryPlan> membersBuilder = ImmutableList.builder();
             for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
                 membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
             }
-            final Reference reference = Reference.from(membersBuilder.build());
+            final Reference reference = Reference.ofPlans(membersBuilder.build());
             return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
                     .build(reference);
         }

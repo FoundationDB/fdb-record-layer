@@ -61,7 +61,7 @@ import java.util.Set;
  * Interface to represent a match candidate. A match candidate on code level is just a name and a data flow graph
  * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link Traversal} to allow for navigation of references within the candidate.
- *
+ * <br>
  * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
  * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
@@ -452,12 +452,10 @@ public interface MatchCandidate {
                                    @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
-                        Reference.of(
-                                new FullUnorderedScanExpression(availableRecordTypeNames,
+                        Reference.of(new FullUnorderedScanExpression(availableRecordTypeNames,
                                         new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
-        return Reference.of(
-                new LogicalTypeFilterExpression(queriedRecordTypeNames,
+        return Reference.of(new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));
     }
