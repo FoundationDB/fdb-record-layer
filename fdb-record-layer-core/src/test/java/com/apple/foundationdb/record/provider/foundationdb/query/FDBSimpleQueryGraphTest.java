@@ -36,10 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -137,6 +137,16 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
         return fullTypeScan(metaData, typeName, fullScan(metaData));
+    }
+
+    @Nonnull
+    static Column<FieldValue> projectColumn(@Nonnull Quantifier qun, @Nonnull String columnName) {
+        return projectColumn(qun.getFlowedObjectValue(), columnName);
+    }
+
+    @Nonnull
+    static Column<FieldValue> projectColumn(@Nonnull Value value, @Nonnull String columnName) {
+        return Column.of(Optional.of(columnName), FieldValue.ofFieldNameAndFuseIfPossible(value, columnName));
     }
 
     @Nonnull

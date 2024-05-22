@@ -164,7 +164,10 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @Nonnull
     @Override
     public PNotPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PNotPredicate.newBuilder().setChild(child.toQueryPredicateProto(serializationContext)).build();
+        return PNotPredicate.newBuilder()
+                .setSuper(toAbstractQueryPredicateProto(serializationContext))
+                .setChild(child.toQueryPredicateProto(serializationContext))
+                .build();
     }
 
     @Nonnull

@@ -37,8 +37,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -50,6 +53,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -57,6 +61,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,8 +72,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -306,6 +313,124 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 if (!expectedMaxes.isEmpty()) {
                     final List<Matcher<? super Tuple>> expectedTuples = expectedTuples(expectedMaxes, reverse);
                     assertThat(tupleResults, contains(expectedTuples));
+                }
+            }
+
+            commit(context);
+        }
+    }
+
+    static class InComparisonCase {
+        @Nonnull
+        private final String name;
+        @Nonnull
+        private final Comparisons.Comparison comparison;
+        @Nonnull
+        private final Function<List<Integer>, Bindings> bindingsFunction;
+        private final int legacyPlanHash;
+        private final int continuationPlanHash;
+
+        protected InComparisonCase(@Nonnull String name, @Nonnull Comparisons.Comparison comparison, @Nonnull Function<List<Integer>, Bindings> bindingsFunction, @Nonnull int legacyPlanHash, int continuationPlanHash) {
+            this.name = name;
+            this.comparison = comparison;
+            this.bindingsFunction = bindingsFunction;
+            this.legacyPlanHash = legacyPlanHash;
+            this.continuationPlanHash = continuationPlanHash;
+        }
+
+        @Nonnull
+        Comparisons.Comparison getComparison() {
+            return comparison;
+        }
+
+        @Nonnull
+        Bindings getBindings(@Nonnull List<Integer> nv2List) {
+            return bindingsFunction.apply(nv2List);
+        }
+
+        int getLegacyPlanHash() {
+            return legacyPlanHash;
+        }
+
+        int getContinuationPlanHash() {
+            return continuationPlanHash;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    @Nonnull
+    static Stream<InComparisonCase> selectMaxWithInOrderByMax() {
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        return Stream.of(
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), -1860954717, 778443773),
+                new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(-1, -1)), nv2List -> {
+                    Assumptions.assumeTrue(nv2List.equals(List.of(-1, -1)));
+                    return Bindings.EMPTY_BINDINGS;
+                }, -1575680432, 1063718058),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -183599563, -1839168369)
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest
+    @MethodSource
+    void selectMaxWithInOrderByMax(InComparisonCase inComparisonCase) throws Exception {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueBy2And3());
+        complexQuerySetup(hook);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setAttemptFailedInJoinAsUnionMaxSize(20)
+                    .build());
+
+            RecordQueryPlan plan = planGraph(() -> {
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final var selectWhere = selectWhereQun(base, null);
+                final var groupedByQun = maxUniqueByGroupQun(selectWhere);
+
+                final var groupingValue = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
+                final var qun = selectHaving(groupedByQun,
+                        FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingValue, 0).withComparison(inComparisonCase.getComparison()),
+                        List.of("num_value_2", "num_value_3_indexed", "m"));
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+            });
+
+            assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
+                    RecordQueryPlanMatchers.mapPlan(
+                            RecordQueryPlanMatchers.aggregateIndexPlan()
+                                    .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.equalities(ListMatcher.exactly(ScanComparisons.anyValueComparison()))))
+                                    .and(RecordQueryPlanMatchers.isReverse())
+                    )
+            ));
+            assertEquals(inComparisonCase.getLegacyPlanHash(), plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+            for (int i = -1; i < 4; i++) {
+                final int nv2I = i;
+                final Map<Integer, Integer> maxesByI = expectedMaxesByNumValue3(nv2 -> nv2 == nv2I);
+                final List<Tuple> expectedTuplesByI = maxesByI.entrySet().stream()
+                        .map(entry -> Tuple.from(nv2I, entry.getKey(), entry.getValue()))
+                        .collect(Collectors.toList());
+                for (int j = -1; j < 4; j++) {
+                    final int nv2J = j;
+                    final Map<Integer, Integer> maxesByJ = expectedMaxesByNumValue3(nv2 -> nv2 == nv2J);
+                    final List<Tuple> expectedTuplesByJ = maxesByJ.entrySet().stream()
+                            .map(entry -> Tuple.from(nv2J, entry.getKey(), entry.getValue()))
+                            .collect(Collectors.toList());
+
+                    List<Integer> nv2List = ImmutableList.of(i, j);
+                    List<Tuple> queried = executeAndGetTuples(plan, inComparisonCase.getBindings(nv2List), ImmutableList.of("num_value_2", "num_value_3_indexed", "m"));
+                    List<Tuple> expected = Stream.concat(expectedTuplesByI.stream(), expectedTuplesByJ.stream())
+                            .sorted(Comparator.comparingLong(t -> -1L * t.getLong(2)))
+                            .distinct()
+                            .collect(Collectors.toList());
+                    assertEquals(expected, queried, () -> "entries should match when num_value_2 IN " + nv2List);
                 }
             }
 
