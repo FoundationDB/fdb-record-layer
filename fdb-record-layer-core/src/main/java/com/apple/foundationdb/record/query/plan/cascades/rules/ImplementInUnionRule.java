@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -141,7 +140,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new InParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
-            } else if (explodeCollectionValue instanceof ConstantObjectValue) {
+            } else if (explodeCollectionValue.isConstant()) {
                 inSource = new InComparandSource(bindingName,
                         new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue));
             } else {
