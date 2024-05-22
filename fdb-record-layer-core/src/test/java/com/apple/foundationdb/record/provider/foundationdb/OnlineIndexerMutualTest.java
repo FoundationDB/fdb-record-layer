@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -177,7 +178,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertAllValidated(indexes);
         assertTrue(count.get() > 1);
     }
-    
+
     @ParameterizedTest
     @CsvSource({
             // single threads:
@@ -393,8 +394,17 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         assertAllValidated(indexes);
     }
 
-    @Test
-    void testMutualIndexingCrashAndAllowContinueNonMutually() {
+    OnlineIndexer.IndexingPolicy.Builder mutualTakeOverIndexingPolicy(boolean explicit) {
+        final OnlineIndexer.IndexingPolicy.Builder builder = OnlineIndexer.IndexingPolicy.newBuilder();
+        return explicit ?
+               builder.allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MUTUAL_TO_SINGLE))
+                        :
+               builder.allowTakeoverContinue();
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMutualIndexingCrashAndAllowContinueNonMutually(boolean explicit) {
         // Start building with multi threads, crash all
         // Make sure that the regular indexing is unblocked
         List<Index> indexes = new ArrayList<>();
@@ -421,9 +431,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             try (OnlineIndexer indexBuilder = newIndexerBuilder()
                     .setIndex(index)
                     .setTimer(timer)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                            .allowTakeoverContinue()
-                            .build())
+                    .setIndexingPolicy(mutualTakeOverIndexingPolicy(explicit))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -770,8 +778,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexes));
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .allowTakeoverContinue()
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true)
                         .allowUniquePendingState(allowUniquePending))
                 .build()) {
             indexBuilder.buildIndex();
@@ -914,8 +921,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexesHook));
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setTargetIndexes(indexes)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .allowTakeoverContinue()
+                .setIndexingPolicy(mutualTakeOverIndexingPolicy(true)
                         .setMutualIndexingBoundaries(boundaries))
                 .setLimit(1)
                 .setConfigLoader(old -> {

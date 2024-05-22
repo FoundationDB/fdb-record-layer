@@ -51,6 +51,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +68,7 @@ import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.instanceOf;
@@ -582,9 +585,95 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             storeBuilder.setContext(context);
             assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);
-            RecordCoreException err = assertThrows(RecordCoreException.class, () -> storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES));
-            assertEquals("Unrecognized keyspace: unknown_keyspace", err.getMessage());
+            RecordStoreNoInfoAndNotEmptyException err = assertThrows(RecordStoreNoInfoAndNotEmptyException.class, () -> storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES));
+            assertNotNull(err.getCause());
+            assertThat(err.getCause(), instanceOf(RecordCoreException.class));
+            assertEquals("Unrecognized keyspace: unknown_keyspace", err.getCause().getMessage());
             commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(FDBRecordStoreBase.StoreExistenceCheck.class)
+    void failIfMissingHeader(FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+        RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder = storeBuilder(context, metaData);
+            FDBRecordStore store = storeBuilder.create();
+            store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setStrValueIndexed("foo")
+                    .build());
+            // delete the header
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+            commit(context);
+        }
+
+        // Attempt to open a store with no header but with record data. Should fail unless run with the NONE existence check
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            if (existenceCheck == FDBRecordStoreBase.StoreExistenceCheck.NONE) {
+                FDBRecordStore store = storeBuilder.createOrOpen(existenceCheck);
+                assertNotNull(store.getRecordStoreState().getStoreHeader());
+            } else {
+                RecordStoreNoInfoAndNotEmptyException noInfoErr = assertThrows(RecordStoreNoInfoAndNotEmptyException.class, () -> storeBuilder.createOrOpen(existenceCheck));
+                assertThat(noInfoErr.getMessage(), containsString("Record store has no info but is not empty"));
+                assertThat(noInfoErr.getLogInfo(), hasKey(LogMessageKeys.KEY.toString()));
+                Object firstKey = noInfoErr.getLogInfo().get(LogMessageKeys.KEY.toString());
+                assertThat(firstKey, instanceOf(Tuple.class));
+                long firstKeyBegin = ((Tuple) firstKey).getLong(0);
+                assertEquals(FDBRecordStoreKeyspace.RECORD.key(), firstKeyBegin);
+            }
+
+            // Clear out record data so that the first element seen is an index entry
+            FDBRecordStore store = storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+            store.ensureContextActive().clear(store.recordsSubspace().range(Tuple.from(1066L)));
+
+            commit(context);
+        }
+
+        // Attempt to open a store with no header but with index data. Should fail unless run with the NONE existence check
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            if (existenceCheck == FDBRecordStoreBase.StoreExistenceCheck.NONE) {
+                FDBRecordStore store = storeBuilder.createOrOpen(existenceCheck);
+                assertNotNull(store.getRecordStoreState().getStoreHeader());
+            } else {
+                RecordStoreNoInfoAndNotEmptyException noInfoErr = assertThrows(RecordStoreNoInfoAndNotEmptyException.class, () -> storeBuilder.createOrOpen(existenceCheck));
+                assertThat(noInfoErr.getMessage(), containsString("Record store has no info but is not empty"));
+                assertThat(noInfoErr.getLogInfo(), hasKey(LogMessageKeys.KEY.toString()));
+                Object firstKey = noInfoErr.getLogInfo().get(LogMessageKeys.KEY.toString());
+                assertThat(firstKey, instanceOf(Tuple.class));
+                long firstKeyBegin = ((Tuple) firstKey).getLong(0);
+                assertEquals(FDBRecordStoreKeyspace.INDEX.key(), firstKeyBegin);
+            }
+
+            // Now disable all indexes so the first key will not be record or index data
+            FDBRecordStore store = storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            for (Index index : store.getRecordMetaData().getAllIndexes()) {
+                store.markIndexDisabled(index).join();
+            }
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            if (existenceCheck == FDBRecordStoreBase.StoreExistenceCheck.NONE || existenceCheck == FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES) {
+                FDBRecordStore store = storeBuilder.createOrOpen(existenceCheck);
+                assertNotNull(store.getRecordStoreState().getStoreHeader());
+            } else {
+                RecordStoreNoInfoAndNotEmptyException noInfoErr = assertThrows(RecordStoreNoInfoAndNotEmptyException.class, () -> storeBuilder.createOrOpen(existenceCheck));
+                assertThat(noInfoErr.getMessage(), containsString("Record store has no info or records but is not empty"));
+                assertThat(noInfoErr.getLogInfo(), hasKey(LogMessageKeys.KEY.toString()));
+                Object firstKey = noInfoErr.getLogInfo().get(LogMessageKeys.KEY.toString());
+                assertThat(firstKey, instanceOf(Tuple.class));
+                long firstKeyBegin = ((Tuple) firstKey).getLong(0);
+                assertEquals(FDBRecordStoreKeyspace.INDEX_STATE_SPACE.key(), firstKeyBegin);
+            }
         }
     }
 

@@ -41,6 +41,29 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.501.0
+
+
+
+### 3.4.500.0
+
+* **Bug fix** Error messages reported when a store is missing a header now indicate whether the store has record or index data correctly [(Issue #2715)](https://github.com/FoundationDB/fdb-record-layer/issues/2715)
+* **Bug fix** Missing Lucene error wrapper when index is partitioned [(Issue #2725)](https://github.com/FoundationDB/fdb-record-layer/issues/2725)
+
+### 3.4.498.0
+
+* **Bug fix** Fix issue with LuceneLock exception [(Issue #2721)](https://github.com/FoundationDB/fdb-record-layer/issues/2721)
+* **Feature** Add isScannable(), isReadableUniquePending() to RecordStoreState [(Issue #2718)](https://github.com/FoundationDB/fdb-record-layer/issues/2718)
+
+### 3.4.497.0
+
+
+### 3.4.496.0
+
+* **Bug fix** Make Lucene lock error retryable[(Issue #2700)](https://github.com/FoundationDB/fdb-record-layer/issues/2700)
+* **Feature** Test FDBDirectory consistency while cross-transaction merges are ongoing [(Issue #2701)](https://github.com/FoundationDB/fdb-record-layer/issues/2701)
+* **Feature** Online Indexing: improve allowTakeoverContine to distinguish type conversion cases [(Issue #2703)](https://github.com/FoundationDB/fdb-record-layer/issues/2703)
+
 ### 3.4.495.0
 
 * **Bug fix** Corrected field to index calculation resolving records from index entries with permuted min/max indexes [(Issue #2705)](https://github.com/FoundationDB/fdb-record-layer/issues/2705)
