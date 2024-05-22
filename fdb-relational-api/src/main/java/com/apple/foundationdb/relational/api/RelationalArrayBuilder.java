@@ -25,14 +25,13 @@ import java.sql.SQLException;
 /**
  * Builder for {@link RelationalArray}.
  * This Interface is for implementation by a <a href="https://refactoring.guru/design-patterns/builder">Builder</a>.
- * RelationalArrays only can have {@link RelationalStruct}s as array elements currently.
  */
 // Does NOT inherit from RelationalArray; it is complicated. Trying to keep things simple here at least at first.
 // TODO: Add handling of primitive types too.
 public interface RelationalArrayBuilder {
     /**
      * Build a {@link RelationalArray}.
-     * @return A 'built' RelationalStruct instance.
+     * @return A 'built' {@link RelationalArray} instance.
      */
     RelationalArray build();
 

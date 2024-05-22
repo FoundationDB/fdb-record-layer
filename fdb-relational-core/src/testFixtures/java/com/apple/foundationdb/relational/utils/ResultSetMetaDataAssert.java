@@ -274,14 +274,14 @@ public class ResultSetMetaDataAssert extends AbstractAssert<ResultSetMetaDataAss
         return this;
     }
 
-    public ResultSetMetaDataAssert hasArrayMetaData(String column) {
+    public ArrayMetaDataAssert hasArrayMetaData(String column) {
         try {
             for (int i = 1; i <= actual.getColumnCount(); i++) {
                 if (actual.getColumnName(i).equalsIgnoreCase(column)) {
                     if (actual.getColumnType(i) != Types.ARRAY) {
                         failWithMessage("Column %s is not an array type!", column);
                     }
-                    return new ResultSetMetaDataAssert(new StructResultSetMetaData(actual.getArrayMetaData(i)));
+                    return new ArrayMetaDataAssert(actual.getArrayMetaData(i));
                 }
             }
             throw failure("Missing column %s", column);

@@ -27,15 +27,17 @@ import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.RowStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
+import com.apple.foundationdb.relational.api.RelationalArray;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -257,9 +259,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         int typeCode = SqlTypeNamesSupport.getSqlTypeCode(typeName);
         return new RowArray(
-                Arrays.stream(elements).map(ArrayRow::new).collect(Collectors.toList()),
-                new RelationalStructMetaData(
-                        FieldDescription.primitive("na", typeCode, DatabaseMetaData.columnNoNulls)));
+                Arrays.stream(elements).collect(Collectors.toList()),
+                RelationalArrayMetaData.ofPrimitive(typeCode, DatabaseMetaData.columnNoNulls));
     }
 
     @Override
@@ -271,10 +272,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
             final int typeCode = SqlTypeSupport.getSqlTypeCodeFromObject(atr);
             switch (typeCode) {
                 case Types.ARRAY:
-                    fieldDescriptions.add(FieldDescription.array(fieldName, DatabaseMetaData.columnNoNulls, ((RowArray) atr).getMetaData()));
+                    fieldDescriptions.add(FieldDescription.array(fieldName, DatabaseMetaData.columnNoNulls, ((RelationalArray) atr).getMetaData()));
                     break;
                 case Types.STRUCT:
-                    fieldDescriptions.add(FieldDescription.struct(fieldName, DatabaseMetaData.columnNoNulls, ((RowStruct) atr).getMetaData()));
+                    fieldDescriptions.add(FieldDescription.struct(fieldName, DatabaseMetaData.columnNoNulls, ((RelationalStruct) atr).getMetaData()));
                     break;
                 default:
                     fieldDescriptions.add(FieldDescription.primitive(fieldName, typeCode, DatabaseMetaData.columnNoNulls));

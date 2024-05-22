@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -422,9 +423,8 @@ public class PreparedStatementTests {
                 final var arrayObject = ddl.getConnection().createArrayOf("BINARY", array.toArray());
                 ps.setArray("param", arrayObject);
                 try (final var resultSet = ps.executeQuery()) {
-                    final var expected = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), new RelationalStructMetaData(
-                            FieldDescription.primitive("SECRETS", SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls)
-                    ));
+                    final var expected = new RowArray(array, RelationalArrayMetaData.ofPrimitive(
+                            SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls));
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("ID", 1L).hasColumn("SECRETS", expected)
                             .hasNoNextRow();
@@ -599,11 +599,8 @@ public class PreparedStatementTests {
                 final var customer = ddl.getConnection().createArrayOf("STRING", customerAttributes);
                 ps.setArray("param", customer);
                 final var expectedCustomer = new RowArray(
-                        Arrays.stream(customerAttributes).map(ArrayRow::new).collect(Collectors.toList()),
-                        new RelationalStructMetaData(
-                                FieldDescription.primitive("CUSTOMER", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-                        )
-                );
+                        Arrays.stream(customerAttributes).collect(Collectors.toList()), RelationalArrayMetaData.ofPrimitive(
+                                Types.VARCHAR, DatabaseMetaData.columnNoNulls));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("CUSTOMER", expectedCustomer)
@@ -637,10 +634,7 @@ public class PreparedStatementTests {
                 ps.setArray("param", restaurantTags);
                 final var expectedRestaurantTags = new RowArray(
                         Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
-                        new RelationalStructMetaData(
-                                FieldDescription.primitive("RESTAURANTTAG", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-                        )
-                );
+                        RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("TAGS", expectedRestaurantTags)

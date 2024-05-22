@@ -38,8 +38,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -394,11 +394,11 @@ public class PlanGenerationContext implements QueryExecutionParameters {
         final var arrayElements = new ArrayList<>();
         try {
             if (type == null) {
-                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RowArray) param).getMetaData(), false);
+                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RelationalArray) param).getMetaData(), false);
             }
             try (ResultSet rs = param.getResultSet()) {
                 while (rs.next()) {
-                    arrayElements.add(rs.getObject(1));
+                    arrayElements.add(rs.getObject(2));
                 }
             }
         } catch (SQLException e) {

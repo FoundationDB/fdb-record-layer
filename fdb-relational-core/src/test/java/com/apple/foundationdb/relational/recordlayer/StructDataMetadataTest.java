@@ -37,7 +37,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
@@ -162,23 +161,25 @@ public class StructDataMetadataTest {
             Assertions.assertEquals("a_test_rec", resultSet.getString("A_NAME"), "Incorrect name!");
             Assertions.assertEquals("a_test_rec", resultSet.getString(1), "Incorrect name!");
 
-            final Array st2 = resultSet.getArray("ST2");
+            final var st2 = resultSet.getArray("ST2");
             Assertions.assertNotNull(st2, "Array is missing!");
 
-            try (ResultSet arrayRs = st2.getResultSet()) {
+            try (var arrayRs = st2.getResultSet()) {
                 Assertions.assertTrue(arrayRs.next(), "No array records returned!");
-                Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes(1), "Incorrect bytes column!");
-                Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes("C"), "Incorrect bytes column!");
+                var struct = arrayRs.getStruct(2);
+                Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), struct.getBytes(1), "Incorrect bytes column!");
+                Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), struct.getBytes("C"), "Incorrect bytes column!");
 
-                Assertions.assertTrue(arrayRs.getBoolean(2), "Incorrect boolean column!");
-                Assertions.assertTrue(arrayRs.getBoolean("D"), "Incorrect boolean column!");
+                Assertions.assertTrue(struct.getBoolean(2), "Incorrect boolean column!");
+                Assertions.assertTrue(struct.getBoolean("D"), "Incorrect boolean column!");
 
                 Assertions.assertTrue(arrayRs.next(), "too few array records returned!");
-                Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes(1), "Incorrect bytes column!");
-                Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), arrayRs.getBytes("C"), "Incorrect bytes column!");
+                struct = arrayRs.getStruct(2);
+                Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), struct.getBytes(1), "Incorrect bytes column!");
+                Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), struct.getBytes("C"), "Incorrect bytes column!");
 
-                Assertions.assertFalse(arrayRs.getBoolean(2), "Incorrect boolean column!");
-                Assertions.assertFalse(arrayRs.getBoolean("D"), "Incorrect boolean column!");
+                Assertions.assertFalse(struct.getBoolean(2), "Incorrect boolean column!");
+                Assertions.assertFalse(struct.getBoolean("D"), "Incorrect boolean column!");
 
                 Assertions.assertFalse(arrayRs.next(), "too many array records returned!");
             }
@@ -205,11 +206,11 @@ public class StructDataMetadataTest {
             Set<Boolean> expectedSecondColumn = Set.of(true, false);
 
             for (Object r : data) {
-                Assertions.assertTrue(r instanceof Object[], "Did not return an array for a row!");
-                Object[] row = (Object[]) r;
-                Assertions.assertEquals(row.length, 2, "Incorrect row length");
-                Assertions.assertTrue(expectedFirstColumn.contains(new String((byte[]) row[0], StandardCharsets.UTF_8)), "Did not contain the correct value for column c");
-                Assertions.assertTrue(expectedSecondColumn.contains(row[1]), "Did not contain the correct value for column d");
+                Assertions.assertInstanceOf(RelationalStruct.class, r, "Elements of array are expected to be a struct!");
+                final var struct = (RelationalStruct) r;
+                Assertions.assertEquals(struct.getMetaData().getColumnCount(), 2, "Incorrect row length");
+                Assertions.assertTrue(expectedFirstColumn.contains(new String(struct.getBytes(1), StandardCharsets.UTF_8)), "Did not contain the correct value for column c");
+                Assertions.assertTrue(expectedSecondColumn.contains(struct.getBoolean(2)), "Did not contain the correct value for column d");
             }
         }
     }

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.RelationalStruct;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +30,7 @@ public class RelationalArrayFacadeTest {
     public void testAddBasicStruct() throws SQLException {
         var relationalArray =
                 RelationalArrayFacade.newBuilder().addStruct(RelationalStructFacade.newBuilder().build()).build();
-        RelationalStruct[] structs = (RelationalStruct[]) relationalArray.getArray();
+        var structs = (Object[]) relationalArray.getArray();
         Assertions.assertEquals(structs.length, 1);
         Assertions.assertNotNull(structs[0]);
     }

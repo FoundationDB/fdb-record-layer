@@ -42,7 +42,7 @@ public final class FieldDescription {
 
     private final StructMetaData fieldMetaData;
 
-    private final StructMetaData arrayMetaData;
+    private final ArrayMetaData arrayMetaData;
 
     //indicates a column that isn't part of the DDL for a query, but is part of the returned
     //tuple (and therefore necessary to keep so that our positional ordering is intact)
@@ -110,7 +110,7 @@ public final class FieldDescription {
      * @param definition the metadata description of the contents of the array.
      * @return a FieldDescription for the field.
      */
-    public static FieldDescription array(@Nonnull String fieldName, int nullable, StructMetaData definition) {
+    public static FieldDescription array(@Nonnull String fieldName, int nullable, ArrayMetaData definition) {
         return new FieldDescription(fieldName, Types.ARRAY, nullable, false, null, definition);
     }
 
@@ -119,7 +119,7 @@ public final class FieldDescription {
                             int nullable,
                             boolean phantom,
                             @Nullable StructMetaData fieldMetaData,
-                            @Nullable StructMetaData arrayMetaData) {
+                            @Nullable ArrayMetaData arrayMetaData) {
         this.fieldName = fieldName;
         this.sqlTypeCode = sqlType;
         this.nullable = nullable;
@@ -149,7 +149,7 @@ public final class FieldDescription {
         return fieldMetaData;
     }
 
-    public StructMetaData getArrayMetaData() {
+    public ArrayMetaData getArrayMetaData() {
         return arrayMetaData;
     }
 

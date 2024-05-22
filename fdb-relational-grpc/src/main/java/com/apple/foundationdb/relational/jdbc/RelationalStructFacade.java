@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -232,7 +233,7 @@ class RelationalStructFacade implements RelationalStruct {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         Column column = this.delegate.getColumns().getColumn(index);
         return column == null || !column.hasArray() ? null :
-                new RelationalArrayFacade(this.delegateMetadata.getColumnMetadata(index), column.getArray());
+                new RelationalArrayFacade(this.delegateMetadata.getColumnMetadata(index).getArrayMetadata(), column.getArray());
     }
 
     @Override
@@ -493,7 +494,7 @@ class RelationalStructFacade implements RelationalStruct {
             RelationalArrayFacade relationalArrayFacade = array.unwrap(RelationalArrayFacade.class);
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.ARRAY)
-                    .setStructMetadata(relationalArrayFacade.getDelegateMetadata().getStructMetadata())
+                    .setArrayMetadata(relationalArrayFacade.getDelegateMetadata())
                     .build());
             this.listColumnBuilder.addColumn(offset,
                     Column.newBuilder().setArray(relationalArrayFacade.getDelegate()).build());
@@ -527,10 +528,10 @@ class RelationalStructFacade implements RelationalStruct {
     /**
      * Facade over protobuf column metadata to present a StructMetaData view.
      */
-    private static final class RelationalStructFacadeMetaData implements StructMetaData {
+    static final class RelationalStructFacadeMetaData implements StructMetaData {
         private final ListColumnMetadata metadata;
 
-        private RelationalStructFacadeMetaData(ListColumnMetadata metadata) {
+        RelationalStructFacadeMetaData(ListColumnMetadata metadata) {
             this.metadata = metadata;
         }
 
@@ -585,12 +586,12 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public StructMetaData getNestedMetaData(int oneBasedColumn) throws SQLException {
+        public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
             throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
 
         @Override
-        public StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
+        public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
             throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
 

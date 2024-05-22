@@ -27,7 +27,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Arrays;
@@ -46,11 +45,11 @@ public class RelationalStructMetaData implements StructMetaData {
     private final Supplier<Integer> hashCodeSupplier;
 
     public RelationalStructMetaData(FieldDescription... columns) {
-        this(null, columns);
+        this("ANONYMOUS_STRUCT", columns);
     }
 
-    public RelationalStructMetaData(@Nullable final String name, FieldDescription... columns) {
-        this.name = name == null ? "ANONYMOUS_STRUCT" : name;
+    public RelationalStructMetaData(@Nonnull final String name, FieldDescription... columns) {
+        this.name = name;
         this.columns = columns;
         this.leadingPhantomColumnOffset = countLeadingPhantomColumns();
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
@@ -110,7 +109,7 @@ public class RelationalStructMetaData implements StructMetaData {
     }
 
     @Override
-    public StructMetaData getNestedMetaData(int oneBasedColumn) throws SQLException {
+    public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
         FieldDescription field = getField(oneBasedColumn);
         if (field.isStruct()) {
             return field.getFieldMetaData();
@@ -119,7 +118,7 @@ public class RelationalStructMetaData implements StructMetaData {
     }
 
     @Override
-    public StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
+    public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
         FieldDescription field = getField(oneBasedColumn);
         if (field.isArray()) {
             return field.getArrayMetaData();

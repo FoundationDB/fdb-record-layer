@@ -20,18 +20,27 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalArrayBuilder;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 
 /**
@@ -41,10 +50,9 @@ import java.sql.Types;
  * Package-private. Used internally. Not for general consumption.
  * Use {@link #newBuilder()} building instances.
  */
-// Array of Structs only -- for now at least. TODO: Add support for primitive types.
-class RelationalArrayFacade extends RelationalArray {
+class RelationalArrayFacade implements RelationalArray {
     /**
-     * Column metadata for the Array Structs.
+     * Column metadata for the Array.
      * Package-private so protobuf is available to serializer (in same package).
      */
     private final ColumnMetadata delegateMetadata;
@@ -56,7 +64,7 @@ class RelationalArrayFacade extends RelationalArray {
      */
     private final Array delegate;
 
-    RelationalArrayFacade(ColumnMetadata delegateMetadata, Array array) {
+    RelationalArrayFacade(@Nonnull ColumnMetadata delegateMetadata, Array array) {
         this.delegateMetadata = delegateMetadata;
         this.delegate = array;
     }
@@ -75,6 +83,11 @@ class RelationalArrayFacade extends RelationalArray {
      */
     ColumnMetadata getDelegateMetadata() {
         return delegateMetadata;
+    }
+
+    @Override
+    public ArrayMetaData getMetaData() throws SQLException {
+        throw new SQLFeatureNotSupportedException("get Metadata not supported in JDBC Relational Arrays");
     }
 
     @Override
@@ -120,13 +133,17 @@ class RelationalArrayFacade extends RelationalArray {
     public Object getArray(long oneBasedIndex, int askedForCount) throws SQLException {
         int index = PositionalIndex.toProtobuf(Math.toIntExact(oneBasedIndex));
         int count = getCount(askedForCount, this.delegate.getElementCount(), index);
-        RelationalStruct[] structs = new RelationalStruct[count];
+        final var array = new Object[count];
         int j = 0;
+        final var componentType = this.delegateMetadata.getJavaSqlTypesCode();
         for (int i = index; i < count; i++) {
-            structs[j++] =
-                    new RelationalStructFacade(this.delegateMetadata.getStructMetadata(), this.delegate.getElement(i));
+            if (componentType == Types.STRUCT) {
+                array[j++] = new RelationalStructFacade(delegateMetadata.getStructMetadata(), delegate.getElement(i).getStruct());
+            } else {
+                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + SqlTypeNamesSupport.getSqlTypeName(componentType));
+            }
         }
-        return structs;
+        return array;
     }
 
     /**
@@ -146,13 +163,31 @@ class RelationalArrayFacade extends RelationalArray {
         int index = PositionalIndex.toProtobuf(Math.toIntExact(oneBasedIndex));
         int count = getCount(askedForCount, this.delegate.getElementCount(), index);
         var resultSetBuilder = ResultSet.newBuilder();
+
+        final var componentType = this.delegateMetadata.getJavaSqlTypesCode();
+        final var componentColumnBuilder = ColumnMetadata.newBuilder().setName("VALUE").setJavaSqlTypesCode(componentType);
+        if (componentType == Types.ARRAY) {
+            componentColumnBuilder.setArrayMetadata(this.delegateMetadata.getArrayMetadata());
+        } else if (componentType == Types.STRUCT) {
+            componentColumnBuilder.setStructMetadata(this.delegateMetadata.getStructMetadata());
+        }
+        resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(ListColumnMetadata.newBuilder()
+                .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setJavaSqlTypesCode(Types.INTEGER).build())
+                .addColumnMetadata(componentColumnBuilder.build()).build()).build());
         for (int i = index; i < count; i++) {
-            if (!resultSetBuilder.hasMetadata()) {
-                var metadataBuilder = ResultSetMetadata.newBuilder();
-                resultSetBuilder.setMetadata(metadataBuilder
-                        .setColumnMetadata(this.delegateMetadata.getStructMetadata()).build());
+            final var listColumnBuilder = ListColumn.newBuilder();
+            listColumnBuilder.addColumn(Column.newBuilder().setInteger(i + 1).build());
+            final var valueColumnBuilder = Column.newBuilder();
+            if (componentType == Types.STRUCT) {
+                valueColumnBuilder.setStruct(delegate.getElement(i).getStruct());
+            } else if (componentType == Types.INTEGER) {
+                valueColumnBuilder.setInteger(delegate.getElement(i).getInteger());
+            } else {
+                Assert.failUnchecked(ErrorCode.UNKNOWN_TYPE, "Type not supported: " + SqlTypeNamesSupport.getSqlTypeName(componentType));
             }
-            resultSetBuilder.addRow(this.delegate.getElement(i));
+            resultSetBuilder.addRow(Struct.newBuilder()
+                    .setColumns(listColumnBuilder
+                            .addColumn(valueColumnBuilder.build())).build());
         }
         return new RelationalResultSetFacade(resultSetBuilder.build());
     }
@@ -185,15 +220,20 @@ class RelationalArrayFacade extends RelationalArray {
 
         @Override
         public RelationalArrayBuilder addStruct(RelationalStruct struct) throws SQLException {
-            // TODO: Add verification that this struct has same scheme as any previously added. For now presume.
-            var relationalStructFacade = struct.unwrap(RelationalStructFacade.class);
-            this.builder.addElement(relationalStructFacade.getDelegate());
-            // RelationalArray is always an array-of-RelationalStructs, at least for now. Set metadata if not already set.
-            if (this.metadata == null) {
-                this.metadata = ColumnMetadata.newBuilder().setStructMetadata(relationalStructFacade.getDelegateMetadata())
-                        .setJavaSqlTypesCode(Types.STRUCT).build();
-            }
+            final var structFacade = struct.unwrap(RelationalStructFacade.class);
+            initOrCheckMetadata(structFacade.getDelegateMetadata());
+            builder.addElement(Column.newBuilder().setStruct(structFacade.getDelegate()));
             return this;
+        }
+
+        private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
+            if (metadata == null) {
+                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT);
+                builder.setStructMetadata((ListColumnMetadata) innerMetadata);
+                metadata = builder.build();
+            } else {
+                Assert.thatUnchecked(metadata.getJavaSqlTypesCode() == Types.STRUCT, ErrorCode.DATATYPE_MISMATCH, "dataType mismatch!");
+            }
         }
     }
 }

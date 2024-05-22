@@ -48,9 +48,8 @@ message Struct {
 }
 
 // Relational Array.
-// From RowArray#getBaseType: "...In Relational, the contents of an Array is _always_ a Struct..."
 message Array {
-  repeated Struct element = 1;
+  repeated Column element = 1;
 }
 
 // `Column` represents a dynamically typed column which can be either

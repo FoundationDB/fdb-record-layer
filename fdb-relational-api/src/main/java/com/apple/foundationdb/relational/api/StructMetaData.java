@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-
 import java.sql.SQLException;
 import java.sql.Wrapper;
 
@@ -29,7 +27,7 @@ import java.sql.Wrapper;
  * Metadata describing what is in a {@link RelationalStruct}.
  * As {@link java.sql.ResultSetMetaData} is for {@link java.sql.ResultSet}, so is this Interface for instances of
  * {@link java.sql.Struct}. The below is modeled on -- and a subset of -- {@link java.sql.ResultSetMetaData} with a
- * few extras such as {@link #getNestedMetaData} and {@link #getLeadingPhantomColumnCount()}.
+ * few extras such as {@link #getStructMetaData}, {@link #getArrayMetaData} and {@link #getLeadingPhantomColumnCount()}.
  * Types returned by {@link #getColumnType(int)} are {@link java.sql.Types}.
  */
 public interface StructMetaData extends Wrapper {
@@ -73,9 +71,7 @@ public interface StructMetaData extends Wrapper {
      * @return the metadata for the struct at column {@code oneBasedColumn}
      * @throws SQLException if the type of the column is not a struct, or if something else goes wrong.
      */
-    default StructMetaData getNestedMetaData(int oneBasedColumn) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
+    StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException;
 
     /**
      * Get the Metadata for an array type.
@@ -86,7 +82,7 @@ public interface StructMetaData extends Wrapper {
      * @return the metadata for the array at column {@code oneBasedColumn}
      * @throws SQLException if the type of the column is not an array, or if something else goes wrong.
      */
-    StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException;
+    ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException;
 
     default int getLeadingPhantomColumnCount() {
         return 0;

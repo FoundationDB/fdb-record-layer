@@ -157,8 +157,8 @@ public final class SqlTypeSupport {
     }
 
     @Nonnull
-    public static Type.Array arrayMetadataToArrayType(@Nonnull StructMetaData metaData, boolean isNullable) {
-        final var field = descriptionToField(((RelationalStructMetaData) metaData).getFields().get(0));
+    public static Type.Array arrayMetadataToArrayType(@Nonnull ArrayMetaData metaData, boolean isNullable) {
+        final var field = descriptionToField(((RelationalArrayMetaData) metaData).getElementField());
         return new Type.Array(isNullable, field.getFieldType());
     }
 
@@ -191,21 +191,22 @@ public final class SqlTypeSupport {
         } else if (fieldType instanceof Type.Array) {
             Type.Array arrayType = (Type.Array) fieldType;
             Type elementType = Objects.requireNonNull(arrayType.getElementType());
-            StructMetaData arrayMeta;
+            ArrayMetaData arrayMetadata;
             if (elementType.isPrimitive()) {
-                FieldDescription desc = FieldDescription.primitive(field.getFieldName(),
-                        SqlTypeSupport.recordTypeToSqlType(elementType.getTypeCode()),
-                        elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
-                arrayMeta = new RelationalStructMetaData(desc);
+                arrayMetadata = RelationalArrayMetaData.ofPrimitive(
+                                SqlTypeSupport.recordTypeToSqlType(elementType.getTypeCode()),
+                                elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
             } else if (elementType instanceof Type.Record) {
                 //get a StructMetaData recursively
                 Type.Record structType = (Type.Record) elementType;
-                arrayMeta = recordToMetaData(structType);
+                arrayMetadata = RelationalArrayMetaData.ofStruct(
+                        recordToMetaData(structType),
+                        elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
             } else {
                 //TODO(bfines) not sure if this is true or not, but I like the rule.
                 throw new RelationalException("Cannot have an array of arrays right now", ErrorCode.UNSUPPORTED_OPERATION);
             }
-            return FieldDescription.array(field.getFieldName(), DatabaseMetaData.columnNoNulls, arrayMeta);
+            return FieldDescription.array(field.getFieldName(), arrayType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls, arrayMetadata);
         } else if (fieldType instanceof Type.Record) {
             Type.Record recType = (Type.Record) fieldType;
             StructMetaData smd = recordToMetaData(recType);

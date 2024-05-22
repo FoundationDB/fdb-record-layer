@@ -21,14 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -56,6 +53,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedList;
@@ -628,14 +626,10 @@ public class StandardQueryTests {
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    StructMetaData col2Meta = new RelationalStructMetaData(
-                            FieldDescription.primitive("_1", Types.BIGINT, DatabaseMetaData.columnNullable)
-                    );
-                    StructMetaData col3Meta = new RelationalStructMetaData(
-                            FieldDescription.primitive("_2", Types.BIGINT, DatabaseMetaData.columnNullable)
-                    );
-                    Array expectedCol2 = new RowArray(List.of(new ArrayRow(new Object[]{128L})), col2Meta);
-                    Array expectedCol3 = new RowArray(List.of(new ArrayRow(new Object[]{128L})), col3Meta);
+                    final var col2Meta = RelationalArrayMetaData.ofPrimitive(Types.BIGINT, DatabaseMetaData.columnNullable);
+                    final var col3Meta = RelationalArrayMetaData.ofPrimitive(Types.BIGINT, DatabaseMetaData.columnNullable);
+                    Array expectedCol2 = new RowArray(List.of(128L), col2Meta);
+                    Array expectedCol3 = new RowArray(List.of(128L), col3Meta);
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(42L, expectedCol2, expectedCol3)
                             .hasNoNextRow();
@@ -884,9 +878,9 @@ public class StandardQueryTests {
 
     @Test
     void queryJavaCallSimulatecustomerFunction() throws Exception {
-        final var expectedMetadata = new RelationalStructMetaData(FieldDescription.primitive("_0", Types.BINARY, DatabaseMetaData.columnNoNulls));
+        final var expectedMetadata = RelationalArrayMetaData.ofPrimitive(Types.BINARY, DatabaseMetaData.columnNoNulls);
         final var array = List.of(ByteString.copyFrom(new byte[]{0xA, 0xB}));
-        final var expected = new RowArray(array.stream().map(ArrayRow::new).collect(Collectors.toList()), expectedMetadata);
+        final var expected = new RowArray(new ArrayList<>(array), expectedMetadata);
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bytes, b bytes array, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

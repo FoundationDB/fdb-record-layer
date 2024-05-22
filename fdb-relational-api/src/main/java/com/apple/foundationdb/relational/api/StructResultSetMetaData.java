@@ -62,13 +62,18 @@ public class StructResultSetMetaData implements RelationalResultSetMetaData {
     }
 
     @Override
-    public StructMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
+    public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
         return metaData.getArrayMetaData(oneBasedColumn);
     }
 
     @Override
     public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
-        return metaData.getNestedMetaData(oneBasedColumn);
+        return metaData.getStructMetaData(oneBasedColumn);
+    }
+
+    @Override
+    public int isNullable(int oneBasedColumn) throws SQLException {
+        return metaData.isNullable(oneBasedColumn);
     }
 
     @Override

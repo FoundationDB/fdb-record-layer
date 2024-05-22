@@ -110,10 +110,12 @@ public abstract class ResultSetMetaDataTest {
         try (RelationalResultSet r = selectAll(statement, "RESTAURANT")) {
             final ResultSetMetaDataAssert mdAssert = ResultSetAssert.assertThat(r).metaData();
             mdAssert.hasArrayMetaData("CUSTOMER")
-                    .hasColumnTypes(Map.of("CUSTOMER", Types.VARCHAR));
+                    .hasComponent("VALUE", Types.VARCHAR);
             mdAssert.hasArrayMetaData("TAGS")
+                    .hasStructMetadata("VALUE")
                     .hasColumnTypes(Map.of("TAG", Types.VARCHAR, "WEIGHT", Types.BIGINT));
             mdAssert.hasArrayMetaData("REVIEWS")
+                    .hasStructMetadata("VALUE")
                     .hasColumnTypes(Map.of("REVIEWER", Types.BIGINT, "RATING", Types.BIGINT));
         }
     }

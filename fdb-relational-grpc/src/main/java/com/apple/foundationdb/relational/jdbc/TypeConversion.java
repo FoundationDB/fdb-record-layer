@@ -20,9 +20,13 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
@@ -39,6 +43,7 @@ import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -141,9 +146,8 @@ public class TypeConversion {
         return keySet;
     }
 
-    private static ColumnMetadata toColumnMetadata(RelationalStruct relationalStruct, int oneBasedIndex)
+    private static ColumnMetadata toColumnMetadata(StructMetaData metadata, int oneBasedIndex)
             throws SQLException {
-        var metadata = relationalStruct.getMetaData();
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getColumnName(oneBasedIndex))
                 .setJavaSqlTypesCode(metadata.getColumnType(oneBasedIndex));
@@ -153,12 +157,11 @@ public class TypeConversion {
         // One-offs
         switch (metadata.getColumnType(oneBasedIndex)) {
             case Types.STRUCT:
-                var listColumnMetadata = toListColumnMetadataProtobuf(relationalStruct.getStruct(oneBasedIndex));
+                var listColumnMetadata = toListColumnMetadataProtobuf((RelationalStructMetaData) metadata.getStructMetaData(oneBasedIndex));
                 columnMetadataBuilder.setStructMetadata(listColumnMetadata);
                 break;
             case Types.ARRAY:
-                var columnMetadata = toColumnMetadata(relationalStruct.getArray(oneBasedIndex),
-                        metadata.getColumnName(oneBasedIndex));
+                var columnMetadata = toColumnMetadata(metadata.getArrayMetaData(oneBasedIndex));
                 columnMetadataBuilder.setArrayMetadata(columnMetadata);
                 break;
             default:
@@ -168,48 +171,45 @@ public class TypeConversion {
     }
 
     /**
-     * The below is about making an Array of Structs.
-     * From RowArray#getBaseType: "...In Relational, the contents of an Array is _always_ a Struct..."
+     * The below is about making an Array.
      */
-    private static ColumnMetadata toColumnMetadata(RelationalArray relationalArray, String name)
+    private static ColumnMetadata toColumnMetadata(@Nonnull ArrayMetaData metadata)
             throws SQLException {
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
-                .setName(name)
-                .setJavaSqlTypesCode(Types.STRUCT);
+                .setName(metadata.getElementName())
+                .setJavaSqlTypesCode(metadata.getElementType());
         // TODO nullable.
         // TODO phantom.
         // TODO: label
-        // The passed in array can be null. Maybe because accounting of metadata is off. Lets check for now.
-        if (relationalArray != null) {
-            RelationalResultSet relationalResultSet = relationalArray.getResultSet();
-            var metadata = relationalResultSet.getMetaData();
-            var listColumnMetadataBuilder = ListColumnMetadata.newBuilder();
-            for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
-                var columnMetadata = toColumnMetadata(relationalResultSet, oneBasedIndex);
-                listColumnMetadataBuilder.addColumnMetadata(columnMetadata);
-            }
-            columnMetadataBuilder.setStructMetadata(listColumnMetadataBuilder.build());
+        // One-offs
+        switch (metadata.getElementType()) {
+            case Types.STRUCT:
+                var listColumnMetadata = toListColumnMetadataProtobuf((RelationalStructMetaData) metadata.getElementStructMetaData());
+                columnMetadataBuilder.setStructMetadata(listColumnMetadata);
+                break;
+            case Types.ARRAY:
+                var columnMetadata = toColumnMetadata(metadata.getElementArrayMetaData());
+                columnMetadataBuilder.setArrayMetadata(columnMetadata);
+                break;
+            default:
+                break;
         }
         return columnMetadataBuilder.build();
     }
 
-    private static ListColumnMetadata toListColumnMetadataProtobuf(RelationalStruct relationalStruct) throws SQLException {
+    private static ListColumnMetadata toListColumnMetadataProtobuf(@Nonnull RelationalStructMetaData metadata) throws SQLException {
         var listColumnMetadataBuilder = ListColumnMetadata.newBuilder();
-        if (relationalStruct != null) {
-            var metadata = relationalStruct.getMetaData();
-            for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
-                var columnMetadata = toColumnMetadata(relationalStruct, oneBasedIndex);
-                listColumnMetadataBuilder.addColumnMetadata(columnMetadata);
-            }
+        for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
+            var columnMetadata = toColumnMetadata(metadata, oneBasedIndex);
+            listColumnMetadataBuilder.addColumnMetadata(columnMetadata);
         }
         return listColumnMetadataBuilder.build();
     }
 
-    private static ResultSetMetadata toResultSetMetaData(RelationalResultSet relationalResultSet, int columnCount)
-            throws SQLException {
+    private static ResultSetMetadata toResultSetMetaData(RelationalResultSetMetaData metadata, int columnCount) throws SQLException {
         var listColumnMetadataBuilder = ListColumnMetadata.newBuilder();
         for (int oneBasedIndex = 1; oneBasedIndex <= columnCount; oneBasedIndex++) {
-            listColumnMetadataBuilder.addColumnMetadata(toColumnMetadata(relationalResultSet, oneBasedIndex));
+            listColumnMetadataBuilder.addColumnMetadata(toColumnMetadata(metadata, oneBasedIndex));
         }
         return ResultSetMetadata.newBuilder().setColumnMetadata(listColumnMetadataBuilder.build()).build();
     }
@@ -219,7 +219,7 @@ public class TypeConversion {
         if (relationalArray != null) {
             var relationalResultSet = relationalArray.getResultSet();
             while (relationalResultSet.next()) {
-                arrayBuilder.addElement(toStruct(relationalResultSet));
+                arrayBuilder.addElement(toColumn(relationalResultSet, 2));
             }
         }
         return arrayBuilder.build();
@@ -315,7 +315,7 @@ public class TypeConversion {
         var metadata = relationalResultSet.getMetaData();
         while (relationalResultSet.next()) {
             if (!resultSetBuilder.hasMetadata()) {
-                resultSetBuilder.setMetadata(toResultSetMetaData(relationalResultSet, metadata.getColumnCount()));
+                resultSetBuilder.setMetadata(toResultSetMetaData(relationalResultSet.getMetaData(), metadata.getColumnCount()));
             }
             resultSetBuilder.addRow(toRow(relationalResultSet));
         }

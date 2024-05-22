@@ -34,8 +34,6 @@ import java.sql.SQLException;
 //query, starting at 1." See 15.2.3 Retrieving Values in https://download.oracle.com/otndocs/jcp/jdbc-4_2-mrel2-spec/
 public interface RelationalResultSetMetaData extends ResultSetMetaData, StructMetaData {
 
-    StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException;
-
     @Override
     @ExcludeFromJacocoGeneratedReport
     default boolean isAutoIncrement(int column) throws SQLException {

@@ -489,7 +489,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             try (ResultSet rs = param.getResultSet()) {
                 int i = 0;
                 while (rs.next()) {
-                    processQueryLiteral(rs.getObject(1), i);
+                    processQueryLiteral(rs.getObject(2), i);
                     i++;
                 }
             }

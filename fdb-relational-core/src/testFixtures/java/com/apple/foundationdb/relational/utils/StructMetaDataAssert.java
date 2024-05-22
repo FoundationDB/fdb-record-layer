@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.utils;
 
 
+import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 
 import org.assertj.core.api.AbstractAssert;
@@ -77,15 +78,15 @@ public class StructMetaDataAssert extends AbstractAssert<StructMetaDataAssert, S
                 sa.assertThat(aType).describedAs("position %d Type", i).isEqualTo(eType);
 
                 if (aType == Types.STRUCT) {
-                    StructMetaData aStructMd = actual.getNestedMetaData(i);
-                    StructMetaData eStructMd = expectedMetaData.getNestedMetaData(i);
+                    StructMetaData aStructMd = actual.getStructMetaData(i);
+                    StructMetaData eStructMd = expectedMetaData.getStructMetaData(i);
 
                     sa.proxy(StructMetaDataAssert.class, StructMetaData.class, aStructMd).isEqualTo(eStructMd);
                 } else if (aType == Types.ARRAY) {
-                    StructMetaData aArray = actual.getArrayMetaData(i);
-                    StructMetaData eArray = expectedMetaData.getArrayMetaData(i);
+                    var aArray = actual.getArrayMetaData(i);
+                    var eArray = expectedMetaData.getArrayMetaData(i);
 
-                    sa.proxy(StructMetaDataAssert.class, StructMetaData.class, aArray).isEqualTo(eArray);
+                    sa.proxy(ArrayMetaDataAssert.class, ArrayMetaData.class, aArray).isEqualTo(eArray);
                 }
             }
             sa.assertAll();

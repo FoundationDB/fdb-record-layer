@@ -20,11 +20,17 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.RowStruct;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 
+import java.sql.DatabaseMetaData;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,16 +70,18 @@ public final class DdlPermutationGenerator {
             return typeName + columnTypeDefinition(false);
         }
 
-        public Row getPermutationAsRow(String typeName) {
-            List<Row> rows = new ArrayList<>();
+        public Row getPermutation(String typeName) {
+            List<RowStruct> rows = new ArrayList<>();
             int colNum = 0;
             for (String col : columnTypes) {
                 int typeCode = SqlTypeSupport.recordTypeToSqlType(ParserUtils.toRecordLayerType(col));
-                rows.add(new ArrayRow("COL" + colNum, typeCode));
+                rows.add(new ImmutableRowStruct(new ArrayRow("COL" + colNum, typeCode), new RelationalStructMetaData("COLUMN",
+                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
+                )));
                 colNum++;
             }
-            return new ArrayRow(typeName,
-                    rows);
+            return new ArrayRow(typeName, rows);
         }
 
         public String getName() {

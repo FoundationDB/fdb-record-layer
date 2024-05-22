@@ -23,15 +23,13 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -47,6 +45,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -337,9 +336,7 @@ public class AstNormalizerTests {
     @Nonnull
     private static java.sql.Array toArrayParameter(List<Object> elements) {
         return new RowArray(
-                elements.stream().map(ArrayRow::new).collect(Collectors.toList()),
-                new RelationalStructMetaData(
-                        FieldDescription.primitive("na", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
+                new ArrayList<>(elements), RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
     }
 
     @Test

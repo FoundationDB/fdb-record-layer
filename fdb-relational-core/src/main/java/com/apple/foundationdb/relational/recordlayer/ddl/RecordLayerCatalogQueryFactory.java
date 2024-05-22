@@ -22,8 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -40,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -76,8 +79,8 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                 final FieldDescription[] fields = new FieldDescription[]{
                         FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                         FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, new RelationalStructMetaData(FieldDescription.primitive("TABLE", Types.VARCHAR, DatabaseMetaData.columnNoNulls))),
-                        FieldDescription.array("INDEXES", DatabaseMetaData.columnNullable, new RelationalStructMetaData(FieldDescription.primitive("INDEX", Types.VARCHAR, DatabaseMetaData.columnNoNulls)))
+                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls)),
+                        FieldDescription.array("INDEXES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls))
                 };
                 return new IteratorResultSet(new RelationalStructMetaData(fields),
                         Collections.singleton(tuple).iterator(), 0);
@@ -97,32 +100,27 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, schemaId);
-
-                final FieldDescription[] tableDescription = new FieldDescription[]{
+                final var columnStructMetadata = new RelationalStructMetaData(
+                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls));
+                final var tableStructMetadata = new RelationalStructMetaData(
                         FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls, new RelationalStructMetaData(
-                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
-                        ))
-                };
-
-                final List<Row> tableRows = schemaTemplate.getTables().stream()
-                        .map(tableInfo -> new ArrayRow(tableInfo.getName(),
-                                tableInfo.getColumns().stream()
-                                        .map(field -> new ArrayRow(field.getName(), field.getDatatype().getJdbcSqlCode()))
-                                        .collect(Collectors.toList()))).collect(Collectors.toList());
-
-                final Object[] fields = new Object[]{
-                        schemaTemplate.getName(),
-                        tableRows
-                };
-
-                final Row tuple = new ArrayRow(fields);
-                final FieldDescription[] fieldDescriptions = new FieldDescription[]{
+                        FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(
+                                columnStructMetadata, DatabaseMetaData.columnNoNulls)));
+                final var schemaTemplateStructMetadata = new RelationalStructMetaData(
                         FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, new RelationalStructMetaData(tableDescription))
-                };
-                return new IteratorResultSet(new RelationalStructMetaData(fieldDescriptions), Collections.singleton(tuple).iterator(), 0);
+                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofStruct(
+                                tableStructMetadata, DatabaseMetaData.columnNoNulls)));
+                final var tableStructs = new ArrayList<>();
+                for (var table: schemaTemplate.getTables()) {
+                    final var columnStructs = new ArrayList<>();
+                    for (var col: table.getColumns()) {
+                        columnStructs.add(new ImmutableRowStruct(new ArrayRow(col.getName(), col.getDatatype().getJdbcSqlCode()), columnStructMetadata));
+                    }
+                    tableStructs.add(new ImmutableRowStruct(new ArrayRow(table.getName(), columnStructs), tableStructMetadata));
+                }
+                final Row tuple = new ArrayRow(schemaTemplate.getName(), tableStructs);
+                return new IteratorResultSet(schemaTemplateStructMetadata, Collections.singleton(tuple).iterator(), 0);
             }
         };
     }

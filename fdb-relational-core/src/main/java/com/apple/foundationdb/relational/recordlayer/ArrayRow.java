@@ -64,8 +64,12 @@ public class ArrayRow extends AbstractRow {
             return false;
         }
         for (int i = 0; i < data.length; i++) {
-            if (data[i] instanceof byte[]) {
-                if (!Arrays.equals((byte[]) data[i], (byte[]) otherArrayRow.data[i])) {
+            if (data[i] == null) {
+                if (otherArrayRow.data[i] != null) {
+                    return false;
+                }
+            } else if (data[i] instanceof byte[]) {
+                if (!(otherArrayRow.data[i] instanceof byte[]) || !Arrays.equals((byte[]) data[i], (byte[]) otherArrayRow.data[i])) {
                     return false;
                 }
             } else {

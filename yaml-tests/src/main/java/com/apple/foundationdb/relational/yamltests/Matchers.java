@@ -580,13 +580,13 @@ public class Matchers {
                             printer.getRowCount(), expectedArray.size(), i, expected, actual), printer);
                 }
                 if (isMap(expectedArray.get(i))) {
-                    final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getColumnCount(),
-                            valueByName(actualArrayContent), valueByIndex(actualArrayContent), printer, false);
+                    final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getStructMetaData(2).getColumnCount(),
+                            valueByName(actualArrayContent.getStruct(2)), valueByIndex(actualArrayContent.getStruct(2)), printer, false);
                     if (!matchResult.equals(ResultSetMatchResult.success())) {
                         return matchResult; // propagate failure.
                     }
                 } else {
-                    final var actualObject = actualArrayContent.getObject(1);
+                    final var actualObject = actualArrayContent.getObject(2);
                     final var matchResult = matchField(expectedArray.get(i), actualObject, printer);
                     if (!matchResult.equals(ResultSetMatchResult.success())) {
                         return matchResult; // propagate failure.

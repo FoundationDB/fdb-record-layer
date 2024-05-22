@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -213,19 +214,16 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                         builder.setField(fd, toDynamicMessage(subStruct, fd.getMessageType()));
                         break;
                     case Types.ARRAY:
-                        // An array is always an array of Structs.
                         var subArray = struct.getArray(i);
                         var arrayBuilder = DynamicMessage.newBuilder(fd.getMessageType());
-                        // Get array of RelationalStructs.
-                        RelationalStruct[] structs = (RelationalStruct[]) subArray.getArray();
+                        final var arrayItems = (Object[]) subArray.getArray();
                         List<Descriptors.FieldDescriptor> innerFields = fd.getMessageType().getFields();
                         if (innerFields != null && !innerFields.isEmpty()) {
-                            // Its an array. All of the element types should be Struct. Get the first one and use its
-                            // FieldDescriptor adding all of the array elements.
                             Descriptors.FieldDescriptor structFieldDescriptor = innerFields.get(0);
-                            for (RelationalStruct relationalStruct : structs) {
+                            for (Object arrayItem : arrayItems) {
+                                Assert.thatUnchecked(arrayItem instanceof RelationalStruct, ErrorCode.INTERNAL_ERROR, "Direct Insertions using STRUCT do not support primitive arrays.");
                                 arrayBuilder.addRepeatedField(structFieldDescriptor,
-                                        toDynamicMessage(relationalStruct, structFieldDescriptor.getMessageType()));
+                                        toDynamicMessage((RelationalStruct) arrayItem, structFieldDescriptor.getMessageType()));
                             }
                         }
                         builder.setField(fd, arrayBuilder.build());

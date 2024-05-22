@@ -24,51 +24,69 @@ import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Wrapper;
+import java.util.ArrayList;
 import java.util.Map;
 
-public abstract class RelationalArray implements Array, Wrapper {
+public interface RelationalArray extends Array, Wrapper {
+
+    ArrayMetaData getMetaData() throws SQLException;
 
     @Override
-    public Object getArray() throws SQLException {
+    default Object getArray() throws SQLException {
         return getArray(1L, Integer.MAX_VALUE);
     }
 
     @Override
-    public Object getArray(Map<String, Class<?>> map) throws SQLException {
+    default Object getArray(long oneBasedIndex, int count) throws SQLException {
+        final var array = new ArrayList<>();
+        final var rs  = getResultSet(oneBasedIndex, count);
+        while (rs.next()) {
+            array.add(rs.getObject(2));
+        }
+        return array.toArray();
+    }
+
+    @Override
+    default Object getArray(Map<String, Class<?>> map) throws SQLException {
         throw new SQLFeatureNotSupportedException("Custom type mapping is not supported in Relational Arrays");
     }
 
     @Override
-    public Object getArray(long index, int count, Map<String, Class<?>> map) throws SQLException {
+    default Object getArray(long index, int count, Map<String, Class<?>> map) throws SQLException {
         throw new SQLFeatureNotSupportedException("Custom type mapping is not supported in Relational Arrays");
     }
 
     @Override
-    public abstract RelationalResultSet getResultSet(long index, int count) throws SQLException;
+    RelationalResultSet getResultSet(long index, int count) throws SQLException;
 
     @Override
-    public RelationalResultSet getResultSet() throws SQLException {
+    default RelationalResultSet getResultSet() throws SQLException {
         return getResultSet(1L, Integer.MAX_VALUE);
     }
 
     @Override
-    public RelationalResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
+    default RelationalResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
         throw new SQLFeatureNotSupportedException("Custom type mapping is not supported in Relational Arrays");
     }
 
     @Override
-    public RelationalResultSet getResultSet(long index, int count, Map<String, Class<?>> map) throws SQLException {
+    default RelationalResultSet getResultSet(long index, int count, Map<String, Class<?>> map) throws SQLException {
         throw new SQLFeatureNotSupportedException("Custom type mapping is not supported in Relational Arrays");
+    }
+
+    @Override
+    default String getBaseTypeName() throws SQLException {
+        return SqlTypeNamesSupport.getSqlTypeName(getBaseType());
     }
 
     @Override
     @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract") //Don't know why PMD doesn't like this, it's quite obviously intentional
-    public void free() {
+    default void free() {
         //no-op
     }
 
     @Override
-    public <T> T unwrap(Class<T> iface) throws SQLException {
+    default <T> T unwrap(Class<T> iface) throws SQLException {
         if (isWrapperFor(iface)) {
             return iface.cast(this);
         }
@@ -76,7 +94,7 @@ public abstract class RelationalArray implements Array, Wrapper {
     }
 
     @Override
-    public boolean isWrapperFor(Class<?> iface) throws SQLException {
+    default boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface.isInstance(this);
     }
 }

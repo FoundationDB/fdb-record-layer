@@ -270,7 +270,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_HASH", Types.INTEGER, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_DOT", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNoNulls, continuationMetadata)
+                    FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNullable, continuationMetadata)
             );
             final Struct continuationInfo = parsedContinuation == ContinuationImpl.BEGIN ? null :
                     new ImmutableRowStruct(new ArrayRow(

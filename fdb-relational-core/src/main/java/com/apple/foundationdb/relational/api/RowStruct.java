@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
@@ -35,10 +34,12 @@ import com.google.protobuf.Message;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.stream.Collectors;
 
+/**
+ * Implementation of {@link RelationalStruct} that is backed by a {@link Row}.
+ */
 public abstract class RowStruct implements RelationalStruct {
 
     private final StructMetaData metaData;
@@ -224,36 +225,35 @@ public abstract class RowStruct implements RelationalStruct {
         if (obj instanceof RelationalArray) {
             return (RelationalArray) obj;
         } else if (obj instanceof Collection) {
-            Collection<?> coll = (Collection<?>) obj;
-            final StructMetaData arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
-            Collection<Row> rows = coll.stream().map(t -> {
-                if (t instanceof Row) {
-                    return (Row) t;
-                } else if (t instanceof Message) {
-                    return new MessageTuple((Message) t);
+            final var coll = (Collection<?>) obj;
+            final var arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
+            final var elements = new ArrayList<>();
+            for (final var t: coll) {
+                if (t instanceof Message) {
+                    elements.add(new MessageTuple((Message) t));
+                } else {
+                    elements.add(t);
                 }
-                return new ArrayRow(new Object[]{t});
-            })
-                    .collect(Collectors.toList());
-            return new RowArray(rows, arrayMetaData);
+            }
+            return new RowArray(elements, arrayMetaData);
         } else if (obj instanceof Message) {
             Message message = (Message) obj;
-            final StructMetaData arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
+            final var arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
             // verify message is a wrapped array
             if (!NullableArrayUtils.isWrappedArrayDescriptor(message.getDescriptorForType())) {
                 throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
             }
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
-            Row[] rows = new Row[message.getRepeatedFieldCount(fieldDescriptor)];
-            for (int i = 0; i < message.getRepeatedFieldCount(fieldDescriptor); i++) {
-                Object o = message.getRepeatedField(fieldDescriptor, i);
-                if (o instanceof Message) {
-                    rows[i] = new MessageTuple((Message) o);
+            final var elements = new ArrayList<>();
+            final var coll = (Collection<?>) message.getField(fieldDescriptor);
+            for (final var t: coll) {
+                if (t instanceof Message) {
+                    elements.add(new MessageTuple((Message) t));
                 } else {
-                    rows[i] = new ArrayRow(o);
+                    elements.add(t);
                 }
             }
-            return new RowArray(Arrays.asList(rows), arrayMetaData);
+            return new RowArray(elements, arrayMetaData);
         } else {
             throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
@@ -276,9 +276,9 @@ public abstract class RowStruct implements RelationalStruct {
         if (obj instanceof RelationalStruct) {
             return (RelationalStruct) obj;
         } else if (obj instanceof Row) {
-            return new ImmutableRowStruct((Row) obj, metaData.getNestedMetaData(oneBasedColumn));
+            return new ImmutableRowStruct((Row) obj, metaData.getStructMetaData(oneBasedColumn));
         } else if (obj instanceof Message) {
-            return new ImmutableRowStruct(new MessageTuple((Message) obj), metaData.getNestedMetaData(oneBasedColumn));
+            return new ImmutableRowStruct(new MessageTuple((Message) obj), metaData.getStructMetaData(oneBasedColumn));
         } else {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }

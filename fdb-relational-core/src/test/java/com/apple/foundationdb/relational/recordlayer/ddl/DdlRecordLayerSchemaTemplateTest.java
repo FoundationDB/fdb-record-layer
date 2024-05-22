@@ -22,10 +22,9 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -52,7 +51,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -119,15 +117,16 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(createColumnStatement);
 
             try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
-                Collection<Row> expectedTables = List.of(table.getPermutationAsRow("TBL"));
-                StructMetaData expectedTableMetaData = new RelationalStructMetaData(
-                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls,
-                                new RelationalStructMetaData(
-                                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
-                                ))
-                );
+                final List<?> expectedTables = List.of(table.getPermutation("TBL"));
+                final var expectedTableMetaData = RelationalArrayMetaData.ofStruct(
+                        new RelationalStructMetaData("TABLE",
+                                FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                                FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(
+                                        new RelationalStructMetaData("COLUMN",
+                                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)),
+                                        DatabaseMetaData.columnNoNulls))),
+                        DatabaseMetaData.columnNoNulls);
                 Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);
 
                 ResultSetAssert.assertThat(rs)
