@@ -163,7 +163,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
             String fieldName = path[i];
             Descriptors.Descriptor messageDescriptor = message.getDescriptorForType();
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(fieldName);
-            assertNotNull(fieldDescriptor, () -> String.format("expected to find field %s in descriptor: %s", fieldName, messageDescriptor));
+            assertNotNull(fieldDescriptor, () -> "expected to find field " + fieldName + " in descriptor: " + messageDescriptor);
             Object field = message.getField(fieldDescriptor);
             if (i < path.length - 1) {
                 assertThat(field, Matchers.instanceOf(Message.class));

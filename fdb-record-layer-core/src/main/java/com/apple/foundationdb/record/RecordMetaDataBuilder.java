@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -592,7 +593,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 generatedDependencies.put(key, dependencies[index]);
             } else {
                 // Unknown dependency.
-                throw new MetaDataException(String.format("Dependency %s not found", key));
+                throw new MetaDataException("Dependency not found").addLogInfo(LogMessageKeys.VALUE, key);
             }
         }
         return dependencies;
@@ -735,8 +736,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 // New field and record type.
                 RecordTypeBuilder recordType = processRecordType(unionField, processExtensionOptions);
                 if (recordType.getSinceVersion() != null && recordType.getSinceVersion() != version) {
-                    throw new MetaDataException(String.format("Record type version (%d) does not match meta-data version (%d)",
-                            recordType.getSinceVersion(), version));
+                    throw new MetaDataException("Record type since version does not match meta-data version")
+                            .addLogInfo(LogMessageKeys.META_DATA_VERSION, version)
+                            .addLogInfo("since_version", recordType.getSinceVersion())
+                            .addLogInfo(LogMessageKeys.RECORD_TYPE, recordType.getName());
                 } else {
                     recordType.setSinceVersion(version);
                 }
@@ -1310,8 +1313,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             throw new MetaDataException("Counter-based subspace keys not enabled");
         }
         if (subspaceKeyCounter <= this.subspaceKeyCounter) {
-            throw new MetaDataException(String.format("Subspace key counter must be set to a value greater than its current value (%d)",
-                    this.subspaceKeyCounter));
+            throw new MetaDataException("Subspace key counter must be set to a value greater than its current value")
+                    .addLogInfo(LogMessageKeys.EXPECTED, "greater than " + this.subspaceKeyCounter)
+                    .addLogInfo(LogMessageKeys.ACTUAL, subspaceKeyCounter);
         }
         this.subspaceKeyCounter = subspaceKeyCounter;
         return this;

@@ -199,7 +199,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             int lastNumValue2 = reverse ? Integer.MAX_VALUE : Integer.MIN_VALUE;
             for (Tuple tupleResult : tupleResults) {
                 int numValue2 = (int) tupleResult.getLong(0);
-                assertTrue(reverse ? numValue2 <= lastNumValue2 : numValue2 >= lastNumValue2, String.format("tuple %s should have num_value_2 that is %s than or equal to %d", tupleResult, reverse ? "less" : "greater", numValue2));
+                assertTrue(reverse ? numValue2 <= lastNumValue2 : numValue2 >= lastNumValue2, "tuple " + tupleResult + " should have num_value_2 that is " + (reverse ? "less" : "greater") + " than or equal to " + numValue2);
                 lastNumValue2 = numValue2;
 
                 List<Tuple> grouped = byNumValue2.computeIfAbsent(numValue2, ignore -> new ArrayList<>());

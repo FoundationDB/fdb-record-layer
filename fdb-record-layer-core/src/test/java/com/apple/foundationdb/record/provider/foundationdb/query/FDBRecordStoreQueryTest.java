@@ -932,7 +932,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("uuid"))
                     .build();
             RecordQueryPlan plan = planQuery(query);
-            assertMatchesExactly(plan, scanPlan().where(scanComparisons(range(String.format("([null],[%s])", uuids.get(3))))));
+            assertMatchesExactly(plan, scanPlan().where(scanComparisons(range("([null],[" + uuids.get(3) + "])"))));
             assertEquals(uuids.subList(0, 3), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
         }
     }

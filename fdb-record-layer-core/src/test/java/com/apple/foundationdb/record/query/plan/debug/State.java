@@ -42,6 +42,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
@@ -383,7 +384,7 @@ class State {
     @Nonnull
     private String formatNsInMicros(final long ns) {
         final long micros = TimeUnit.NANOSECONDS.toMicros(ns);
-        return String.format("%,d", micros);
+        return String.format(Locale.ROOT, "%,d", micros);
     }
 
     private static class Stats {

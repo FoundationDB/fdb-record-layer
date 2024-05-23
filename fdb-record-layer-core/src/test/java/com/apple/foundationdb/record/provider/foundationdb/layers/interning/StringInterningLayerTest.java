@@ -237,7 +237,7 @@ class StringInterningLayerTest {
         try (FDBRecordContext context = database.openContext()) {
             StringInterningLayer interningLayer = new StringInterningLayer(testSubspace);
             List<CompletableFuture<NonnullPair<String, Long>>> futures = IntStream.range(0, 50)
-                    .mapToObj(i -> String.format("intern-%d", i))
+                    .mapToObj(i -> "intern-" + i)
                     .map(value -> interningLayer.intern(context, value).thenApply(interned -> NonnullPair.of(value, interned.getValue())))
                     .collect(Collectors.toList());
             allocations = AsyncUtil.getAll(futures).join().stream()

@@ -100,7 +100,7 @@ public class RecordScanLimiterFactory {
 
         @Override
         public String toString() {
-            return String.format("RecordScanLimiter(%d limit, %d left)", originalLimit, allowedRecordScansRemaining.get());
+            return "RecordScanLimiter(" + originalLimit + " limit, " + allowedRecordScansRemaining.get() + " left)";
         }
     }
 
@@ -139,7 +139,7 @@ public class RecordScanLimiterFactory {
 
         @Override
         public String toString() {
-            return String.format("RecordScanLimiter(UNLIMITED, %d scanned)", recordsScanned.get());
+            return "RecordScanLimiter(UNLIMITED, " + recordsScanned.get() + " scanned)";
         }
     }
 

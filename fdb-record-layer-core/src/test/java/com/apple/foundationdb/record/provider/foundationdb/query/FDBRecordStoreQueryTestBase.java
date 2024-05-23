@@ -496,7 +496,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 rec.setFint32(TupleFieldsHelper.toProto(i));
             }
             if (i != 6) {
-                rec.setFstring(TupleFieldsHelper.toProto(String.format("s%d", i)));
+                rec.setFstring(TupleFieldsHelper.toProto("s" + i));
             }
             recordStore.saveRecord(rec.build());
         }

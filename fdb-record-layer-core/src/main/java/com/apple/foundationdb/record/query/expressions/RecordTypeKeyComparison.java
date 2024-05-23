@@ -195,9 +195,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             if (newType == Comparisons.Type.EQUALS) {
                 return this;
             }
-            throw new RecordCoreException(String.format("'%s' expects '%s' comparison only",
-                    RecordTypeKeyComparison.class.getSimpleName(),
-                    Comparisons.Type.EQUALS.name()));
+            throw new RecordCoreException("'" + RecordTypeKeyComparison.class.getSimpleName() + "' expects '" + Comparisons.Type.EQUALS.name() + "' comparison only");
         }
 
         @Nullable

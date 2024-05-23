@@ -268,7 +268,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         for (final var accessor : accessors) {
             final var fieldName = accessor.getName();
             SemanticException.check(currentType.isRecord(), SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
-                    String.format("field '%s' can only be resolved on records", fieldName == null ? "#" + accessor.getOrdinal() : fieldName));
+                    "field '" + (fieldName == null ? "#" + accessor.getOrdinal() : fieldName) + "' can only be resolved on records");
             final var recordType = (Type.Record)currentType;
             final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
             final Field field;

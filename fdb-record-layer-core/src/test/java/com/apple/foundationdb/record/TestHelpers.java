@@ -137,7 +137,7 @@ public class TestHelpers {
      */
     public static int extractCount(Pattern pattern, String logEvent) {
         java.util.regex.Matcher matcher = pattern.matcher(logEvent);
-        assertTrue(matcher.matches(), () -> String.format("expected \"%s\" to match pattern \"%s\"", logEvent, pattern));
+        assertTrue(matcher.matches(), () -> "expected \"" + logEvent + "\" to match pattern \"" + pattern + "\"");
         return Integer.parseInt(matcher.group(1));
     }
 
@@ -149,7 +149,7 @@ public class TestHelpers {
      */
     public static void assertDoesNotMatch(Pattern pattern, String s) {
         java.util.regex.Matcher matcher = pattern.matcher(s);
-        assertFalse(matcher.matches(), () -> String.format("did not expect \"%s\" to have pattern \"%s\"", s, pattern));
+        assertFalse(matcher.matches(), () -> "did not expect \"" + s + "\" to have pattern \"" + pattern + "\"");
     }
 
     private static void callAndMonitorLogging(String loggerName, MatchingAppender appender, Callable<?> callable) {

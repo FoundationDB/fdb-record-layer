@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
@@ -145,7 +146,8 @@ public class EvaluationContext {
     public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
         final var constantsMap = (Map<String, ?>)bindings.get(Bindings.Internal.CONSTANT.bindingName(alias.getId()));
         if (constantsMap == null) {
-            throw new RecordCoreException(String.format("could not find '%s'-'%s' in the evaluation context", alias, constantId));
+            throw new RecordCoreException("could not find constant in the evaluation context")
+                    .addLogInfo(LogMessageKeys.KEY, "'" + alias.getId() + "' - '" + constantId + "'");
         }
         return constantsMap.get(constantId);
     }

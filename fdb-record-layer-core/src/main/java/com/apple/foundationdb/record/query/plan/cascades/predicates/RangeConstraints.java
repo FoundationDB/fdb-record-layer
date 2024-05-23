@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PCompilableRange;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PRangeConstraints;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -579,7 +580,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case IS_NULL:
                     return Range.singleton(boundary);
                 default:
-                    throw new RecordCoreException(String.format("can not transform '%s' to range", comparison));
+                    throw new RecordCoreException("cannot transform comparison to range").addLogInfo(LogMessageKeys.COMPARISON_VALUE, comparison);
             }
         }
 
@@ -685,7 +686,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case LIKE:
                     return false;
                 default:
-                    throw new RecordCoreException(String.format("unexpected comparison type '%s'", comparison.getType()));
+                    throw new RecordCoreException("unexpected comparison type").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparison.getType());
             }
         }
 

@@ -98,7 +98,8 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
 
                     if (!(key instanceof DimensionsKeyExpression)) {
                         throw new KeyExpression.InvalidExpressionException(
-                                String.format("no dimensions key expression or at incorrect place in %s index", index.getType()),
+                                "no dimensions key expression or at incorrect place in index",
+                                LogMessageKeys.INDEX_TYPE, index.getType(),
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
@@ -108,7 +109,8 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
 
                     if (dimensionsKeyExpression.getColumnSize() != keyWithValueExpression.getSplitPoint()) {
                         throw new KeyExpression.InvalidExpressionException(
-                                String.format("dimensions key expression must cover exactly all key parts in %s index", index.getType()),
+                                "dimensions key expression must cover exactly all key parts in index",
+                                LogMessageKeys.INDEX_TYPE, index.getType(),
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
@@ -116,7 +118,8 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
                     // If there is not KeyWithValueExpression, DimensionsKeyExpression is the only other option.
                     if (!(key instanceof DimensionsKeyExpression)) {
                         throw new KeyExpression.InvalidExpressionException(
-                                String.format("no dimensions key expression or at incorrect place in %s index", index.getType()),
+                                "no dimensions key expression or at incorrect place in index",
+                                LogMessageKeys.INDEX_TYPE, index.getType(),
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
@@ -128,7 +131,8 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
                 if (dimensionsKeyExpression.getPrefixSize() + dimensionsKeyExpression.getDimensionsSize() >
                         dimensionsKeyExpression.getColumnSize()) {
                     throw new KeyExpression.InvalidExpressionException(
-                            String.format("dimensions key expression declares wider prefix/dimensions than it covers in %s index", index.getType()),
+                            "dimensions key expression declares wider prefix/dimensions than it covers in index",
+                            LogMessageKeys.INDEX_TYPE, index.getType(),
                             LogMessageKeys.INDEX_NAME, index.getName(),
                             LogMessageKeys.INDEX_KEY, index.getRootExpression());
                 }

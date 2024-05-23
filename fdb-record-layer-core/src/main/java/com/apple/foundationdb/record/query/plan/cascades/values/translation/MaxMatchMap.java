@@ -136,7 +136,7 @@ public class MaxMatchMap {
                     final var candidatePart = entry.getValue();
                     final var pulledUpdateCandidatePart = pulledUpCandidateSide.get(candidatePart);
                     if (pulledUpdateCandidatePart == null) {
-                        throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
+                        throw new RecordCoreException("could not pull up candidate part").addLogInfo("candidate_part", candidatePart);
                     }
                     return Map.entry(boundEquivalence.wrap(queryPart), pulledUpdateCandidatePart);
                 }).collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
