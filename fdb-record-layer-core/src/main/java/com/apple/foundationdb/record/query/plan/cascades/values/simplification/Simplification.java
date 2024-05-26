@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -252,7 +253,7 @@ public class Simplification {
         do {
             current = newCurrent;
             final var ruleIterator =
-                    ruleSet.getValueRules(current).iterator();
+                    ruleSet.getRules(current).iterator();
 
             while (ruleIterator.hasNext()) {
                 final var rule = ruleIterator.next();
@@ -433,7 +434,7 @@ public class Simplification {
      */
     @FunctionalInterface
     public interface RuleCallCreator<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> {
-        CALL create(@Nonnull AbstractRule<RESULT, CALL, BASE, ? extends BASE> rule,
+        CALL create(@Nonnull PlannerRule<RESULT, CALL, ? extends BASE> rule,
                     @Nonnull BASE root,
                     @Nonnull BASE current,
                     @Nonnull PlannerBindings plannerBindings);

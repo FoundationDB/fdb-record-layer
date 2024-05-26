@@ -247,6 +247,19 @@ public class ConstraintsMap {
      * Method to be called when exploration of a group is started.
      */
     public void startExploration() {
+        //
+        // For posterity: There currently is no scenario where
+        //
+        //     !hasNeverBeenExplored() && watermarkGoalTick > watermarkCommittedTick
+        //
+        // is true, i.e. the planner asks to start exploration again while a previous exploration has not committed
+        // yet. Since exploratory tasks are enqueued breadth first, this cannot happen during regular traversal.
+        // There are two scenarios where this could become a possibility:
+        // 1.) We support recursive queries like UNION ALL feeding into itself.
+        // 2.) We employ multiple threads for planning and the task stack is traversed "out-of-order".
+        // For now, we verify that we don't start an already ongoing exploration.
+        //
+        Verify.verify(hasNeverBeenExplored() || watermarkGoalTick <= watermarkCommittedTick);
         watermarkGoalTick = currentTick;
     }
 

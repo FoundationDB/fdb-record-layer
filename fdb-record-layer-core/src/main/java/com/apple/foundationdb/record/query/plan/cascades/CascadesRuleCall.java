@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers.AliasResolver;
-import com.apple.foundationdb.record.query.plan.cascades.Reference.Origin;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -170,7 +169,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
 
     public void yieldExpression(@Nonnull RelationalExpression expression) {
         verifyMemoized(expression);
-        if (root.insert(expression)) {
+        if (root.insert(expression, expression instanceof RecordQueryPlan)) {
             newExpressions.add(expression);
             traversal.addExpression(root, expression);
         }
@@ -289,7 +288,8 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 }
             }
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
-            final var newRef = Reference.of(expression);
+            // TODO this should come from the call itself
+            final var newRef = Reference.of(PlannerStage.QUERY, expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
@@ -317,7 +317,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             }
             Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.NEW)));
             // TODO the origin should come from the rule call itself
-            final var newRef = Reference.of(Origin.CANONICAL /* TODO: INITIAL */, expression);
+            final var newRef = Reference.of(PlannerStage.QUERY, expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
