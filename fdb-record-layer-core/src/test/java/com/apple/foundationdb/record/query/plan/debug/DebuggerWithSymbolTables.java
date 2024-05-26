@@ -78,7 +78,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public boolean isSane() {
-        return true;
+        return false;
     }
 
     @Override

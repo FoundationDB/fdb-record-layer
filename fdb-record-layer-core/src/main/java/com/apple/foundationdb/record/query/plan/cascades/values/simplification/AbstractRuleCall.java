@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -47,7 +48,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> implements PlannerRuleCall<RESULT> {
     @Nonnull
-    private final AbstractRule<RESULT, CALL, ? extends BASE, ? extends BASE> rule;
+    private final PlannerRule<RESULT, CALL, ? extends BASE> rule;
     @Nonnull
     private final BASE root;
     @Nonnull
@@ -62,7 +63,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     private final LinkedIdentitySet<RESULT> results;
     private boolean shouldReExplore;
 
-    public AbstractRuleCall(@Nonnull final AbstractRule<RESULT, CALL, ? extends BASE, ? extends BASE> rule,
+    public AbstractRuleCall(@Nonnull final PlannerRule<RESULT, CALL, ? extends BASE> rule,
                             @Nonnull final BASE root,
                             @Nonnull final BASE current,
                             @Nonnull final PlannerBindings bindings,
@@ -94,7 +95,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     }
 
     @Nonnull
-    public AbstractRule<RESULT, CALL, ? extends BASE, ? extends BASE> getRule() {
+    public PlannerRule<RESULT, CALL, ? extends BASE> getRule() {
         return rule;
     }
 

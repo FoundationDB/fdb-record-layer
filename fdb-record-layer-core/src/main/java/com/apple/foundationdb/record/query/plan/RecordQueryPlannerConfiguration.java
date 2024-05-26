@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -81,7 +81,6 @@ public class RecordQueryPlannerConfiguration {
     private final Set<String> valueIndexesOverScanNeeded;
     @Nullable
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
-
 
     private RecordQueryPlannerConfiguration(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration proto, @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
         this.proto = proto;
@@ -569,11 +568,11 @@ public class RecordQueryPlannerConfiguration {
          * for any planning effort.
          * @param disabledTransformationRuleNames a set of rule names identifying (via simple class name)
          *        transformation rules
-         * @param plannerRuleSet a {@link PlannerRuleSet} that is used to resolve the rule name to a rule class
+         * @param planningRuleSet a {@link PlanningRuleSet} that is used to resolve the rule name to a rule class
          * @return this builder
          */
         @Nonnull
-        public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlannerRuleSet plannerRuleSet) {
+        public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlanningRuleSet planningRuleSet) {
             protoBuilder.clearDisabledTransformationRules()
                     .addAllDisabledTransformationRules(disabledTransformationRuleNames);
             return this;

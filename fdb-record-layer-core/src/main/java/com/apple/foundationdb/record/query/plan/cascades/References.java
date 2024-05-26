@@ -114,7 +114,7 @@ public class References {
                 if (allMembersSame) {
                     cachedTranslationsMap.put(reference, reference);
                 } else {
-                    cachedTranslationsMap.put(reference, Reference.of(reference.getOrigin(),
+                    cachedTranslationsMap.put(reference, Reference.of(reference.getPlannerStage(),
                             translatedMembersBuilder.build(),
                             translatedFinalMembersBuilder.build()));
                 }
