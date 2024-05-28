@@ -52,6 +52,7 @@ import java.util.Map;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.ENGINEER_JOKE;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.complexPartitionedIndex;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES;
@@ -71,6 +72,7 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @ParameterizedTest
