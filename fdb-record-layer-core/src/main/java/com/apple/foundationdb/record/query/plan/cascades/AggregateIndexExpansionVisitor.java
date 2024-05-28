@@ -33,11 +33,14 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -105,6 +108,10 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return IndexTypes.PERMUTED_MAX.equals(index.getType()) || IndexTypes.PERMUTED_MIN.equals(index.getType());
     }
 
+    public boolean isBitMap() {
+        return index.getOption("bitmap_bucket_size") != null;
+    }
+
     /**
      * Creates a new match candidate representing the aggregate index.
      *
@@ -130,11 +137,13 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 2. create a GROUP-BY expression on top.
         final var groupByQun = constructGroupBy(selectWhereQunAndPlaceholders.getLeft(), baseExpansion);
+        // System.out.println("groupByQun:" + groupByQun.getRangesOver().show(false));
 
         // 3. construct SELECT-HAVING with SORT on top.
         final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, selectWhereQunAndPlaceholders.getRight());
         final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
         final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
+        // selectHaving.show(false);
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
@@ -231,9 +240,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupingKeyExpression.getGroupedCount() > 1) {
             throw new UnsupportedOperationException(String.format("aggregate index is expected to contain exactly one aggregation, however it contains %d aggregations", groupingKeyExpression.getGroupedCount()));
         }
-        final Value groupedValue = groupingKeyExpression.getGroupedCount() == 0
+        Value groupedValue;
+        groupedValue = groupingKeyExpression.getGroupedCount() == 0
                                    ? EmptyValue.empty()
                                    : baseExpansion.getResultColumns().get(groupingKeyExpression.getGroupingCount()).getValue();
+        System.out.println("groupingKeyExpression:" + groupingKeyExpression + " groupedValue:" + groupedValue);
 
         // construct aggregation RCV
         final Value arguments;
@@ -257,11 +268,18 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             throw new RecordCoreException("unable to plan group by with non-field value")
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
         }
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(arguments));
+        Value aggregateValue;
+        System.out.println("arguments:" + arguments);
+        if (isBitMap()) {
+            System.out.println("get into AggregateIndexExpansionVisitor modVal");
+            final var modVal = new ArithmeticValue.ModFn().encapsulate(List.of(arguments, new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), Integer.valueOf(Objects.requireNonNull(index.getOption("bitmap_bucket_size"))))));
+            aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(modVal));
+        } else {
+            aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(arguments));
+        }
 
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
-
         if (groupingColsValue.getResultType() instanceof Type.Record &&
                 ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
             return Quantifier.forEach(Reference.of(
@@ -328,6 +346,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexOnlyAggregateValue.MaxEverLongFn());
         mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverLongFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
+        mapBuilder.put(IndexTypes.BITMAP_VALUE, new NumericAggregationValue.BitMapFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.PERMUTED_MAX, new NumericAggregationValue.MaxFn());

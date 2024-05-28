@@ -101,6 +101,13 @@ class AggregateValueTest {
     }
 
     @Test
+    void testBitMap() {
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longs), 126L); // 1111110
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsWithNulls), 118L); // 1110110
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsOnlyNull), (Object)null);
+    }
+
+    @Test
     void testMin() {
         accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_I, ofScalar(1)), ints, 1);
         accumulateAndAssert(new NumericAggregationValue.Min(PhysicalOperator.MIN_L, ofScalar(1L)), longs, 1L);
@@ -175,6 +182,12 @@ class AggregateValueTest {
     private Object[] pairsForAvg(Object[] objects) {
         return Arrays.stream(objects)
                 .map(object -> object == null ? null : Pair.of(object, 1L)) // left for the sum, right for the count
+                .toArray();
+    }
+
+    private Object[] pairsForBitMap(Object[] objects) {
+        return Arrays.stream(objects)
+                .map(object -> object == null ? null : Pair.of(0L, object)) // left for the sum, right for the count
                 .toArray();
     }
 

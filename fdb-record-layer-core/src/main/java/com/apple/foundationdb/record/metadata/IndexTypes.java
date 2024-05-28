@@ -63,7 +63,10 @@ public class IndexTypes {
      * A total of a long-valued field.
      */
     public static final String SUM = FunctionNames.SUM;
-
+    /**
+     *
+     */
+    public static final String BITMAP_VALUE_AGG = FunctionNames.BITMAP_VALUE_AGG;
     /**
      * Compatible name for {@link #MIN_EVER_LONG}.
      * @deprecated use {@link #MIN_EVER_LONG} for compatibility with existing data or {@link #MIN_EVER_TUPLE} for more flexibility

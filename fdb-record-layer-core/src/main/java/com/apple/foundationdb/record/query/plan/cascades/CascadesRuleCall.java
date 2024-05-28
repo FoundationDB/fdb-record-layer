@@ -91,6 +91,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     }
 
     public void run() {
+        System.out.println("CascadesRuleCall rule class:" + rule.getClass());
         rule.onMatch(this);
     }
 

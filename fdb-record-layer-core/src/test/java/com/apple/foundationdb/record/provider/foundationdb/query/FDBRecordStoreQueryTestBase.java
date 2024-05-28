@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -99,19 +100,22 @@ import static org.junit.jupiter.api.Assertions.fail;
  * A base class for common infrastructure used by tests in {@link com.apple.foundationdb.record.provider.foundationdb.query}.
  */
 public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase {
-    protected void setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
-                                          BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord)
-            throws Exception {
+    protected List<TestRecords1Proto.MySimpleRecord> setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
+                                                                            BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord) {
+        ImmutableList.Builder<TestRecords1Proto.MySimpleRecord> listBuilder = ImmutableList.builder();
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
 
             for (int i = 0; i < 100; i++) {
-                TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
-                buildRecord.accept(i, record);
-                recordStore.saveRecord(record.build());
+                TestRecords1Proto.MySimpleRecord.Builder recordBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                buildRecord.accept(i, recordBuilder);
+                TestRecords1Proto.MySimpleRecord rec = recordBuilder.build();
+                recordStore.saveRecord(rec);
+                listBuilder.add(rec);
             }
             commit(context);
         }
+        return listBuilder.build();
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
@@ -366,7 +370,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
-                                        TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
+                                            TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
         final var usedTypes = UsedTypesProperty.evaluate(plan);
         List<T> result = new ArrayList<>();
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());

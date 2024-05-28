@@ -20,11 +20,18 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -43,21 +50,33 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -79,7 +98,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testSimpleGroupBy() {
-        setupHookAndAddData(true, false);
+        setupHookAndAddData(true, false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(false, false),
@@ -99,7 +118,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void attemptToPlanGroupByWithoutCompatiblySortedIndexFails() {
-        setupHookAndAddData(false, false);
+        setupHookAndAddData(false, false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(false, false),
@@ -110,7 +129,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testAggregateIndexPlanning() {
-        setupHookAndAddData(false, true);
+        setupHookAndAddData(false, true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(false, false),
@@ -123,7 +142,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testIndexPlanningWithPredicateInSelectWhere() {
-        setupHookAndAddData(true, false);
+        setupHookAndAddData(true, false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(true, false),
@@ -143,7 +162,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testIndexPlanningWithPredicateInSelectWhereMatchesAggregateIndex() {
-        setupHookAndAddData(true, true);
+        setupHookAndAddData(true, true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(true, false),
@@ -156,13 +175,15 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testIndexPlanningWithPredicateInSelectWhereAndSelectHavingMatchesAggregateIndex() {
-        setupHookAndAddData(true, true);
+        setupHookAndAddData(true, true, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(true, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
+
+        System.out.println("plan:" + plan);
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[44]]")))));
     }
@@ -243,15 +264,154 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected void setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) {
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testBitMap() {
+        // Valkyrie might pass in ConstantObjectValue, not LiteralValue, Normen is working on matching them
+        // modFn has 2 child, fieldValue(uid) comes from KeyExpression, LiteralValue comes from IndexOptions
+        Reference reference = constructBitMapGroupByPlan(false, false);
+        // reference.show(false);
+        RecordMetaDataHook hook = setupHookAndAddData(true, true, true);
+
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructBitMapGroupByPlan(false, false),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+
+        System.out.println("plan:" + plan);
+        List<Message> queryResults = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStoreTestBase.RecordMetaDataHook hook = (metaDataBuilder) -> {
+            openSimpleRecordStore(context, hook);
+            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, Bindings.EMPTY_BINDINGS)) {
+                RecordCursorResult<QueryResult> result;
+                do {
+                    result = cursor.getNext();
+                    if (result.hasNext()) {
+                        queryResults.add(result.get().getMessage());
+                    }
+                } while (result.hasNext());
+
+            }
+        }
+        System.out.println("queryResults:" + queryResults);
+        // assertMatchesExactly(plan, mapPlan(aggregateIndexPlan().where(scanComparisons(range("[[42],[44]]")))));
+
+    }
+
+    @Nonnull
+    private Reference constructBitMapGroupByPlan(final boolean withPredicateInSelectWhere,
+                                           final boolean withPredicateInSelectHaving) {
+        // select str_value_indexed, bit_bucket(num_value_2, 256), bitmap(num_value_2 % 256) from MySimpleRecord group by str_value_indexed, bit_bucket(num_value_2, 256)
+        final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
+        var qun =
+                Quantifier.forEach(Reference.of(
+                        new FullUnorderedScanExpression(allRecordTypes,
+                                new Type.AnyRecord(false),
+                                new AccessHints())));
+
+        qun = Quantifier.forEach(Reference.of(
+                new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
+                        qun,
+                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
+
+        final LiteralValue<Integer> bucketSizeValue = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
+
+        final FieldValue num2Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
+        final var strValueIndexed = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
+
+        final var scanAlias = qun.getAlias();
+        final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
+        final var groupingColStrValueIndexed = Column.of(Optional.of("str_value_indexed"), strValueIndexed);
+        System.out.println("line 297 num2Value:" + num2Value + " result typecode:" + num2Value.getResultType().getTypeCode());
+        final var groupingColNum2Value = Column.of(Optional.of("bit_bucket_num2_value"), (Value)new ArithmeticValue.BitBucketFn().encapsulate(List.of(num2Value, bucketSizeValue)));
+        final var groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingColStrValueIndexed, groupingColNum2Value));
+
+        // 1. build the underlying select, result expr = ( (num_value_2 as GB) <group1>, ($qun as qun) <group2>)
+        {
+            final var selectBuilder = GraphExpansion.builder();
+
+            // <group1>
+            final var col1 = Column.of(Optional.of(groupByColAlias.getId()), groupingColGroup);
+
+            // <group2>
+            final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
+            final var col2 = Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue);
+
+            selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
+
+            if (withPredicateInSelectWhere) {
+                selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
+            }
+
+            qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
+        }
+
+        // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
+        {
+            // 2.1. construct aggregate expression.
+            // (TODO: pengpeng) not sure if removing scanAlias.getId() is correct
+            FieldValue num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
+            List<Typed> aggregatedFieldRef = List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue)));
+            final Value bitMapValue = (Value) new NumericAggregationValue.BitMapFn().encapsulate(aggregatedFieldRef);
+            //final var aggCol = Column.of(Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG)), bitMapValue);
+            final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("bitmap_field")), bitMapValue);
+            final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
+
+            // 2.2. construct grouping columns expression.
+            // (TODO): not sure if here is correct
+            final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
+
+            // 2.3. construct the group by expression
+            final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
+            qun = Quantifier.forEach(Reference.of(groupByExpression));
+        }
+
+        // 3. construct the select expression on top containing the final result set
+        {
+            // construct a result set that makes sense.
+            final var strValueIndexedFieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "str_value_indexed");
+            final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
+            final var bitBucketNumValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "bit_bucket_num2_value");
+            final var bitBucketNumValue2Reference = Column.of(Optional.of("bit_bucket_num2_value"), bitBucketNumValue2FieldValue);
+            // (TODO: pengpeng): add the bitmapNumvalue back
+            System.out.println("quantified value:" + QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()) + " result type:" + QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()).getResultType());
+            final var bitMapNumValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 1), "bitmap_field");
+            final var bitMapNumValue2Reference = Column.of(Optional.of("bitmap_field"), bitMapNumValue2FieldValue);
+
+            final var graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(strValueIndexedReference, bitBucketNumValue2Reference, bitMapNumValue2Reference));
+
+            /*
+            if (withPredicateInSelectHaving) {
+                graphBuilder.addPredicate(new ValuePredicate(numValue2FieldValue, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 44)));
+            }
+
+             */
+
+            final var result = graphBuilder.build().buildSelect();
+            qun = Quantifier.forEach(Reference.of(result));
+            return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+        }
+    }
+
+    @Nonnull
+    private static KeyExpression bitBucketExpression(@Nonnull KeyExpression fieldExpression, int bitBucketSize) {
+        return Key.Expressions.function("bit_bucket", concat(fieldExpression, Key.Expressions.value(bitBucketSize)));
+    }
+
+
+    protected RecordMetaDataHook setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex, final boolean addBitMapIndex) {
+        try (FDBRecordContext context = openContext()) {
+            RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
                 }
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
+                }
+                if (addBitMapIndex) {
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), 2)), IndexTypes.BITMAP_VALUE, Map.of("bitmap_field", "num_value_2", "bitmap_bucket_size", "2")));
                 }
             };
             openSimpleRecordStore(context, hook);
@@ -279,6 +439,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             rec.setRecNo(11).setStrValueIndexed("11").setNumValueUnique(11).setNumValue2(4).setNumValue3Indexed(2000);
             recordStore.saveRecord(rec.build());
             commit(context);
+            return hook;
         }
     }
 }

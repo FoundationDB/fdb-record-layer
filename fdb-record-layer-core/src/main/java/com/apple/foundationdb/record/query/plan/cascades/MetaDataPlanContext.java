@@ -153,6 +153,7 @@ public class MetaDataPlanContext implements PlanContext {
 
         final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
+            System.out.println("Index name:" + index.getName() + " type:" + index.getType());
             final Iterable<MatchCandidate> candidatesForIndex =
                     MatchCandidate.fromIndexDefinition(metaData, index, isSortReverse);
             matchCandidatesBuilder.addAll(candidatesForIndex);

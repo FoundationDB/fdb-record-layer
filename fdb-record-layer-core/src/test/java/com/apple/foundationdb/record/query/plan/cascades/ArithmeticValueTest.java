@@ -70,6 +70,8 @@ class ArithmeticValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
+                    Arguments.of(List.of(5, 2), new ArithmeticValue.BitBucketFn(), 4, false),
+
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.AddFn(), 2, false),
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.SubFn(), 0, false),
                     Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.MulFn(), 4, false),

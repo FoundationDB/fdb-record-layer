@@ -143,6 +143,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var childResult = childValue.eval(store, context);
+        System.out.println("fieldValue eval called childResult:" + childResult + " childValue class:" + childValue.getClass());
         if (!(childResult instanceof Message)) {
             return null;
         }
@@ -271,6 +272,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
                     String.format("field '%s' can only be resolved on records", fieldName == null ? "#" + accessor.getOrdinal() : fieldName));
             final var recordType = (Type.Record)currentType;
             final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
+            System.out.println("fieldNameFieldMap keyset:" + fieldNameFieldMap.keySet());
             final Field field;
             final int ordinal;
             if (fieldName != null) {

@@ -39,9 +39,11 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
+import com.google.common.primitives.Ints;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -273,9 +275,16 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                 //
                 return !fieldDescriptor.isRequired();
             }
+            System.out.println("value class:" + value.getClass() + " value:" + value + " fieldName:" + fieldDescriptor.getName() + " fieldType:" + fieldDescriptor.getType() + "recordDescriptor:" + recordDescriptor.toProto());
             switch (fieldDescriptor.getType()) {
                 case INT32:
-                    value = ((Long)value).intValue();
+                    if (value.getClass().isArray()) {
+                        byte[] valueArray = (byte[])value;
+                        value = fromByteArray((byte[])value);
+                        System.out.println("byte array:" + valueArray[3] + "," + valueArray[2] + "," + valueArray[1] + "," + valueArray[0] + " value:" + value);
+                    } else {
+                        value = ((Long)value).intValue();
+                    }
                     break;
                 case BYTES:
                     value = ZeroCopyByteString.wrap((byte[])value);
@@ -291,6 +300,15 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             }
             recordBuilder.setField(fieldDescriptor, value);
             return true;
+        }
+
+        private static int fromByteArray(byte[] bytes) {
+            Preconditions.checkArgument(bytes.length >= 4, "array too small: %s < %s", bytes.length, 4);
+            return fromBytes(bytes[3], bytes[2], bytes[1], bytes[0]);
+        }
+
+        private static int fromBytes(byte b1, byte b2, byte b3, byte b4) {
+            return b1 << 24 | (b2 & 255) << 16 | (b3 & 255) << 8 | b4 & 255;
         }
 
         @Override

@@ -102,8 +102,10 @@ public class ArithmeticValue extends AbstractValue {
     @Override
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operator.eval(leftChild.eval(store, context),
+        var result = operator.eval(leftChild.eval(store, context),
                 rightChild.eval(store, context));
+        System.out.println("arithmetic value operator:" + operator.name() + " result:" + result);
+        return result;
     }
 
     @Nonnull
@@ -137,7 +139,7 @@ public class ArithmeticValue extends AbstractValue {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
@@ -208,9 +210,9 @@ public class ArithmeticValue extends AbstractValue {
         final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
-
         final PhysicalOperator physicalOperator =
                 getOperatorMap().get(Triple.of(logicalOperator, type0.getTypeCode(), type1.getTypeCode()));
+        System.out.println("physicalOperator name:" + physicalOperator.name() + " arg0:" + arg0 +  "arg0 class:" + arg0.getClass() + " arg1:" + arg1);
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate arithmetic operation due to type mismatch(es)");
 
@@ -232,7 +234,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class AddFn extends BuiltInFunction<Value> {
         public AddFn() {
             super("add",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -243,7 +245,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class SubFn extends BuiltInFunction<Value> {
         public SubFn() {
             super("sub",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -254,7 +256,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class MulFn extends BuiltInFunction<Value> {
         public MulFn() {
             super("mul",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -265,7 +267,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class DivFn extends BuiltInFunction<Value> {
         public DivFn() {
             super("div",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -276,7 +278,51 @@ public class ArithmeticValue extends AbstractValue {
     public static class ModFn extends BuiltInFunction<Value> {
         public ModFn() {
             super("mod",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The bitwise {@code or} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitOrFn extends BuiltInFunction<Value> {
+        public BitOrFn() {
+            super("bitor",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The bitwise {@code and} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitBucketFn extends BuiltInFunction<Value> {
+        public BitBucketFn() {
+            super("bit_bucket",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The bitwise {@code and} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitAndFn extends BuiltInFunction<Value> {
+        public BitAndFn() {
+            super("bitand",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The bitwise {@code xor} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitXorFn extends BuiltInFunction<Value> {
+        public BitXorFn() {
+            super("bitxor",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -288,7 +334,12 @@ public class ArithmeticValue extends AbstractValue {
         SUB("-"),
         MUL("*"),
         DIV("/"),
-        MOD("%");
+        MOD("%"),
+        BITOR("|"),
+        BITAND("&"),
+        BITXOR("^"),
+        BIT_BUCKET("bit_bucket")
+        ;
 
         @Nonnull
         private final String infixNotation;
@@ -400,7 +451,18 @@ public class ArithmeticValue extends AbstractValue {
         MOD_DI(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.INT, TypeCode.DOUBLE, (l, r) -> (double)l % (int)r),
         MOD_DL(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.LONG, TypeCode.DOUBLE, (l, r) -> (double)l % (long)r),
         MOD_DF(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.FLOAT, TypeCode.DOUBLE, (l, r) -> (double)l % (float)r),
-        MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r);
+        MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r),
+
+        BITOR_II(LogicalOperator.BITOR, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l | (int)r),
+        BITOR_LL(LogicalOperator.BITOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l | (long)r),
+        BITAND_II(LogicalOperator.BITAND, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l & (int)r),
+        BITAND_LL(LogicalOperator.BITAND, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l & (long)r),
+        BITXOR_II(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l ^ (int)r),
+        BITXOR_LL(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l ^ (long)r),
+
+        BITBUCKET_L(LogicalOperator.BIT_BUCKET, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (long)r), (long)r)),
+        BITBUCKET_I(LogicalOperator.BIT_BUCKET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
+        ;
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =

@@ -88,7 +88,6 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
-
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
