@@ -298,7 +298,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            result.add(OrderingPart.of(normalizedValue, isReverse));
+            result.add(OrderingPart.of(normalizedValue, OrderingPart.SortOrder.fromIsReverse(isReverse)));
         }
 
         return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);

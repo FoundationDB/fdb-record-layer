@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.google.common.collect.ImmutableList;
@@ -173,7 +174,7 @@ public class RequestedOrdering {
             final var orderingPart = orderingParts.get(i);
             final var orderingValue = Objects.requireNonNull(pushedDownOrderingValues.get(i));
             final var rebasedOrderingValue = orderingValue.rebase(translationMap);
-            pushedDownOrderingPartsBuilder.add(OrderingPart.of(rebasedOrderingValue, orderingPart.isReverse()));
+            pushedDownOrderingPartsBuilder.add(OrderingPart.of(rebasedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
     }
@@ -191,7 +192,9 @@ public class RequestedOrdering {
     public static RequestedOrdering fromSortValues(@Nonnull final List<? extends Value> values,
                                                    final boolean isReverse,
                                                    @Nonnull final Distinctness distinctness) {
-        return new RequestedOrdering(values.stream().map(value -> OrderingPart.of(value, isReverse)).collect(ImmutableList.toImmutableList()), distinctness);
+        return new RequestedOrdering(values.stream().map(value ->
+                        OrderingPart.of(value, SortOrder.fromIsReverse(isReverse)))
+                .collect(ImmutableList.toImmutableList()), distinctness);
     }
 
     /**

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -43,8 +44,7 @@ public class MatchedOrderingPart {
     private MatchedOrderingPart(@Nonnull final Value orderByValue,
                                 @Nonnull final ComparisonRange.Type comparisonRangeType,
                                 final boolean isReverse) {
-
-        this.orderingPart = OrderingPart.of(orderByValue, isReverse);
+        this.orderingPart = OrderingPart.of(orderByValue, SortOrder.fromIsReverse(isReverse));
         this.comparisonRangeType = comparisonRangeType;
     }
 
@@ -58,8 +58,8 @@ public class MatchedOrderingPart {
         return orderingPart.getValue();
     }
 
-    public boolean isReverse() {
-        return orderingPart.isReverse();
+    public SortOrder getDirection() {
+        return orderingPart.getSortOrder();
     }
 
     @Nonnull

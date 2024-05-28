@@ -372,7 +372,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             // Ignore orderings without parts (only containing preserve_distinctness for example)
             if (!ordering.getOrderingParts().isEmpty()) {
                 // If one is reverse, they are all reverse
-                return Optional.of(ordering.getOrderingParts().get(0).isReverse());
+                return Optional.of(ordering.getOrderingParts().get(0).getSortOrder().isReverse());
             }
         }
         return Optional.of(false);

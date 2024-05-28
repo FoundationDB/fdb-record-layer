@@ -79,7 +79,10 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public boolean isSane() {
-        return true;
+        //
+        // Report insanity here which then causes all sanity checks will be run which may be CPU-intensive.
+        //
+        return false;
     }
 
     @Override

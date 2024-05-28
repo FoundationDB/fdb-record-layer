@@ -240,19 +240,19 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     inSource = new SortedInValuesSource(
                             bindingName,
                             (List<Object>)literalValue,
-                            requestedOrderingPart.isReverse());
+                            requestedOrderingPart.getSortOrder().isReverse());
                 } else {
                     return ImmutableList.of();
                 }
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new SortedInParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId(),
-                        requestedOrderingPart.isReverse());
+                        requestedOrderingPart.getSortOrder().isReverse());
             } else if (explodeCollectionValue.isConstant()) {
                 inSource = new SortedInComparandSource(
                         bindingName,
                         new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue),
-                        requestedOrderingPart.isReverse());
+                        requestedOrderingPart.getSortOrder().isReverse());
             } else {
                 return ImmutableList.of();
             }

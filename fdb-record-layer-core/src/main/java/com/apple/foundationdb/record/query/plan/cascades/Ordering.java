@@ -253,7 +253,7 @@ public class Ordering {
                             for (final OrderingPart orderingPart : orderingParts) {
                                 final var pulledUpOrderingValue = pulledUpValuesMap.get(orderingPart.getValue());
                                 if (pulledUpOrderingValue != null) {
-                                    resultMapBuilder.put(orderingPart, OrderingPart.of(pulledUpOrderingValue, orderingPart.isReverse()));
+                                    resultMapBuilder.put(orderingPart, OrderingPart.of(pulledUpOrderingValue, orderingPart.getSortOrder()));
                                 }
                             }
                             return resultMapBuilder.build();
@@ -285,7 +285,7 @@ public class Ordering {
                             while (orderingPartsIterator.hasNext() && pushedDownOrderingValuesIterator.hasNext()) {
                                 final var orderingPart = orderingPartsIterator.next();
                                 final var pushedDownOrderingValue = pushedDownOrderingValuesIterator.next();
-                                resultMapBuilder.put(orderingPart, OrderingPart.of(pushedDownOrderingValue, orderingPart.isReverse()));
+                                resultMapBuilder.put(orderingPart, OrderingPart.of(pushedDownOrderingValue, orderingPart.getSortOrder()));
                             }
                             Verify.verify(!orderingPartsIterator.hasNext() && !pushedDownOrderingValuesIterator.hasNext());
 
@@ -310,7 +310,11 @@ public class Ordering {
 
     @Nonnull
     public Ordering withAdditionalDependencies(@Nonnull final PartiallyOrderedSet<OrderingPart> otherOrderingSet) {
-        Debugger.sanityCheck(() -> Verify.verify(getOrderingSet().getSet().containsAll(otherOrderingSet.getSet())));
+        Debugger.sanityCheck(() -> {
+            Verify.verify(otherOrderingSet.getSet().stream()
+                    .map(OrderingPart::getValue)
+                    .allMatch(otherValue -> orderingSet.getSet().stream().anyMatch(value -> value.equals(otherValue))));
+        });
 
         final var otherDependencyMap = otherOrderingSet.getDependencyMap();
         final var resultDependencyMap =
@@ -396,7 +400,8 @@ public class Ordering {
 
         return PartiallyOrderedSet.<OrderingPart>builder()
                 .addListWithDependencies(filteredOrderingParts)
-                .addAll(equalityBoundValueMap.keySet().stream().map(OrderingPart::of).collect(ImmutableSet.toImmutableSet()))
+                .addAll(equalityBoundValueMap.keySet().stream().map(value -> OrderingPart.of(value, OrderingPart.SortOrder.FIXED))
+                        .collect(ImmutableSet.toImmutableSet()))
                 .build();
     }
 

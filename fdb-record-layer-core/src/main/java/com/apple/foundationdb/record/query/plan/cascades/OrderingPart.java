@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -38,13 +39,13 @@ public class OrderingPart {
     @Nonnull
     private final Value value;
 
-    private final boolean isReverse;
+    private final SortOrder sortOrder;
 
     private final Supplier<Integer> hashCodeSupplier;
 
-    protected OrderingPart(@Nonnull final Value value, final boolean isReverse) {
+    protected OrderingPart(@Nonnull final Value value, final SortOrder sortOrder) {
         this.value = checkValue(value);
-        this.isReverse = isReverse;
+        this.sortOrder = sortOrder;
         this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     }
 
@@ -53,8 +54,8 @@ public class OrderingPart {
         return value;
     }
 
-    public boolean isReverse() {
-        return isReverse;
+    public SortOrder getSortOrder() {
+        return sortOrder;
     }
 
     @Override
@@ -67,7 +68,7 @@ public class OrderingPart {
         }
         final var keyPart = (OrderingPart)o;
         return getValue().equals(keyPart.getValue()) &&
-               isReverse() == keyPart.isReverse();
+               getSortOrder() == keyPart.getSortOrder();
     }
 
     @Override
@@ -76,12 +77,26 @@ public class OrderingPart {
     }
 
     public int computeHashCode() {
-        return Objects.hash(getValue(), isReverse());
+        return Objects.hash(getValue(), getSortOrder().name());
     }
 
     @Override
     public String toString() {
-        return getValue() + (isReverse() ? "↓" : "↑") ;
+        return getValue() + arrowIndicator(getSortOrder());
+    }
+
+    @Nonnull
+    private static String arrowIndicator(@Nonnull final SortOrder sortOrder) {
+        switch (sortOrder) {
+            case ASCENDING:
+                return "↑";
+            case DESCENDING:
+                return "↓";
+            case FIXED:
+                return "=";
+            default:
+                return "!";
+        }
     }
 
     @Nonnull
@@ -89,15 +104,16 @@ public class OrderingPart {
         return ImmutableList.copyOf(keyParts.subList(0, endExclusive));
     }
 
+    // TODO change callers
     @Nonnull
     public static OrderingPart of(@Nonnull final Value orderByValue) {
-        return OrderingPart.of(orderByValue, false);
+        return OrderingPart.of(orderByValue, SortOrder.ASCENDING);
     }
 
     @Nonnull
     public static OrderingPart of(@Nonnull final Value orderByValue,
-                                  final boolean isReverse) {
-        return new OrderingPart(orderByValue, isReverse);
+                                  final SortOrder sortOrder) {
+        return new OrderingPart(orderByValue, sortOrder);
     }
 
     @Nonnull
@@ -106,5 +122,27 @@ public class OrderingPart {
         Verify.verify(correlatedTo.size() <= 1);
         Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(Quantifier.current()));
         return value;
+    }
+
+    /**
+     * TODO.
+     */
+    public enum SortOrder {
+        ASCENDING,
+        DESCENDING,
+        FIXED;
+
+        public boolean isReverse() {
+            if (this == FIXED) {
+                throw new RecordCoreException("cannot determine if this is reverse or not");
+            }
+            return this == DESCENDING;
+        }
+
+        @Nonnull
+        public static SortOrder fromIsReverse(final boolean isReverse) {
+            return isReverse ? DESCENDING : ASCENDING;
+        }
+
     }
 }

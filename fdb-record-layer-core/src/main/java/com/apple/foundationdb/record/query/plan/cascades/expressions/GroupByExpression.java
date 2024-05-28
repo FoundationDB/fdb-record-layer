@@ -289,7 +289,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         Verify.verify(groupingValueType.isRecord());
 
         return new RequestedOrdering(
-                ImmutableList.of(OrderingPart.of(groupingValue)), //TODO this should be deconstructed
+                ImmutableList.of(OrderingPart.of(groupingValue, OrderingPart.SortOrder.ASCENDING)), //TODO this should be deconstructed
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 

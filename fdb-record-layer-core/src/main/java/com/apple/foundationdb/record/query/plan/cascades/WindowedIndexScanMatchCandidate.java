@@ -336,7 +336,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            result.add(OrderingPart.of(normalizedValue, isReverse));
+            result.add(OrderingPart.of(normalizedValue, OrderingPart.SortOrder.fromIsReverse(isReverse)));
         }
 
         return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);

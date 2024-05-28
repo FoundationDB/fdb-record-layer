@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering.Distinctness;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -97,10 +98,10 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     final var orderingParts =
                             Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                                     .stream()
-                                    .map(orderingValue -> OrderingPart.of(orderingValue, false))
+                                    .map(orderingValue -> OrderingPart.of(orderingValue, OrderingPart.SortOrder.ASCENDING))
                                     .collect(ImmutableList.toImmutableList());
 
-                    toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(orderingParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
+                    toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(orderingParts, Distinctness.PRESERVE_DISTINCTNESS));
                 }
             } else {
                 //
@@ -159,7 +160,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                             // add the remaining key parts from the required set
                             requiredOrderingValues
                                     .stream()
-                                    .map(value -> OrderingPart.of(value, false))
+                                    .map(value -> OrderingPart.of(value, OrderingPart.SortOrder.ASCENDING))
                                     .forEach(resultOrderingPartsBuilder::add);
                             toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(resultOrderingPartsBuilder.build(), pushedRequestedOrdering.getDistinctness()));
                         }

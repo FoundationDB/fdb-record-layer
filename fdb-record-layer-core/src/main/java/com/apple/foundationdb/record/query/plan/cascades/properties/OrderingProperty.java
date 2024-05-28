@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -182,7 +183,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     Sets.union(childOrderingSet.getSet(),
                             equalityBoundValues.keySet()
                                     .stream()
-                                    .map(OrderingPart::of)
+                                    .map(value -> OrderingPart.of(value, SortOrder.FIXED))
                                     .collect(ImmutableSet.toImmutableSet()));
             final var orderingSet = PartiallyOrderedSet.of(orderingSetDomain, childOrderingSet.getDependencyMap());
             return Ordering.ofUnnormalized(resultEqualityBoundValueMap, orderingSet, childOrdering.isDistinct());
@@ -262,7 +263,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
             return Ordering.ofUnnormalized(ImmutableSetMultimap.of(),
                     PartiallyOrderedSet.of(
-                            ImmutableSet.of(OrderingPart.of(ObjectValue.of(Quantifier.current(), Type.primitiveType(Type.TypeCode.INT)))),
+                            ImmutableSet.of(OrderingPart.of(ObjectValue.of(Quantifier.current(), Type.primitiveType(Type.TypeCode.INT)), SortOrder.ASCENDING)),
                             ImmutableSetMultimap.of()), true);
         }
 
@@ -333,7 +334,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             }
 
             final var outerOrderingSet = PartiallyOrderedSet.<OrderingPart>builder()
-                    .add(OrderingPart.of(inValue, inSource.isReverse()))
+                    .add(OrderingPart.of(inValue, SortOrder.fromIsReverse(inSource.isReverse())))
                     .build();
             final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
 
@@ -524,7 +525,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final SetMultimap<Value, Comparisons.Comparison> resultEqualityBoundValueMap = HashMultimap.create(equalityBoundValueMap);
             final var resultOrderingPartBuilder = ImmutableList.<OrderingPart>builder();
             for (final var comparisonKeyValue : comparisonKeyValues) {
-                resultOrderingPartBuilder.add(OrderingPart.of(comparisonKeyValue, inUnionOnValuePlan.isReverse()));
+                resultOrderingPartBuilder.add(OrderingPart.of(comparisonKeyValue, SortOrder.fromIsReverse(inUnionOnValuePlan.isReverse())));
             }
 
             final var sourceAliases =
@@ -612,7 +613,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     PartiallyOrderedSet.<OrderingPart>builder()
                             .addListWithDependencies(
                                     comparisonKeyValues.stream()
-                                            .map(value -> OrderingPart.of(value, isReverse))
+                                            .map(value -> OrderingPart.of(value, SortOrder.fromIsReverse(isReverse)))
                                             .collect(ImmutableList.toImmutableList()))
                                     .build();
 
