@@ -4784,9 +4784,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             "평가했다",
             "세상에 어려운 일은 없다",
             "用户@例子.广告",
-            "おいしい@すし.あど",
-            "オイシイ@スシ.アド",
-            "시험@김치오랜.광고"
+            "おいしい@すし.あど なんてない",
+            "オイシイ@スシ.アド なんてない",
+            "시험@김치오랜.광고",
+            "asb@icloud.com 김치오랜"
     );
 
     @ParameterizedTest
@@ -4859,11 +4860,48 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             test.apply("\"用户\\@\"",
                     ImmutableList.of("用户@例子.广告"));
             test.apply("\"い\\@すし\"",
-                    ImmutableList.of("おいしい@すし.あど"));
-            test.apply("\"シイ\\@スシ.\"",
-                    ImmutableList.of("オイシイ@スシ.アド"));
+                    ImmutableList.of("おいしい@すし.あど なんてない"));
+            test.apply("\"シイ\\@スシ.アド\"",
+                    ImmutableList.of("オイシイ@スシ.アド なんてない"));
             test.apply("\"시험@김\"",
                     ImmutableList.of("시험@김치오랜.광고", "シマス風ト 시험@김치오랜"));
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteMultiPhraseLuceneQuery(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"い\\@すし.あど なんあど\"",
+                    ImmutableList.of());
+            test.apply("\"い\\@すし.あど なん\"",
+                    ImmutableList.of("おいしい@すし.あど なんてない"));
+            test.apply("\"シイ\\@スシ.アド な\"",
+                    ImmutableList.of("オイシイ@スシ.アド なんてない"));
+            test.apply("\"asb@icloud.com 김치오\"",
+                    ImmutableList.of("asb@icloud.com 김치오랜"));
 
             commit(context);
         }
