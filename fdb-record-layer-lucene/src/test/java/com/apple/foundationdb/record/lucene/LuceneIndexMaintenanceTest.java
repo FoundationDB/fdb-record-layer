@@ -88,6 +88,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
@@ -146,6 +147,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Random random = new Random(seed);
         final Map<String, String> options = Map.of(
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
         LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
@@ -249,6 +251,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Random random = new Random(seed);
         final Map<String, String> options = Map.of(
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
         LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
@@ -344,6 +347,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Random random = new Random(seed);
         final Map<String, String> options = Map.of(
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(Integer.MAX_VALUE),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
         LOGGER.info(KeyValueLogMessage.of("Running flakyMerge test",
@@ -438,6 +442,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void lockCommitThenValidateTest() throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Index index = complexPartitionedIndex(options);
 
@@ -512,6 +517,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void chaosMergeAndUpdateTest() throws InterruptedException, IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
         Index index = complexPartitionedIndex(options);
 
@@ -596,6 +602,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void multipleConcurrentMergesTest() throws IOException, InterruptedException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
 
         Index index = complexPartitionedIndex(options);
@@ -648,6 +655,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void mergeLosesLockTest(int failurePercentage) throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(200));
         Index index = complexPartitionedIndex(options);
 
