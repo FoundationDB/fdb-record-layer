@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.504.0
+
+
 ### 3.4.502.0
 
 * **Feature** In-join and in-union plans now support using `ConstantObjectValue`s as the basis of their `InSource` [(Issue #2717)](https://github.com/FoundationDB/fdb-record-layer/issues/2717)
