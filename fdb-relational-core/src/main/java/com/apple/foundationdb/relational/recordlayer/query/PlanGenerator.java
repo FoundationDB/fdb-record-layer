@@ -420,6 +420,7 @@ public final class PlanGenerator {
         RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
                 .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
                 .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
+                .setAttemptFailedInJoinAsUnionMaxSize(24)
                 .build();
         planner.setConfiguration(configuration);
         return planner;
