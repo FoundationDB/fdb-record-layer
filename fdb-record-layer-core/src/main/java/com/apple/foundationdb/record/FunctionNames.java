@@ -36,7 +36,6 @@ public class FunctionNames {
     public static final String COUNT_NOT_NULL = "count_not_null";
     public static final String COUNT_DISTINCT = "count_distinct";
     public static final String SUM = "sum";
-    public static final String BITMAP_VALUE_AGG = "bitmap";
     public static final String TIME_WINDOW_COUNT = "time_window_count";
 
     /* Aggregate index functions */

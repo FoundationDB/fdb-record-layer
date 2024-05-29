@@ -279,7 +279,6 @@ public interface MatchCandidate {
         final var availableRecordTypes = recordTypeMap.values();
 
         final var indexType = index.getType();
-        System.out.println("index name:" + index.getName() + " index type:" + indexType);
 
         switch (indexType) {
             case IndexTypes.VALUE:
@@ -322,17 +321,6 @@ public interface MatchCandidate {
             case IndexTypes.SUM: // fallthrough
             case IndexTypes.COUNT: // fallthrough
             case IndexTypes.COUNT_NOT_NULL:
-                expandAggregateIndexMatchCandidate(
-                        index,
-                        availableRecordTypeNames,
-                        availableRecordTypes,
-                        queriedRecordTypeNames,
-                        queriedRecordTypes,
-                        isReverse
-                ).ifPresent(resultBuilder::add);
-                break;
-            case IndexTypes.BITMAP_VALUE: // fallthrough
-                System.out.println("get into IndexTypes.BITMAP_VALUE_AGG");
                 expandAggregateIndexMatchCandidate(
                         index,
                         availableRecordTypeNames,
@@ -415,7 +403,6 @@ public interface MatchCandidate {
                                                                       @Nullable final KeyExpression commonPrimaryKeyForIndex,
                                                                       @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         final var baseRef = createBaseRef(availableRecordTypeNames, availableRecordTypes, queriedRecordTypeNames, queriedRecordTypes, new IndexAccessHint(index.getName()));
-        System.out.println("MatchCandidate::expandIndex expansionVisitor:" + expansionVisitor.getClass());
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         } catch (final UnsupportedOperationException uOE) {

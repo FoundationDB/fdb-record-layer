@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 

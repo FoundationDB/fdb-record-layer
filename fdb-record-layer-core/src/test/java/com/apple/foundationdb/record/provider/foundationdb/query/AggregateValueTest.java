@@ -108,7 +108,6 @@ class AggregateValueTest {
         accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(ints, false), 126); // 1111110
         accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(intsWithNulls, false), 118); // 1110110
         accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(intsOnlyNull, false), (Object)null);
-
     }
 
     @Test
