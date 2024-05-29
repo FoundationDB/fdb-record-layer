@@ -415,7 +415,7 @@ public interface MatchCandidate {
                                                                       @Nullable final KeyExpression commonPrimaryKeyForIndex,
                                                                       @Nonnull final ExpansionVisitor<?> expansionVisitor) {
         final var baseRef = createBaseRef(availableRecordTypeNames, availableRecordTypes, queriedRecordTypeNames, queriedRecordTypes, new IndexAccessHint(index.getName()));
-        // System.out.println("MatchCandidate::expandIndex baseRef:" + baseRef.show(false));
+        System.out.println("MatchCandidate::expandIndex expansionVisitor:" + expansionVisitor.getClass());
         try {
             return Optional.of(expansionVisitor.expand(() -> Quantifier.forEach(baseRef), commonPrimaryKeyForIndex, isReverse));
         } catch (final UnsupportedOperationException uOE) {

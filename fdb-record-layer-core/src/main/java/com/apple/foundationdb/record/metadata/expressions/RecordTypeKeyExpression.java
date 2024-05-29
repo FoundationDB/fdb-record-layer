@@ -117,7 +117,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType, @Nonnull final List<String> fieldNamePrefix) {
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull Type baseType, @Nonnull final List<String> fieldNamePrefix) {
         return new RecordTypeValue(baseAlias);
     }
 

@@ -628,15 +628,15 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     return (long)(pair.getKey()) | (1L << (long)(pair.getValue()));
                 }),
         BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.INT,
-                a -> Pair.of(0L, Objects.requireNonNull(a)),
+                a -> Pair.of(0, Objects.requireNonNull(a)),
                 (s, v) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s;
                     final Pair<?, ?> pair2 = (Pair<?, ?>)v;
-                    return Pair.of((long)(pair1.getKey()) | 1L << (long) (pair1.getValue()), pair2.getValue());
+                    return Pair.of((int)(pair1.getKey()) | 1 << (int)(pair1.getValue()), pair2.getValue());
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
-                    return (long)(pair.getKey()) | (1L << (long)(pair.getValue()));
+                    return (int)(pair.getKey()) | (1 << (int)(pair.getValue()));
                 }),
         SUM_I(LogicalOperator.SUM, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.addExact((int)s, (int)v), identity()),
         SUM_L(LogicalOperator.SUM, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.addExact((long)s, (long)v), identity()),

@@ -102,9 +102,13 @@ class AggregateValueTest {
 
     @Test
     void testBitMap() {
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longs), 126L); // 1111110
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsWithNulls), 118L); // 1110110
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longs, true), 126L); // 1111110
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsWithNulls, true), 118L); // 1110110
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsOnlyNull, true), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(ints, false), 126); // 1111110
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(intsWithNulls, false), 118); // 1110110
+        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(intsOnlyNull, false), (Object)null);
+
     }
 
     @Test
@@ -185,10 +189,16 @@ class AggregateValueTest {
                 .toArray();
     }
 
-    private Object[] pairsForBitMap(Object[] objects) {
-        return Arrays.stream(objects)
-                .map(object -> object == null ? null : Pair.of(0L, object)) // left for the sum, right for the count
-                .toArray();
+    private Object[] pairsForBitMap(Object[] objects, boolean isLong) {
+        if (isLong) {
+            return Arrays.stream(objects)
+                    .map(object -> object == null ? null : Pair.of(0L, object)) // left for the sum, right for the count
+                    .toArray();
+        } else {
+            return Arrays.stream(objects)
+                    .map(object -> object == null ? null : Pair.of(0, object)) // left for the sum, right for the count
+                    .toArray();
+        }
     }
 
     @Test

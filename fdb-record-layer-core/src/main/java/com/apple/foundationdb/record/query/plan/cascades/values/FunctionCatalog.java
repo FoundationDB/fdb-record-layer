@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * A catalog of functions that provides {@link BuiltInFunction}s.
@@ -80,7 +79,6 @@ public class FunctionCatalog {
 
     @SuppressWarnings("java:S1066")
     public static Optional<BuiltInFunction<? extends Typed>> resolve(@Nonnull final String functionName, int numberOfArguments) {
-        System.out.println("function catalog:" + getFunctionCatalog().keySet().stream().map(c -> c.functionName).collect(Collectors.toSet()));
         BuiltInFunction<? extends Typed> builtInFunction = getFunctionCatalog().get(new FunctionKey(functionName, numberOfArguments, false));
         if (builtInFunction == null) {
             // try again as a variadic function

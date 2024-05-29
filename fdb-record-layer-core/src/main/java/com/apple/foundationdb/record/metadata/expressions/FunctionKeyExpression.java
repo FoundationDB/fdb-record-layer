@@ -391,7 +391,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
         public Optional<Builder> getBuilder(String name) {
             Map<String, Builder> registry = initOrGetRegistry();
-            System.out.println("FunctionKeyExpression registry:" + registry.keySet());
             return Optional.ofNullable(registry.get(name));
         }
 

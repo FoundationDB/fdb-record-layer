@@ -341,7 +341,6 @@ public class CascadesPlanner implements QueryPlanner {
                                      @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
                                      @Nonnull final EvaluationContext evaluationContext) {
         try {
-            System.out.println("get into CascadesPlanner::planGraph");
             planPartial(referenceSupplier,
                     rootReference ->
                             MetaDataPlanContext.forRootReference(configuration,
@@ -352,9 +351,7 @@ public class CascadesPlanner implements QueryPlanner {
                                     indexQueryabilityFilter
                             ),
                     evaluationContext);
-            System.out.println("get into after planPartial");
             final var plan = resultOrFail();
-            System.out.println("get into after resultOrFail");
             final var constraints = QueryPlanConstraint.collectConstraints(plan);
             return new QueryPlanResult(plan, QueryPlanInfo.newBuilder().put(QueryPlanInfoKeys.CONSTRAINTS, constraints).build());
         } finally {
@@ -364,8 +361,6 @@ public class CascadesPlanner implements QueryPlanner {
 
     private RecordQueryPlan resultOrFail() {
         final RelationalExpression singleRoot = currentRoot.getMembers().iterator().next();
-        System.out.println("singleRoot class:" + singleRoot.getClass());
-        // singleRoot.show(false);
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
                 logger.debug(KeyValueLogMessage.of("explain of plan",
