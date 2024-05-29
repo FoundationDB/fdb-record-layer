@@ -104,7 +104,6 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
-                         @Nonnull Type baseType,
                          @Nonnull final List<String> fieldNamePrefix) {
         return LiteralValue.ofScalar(value);
     }

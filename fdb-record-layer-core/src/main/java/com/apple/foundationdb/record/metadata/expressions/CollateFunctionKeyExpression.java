@@ -181,7 +181,6 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
-                         @Nonnull final Type baseType,
                          @Nonnull final List<String> fieldNamePrefix) {
         // TODO support this
         throw new UnsupportedOperationException();

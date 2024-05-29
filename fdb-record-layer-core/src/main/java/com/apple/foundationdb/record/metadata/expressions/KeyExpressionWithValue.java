@@ -40,7 +40,7 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {
     @Nonnull
-    Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Type baseType, @Nonnull List<String> fieldNamePrefix);
+    Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
 
     @Nonnull
     @Override
