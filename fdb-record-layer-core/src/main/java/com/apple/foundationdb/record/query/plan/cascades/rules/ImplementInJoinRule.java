@@ -148,13 +148,13 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 }
                 final var reverseSources = Lists.reverse(sources);
 
-                var newInnerPlanReference = call.memoizeMemberPlansBuilder(innerReference, planPartition.getExpressions());
+                var newInnerPlanReference = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
                 for (final InSource inSource : reverseSources) {
                     final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference.reference()));
                     newInnerPlanReference = call.memoizePlansBuilder(inJoinPlan);
                 }
 
-                call.yieldExpression(newInnerPlanReference.members());
+                call.yieldFinalExpressions(newInnerPlanReference.members());
             }
         }
     }

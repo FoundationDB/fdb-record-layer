@@ -43,7 +43,7 @@ import java.util.Set;
  * logic.
  *
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
- * {@link PlannerRuleCall#yieldExpression(Object)} method on its rule call, with a new
+ * {@link PlannerRuleCall#yieldResult(Object)} method on its rule call, with a new
  * {@link Reference}. The <code>yield()</code> method can be called more than once, or zero times if no
  * alternative expressions are found.
  *

@@ -79,10 +79,10 @@ public class ImplementUnorderedUnionRule extends CascadesRule<LogicalUnionExpres
 
         final ImmutableList<Quantifier.Physical> quantifiers =
                 Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getExpressions()))
+                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldExpression(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers));
+        call.yieldFinalExpression(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers));
     }
 }

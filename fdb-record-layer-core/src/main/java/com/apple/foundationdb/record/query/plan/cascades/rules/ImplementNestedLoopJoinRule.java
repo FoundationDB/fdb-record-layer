@@ -154,7 +154,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
 
-        var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getExpressions());
+        var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getPlans());
 
         if (outerQuantifier instanceof Quantifier.Existential) {
             outerRef = call.memoizePlans(
@@ -172,7 +172,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
                 Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
 
         var innerRef =
-                call.memoizeMemberPlans(innerReference, innerPartition.getExpressions());
+                call.memoizeMemberPlans(innerReference, innerPartition.getPlans());
 
         if (innerQuantifier instanceof Quantifier.Existential) {
             innerRef = call.memoizePlans(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
@@ -186,6 +186,6 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
         final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
 
-        call.yieldExpression(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+        call.yieldFinalExpression(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
     }
 }

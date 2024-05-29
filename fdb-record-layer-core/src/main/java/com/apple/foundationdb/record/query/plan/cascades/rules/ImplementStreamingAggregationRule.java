@@ -96,7 +96,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ORDERING);
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
-                call.yieldExpression(implementGroupBy(call, planPartition, groupByExpression));
+                call.yieldFinalExpression(implementGroupBy(call, planPartition, groupByExpression));
             }
         }
     }
@@ -106,7 +106,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
                                                                  @Nonnull final PlanPartition planPartition,
                                                                  @Nonnull final GroupByExpression groupByExpression) {
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
-        final var newInnerPlanReference = call.memoizeMemberPlans(innerQuantifier.getRangesOver(), planPartition.getExpressions());
+        final var newInnerPlanReference = call.memoizeMemberPlans(innerQuantifier.getRangesOver(), planPartition.getPlans());
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
         final var aliasMap = AliasMap.ofAliases(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
         final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);

@@ -91,11 +91,11 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
         //
         final ImmutableList<Quantifier.Physical> newQuantifiers =
                 Streams.zip(planPartitionsByQuantifier.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getExpressions()))
+                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldExpression(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
+        call.yieldFinalExpression(RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
                 logicalIntersectionExpression.getComparisonKeyProvidedOrderingParts(), Quantifiers.isReversed(newQuantifiers)));
     }
 }
