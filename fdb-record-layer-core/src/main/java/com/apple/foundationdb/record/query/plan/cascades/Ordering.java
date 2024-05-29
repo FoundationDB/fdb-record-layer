@@ -310,7 +310,13 @@ public class Ordering {
 
     @Nonnull
     public Ordering withAdditionalDependencies(@Nonnull final PartiallyOrderedSet<OrderingPart> otherOrderingSet) {
-        Debugger.sanityCheck(() -> Verify.verify(getOrderingSet().getSet().containsAll(otherOrderingSet.getSet())));
+        Debugger.sanityCheck(() -> {
+            Verify.verify(otherOrderingSet.getSet()
+                    .stream()
+                    .allMatch(otherOrderingPart -> orderingSet.getSet()
+                            .stream()
+                            .anyMatch(orderinPart -> otherOrderingPart.getValue().equals(orderinPart.getValue()))));
+        });
 
         final var otherDependencyMap = otherOrderingSet.getDependencyMap();
         final var resultDependencyMap =

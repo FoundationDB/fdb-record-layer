@@ -156,6 +156,6 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
                 new RecordQueryMapPlan(newInnerQuantifier, pushedResultValueOptional.get());
 
         // effectively throw away the fetch
-        call.yieldExpression(pushedMapPlan);
+        call.yieldFinalExpression(pushedMapPlan);
     }
 }

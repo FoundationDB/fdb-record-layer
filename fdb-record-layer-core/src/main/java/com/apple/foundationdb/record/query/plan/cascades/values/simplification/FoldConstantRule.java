@@ -73,7 +73,7 @@ public class FoldConstantRule extends ValueSimplificationRule<Value> {
                 }
             }
 
-            call.yieldExpression(new ConstantValue(root.withChildren(newChildren.build())));
+            call.yieldResult(new ConstantValue(root.withChildren(newChildren.build())));
         }
     }
 }

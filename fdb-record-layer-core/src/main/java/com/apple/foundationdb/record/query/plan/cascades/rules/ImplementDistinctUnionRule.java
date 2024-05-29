@@ -203,7 +203,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getExpressions()))
+                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
@@ -214,7 +214,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
+                        call.yieldFinalExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
                     }
                 }
             }

@@ -82,13 +82,13 @@ public class ImplementDistinctRule extends CascadesRule<LogicalDistinctExpressio
         final var innerReference = call.get(innerReferenceMatcher);
 
         if (innerPlanPartition.getPropertyValue(DistinctRecordsProperty.DISTINCT_RECORDS)) {
-            call.yieldExpression(innerPlanPartition.getExpressions());
+            call.yieldFinalExpressions(innerPlanPartition.getPlans());
         } else {
             // these create duplicates
-            call.yieldExpression(
+            call.yieldFinalExpression(
                     new RecordQueryUnorderedPrimaryKeyDistinctPlan(
                             Quantifier.physical(
-                                    call.memoizeMemberPlans(innerReference, innerPlanPartition.getExpressions()))));
+                                    call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()))));
         }
     }
 }

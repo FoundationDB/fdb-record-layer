@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
@@ -101,7 +100,6 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new NormalizePredicatesRule()
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableSet.of(
-            new CombineFilterRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule()
     );

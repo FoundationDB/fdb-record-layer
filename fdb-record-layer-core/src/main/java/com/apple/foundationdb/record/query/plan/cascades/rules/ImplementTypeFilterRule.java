@@ -81,7 +81,7 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
         final var noTypeFilterNeeded = new LinkedIdentitySet<RecordQueryPlan>();
         final var unsatisfiedMapBuilder = ImmutableMultimap.<Set<String>, RecordQueryPlan>builder();
 
-        for (final var innerPlan : planPartition.getExpressions()) {
+        for (final var innerPlan : planPartition.getPlans()) {
             final var childRecordTypes = RecordTypesProperty.evaluate(call.newAliasResolver(), innerPlan);
             final var filterRecordTypes = Sets.newHashSet(logicalTypeFilterExpression.getRecordTypes());
 
@@ -95,11 +95,11 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
         final var unsatisfiedMap = unsatisfiedMapBuilder.build();
 
         if (!noTypeFilterNeeded.isEmpty()) {
-            call.yieldExpression(noTypeFilterNeeded);
+            call.yieldFinalExpressions(noTypeFilterNeeded);
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yieldExpression(
+            call.yieldFinalExpression(
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(call.memoizeMemberPlans(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),
