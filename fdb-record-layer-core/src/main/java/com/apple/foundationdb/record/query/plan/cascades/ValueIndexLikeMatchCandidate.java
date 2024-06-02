@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -95,9 +94,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             getBaseType());
 
             builder.add(
-                    MatchedOrderingPart.of(value,
-                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            isReverse));
+                    MatchedOrderingPart.of(value, comparisonRange, isReverse));
         }
 
         return builder.build();
@@ -108,7 +105,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
     default Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons,
                                                         final boolean isReverse,
                                                         final boolean isDistinct) {
-        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Ordering.Binding>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
@@ -123,13 +120,13 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var normalizedValue =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            equalityBoundValueMapBuilder.put(normalizedValue, comparison);
+            bindingMapBuilder.put(normalizedValue, Ordering.Binding.fixed(comparison));
         }
 
         // We keep a set for normalized values in order to check for duplicate values in the index definition.
         // We correct here for the case where an index is defined over {a, a} since its order is still just a.
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
-        final var result = ImmutableList.<OrderingPart>builder();
+        final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
@@ -149,10 +146,11 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
 
             if (!normalizedValues.contains(normalizedValue)) {
                 normalizedValues.add(normalizedValue);
-                result.add(OrderingPart.of(normalizedValue, SortOrder.fromIsReverse(isReverse)));
+                bindingMapBuilder.putAll(normalizedValue, Ordering.Binding.sorted(SortOrder.fromIsReverse(isReverse)));
+                orderingSequenceBuilder.add(normalizedValue);
             }
         }
 
-        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 }

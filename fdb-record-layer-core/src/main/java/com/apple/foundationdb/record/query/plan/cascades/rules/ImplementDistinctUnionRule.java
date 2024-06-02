@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -178,9 +177,9 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     } else {
                         final var lastMerged = merge.size() - 1;
                         final var mergedOrdering =
-                                Ordering.mergeOrderings(ImmutableList.of(merge.get(lastMerged).getKey(),
-                                        orderings.get(merge.size())),
-                                        Ordering::intersectEqualityBoundKeys, true);
+                                Ordering.merge(ImmutableList.of(merge.get(lastMerged).getKey(),
+                                                orderings.get(merge.size())),
+                                        Ordering::intersectBindings, (left, right) -> true);
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
                         if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, mergedOrdering)) {
@@ -235,10 +234,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
     private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyValues,
                                                        @Nonnull final Ordering ordering) {
         final var orderingValues =
-                ordering.getOrderingSet().getSet()
-                        .stream()
-                        .map(OrderingPart::getValue)
-                        .collect(ImmutableSet.toImmutableSet());
+                ordering.getOrderingSet().getSet();
         for (final var primaryKeyValue : primaryKeyValues) {
             if (!orderingValues.contains(primaryKeyValue)) {
                 return false;

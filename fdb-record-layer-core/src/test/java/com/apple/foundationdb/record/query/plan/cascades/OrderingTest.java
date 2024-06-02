@@ -296,7 +296,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two, three, four), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.mergeOrderings(ImmutableList.of(one, two, three, four), Ordering::intersectBindings, false);
 
         final var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, c),
@@ -327,7 +327,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectBindings, false);
 
         var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, c, x),
@@ -359,7 +359,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectBindings, false);
 
         final var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, c, b, x),
@@ -391,7 +391,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectBindings, false);
 
         var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, x),

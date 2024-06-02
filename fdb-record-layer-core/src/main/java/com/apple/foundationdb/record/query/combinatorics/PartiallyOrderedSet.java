@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.combinatorics;
 
-import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -162,22 +161,26 @@ public class PartiallyOrderedSet<T> {
 
     @Nonnull
     public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, BiMap<T, R>> mapFunction) {
-        final var elements = getSet();
-        final var elementsToMappedElementsMap = mapFunction.apply(elements);
+        return mapAll(mapFunction.apply(getSet()));
+    }
 
-        final var mappedElements = Sets.newLinkedHashSet(elementsToMappedElementsMap.values());
+    @Nonnull
+    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
+        final var elements = getSet();
+
+        final var mappedElements = Sets.newLinkedHashSet(map.values());
 
         final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
         for (final var entry : getTransitiveClosure().entries()) {
             final var key = entry.getKey();
             final var value = entry.getValue();
 
-            if (elementsToMappedElementsMap.containsKey(key) && elementsToMappedElementsMap.containsKey(value)) {
-                resultDependencyMapBuilder.put(elementsToMappedElementsMap.get(key), elementsToMappedElementsMap.get(value));
+            if (map.containsKey(key) && map.containsKey(value)) {
+                resultDependencyMapBuilder.put(map.get(key), map.get(value));
             } else {
-                if (!elementsToMappedElementsMap.containsKey(value)) {
-                    // key depends on value that does not exist -- do not insert the dependency and also remove key
-                    final var mappedKey = elementsToMappedElementsMap.get(key);
+                if (!map.containsKey(value)) {
+                    // if key depends on value that does not exist -- do not insert the dependency and also remove key
+                    final var mappedKey = map.get(key);
                     if (mappedKey != null) {
                         mappedElements.remove(mappedKey);
                     }
@@ -206,6 +209,28 @@ public class PartiallyOrderedSet<T> {
     @Nonnull
     public static <T> PartiallyOrderedSet<T> empty() {
         return new PartiallyOrderedSet<>(ImmutableSet.of(), ImmutableSetMultimap.of());
+    }
+
+    @Nonnull
+    private static <T> SetMultimap<T, T> cleanseDependencyMap(@Nonnull final Set<T> set,
+                                                              @Nonnull final SetMultimap<T, T> dependencyMap) {
+        boolean needsCopy = false;
+        final ImmutableSetMultimap.Builder<T, T> cleanDependencyMapBuilder = ImmutableSetMultimap.builder();
+
+        for (final Map.Entry<T, T> entry : dependencyMap.entries()) {
+            final T key = entry.getKey();
+            final T value = entry.getValue();
+            if (set.contains(key) && set.contains(value)) {
+                cleanDependencyMapBuilder.put(key, entry.getValue());
+            } else {
+                // There is an entry we don't want in the dependency map.
+                needsCopy = true;
+            }
+        }
+        if (needsCopy) {
+            return cleanDependencyMapBuilder.build();
+        }
+        return dependencyMap;
     }
 
     /**
@@ -344,7 +369,7 @@ public class PartiallyOrderedSet<T> {
     }
 
     public static <T> PartiallyOrderedSet<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
-        return new PartiallyOrderedSet<>(set, DependencyUtils.cleanseDependencyMap(set, dependencyMap));
+        return new PartiallyOrderedSet<>(set, cleanseDependencyMap(set, dependencyMap));
     }
 
     @Nonnull
@@ -393,12 +418,12 @@ public class PartiallyOrderedSet<T> {
             return this;
         }
 
-        public Builder<T> addAll(@Nonnull final Iterable<T> additionalElements) {
+        public Builder<T> addAll(@Nonnull final Iterable<? extends T> additionalElements) {
             setBuilder.addAll(additionalElements);
             return this;
         }
 
-        public Builder<T> addListWithDependencies(@Nonnull final List<T> additionalElements) {
+        public Builder<T> addListWithDependencies(@Nonnull final List<? extends T> additionalElements) {
             setBuilder.addAll(additionalElements);
 
             final var iterator = additionalElements.iterator();

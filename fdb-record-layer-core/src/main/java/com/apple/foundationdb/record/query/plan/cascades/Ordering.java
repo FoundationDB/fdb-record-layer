@@ -25,30 +25,33 @@ import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
-import java.util.stream.StreamSupport;
+import java.util.function.Supplier;
 
 /**
  * This class captures an ordering property. An ordering is a list of parts that define the actual ordering of
@@ -85,6 +88,9 @@ import java.util.stream.StreamSupport;
  *
  */
 public class Ordering {
+    @Nonnull
+    private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(), false);
+
     /**
      * Multimap from {@link Value} to a set of {@link Comparison}s to capture all expressions that are
      * bound through equality. This needs to be a multimap to accommodate for the case where an expression is
@@ -95,48 +101,58 @@ public class Ordering {
      * if the predicate is just redundant (where {@code $p} is bound to {@code 5} when the query is executed).
      */
     @Nonnull
-    private final SetMultimap<Value, Comparison> equalityBoundValueMap;
+    private final SetMultimap<Value, Binding> bindingMap;
 
     /**
      * A list of {@link OrderingPart}s where none of the contained expressions is equality-bound. This list
      * defines the actual order of records.
      */
     @Nonnull
-    private final PartiallyOrderedSet<OrderingPart> orderingSet;
+    private final PartiallyOrderedSet<Value> orderingSet;
 
     private final boolean isDistinct;
 
-    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
-                    @Nonnull final List<OrderingPart> orderingParts,
-                    final boolean isDistinct) {
-        this(equalityBoundValueMap, computePartialOrder(equalityBoundValueMap, orderingParts), isDistinct);
-    }
+    @Nonnull
+    private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier;
 
-    public Ordering(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
-                    @Nonnull final PartiallyOrderedSet<OrderingPart> orderingSet,
-                    final boolean isDistinct) {
+    private Ordering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                     @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+                     final boolean isDistinct) {
         Debugger.sanityCheck(() -> {
-            final var normalizedOrderingSet = normalizeOrderingSet(equalityBoundValueMap, orderingSet);
+            final var normalizedBindingMap = normalizeBindingMap(bindingMap);
+            Verify.verify(bindingMap.equals(normalizedBindingMap));
+            final var normalizedOrderingSet = normalizeOrderingSet(bindingMap, orderingSet);
             Verify.verify(orderingSet.equals(normalizedOrderingSet));
         });
 
         this.orderingSet = orderingSet;
-        this.equalityBoundValueMap = ImmutableSetMultimap.copyOf(equalityBoundValueMap);
+        this.bindingMap = ImmutableSetMultimap.copyOf(bindingMap);
         this.isDistinct = isDistinct;
+        this.fixedBindingMapSupplier = Suppliers.memoize(this::computeFixedBindingMap);
     }
 
     @Nonnull
-    public SetMultimap<Value, Comparison> getEqualityBoundValueMap() {
-        return equalityBoundValueMap;
+    public SetMultimap<Value, Binding> getBindingMap() {
+        return bindingMap;
     }
 
     @Nonnull
     public Set<Value> getEqualityBoundValues() {
-        return equalityBoundValueMap.keySet();
+        return getFixedBindingMap().keySet();
     }
 
     @Nonnull
-    public PartiallyOrderedSet<OrderingPart> getOrderingSet() {
+    private SetMultimap<Value, Binding> getFixedBindingMap() {
+        return fixedBindingMapSupplier.get();
+    }
+
+    @Nonnull
+    private SetMultimap<Value, Binding> computeFixedBindingMap() {
+        return ImmutableSetMultimap.copyOf(Multimaps.filterValues(getBindingMap(), Binding::isFixed));
+    }
+
+    @Nonnull
+    public PartiallyOrderedSet<Value> getOrderingSet() {
         return orderingSet;
     }
     
@@ -145,7 +161,7 @@ public class Ordering {
     }
 
     public boolean isEmpty() {
-        return equalityBoundValueMap.isEmpty() && orderingSet.isEmpty();
+        return bindingMap.isEmpty();
     }
 
     @Override
@@ -157,14 +173,14 @@ public class Ordering {
             return false;
         }
         final var ordering = (Ordering)o;
-        return getEqualityBoundValues().equals(ordering.getEqualityBoundValues()) &&
+        return getBindingMap().equals(ordering.getBindingMap()) &&
                getOrderingSet().equals(ordering.getOrderingSet()) &&
                isDistinct() == ordering.isDistinct();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getEqualityBoundValues(), getOrderingSet(), isDistinct());
+        return Objects.hash(getBindingMap(), getOrderingSet(), isDistinct());
     }
 
     @Override
@@ -198,14 +214,18 @@ public class Ordering {
     }
 
     @Nonnull
-    public Iterable<List<OrderingPart>> enumerateSatisfyingOrderings(@Nonnull RequestedOrdering requestedOrdering) {
+    public Iterable<List<OrderingPart>> enumerateSatisfyingOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableList.of();
         }
-        final var requestedOrderingParts = requestedOrdering.getOrderingParts();
+        final var requestedOrderingSequence =
+                requestedOrdering.getOrderingParts()
+                        .stream()
+                        .map(OrderingPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
         return TopologicalSort.satisfyingPermutations(
                 getOrderingSet(),
-                requestedOrderingParts,
+                requestedOrderingSequence,
                 Function.identity(),
                 permutation -> requestedOrderingParts.size());
     }
@@ -213,7 +233,7 @@ public class Ordering {
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
         final var normalizedRequestedOrderingValues =
                 requestedGroupingValues.stream()
-                        .filter(requestedGroupingValue -> !equalityBoundValueMap.containsKey(requestedGroupingValue))
+                        .filter(requestedGroupingValue -> !bindingMap.containsKey(requestedGroupingValue))
                         .collect(ImmutableSet.toImmutableSet());
 
         // no ordering is requested.
@@ -221,7 +241,7 @@ public class Ordering {
             return true;
         }
 
-        final var filteredOrderingSet = orderingSet.filterIndependentElements(keyPart -> !equalityBoundValueMap.containsKey(keyPart.getValue()));
+        final var filteredOrderingSet = orderingSet.filterIndependentElements(keyPart -> !bindingMap.containsKey(keyPart.getValue()));
         final var permutations = TopologicalSort.topologicalOrderPermutations(filteredOrderingSet);
 
         for (final var permutation : permutations) {
@@ -238,124 +258,164 @@ public class Ordering {
 
     @Nonnull
     public Ordering pullUp(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        //
-        // Need to pull every participating value of this ordering through the value.
-        //
-        final var pulledUpOrderingParts =
-                getOrderingSet()
-                        .mapAll(orderingParts -> {
-                            final var orderingKeyValues =
-                                    Streams.stream(orderingParts)
-                                            .map(OrderingPart::getValue)
-                                            .collect(ImmutableList.toImmutableList());
-                            final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.current());
-                            final var resultMapBuilder = ImmutableBiMap.<OrderingPart, OrderingPart>builder();
-                            for (final OrderingPart orderingPart : orderingParts) {
-                                final var pulledUpOrderingValue = pulledUpValuesMap.get(orderingPart.getValue());
-                                if (pulledUpOrderingValue != null) {
-                                    resultMapBuilder.put(orderingPart, OrderingPart.of(pulledUpOrderingValue, orderingPart.getSortOrder()));
-                                }
-                            }
-                            return resultMapBuilder.build();
-                        });
+        final var pulledUpBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+        for (final var entry : getBindingMap().asMap().entrySet()) {
+            final var pulledUpBindings =
+                    translateBindings(entry.getValue(),
+                            toBePulledUpValues -> value.pullUp(toBePulledUpValues, aliasMap, constantAliases, Quantifier.current()));
+            pulledUpBindingMapBuilder.putAll(entry.getKey(), pulledUpBindings);
+        }
 
-        final var pulledUpEqualityBoundMap =
-                translateEqualityBoundValueMap(equalityBoundValueMap,
-                        toBePulledValues -> value.pullUp(toBePulledValues, aliasMap, constantAliases, Quantifier.current()));
+        // pull up the values we actually could also pull up some of the the bindings for
+        final var pulledUpBindingMap = pulledUpBindingMapBuilder.build();
+        final var pulledUpValuesMap =
+                value.pullUp(pulledUpBindingMap.keySet(), aliasMap, constantAliases, Quantifier.current());
 
-        return new Ordering(pulledUpEqualityBoundMap, pulledUpOrderingParts, false);
+        final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMap);
+        final var mappedValues = mappedOrderingSet.getSet();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+
+        for (final var entry : pulledUpValuesMap.entrySet()) {
+            if (mappedValues.contains(entry.getValue())) {
+                Verify.verify(pulledUpBindingMap.containsKey(entry.getKey()));
+                bindingMapBuilder.putAll(entry.getValue(), pulledUpBindingMap.get(entry.getKey()));
+            }
+        }
+
+        return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
     }
 
     @Nonnull
     public Ordering pushDown(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        //
-        // Need to push every participating value of this ordering through the value.
-        //
-        final var pushedDownOrderingParts =
-                getOrderingSet()
-                        .mapAll(orderingParts -> {
-                            final var orderingValues =
-                                    Streams.stream(orderingParts)
-                                            .map(OrderingPart::getValue)
-                                            .collect(ImmutableList.toImmutableList());
-                            final var pushedDownOrderingValues = value.pushDown(orderingValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.current());
-                            final var resultMapBuilder = ImmutableBiMap.<OrderingPart, OrderingPart>builder();
-                            final var orderingPartsIterator = orderingParts.iterator();
-                            final var pushedDownOrderingValuesIterator = pushedDownOrderingValues.iterator();
-                            while (orderingPartsIterator.hasNext() && pushedDownOrderingValuesIterator.hasNext()) {
-                                final var orderingPart = orderingPartsIterator.next();
-                                final var pushedDownOrderingValue = pushedDownOrderingValuesIterator.next();
-                                resultMapBuilder.put(orderingPart, OrderingPart.of(pushedDownOrderingValue, orderingPart.getSortOrder()));
-                            }
-                            Verify.verify(!orderingPartsIterator.hasNext() && !pushedDownOrderingValuesIterator.hasNext());
+        final var pushedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+        for (final var entry : getBindingMap().asMap().entrySet()) {
+            final var pushedBindings =
+                    translateBindings(entry.getValue(),
+                            toBePushedValues -> {
+                                final var pushedDownValues =
+                                        value.pushDown(toBePushedValues,
+                                                DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap,
+                                                constantAliases, Quantifier.current());
+                                final var resultMap = new LinkedIdentityMap<Value, Value>();
+                                for (int i = 0; i < toBePushedValues.size(); i++) {
+                                    final Value toBePushedValue = toBePushedValues.get(i);
+                                    final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
+                                    resultMap.put(toBePushedValue, pushedValue);
+                                }
+                                return resultMap;
+                            });
+            pushedBindingMapBuilder.putAll(entry.getKey(), pushedBindings);
+        }
 
-                            return resultMapBuilder.build();
-                        });
+        // pull up the values we actually could also pull up some of the the bindings for
+        final var pushedBindingMap = pushedBindingMapBuilder.build();
+        final var values = pushedBindingMap.keySet();
+        final var pushedValues =
+                value.pushDown(values, DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                        aliasMap, constantAliases, Quantifier.current());
 
-        final var pushedDownEqualityBoundMap =
-                translateEqualityBoundValueMap(equalityBoundValueMap,
-                        toBePushedValues -> {
-                            final var pushedDownValues = value.pushDown(toBePushedValues, DefaultValueSimplificationRuleSet.ofSimplificationRules(), aliasMap, constantAliases, Quantifier.current());
-                            final var resultMap = new LinkedIdentityMap<Value, Value>();
-                            for (int i = 0; i < toBePushedValues.size(); i++) {
-                                final Value toBePushedValue = toBePushedValues.get(i);
-                                final Value pushedValue = Objects.requireNonNull(pushedDownValues.get(i));
-                                resultMap.put(toBePushedValue, pushedValue);
-                            }
-                            return resultMap;
-                        });
+        final var pushedValuesMapBuilder = ImmutableMap.<Value, Value>builder();
+        final var valuesIterator = values.iterator();
+        final var pushedValuesIterator = pushedValues.iterator();
+        while (valuesIterator.hasNext() && pushedValuesIterator.hasNext()) {
+            pushedValuesMapBuilder.put(valuesIterator.next(), pushedValuesIterator.next());
+        }
+        Verify.verify(!valuesIterator.hasNext() && !pushedValuesIterator.hasNext());
 
-        return new Ordering(pushedDownEqualityBoundMap, pushedDownOrderingParts, isDistinct());
+        final var pushedValuesMap = pushedValuesMapBuilder.build();
+        final var mappedOrderingSet = getOrderingSet().mapAll(pushedValuesMap);
+        final var mappedValues = mappedOrderingSet.getSet();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+
+        for (final var entry : pushedValuesMap.entrySet()) {
+            if (mappedValues.contains(entry.getValue())) {
+                Verify.verify(pushedBindingMap.containsKey(entry.getKey()));
+                bindingMapBuilder.putAll(entry.getValue(), pushedBindingMap.get(entry.getKey()));
+            }
+        }
+
+        return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
     }
 
     @Nonnull
-    public Ordering withAdditionalDependencies(@Nonnull final PartiallyOrderedSet<OrderingPart> otherOrderingSet) {
+    public static SetMultimap<Value, Binding> bindingsForValues(@Nonnull final Collection<? extends Value> values,
+                                                                @Nonnull final SortOrder sortOrder) {
+        final var builder = ImmutableSetMultimap.<Value, Binding>builder();
+        for (final var value : values) {
+            builder.put(value, Binding.sorted(sortOrder));
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    public Ordering applyComparisonKey(@Nonnull final List<? extends Value> comparisonKeyValues,
+                                       @Nonnull final SetMultimap<Value, Binding> comparisonKeyBindingMap) {
+        final var comparisonKeyOrderingSet =
+                PartiallyOrderedSet.<Value>builder()
+                        .addListWithDependencies(comparisonKeyValues)
+                        .build();
+
         Debugger.sanityCheck(() -> {
-            Verify.verify(otherOrderingSet.getSet().stream()
-                    .map(OrderingPart::getValue)
+            Verify.verify(comparisonKeyOrderingSet.getSet().stream()
                     .allMatch(otherValue -> orderingSet.getSet().stream().anyMatch(value -> value.equals(otherValue))));
         });
 
-        final var otherDependencyMap = otherOrderingSet.getDependencyMap();
+        final var resultBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+        for (final Map.Entry<Value, Binding> entry : getBindingMap().entries()) {
+            final var key = entry.getKey();
+            if (!comparisonKeyBindingMap.containsKey(key)) {
+                resultBindingMapBuilder.put(entry);
+            } else {
+                final var comparisonKeyBindings = comparisonKeyBindingMap.get(key);
+                Verify.verify(comparisonKeyBindings.stream().noneMatch(Binding::isFixed));
+                resultBindingMapBuilder.put(key, Iterables.getOnlyElement(comparisonKeyBindings));
+            }
+        }
+
+        final var otherDependencyMap = comparisonKeyOrderingSet.getDependencyMap();
         final var resultDependencyMap =
-                ImmutableSetMultimap.<OrderingPart, OrderingPart>builder()
+                ImmutableSetMultimap.<Value, Value>builder()
                         .putAll(orderingSet.getDependencyMap())
                         .putAll(otherDependencyMap)
                         .build();
         final var resultOrderingSet = PartiallyOrderedSet.of(orderingSet.getSet(), resultDependencyMap);
-
-        return new Ordering(equalityBoundValueMap, resultOrderingSet, isDistinct);
+        return Ordering.ofOrderingSet(resultBindingMapBuilder.build(), resultOrderingSet, isDistinct);
     }
 
     @Nonnull
-    private static SetMultimap<Value, Comparison> translateEqualityBoundValueMap(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
-                                                                                 @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
-        final var pulledEqualityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+    private static Set<Binding> translateBindings(@Nonnull final Collection<Binding> bindings,
+                                                  @Nonnull final Function<List<Value>, Map<Value, Value>> translateFunction) {
+        final var translatedBindingsBuilder = ImmutableSet.<Binding>builder();
 
-        for (final var entry : equalityBoundValueMap.entries()) {
-            final var entryValue = entry.getKey();
-            final var comparison = entry.getValue();
-            if (comparison instanceof Comparisons.ValueComparison) {
-                final var valueComparison = (Comparisons.ValueComparison)comparison;
-                final var valueForValueComparison = valueComparison.getComparandValue();
-                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryValue, valueForValueComparison));
-                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryValue);
-                final var pulledComparisonValue = pulledEqualityBindingValuesMap.get(valueForValueComparison);
-                if (pulledEqualityBindingValue == null || pulledComparisonValue == null) {
-                    continue;
+        if (areAllBindingsFixed(bindings)) {
+            final var toBeTranslatedValues = ImmutableList.<Value>builder();
+            for (final var binding : bindings) {
+                final var comparison = binding.getComparison();
+                if (comparison instanceof Comparisons.ValueComparison) {
+                    final var valueComparison = (Comparisons.ValueComparison)comparison;
+                    toBeTranslatedValues.add(valueComparison.getValue());
                 }
-                pulledEqualityBoundValueMapBuilder.put(pulledEqualityBindingValue, new Comparisons.ValueComparison(valueComparison.getType(), pulledComparisonValue));
-            } else {
-                final var pulledEqualityBindingValuesMap = translateFunction.apply(ImmutableList.of(entryValue));
-                final var pulledEqualityBindingValue = pulledEqualityBindingValuesMap.get(entryValue);
-                if (pulledEqualityBindingValue == null) {
-                    continue;
-                }
-                pulledEqualityBoundValueMapBuilder.put(pulledEqualityBindingValue, comparison);
             }
+            final var translationMap = translateFunction.apply(toBeTranslatedValues.build());
+            for (final var binding : bindings) {
+                final var comparison = binding.getComparison();
+                if (comparison instanceof Comparisons.ValueComparison) {
+                    final var valueComparison = (Comparisons.ValueComparison)comparison;
+                    if (translationMap.containsKey(valueComparison.getValue())) {
+                        final var translatedComparison =
+                                new Comparisons.ValueComparison(valueComparison.getType(),
+                                        translationMap.get(valueComparison.getValue()));
+                        translatedBindingsBuilder.add(Binding.fixed(translatedComparison));
+                    }
+                } else {
+                    translatedBindingsBuilder.add(binding);
+                }
+            }
+        } else {
+            translatedBindingsBuilder.add(Binding.sorted(sortOrder(bindings)));
         }
 
-        return pulledEqualityBoundValueMapBuilder.build();
+        return translatedBindingsBuilder.build();
     }
 
     /**
@@ -386,23 +446,85 @@ public class Ordering {
      *
      * and mean all topologically correct permutations of {@code a, b, x, y}.
      *
-     * @param equalityBoundValueMap a set multimap of equality-bound keys
-     * @param orderingParts a list of ordering {@link OrderingPart}s
+     * @param bindingMap a normalized binding map
+     * @param orderingValues a list of ordering {@link Value}s
      * @return a {@link PartiallyOrderedSet} for this ordering
      */
     @Nonnull
-    private static PartiallyOrderedSet<OrderingPart> computePartialOrder(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
-                                                                         @Nonnull final List<OrderingPart> orderingParts) {
-        final var filteredOrderingParts =
-                orderingParts.stream()
-                        .filter(orderingPart -> !equalityBoundValueMap.containsKey(orderingPart.getValue()))
+    private static PartiallyOrderedSet<Value> computeFromOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                                                          @Nonnull final List<Value> orderingValues) {
+        final var filteredOrderingValues =
+                orderingValues.stream()
+                        .peek(orderingValue -> Verify.verify(bindingMap.containsKey(orderingValue)))
+                        .filter(orderingValue -> bindingMap.get(orderingValue).stream().anyMatch(Binding::isFixed))
                         .collect(ImmutableList.toImmutableList());
 
-        return PartiallyOrderedSet.<OrderingPart>builder()
-                .addListWithDependencies(filteredOrderingParts)
-                .addAll(equalityBoundValueMap.keySet().stream().map(value -> OrderingPart.of(value, OrderingPart.SortOrder.FIXED))
-                        .collect(ImmutableSet.toImmutableSet()))
+        return PartiallyOrderedSet.<Value>builder()
+                .addAll(bindingMap.keySet())
+                .addListWithDependencies(filteredOrderingValues)
                 .build();
+    }
+
+    @Nonnull
+    private static ImmutableSetMultimap<Value, Binding> normalizeBindingMap(@Nonnull final SetMultimap<Value, Binding> bindingMap) {
+        final var normalizedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+        for (final Value value : bindingMap.keySet()) {
+            final boolean isFixed = areAllBindingsFixed(bindingMap.get(value));
+            final var bindings = bindingMap.get(value);
+            SortOrder seenSortOrder = null;
+            for (final Binding binding : bindings) {
+                if (seenSortOrder != null) {
+                    switch (binding.getSortOrder()) {
+                        case ASCENDING:
+                            Verify.verify(!isFixed);
+                            Verify.verify(seenSortOrder != SortOrder.DESCENDING);
+                            // We have seen an ASCENDING binding already -- skip
+                            break;
+                        case DESCENDING:
+                            Verify.verify(!isFixed);
+                            Verify.verify(seenSortOrder != SortOrder.ASCENDING);
+                            // We have seen a DESCENDING binding already -- skip
+                            break;
+                        case FIXED:
+                            //
+                            // If it is not fixed there will be an ASCENDING or DESCENDING as well, so we don't want to
+                            // add the fixed binding at all.
+                            //
+                            if (isFixed) {
+                                normalizedBindingMapBuilder.put(value, binding);
+                            }
+                            break;
+                        default:
+                            throw new RecordCoreException("unknown binding");
+                    }
+                } else {
+                    switch (binding.getSortOrder()) {
+                        case ASCENDING:
+                            Verify.verify(!isFixed);
+                            normalizedBindingMapBuilder.put(value, binding);
+                            break;
+                        case DESCENDING:
+                            Verify.verify(!isFixed);
+                            normalizedBindingMapBuilder.put(value, binding);
+                            break;
+                        case FIXED:
+                            //
+                            // If it is not fixed there will be an ASCENDING or DESCENDING as well, so we don't want to
+                            // add the fixed binding at all.
+                            //
+                            if (isFixed) {
+                                normalizedBindingMapBuilder.put(value, binding);
+                            }
+                            break;
+                        default:
+                            throw new RecordCoreException("unknown binding");
+                    }
+
+                    seenSortOrder = binding.getSortOrder();
+                }
+            }
+        }
+        return normalizedBindingMapBuilder.build();
     }
 
     /**
@@ -410,22 +532,39 @@ public class Ordering {
      * dependencies from or to a particular element contained in the set if that element is also equality-bound. If an
      * element is equality-bound, that is, it is constant for all practical purposes, it is in also independent with
      * respect to all other elements in the set.
-     * @param equalityBoundValueMap a multimap relating values and equality comparisons
+     * @param bindingMap a multimap relating values and equality comparisons
      * @param orderingSet a partially ordered set representing the ordering set of an ordering
      * @return a new (normalized) partially ordered set representing the dependencies between elements in an ordering
      */
     @Nonnull
-    private static PartiallyOrderedSet<OrderingPart> normalizeOrderingSet(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
-                                                                          @Nonnull final PartiallyOrderedSet<OrderingPart> orderingSet) {
+    private static PartiallyOrderedSet<Value> normalizeOrderingSet(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                                                   @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
         final var transitiveClosure = orderingSet.getTransitiveClosure();
-        final var normalizedDependencyMapBuilder = ImmutableSetMultimap.<OrderingPart, OrderingPart>builder();
+        final var normalizedDependencyMapBuilder = ImmutableSetMultimap.<Value, Value>builder();
 
         for (final var dependency : transitiveClosure.entries()) {
-            if (!equalityBoundValueMap.containsKey(dependency.getKey().getValue()) && !equalityBoundValueMap.containsKey(dependency.getValue().getValue())) {
+            Verify.verify(bindingMap.containsKey(dependency.getKey()));
+            Verify.verify(bindingMap.containsKey(dependency.getValue()));
+            final boolean isFixed = areAllBindingsFixed(bindingMap.get(dependency.getKey())) ||
+                    areAllBindingsFixed(bindingMap.get(dependency.getValue()));
+            if (!isFixed) {
                 normalizedDependencyMapBuilder.put(dependency);
             }
         }
         return PartiallyOrderedSet.of(orderingSet.getSet(), normalizedDependencyMapBuilder.build());
+    }
+
+    private static boolean areAllBindingsFixed(@Nonnull Collection<Binding> bindings) {
+        return bindings.stream().allMatch(Binding::isFixed);
+    }
+
+    private static SortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
+        Verify.verify(!bindings.isEmpty());
+        if (areAllBindingsFixed(bindings)) {
+            return SortOrder.FIXED;
+        }
+        // there can only be exactly one binding; otherwise it is an error
+        return Iterables.getOnlyElement(bindings).getSortOrder();
     }
 
     @Nonnull
@@ -455,57 +594,17 @@ public class Ordering {
 
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static <K> PartiallyOrderedSet<K> mergePartialOrderOfOrderings(@Nonnull final PartiallyOrderedSet<K> left,
-                                                                          @Nonnull final PartiallyOrderedSet<K> right) {
-        final var leftDependencies = left.getDependencyMap();
-        final var rightDependencies = right.getDependencyMap();
-
-        final var elementBuilder = ImmutableSet.<K>builder();
-        final var dependencyBuilder = ImmutableSetMultimap.<K, K>builder();
-
-        var leftEligibleSet = left.eligibleSet();
-        var rightEligibleSet = right.eligibleSet();
-
-        Set<K> lastElements = ImmutableSet.of();
-        while (!leftEligibleSet.isEmpty() && !rightEligibleSet.isEmpty()) {
-            final var leftElements = leftEligibleSet.eligibleElements();
-            final var rightElements = rightEligibleSet.eligibleElements();
-
-            final var intersectedElements = Sets.intersection(leftElements, rightElements);
-
-            if (intersectedElements.isEmpty()) {
-                break;
-            }
-
-            elementBuilder.addAll(intersectedElements);
-            for (final var intersectedElement : intersectedElements) {
-                for (final var lastElement : lastElements) {
-                    if (leftDependencies.get(intersectedElement).contains(lastElement) || rightDependencies.get(intersectedElement).contains(lastElement)) {
-                        dependencyBuilder.put(intersectedElement, lastElement);
-                    }
-                }
-            }
-
-            leftEligibleSet = leftEligibleSet.removeEligibleElements(intersectedElements);
-            rightEligibleSet = rightEligibleSet.removeEligibleElements(intersectedElements);
-
-            lastElements = intersectedElements;
-        }
-
-        return PartiallyOrderedSet.of(elementBuilder.build(), dependencyBuilder.build());
-    }
-
-    @Nonnull
-    @SuppressWarnings("java:S135")
-    public static <K> PartiallyOrderedSet<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartiallyOrderedSet<K>> partialOrders) {
-        return StreamSupport.stream(partialOrders.spliterator(), false)
-                .reduce(Ordering::mergePartialOrderOfOrderings)
-                .orElseThrow(() -> new IllegalStateException("must have a partial order"));
+    public static Ordering merge(@Nonnull final Iterable<Ordering> orderings,
+                                 @Nonnull final BinaryOperator<Set<Binding>> combineOperator,
+                                 @Nonnull final BiPredicate<Ordering, Ordering> isDistinctPredicate) {
+        return Streams.stream(orderings)
+                .reduce((left, right) -> merge(left, right, combineOperator, isDistinctPredicate.test(left, right)))
+                .orElseThrow(() -> new IllegalStateException("must have an ordering"));
     }
 
     /**
      * Method to combine a list of {@link Ordering}s into one {@link Ordering}. This method is e.g. used
-     * by logic to establish a comparison key that reasons ordering in the context of planning for a distinct set
+     * to establish a comparison key that reasons about the ordering in the context of planning for a distinct set
      * operation such as intersection or a union distinct.
      * Two or more orderings can be compatible or incompatible. If they are incompatible, this method will return an
      * empty optional, otherwise the computed common ordering:
@@ -564,37 +663,116 @@ public class Ordering {
      * }
      * </pre>
      *
-     * @param orderings a collection of orderings
-     * @param combineFn a combine function to combine two maps of equality-bound keys (and their bindings)
+     * @param left an {@link Ordering}
+     * @param right an {@link Ordering}
+     * @param combineOperator a combine operator to combine two sets of {@link SortOrder#FIXED} bindings.
      * @param isDistinct indicator if the resulting order is thought to be distinct
-     * @return an optional of a list of parts that defines the common ordering that also satisfies the required ordering,
-     *         {@code Optional.empty()} if such a common ordering does not exist
+     * @return an {@link Ordering}
      */
     @Nonnull
-    public static Ordering mergeOrderings(@Nonnull final Collection<Ordering> orderings,
-                                          @Nonnull final BinaryOperator<SetMultimap<Value, Comparison>> combineFn,
-                                          final boolean isDistinct) {
-        final var orderingSets = orderings.stream()
-                .map(Ordering::getOrderingSet)
-                .collect(ImmutableList.toImmutableList());
+    @SuppressWarnings("java:S135")
+    public static Ordering merge(@Nonnull final Ordering left,
+                                 @Nonnull final Ordering right,
+                                 @Nonnull final BinaryOperator<Set<Binding>> combineOperator,
+                                 final boolean isDistinct) {
+        final var leftOrderingSet = left.getOrderingSet();
+        final var rightOrderingSet = right.getOrderingSet();
+        final var leftDependencies = leftOrderingSet.getDependencyMap();
+        final var rightDependencies = rightOrderingSet.getDependencyMap();
+        final var leftBindingMap = left.getBindingMap();
+        final var rightBindingMap = right.getBindingMap();
 
-        final var mergedOrderingSet = mergePartialOrderOfOrderings(orderingSets);
+        final var elementsBuilder = ImmutableSet.<Value>builder();
+        final var dependencyBuilder = ImmutableSetMultimap.<Value, Value>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
 
-        final var mergedEqualityBoundKeys =
-                combineEqualityBoundKeys(orderings, combineFn);
+        var leftEligibleSet = leftOrderingSet.eligibleSet();
+        var rightEligibleSet = rightOrderingSet.eligibleSet();
 
-        return Ordering.ofUnnormalized(mergedEqualityBoundKeys, mergedOrderingSet, isDistinct);
+        Set<Value> lastElements = ImmutableSet.of();
+        while (!leftEligibleSet.isEmpty() && !rightEligibleSet.isEmpty()) {
+            final var leftElements = leftEligibleSet.eligibleElements();
+            final var rightElements = rightEligibleSet.eligibleElements();
+
+            //final var intersectedElements = Sets.intersection(leftElements, rightElements);
+
+            //
+            // "Intersect" the left elements with the right elements. Test their bindings for compatibility.
+            //
+            final var intersectedElementsBuilder = ImmutableSet.<Value>builder();
+            for (final var leftElement : leftElements) {
+                for (final var rightElement : rightElements) {
+                    if (leftElement.equals(rightElement)) {
+                        final var intersectedBindings =
+                                combineBindings(leftBindingMap.get(leftElement),
+                                        rightBindingMap.get(rightElement), combineOperator);
+                        if (!intersectedBindings.isEmpty()) {
+                            intersectedElementsBuilder.add(leftElement);
+                            elementsBuilder.add(leftElement);
+                            bindingMapBuilder.putAll(leftElement, intersectedBindings);
+                        }
+                    }
+                }
+            }
+
+            final var intersectedElements = intersectedElementsBuilder.build();
+            if (intersectedElements.isEmpty()) {
+                break;
+            }
+
+            for (final var intersectedElement : intersectedElements) {
+                for (final var lastElement : lastElements) {
+                    if (leftDependencies.get(intersectedElement).contains(lastElement) || rightDependencies.get(intersectedElement).contains(lastElement)) {
+                        dependencyBuilder.put(intersectedElement, lastElement);
+                    }
+                }
+            }
+
+            leftEligibleSet = leftEligibleSet.removeEligibleElements(intersectedElements);
+            rightEligibleSet = rightEligibleSet.removeEligibleElements(intersectedElements);
+
+            lastElements = intersectedElements;
+        }
+
+        final var orderingSet =
+                PartiallyOrderedSet.of(elementsBuilder.build(), dependencyBuilder.build());
+        return Ordering.ofOrderingSet(bindingMapBuilder.build(), orderingSet, isDistinct);
+    }
+
+    @Nonnull
+    private static Set<Binding> combineBindings(@Nonnull final Set<Binding> leftBindings,
+                                                @Nonnull final Set<Binding> rightBindings,
+                                                @Nonnull final BinaryOperator<Set<Binding>> combineOperator) {
+        final var leftSortOrder = sortOrder(leftBindings);
+        final var rightSortOrder = sortOrder(rightBindings);
+
+        if (leftSortOrder.isDirectional() && rightSortOrder.isDirectional()) {
+            if (leftSortOrder != rightSortOrder) {
+                return ImmutableSet.of();
+            }
+            return ImmutableSet.of(Binding.sorted(leftSortOrder));
+        }
+
+        if (leftSortOrder.isDirectional() && rightSortOrder == SortOrder.FIXED) {
+            return ImmutableSet.of(Binding.sorted(leftSortOrder));
+        }
+        if (leftSortOrder == SortOrder.FIXED && rightSortOrder.isDirectional()) {
+            return ImmutableSet.of(Binding.sorted(rightSortOrder));
+        }
+
+        // delegate to the combine operator to deal with the fixed bindings
+        return combineOperator.apply(leftBindings, rightBindings);
     }
 
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
      * @param orderings a collection of orderings
-     * @param combineFn a combine function to combine two maps of equality-bound keys (and their bindings)
+     * @param combineFn a combine function to combine two maps of {@link SortOrder#FIXED} bindings.
      * @return a new ordering representing a concatenation of the given left and right ordering
      */
     @Nonnull
     public static Ordering concatOrderings(@Nonnull final Collection<Ordering> orderings,
-                                           @Nonnull final BinaryOperator<SetMultimap<Value, Comparison>> combineFn) {
+                                           @Nonnull final BinaryOperator<SetMultimap<Value, Binding>> combineFn) {
 
         return orderings.stream()
                 .reduce((left, right) -> concatOrderings(left, right, combineFn))
@@ -606,12 +784,12 @@ public class Ordering {
      * @param leftOrdering an {@link Ordering}
      * @param rightOrdering another {@link Ordering} to be concatenated to {@code leftOrdering}
      * @param combineFn a combine function to combine two maps of equality-bound keys (and their bindings)
-     * @return a list of {@link OrderingPart}s
+     * @return a new {@link Ordering}
      */
     @Nonnull
     public static Ordering concatOrderings(@Nonnull final Ordering leftOrdering,
                                            @Nonnull final Ordering rightOrdering,
-                                           @Nonnull final BinaryOperator<SetMultimap<Value, Comparison>> combineFn) {
+                                           @Nonnull final BinaryOperator<SetMultimap<Value, Binding>> combineFn) {
         final var leftOrderingSet = leftOrdering.getOrderingSet();
         final var rightOrderingSet = rightOrdering.getOrderingSet();
 
@@ -621,13 +799,13 @@ public class Ordering {
                         Sets.intersection(leftOrderingSet.getSet(), rightOrderingSet.getSet()).isEmpty()));
 
         final var orderingElements =
-                ImmutableSet.<OrderingPart>builder()
+                ImmutableSet.<Value>builder()
                         .addAll(leftOrderingSet.getSet())
                         .addAll(rightOrderingSet.getSet())
                         .build();
 
         final var dependencyMapBuilder =
-                ImmutableSetMultimap.<OrderingPart, OrderingPart>builder()
+                ImmutableSetMultimap.<Value, Value>builder()
                         .putAll(leftOrderingSet.getDependencyMap())
                         .putAll(rightOrderingSet.getDependencyMap());
 
@@ -650,94 +828,153 @@ public class Ordering {
 
         final var concatenatedOrderingSet = PartiallyOrderedSet.of(orderingElements, dependencyMapBuilder.build());
 
-        final var combinedEqualityBoundValueMap = combineFn.apply(leftOrdering.getEqualityBoundValueMap(), rightOrdering.getEqualityBoundValueMap());
-        return Ordering.ofUnnormalized(combinedEqualityBoundValueMap, concatenatedOrderingSet, rightOrdering.isDistinct());
+        final var combinedEqualityBoundValueMap =
+                combineFn.apply(leftOrdering.getBindingMap(), rightOrdering.getBindingMap());
+        return Ordering.ofOrderingSet(combinedEqualityBoundValueMap, concatenatedOrderingSet, rightOrdering.isDistinct());
+    }
+
+
+    /**
+     * Union the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
+     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
+     * @param left set of bindings of the left ordering
+     * @param right set of bindings of the right ordering
+     * @return newly combined set of bindings
+     */
+    @Nonnull
+    public static Set<Binding> unionBindings(@Nonnull final Set<Binding> left,
+                                             @Nonnull final Set<Binding> right) {
+        Debugger.sanityCheck(() -> {
+            Verify.verify(areAllBindingsFixed(left));
+            Verify.verify(areAllBindingsFixed(right));
+        });
+        return ImmutableSet.copyOf(Sets.union(left, right));
     }
 
     /**
-     * Method to combine the map of equality-bound keys (and their bindings) for multiple orderings.
-     *
-     * @param orderings a list of orderings
-     * @param combineFn a {@link BinaryOperator} that can combine two maps of equality-bound keys (and their bindings)
-     * @return a new combined multimap of equality-bound keys (and their bindings) for all the orderings passed in
+     * Union the bindings common to two orderings. This method is usually passed in as a method
+     * reference to {@link #concatOrderings(Collection, BinaryOperator)} as the binary operator.
+     * @param left multimap of bindings of the left ordering
+     * @param right multimap of bindings of the right ordering
+     * @return newly combined multimap of bindings
      */
     @Nonnull
-    public static SetMultimap<Value, Comparison> combineEqualityBoundKeys(@Nonnull final Collection<Ordering> orderings,
-                                                                          @Nonnull final BinaryOperator<SetMultimap<Value, Comparison>> combineFn) {
-        Verify.verify(!orderings.isEmpty());
-        final Iterator<Ordering> orderingsIterator = orderings.iterator();
+    public static SetMultimap<Value, Binding> unionBindingMaps(@Nonnull final SetMultimap<Value, Binding> left,
+                                                               @Nonnull final SetMultimap<Value, Binding> right) {
+        return ImmutableSetMultimap.<Value, Binding>builder()
+                .putAll(left)
+                .putAll(right)
+                .build();
+    }
 
-        final var commonOrderingInfo = orderingsIterator.next();
-        var commonEqualityBoundValueMap = commonOrderingInfo.getEqualityBoundValueMap();
+    /**
+     * Intersect the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
+     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
+     * @param left set of bindings of the left ordering
+     * @param right set of bindings of the right ordering
+     * @return newly combined set of bindings
+     */
+    @Nonnull
+    public static Set<Binding> intersectBindings(@Nonnull final Set<Binding> left,
+                                                 @Nonnull final Set<Binding> right) {
+        Debugger.sanityCheck(() -> {
+            Verify.verify(areAllBindingsFixed(left));
+            Verify.verify(areAllBindingsFixed(right));
+        });
+        return ImmutableSet.copyOf(Sets.intersection(left, right));
+    }
 
-        while (orderingsIterator.hasNext()) {
-            final var currentOrdering = orderingsIterator.next();
+    @Nonnull
+    public static Ordering emptyOrdering() {
+        return EMPTY;
+    }
 
-            final var currentEqualityBoundValueMap = currentOrdering.getEqualityBoundValueMap();
-            commonEqualityBoundValueMap = combineFn.apply(commonEqualityBoundValueMap, currentEqualityBoundValueMap);
+    @Nonnull
+    public static Ordering ofOrderingSet(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                         @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+                                         final boolean isDistinct) {
+        // TODO normalization should not be required as a blanket cleansing step for all calls to this method
+        final var normalizedBindingMap = normalizeBindingMap(bindingMap);
+        return new Ordering(normalizedBindingMap, normalizeOrderingSet(normalizedBindingMap, orderingSet), isDistinct);
+    }
+
+    @Nonnull
+    public static Ordering ofOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                              @Nonnull final List<Value> orderingAsList,
+                                              final boolean isDistinct) {
+        final var normalizedBindingMap = normalizeBindingMap(bindingMap);
+        return new Ordering(normalizedBindingMap, computeFromOrderingSequence(normalizedBindingMap, orderingAsList), isDistinct);
+    }
+
+    /**
+     * TODO.
+     */
+    public static class Binding {
+        @Nonnull
+        private final SortOrder sortOrder;
+
+        /**
+         * Comparison is set if {@code sortOrder} is set to {@link SortOrder#FIXED}, {@code null} otherwise.
+         */
+        @Nullable
+        private final Comparison comparison;
+
+        private Binding(@Nonnull final SortOrder sortOrder, @Nullable final Comparison comparison) {
+            this.sortOrder = sortOrder;
+            this.comparison = comparison;
         }
 
-        return commonEqualityBoundValueMap;
-    }
+        @Nonnull
+        public SortOrder getSortOrder() {
+            return sortOrder;
+        }
 
-    /**
-     * Union the equality-bound keys of two orderings. This method is usually passed in as a method reference to
-     * {@link #combineEqualityBoundKeys(Collection, BinaryOperator)} as the binary operator.
-     * @param left multimap of equality-bound keys of the left ordering (and their bindings)
-     * @param right multimap of equality-bound keys of the right ordering (and their bindings)
-     * @return newly combined multimap of equality-bound keys (and their bindings)
-     */
-    @Nonnull
-    public static SetMultimap<Value, Comparison> unionEqualityBoundKeys(@Nonnull SetMultimap<Value, Comparison> left,
-                                                                        @Nonnull SetMultimap<Value, Comparison> right) {
-        final var resultBuilder = ImmutableSetMultimap.<Value, Comparison>builder();
-        resultBuilder.putAll(left);
-        resultBuilder.putAll(right);
-        return resultBuilder.build();
-    }
+        boolean isFixed() {
+            return sortOrder == SortOrder.FIXED;
+        }
 
-    /**
-     * Intersect the equality-bound keys of two orderings. This method is usually passed in as a method reference to
-     * {@link #combineEqualityBoundKeys(Collection, BinaryOperator)} as the binary operator.
-     * @param left multimap of equality-bound keys of the left ordering (and their bindings)
-     * @param right multimap of equality-bound keys of the right ordering (and their bindings)
-     * @return new combined multimap of equality-bound keys (and their bindings)
-     */
-    @Nonnull
-    public static SetMultimap<Value, Comparison> intersectEqualityBoundKeys(@Nonnull SetMultimap<Value, Comparison> left,
-                                                                            @Nonnull SetMultimap<Value, Comparison> right) {
-        final var resultBuilder = ImmutableSetMultimap.<Value, Comparison>builder();
-        
-        for (final var rightEntry : right.asMap().entrySet()) {
-            final var rightKey = rightEntry.getKey();
-            if (left.containsKey(rightKey)) {
-                //
-                // Left side contains the same key. We can only retain this key in the result, however, if at least
-                // one actual comparison on right is in left as well.
-                //
-                final Collection<Comparison> rightComparisons = rightEntry.getValue();
-                final boolean anyMatchingComparison =
-                        rightComparisons
-                                .stream()
-                                .anyMatch(rightComparison -> left.containsEntry(rightKey, rightComparison));
-                if (anyMatchingComparison) {
-                    resultBuilder.putAll(rightKey, rightComparisons);
-                }
+        @Nullable
+        public Comparison getComparison() {
+            return comparison;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
             }
+            if (!(o instanceof Binding)) {
+                return false;
+            }
+            final Binding binding = (Binding)o;
+            return sortOrder == binding.sortOrder && Objects.equals(comparison, binding.comparison);
         }
 
-        return resultBuilder.build();
-    }
+        @Override
+        public int hashCode() {
+            return Objects.hash(sortOrder, comparison);
+        }
 
-    @Nonnull
-    public static Ordering emptyOrder() {
-        return new Ordering(ImmutableSetMultimap.of(), ImmutableList.of(), false);
-    }
+        @Nonnull
+        public static Binding ascending() {
+            return sorted(SortOrder.ASCENDING);
+        }
 
-    @Nonnull
-    public static Ordering ofUnnormalized(@Nonnull final SetMultimap<Value, Comparison> equalityBoundValueMap,
-                                          @Nonnull final PartiallyOrderedSet<OrderingPart> orderingSet,
-                                          final boolean isDistinct) {
-        return new Ordering(equalityBoundValueMap, normalizeOrderingSet(equalityBoundValueMap, orderingSet), isDistinct);
+        @Nonnull
+        public static Binding descending() {
+            return sorted(SortOrder.DESCENDING);
+        }
+
+        @Nonnull
+        public static Binding sorted(@Nonnull final SortOrder sortOrder) {
+            Verify.verify(sortOrder == SortOrder.ASCENDING ||
+                    sortOrder == SortOrder.DESCENDING);
+            return new Binding(sortOrder, null);
+        }
+
+        @Nonnull
+        public static Binding fixed(@Nonnull final Comparison comparison) {
+            return new Binding(SortOrder.FIXED, comparison);
+        }
     }
 }

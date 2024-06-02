@@ -222,9 +222,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             // Grab the value for this sortParameterID from the selectHaving result columns
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
             builder.add(
-                    MatchedOrderingPart.of(value,
-                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            isReverse));
+                    MatchedOrderingPart.of(value, comparisonRange, isReverse));
         }
 
         return builder.build();
@@ -255,7 +253,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
         if (groupingKey instanceof EmptyKeyExpression) {
             // TODO this should be something like anything-order.
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);

@@ -139,10 +139,13 @@ public class OrderingPart {
             return this == DESCENDING;
         }
 
+        public boolean isDirectional() {
+            return this == ASCENDING || this == DESCENDING;
+        }
+
         @Nonnull
         public static SortOrder fromIsReverse(final boolean isReverse) {
             return isReverse ? DESCENDING : ASCENDING;
         }
-
     }
 }

@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
@@ -59,6 +60,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -71,7 +73,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
@@ -230,7 +231,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                 .collect(ImmutableList.toImmutableList()));
         commonPrimaryKeyValuesOptional.ifPresent(commonPrimaryKeyValues -> {
             final var boundPartitions = Lists.<List<PartialMatchWithCompensation>>newArrayList();
-            // create intersections for all n choose k partitions from k = 2 .. n
+            // create intersections for all n choose k partitions from k = 2 ... n
             IntStream.range(2, bestMaximumCoverageMatches.size() + 1)
                     .mapToObj(k -> ChooseK.chooseK(bestMaximumCoverageMatches, k))
                     .flatMap(iterable -> StreamSupport.stream(iterable.spliterator(), false))
@@ -481,7 +482,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .stream()
                 .map(PartialMatchWithCompensation::getPartialMatch)
                 .map(PartialMatch::getMatchInfo)
-                .map(MatchInfo::getMatchedOrderingParts)
+                .map(MatchInfo::getMatchedOrderingParts) // not just prefix but all matches
                 .collect(ImmutableList.toImmutableList());
 
         final var equalityBoundKeyValues =
@@ -493,13 +494,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                         .map(MatchedOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 
-        final var orderingPartialOrder = intersectionOrderingPartialOrder(partitionOrderings);
+        final var ordering = intersectOrderings(partitionOrderings);
 
         for (final var requestedOrdering : requestedOrderings) {
             final var comparisonKeyValuesIterable =
-                    Ordering.enumerateSatisfyingOrderingComparisonKeyValues(orderingPartialOrder,
-                            equalityBoundKeyValues,
-                            requestedOrdering.getOrderingParts());
+                    ordering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
                 if (!isCompatibleComparisonKey(comparisonKeyValues,
                         commonPrimaryKeyValues,
@@ -543,32 +542,34 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static PartiallyOrderedSet<OrderingPart> intersectionOrderingPartialOrder(@Nonnull final List<List<MatchedOrderingPart>> partitionOrderings) {
+    private static Ordering intersectOrderings(@Nonnull final List<List<MatchedOrderingPart>> partitionOrderings) {
 
         final var orderingPartialOrders =
                 partitionOrderings.stream()
                         .map(matchedOrderingParts -> {
-                            final var orderingPartsPartitions =
-                                    matchedOrderingParts.stream()
-                                            .collect(Collectors.partitioningBy(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY));
+                            final var bindingMapBuilder =
+                                    ImmutableSetMultimap.<Value, Binding>builder();
+                            final var orderingSequenceBuilder =
+                                    ImmutableList.<Value>builder();
+                            for (final var matchedOrderingPart : matchedOrderingParts) {
+                                final var comparisonRange = matchedOrderingPart.getComparisonRange();
+                                if (comparisonRange.getRangeType() == ComparisonRange.Type.EQUALITY) {
+                                    bindingMapBuilder.put(matchedOrderingPart.getValue(),
+                                            Binding.fixed(comparisonRange.getEqualityComparison()));
+                                } else {
+                                    final var orderingValue = matchedOrderingPart.getValue();
+                                    orderingSequenceBuilder.add(orderingValue);
+                                    bindingMapBuilder.put(orderingValue,
+                                            Binding.sorted(matchedOrderingPart.getDirection()));
+                                }
+                            }
 
-                            final var equalityBoundOrderingParts = orderingPartsPartitions.get(true).stream()
-                                    .map(MatchedOrderingPart::getOrderingPart)
-                                    .collect(ImmutableSet.toImmutableSet());
-                            final var orderingParts =
-                                    orderingPartsPartitions.get(false)
-                                            .stream()
-                                            .map(MatchedOrderingPart::getOrderingPart)
-                                            .collect(ImmutableList.toImmutableList());
-
-                            return PartiallyOrderedSet.<OrderingPart>builder()
-                                    .addListWithDependencies(orderingParts)
-                                    .addAll(equalityBoundOrderingParts)
-                                    .build();
+                            return Ordering.ofOrderingSequence(bindingMapBuilder.build(),
+                                    orderingSequenceBuilder.build(), false);
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        return Ordering.mergePartialOrderOfOrderings(orderingPartialOrders);
+        return Ordering.merge(orderingPartialOrders, Ordering::unionBindings, (left, right) -> true);
     }
 
     /**

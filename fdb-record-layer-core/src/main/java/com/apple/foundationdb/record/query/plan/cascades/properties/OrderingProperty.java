@@ -122,7 +122,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -192,7 +192,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -228,7 +228,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -243,7 +243,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -255,7 +255,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -270,26 +270,26 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
         @Override
         public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
         @Override
         public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
-            return deriveForUnionFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(), intersectionOnValuePlan.isReverse(), Ordering::unionEqualityBoundKeys);
+            return deriveForSetOperationFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(), intersectionOnValuePlan.isReverse(), Ordering::unionBindings);
         }
 
         @Nonnull
         @Override
         public Ordering visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -298,7 +298,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var scanComparisons = indexPlan.getScanComparisons();
             return indexPlan.getMatchCandidateMaybe()
                     .map(matchCandidate -> matchCandidate.computeOrderingFromScanComparisons(scanComparisons, indexPlan.isReverse(), indexPlan.isStrictlySorted()))
-                    .orElse(Ordering.emptyOrder());
+                    .orElse(Ordering.emptyOrdering());
         }
 
         @Nonnull
@@ -306,7 +306,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
             // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
             //      We cannot express that as of yet.
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -379,13 +379,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
         @Override
         public Ordering visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -403,7 +403,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -441,7 +441,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             //
             // Outer ordering is distinct and the inner max cardinality is not proven to be 1L.
             //
-            return Ordering.concatOrderings(outerOrdering, innerOrdering, Ordering::unionEqualityBoundKeys);
+            return Ordering.concatOrderings(outerOrdering, innerOrdering, Ordering::unionBindingMaps);
         }
 
         @Nonnull
@@ -459,7 +459,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             if (groupingValue == null) {
                 // TODO To be reconsidered. It should be an ordering that is ordered by anything as the result
                 //      has a maximum cardinality of 1L.
-                return Ordering.emptyOrder();
+                return Ordering.emptyOrdering();
             }
 
             final var groupingKeyAlias = streamingAggregationPlan.getGroupingKeyAlias();
@@ -477,7 +477,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             });
 
             if (composedCompleteResultValueOptional.isEmpty()) {
-                return Ordering.emptyOrder();
+                return Ordering.emptyOrdering();
             }
 
             final var composedCompleteResultValue = composedCompleteResultValueOptional.get();
@@ -488,17 +488,17 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
-            return deriveForUnionFromOrderings(
+            return deriveForSetOperationFromOrderings(
                     orderingsFromChildren(unionOnValuesPlan),
                     unionOnValuesPlan.getComparisonKeyValues(),
                     unionOnValuesPlan.isReverse(),
-                    Ordering::intersectEqualityBoundKeys);
+                    Ordering::intersectBindings);
         }
 
         @Nonnull
         @Override
         public Ordering visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -506,7 +506,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
             final var primaryMatchCandidate = scanPlan.getMatchCandidateMaybe();
             if (primaryMatchCandidate.isEmpty()) {
-                return Ordering.emptyOrder();
+                return Ordering.emptyOrdering();
             }
             return primaryMatchCandidate.get()
                     .computeOrderingFromScanComparisons(
@@ -549,7 +549,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
             // TODO
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -562,13 +562,13 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitSortPlan(@Nonnull final RecordQuerySortPlan element) {
             // TODO
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
         @Override
         public Ordering visitDefault(@Nonnull final RecordQueryPlan element) {
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -577,7 +577,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             if (quantifiers.size() == 1) {
                 return evaluateForReference(Iterables.getOnlyElement(quantifiers).getRangesOver());
             }
-            return Ordering.emptyOrder();
+            return Ordering.emptyOrdering();
         }
 
         @Nonnull
@@ -586,7 +586,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     .stream()
                     .map(quantifier -> {
                         if (quantifier instanceof Quantifier.Existential) {
-                            return Ordering.emptyOrder();
+                            return Ordering.emptyOrdering();
                         }
                         return evaluateForReference(quantifier.getRangesOver());
                     })
@@ -601,23 +601,16 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     memberOrderings
                             .stream()
                             .allMatch(Ordering::isDistinct);
-            return Ordering.mergeOrderings(memberOrderings, Ordering::intersectEqualityBoundKeys, allAreDistinct);
+            return Ordering.mergeOrderings(memberOrderings, Ordering::intersectBindings, allAreDistinct);
         }
 
-        public static Ordering deriveForUnionFromOrderings(@Nonnull final List<Ordering> orderings,
-                                                           @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                           final boolean isReverse,
-                                                           @Nonnull final BinaryOperator<SetMultimap<Value, Comparisons.Comparison>> combineFn) {
+        public static Ordering deriveForSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
+                                                                  @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                                  final boolean isReverse,
+                                                                  @Nonnull final BinaryOperator<SetMultimap<Value, Comparisons.Comparison>> combineFn) {
             final Ordering mergedOrdering = Ordering.mergeOrderings(orderings, combineFn, true);
-            final var comparisonKeyOrderingSet =
-                    PartiallyOrderedSet.<OrderingPart>builder()
-                            .addListWithDependencies(
-                                    comparisonKeyValues.stream()
-                                            .map(value -> OrderingPart.of(value, SortOrder.fromIsReverse(isReverse)))
-                                            .collect(ImmutableList.toImmutableList()))
-                                    .build();
-
-            return mergedOrdering.withAdditionalDependencies(comparisonKeyOrderingSet);
+            return mergedOrdering.applyComparisonKey(comparisonKeyValues,
+                    Ordering.bindingsForValues(comparisonKeyValues, SortOrder.fromIsReverse(isReverse)));
         }
 
         public static Ordering evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {

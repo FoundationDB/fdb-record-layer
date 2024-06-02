@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -34,18 +35,18 @@ public class MatchedOrderingPart {
     private final OrderingPart orderingPart;
 
     @Nonnull
-    private final ComparisonRange.Type comparisonRangeType;
+    private final ComparisonRange comparisonRange;
 
     /**
      * Constructor.
      * @param orderByValue value that defines what to order by
-     * @param comparisonRangeType type of comparison
+     * @param comparisonRange comparison used to match this ordering part
      */
     private MatchedOrderingPart(@Nonnull final Value orderByValue,
-                                @Nonnull final ComparisonRange.Type comparisonRangeType,
+                                @Nonnull final ComparisonRange comparisonRange,
                                 final boolean isReverse) {
         this.orderingPart = OrderingPart.of(orderByValue, SortOrder.fromIsReverse(isReverse));
-        this.comparisonRangeType = comparisonRangeType;
+        this.comparisonRange = comparisonRange;
     }
 
     @Nonnull
@@ -63,8 +64,13 @@ public class MatchedOrderingPart {
     }
 
     @Nonnull
+    public ComparisonRange getComparisonRange() {
+        return comparisonRange;
+    }
+
+    @Nonnull
     public ComparisonRange.Type getComparisonRangeType() {
-        return comparisonRangeType;
+        return comparisonRange.getRangeType();
     }
 
     @Override
@@ -77,18 +83,20 @@ public class MatchedOrderingPart {
         }
         final MatchedOrderingPart that = (MatchedOrderingPart)o;
         return getOrderingPart().equals(that.getOrderingPart()) &&
-               comparisonRangeType.equals(that.comparisonRangeType);
+               comparisonRange.equals(that.comparisonRange);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingPart(), comparisonRangeType);
+        return Objects.hash(getOrderingPart(), comparisonRange);
     }
 
     @Nonnull
     public static MatchedOrderingPart of(@Nonnull final Value orderByValue,
-                                         @Nonnull final ComparisonRange.Type comparisonRangeType,
+                                         @Nullable final ComparisonRange comparisonRange,
                                          final boolean isReverse) {
-        return new MatchedOrderingPart(orderByValue, comparisonRangeType, isReverse);
+        return new MatchedOrderingPart(orderByValue,
+                comparisonRange == null ? ComparisonRange.EMPTY : comparisonRange,
+                isReverse);
     }
 }
