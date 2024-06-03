@@ -102,10 +102,8 @@ public class ArithmeticValue extends AbstractValue {
     @Override
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        var result = operator.eval(leftChild.eval(store, context),
+        return operator.eval(leftChild.eval(store, context),
                 rightChild.eval(store, context));
-        System.out.println("arithmetic value operator:" + operator.name() + " result:" + result);
-        return result;
     }
 
     @Nonnull
@@ -212,7 +210,6 @@ public class ArithmeticValue extends AbstractValue {
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
         final PhysicalOperator physicalOperator =
                 getOperatorMap().get(Triple.of(logicalOperator, type0.getTypeCode(), type1.getTypeCode()));
-        System.out.println("physicalOperator name:" + physicalOperator.name() + " arg0:" + arg0 +  "arg0 class:" + arg0.getClass() + " arg1:" + arg1);
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate arithmetic operation due to type mismatch(es)");
 

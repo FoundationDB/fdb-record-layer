@@ -191,11 +191,11 @@ class AggregateValueTest {
     private Object[] pairsForBitMap(Object[] objects, boolean isLong) {
         if (isLong) {
             return Arrays.stream(objects)
-                    .map(object -> object == null ? null : Pair.of(0L, object)) // left for the sum, right for the count
+                    .map(object -> object == null ? null : Pair.of(0L, object))
                     .toArray();
         } else {
             return Arrays.stream(objects)
-                    .map(object -> object == null ? null : Pair.of(0, object)) // left for the sum, right for the count
+                    .map(object -> object == null ? null : Pair.of(0, object))
                     .toArray();
         }
     }

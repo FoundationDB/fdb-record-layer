@@ -183,7 +183,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     private static AggregateValue encapsulate(@Nonnull final String functionName,
                                               @Nonnull final List<? extends Typed> arguments,
                                               @Nonnull final BiFunction<PhysicalOperator, Value, NumericAggregationValue> valueSupplier) {
-        System.out.println("encapsulate:" + functionName + " arguments:" + arguments + "arg0 class:" + arguments.get(0).getClass());
         Verify.verify(arguments.size() == 1);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
@@ -232,7 +231,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<? extends Typed> arguments) {
-            System.out.println("bitmap encapsulate called");
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitMap::new);
         }
 
@@ -616,6 +614,11 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
      * The function- x type-specific numeric aggregator.
      */
     public enum PhysicalOperator {
+        /*
+        pair.key -> last aggregation result, initial = 0
+        pair.value -> input value to be aggregated
+        so final result = pair.key | (1 << pair.value)
+         */
         BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.LONG,
                 a -> Pair.of(0L, Objects.requireNonNull(a)),
                 (s, v) -> {

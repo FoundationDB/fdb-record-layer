@@ -52,6 +52,8 @@ class ArithmeticValueTest {
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(CorrelationIdentifier.of("ident"), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("rec_no"))))), "rec_no");
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
+    private static final LiteralValue<Integer> INT_5 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 5);
+
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
     private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
     private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
@@ -70,7 +72,7 @@ class ArithmeticValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
-                    Arguments.of(List.of(5, 2), new ArithmeticValue.BitBucketFn(), 4, false),
+                    Arguments.of(List.of(INT_5, INT_2), new ArithmeticValue.BitBucketFn(), 4, false),
 
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.AddFn(), 2, false),
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.SubFn(), 0, false),
