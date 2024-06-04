@@ -250,7 +250,7 @@ public interface AgilityContext {
                     ensureOpen();
                     final FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                     currentContext = database.openContext(contextConfig);
-                    addCommitCheck(currentContext, commitCheck);
+                    addCommitCheckToContext(currentContext, commitCheck);
                     creationTime = now();
                     prevCommitCheckTime = creationTime;
                     currentWriteSize = 0;
@@ -258,7 +258,7 @@ public interface AgilityContext {
             }
         }
 
-        private static void addCommitCheck(final FDBRecordContext commitCheckContext, @Nullable final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
+        private static void addCommitCheckToContext(final FDBRecordContext commitCheckContext, @Nullable final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
             if (commitCheck != null) {
                 commitCheckContext.addCommitCheck(() -> commitCheck.apply(commitCheckContext));
             }
