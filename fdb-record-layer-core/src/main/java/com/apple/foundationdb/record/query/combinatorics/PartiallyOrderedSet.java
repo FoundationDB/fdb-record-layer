@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.combinatorics;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
@@ -160,14 +160,12 @@ public class PartiallyOrderedSet<T> {
     }
 
     @Nonnull
-    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, BiMap<T, R>> mapFunction) {
+    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, Map<T, R>> mapFunction) {
         return mapAll(mapFunction.apply(getSet()));
     }
 
     @Nonnull
     public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
-        final var elements = getSet();
-
         final var mappedElements = Sets.newLinkedHashSet(map.values());
 
         final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
@@ -188,22 +186,26 @@ public class PartiallyOrderedSet<T> {
             }
         }
 
+        // this needs the dependency map to be cleansed (which is done in the constructor)
         return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
     }
 
     /**
-     * Method that computes a new partially-ordered set that does not have any independent elements, i.e. elements
-     * that do not use exert dependencies and that are not dependent upon any other items.
-     * @param retainIfPredicate a predicate that can decide whether an independent element is removed or retained
+     * Method that computes a new partially-ordered set that only retains elements that pass the filtering predicate.
+     * The filtering is applied in a way that we do not break dependencies.
+     * @param predicate a predicate that can decide whether an independent element is removed or retained
      * @return a new {@link PartiallyOrderedSet}
      */
     @Nonnull
-    public PartiallyOrderedSet<T> filterIndependentElements(@Nonnull final Predicate<T> retainIfPredicate) {
-        final var filteredSet =
-                set.stream()
-                        .filter(element -> dependencyMap.containsKey(element) || dependencyMap.containsValue(element) || retainIfPredicate.test(element))
-                        .collect(ImmutableSet.toImmutableSet());
-        return PartiallyOrderedSet.of(filteredSet, getDependencyMap());
+    public PartiallyOrderedSet<T> filterElements(@Nonnull final Predicate<T> predicate) {
+        final var translationMap = ImmutableMap.<T, T>builder();
+        for (final var t : getSet()) {
+            if (predicate.test(t)) {
+                translationMap.put(t, t);
+            }
+        }
+
+        return mapAll(translationMap.build());
     }
 
     @Nonnull

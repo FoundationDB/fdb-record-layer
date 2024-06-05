@@ -189,12 +189,37 @@ public class Ordering {
     }
 
     @Nonnull
-    public Set<Set<Value>> enumerateSatisfyingComparisonKeyValues(@Nonnull final RequestedOrdering requestedOrdering) {
+    public Iterable<List<Value>> enumerateSatisfyingComparisonKeyValues(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
-            return ImmutableSet.of();
+            return ImmutableList.of();
         }
 
-        return Ordering.enumerateSatisfyingOrderingComparisonKeyValues(getOrderingSet(), getEqualityBoundValues(), requestedOrdering.getOrderingParts());
+        final var reducedRequestedOrderingValuesBuilder = ImmutableList.<Value>builder();
+        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+                return ImmutableList.of();
+            }
+            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
+            final var sortOrder = sortOrder(bindings);
+            if (sortOrder.isDirectional() && sortOrder != requestedOrderingPart.getSortOrder()) {
+                return ImmutableList.of();
+            }
+
+            if (sortOrder != SortOrder.FIXED) {
+                reducedRequestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
+            }
+        }
+        final var reducedRequestedOrderingValues = reducedRequestedOrderingValuesBuilder.build();
+
+        // filter out all elements that only have fixed bindings
+        final var filteredOrderingSet =
+                orderingSet.filterElements(this::isDirectionalValue);
+
+        return TopologicalSort.satisfyingPermutations(
+                        filteredOrderingSet,
+                        reducedRequestedOrderingValues,
+                        Function.identity(),
+                        permutation -> reducedRequestedOrderingValues.size());
     }
 
     @Nonnull
@@ -218,37 +243,58 @@ public class Ordering {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableList.of();
         }
-        final var requestedOrderingSequence =
-                requestedOrdering.getOrderingParts()
-                        .stream()
-                        .map(OrderingPart::getValue)
-                        .collect(ImmutableList.toImmutableList());
-        return TopologicalSort.satisfyingPermutations(
-                getOrderingSet(),
-                requestedOrderingSequence,
-                Function.identity(),
-                permutation -> requestedOrderingParts.size());
+
+        final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, OrderingPart>builder();
+        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+                return ImmutableList.of();
+            }
+            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
+            final var sortOrder = sortOrder(bindings);
+            if (sortOrder.isDirectional() && sortOrder != requestedOrderingPart.getSortOrder()) {
+                return ImmutableList.of();
+            }
+
+            requestedOrderingValuesMapBuilder.put(requestedOrderingPart.getValue(), requestedOrderingPart);
+        }
+        final var requestedOrderingValuesMap = requestedOrderingValuesMapBuilder.build();
+
+        final var satisfyingValuePermutations =
+                TopologicalSort.satisfyingPermutations(
+                        getOrderingSet(),
+                        requestedOrdering.getOrderingParts(),
+                        value -> Objects.requireNonNull(requestedOrderingValuesMap.get(value)),
+                        permutation -> requestedOrdering.getOrderingParts().size());
+        return Iterables.transform(satisfyingValuePermutations,
+                permutation -> permutation.stream()
+                        .map(value -> Objects.requireNonNull(requestedOrderingValuesMap.get(value)))
+                        .collect(ImmutableList.toImmutableList()));
     }
 
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
-        final var normalizedRequestedOrderingValues =
+        if (requestedGroupingValues
+                .stream()
+                .anyMatch(groupingValue -> !bindingMap.containsKey(groupingValue))) {
+            return false;
+        }
+
+        final var reducedRequestedOrderingValues =
                 requestedGroupingValues.stream()
-                        .filter(requestedGroupingValue -> !bindingMap.containsKey(requestedGroupingValue))
+                        .filter(requestedGroupingValue -> isSingularDirectionalBinding(bindingMap.get(requestedGroupingValue)))
                         .collect(ImmutableSet.toImmutableSet());
 
-        // no ordering is requested.
-        if (normalizedRequestedOrderingValues.isEmpty()) {
+        // no ordering left worth further considerations
+        if (reducedRequestedOrderingValues.isEmpty()) {
             return true;
         }
 
-        final var filteredOrderingSet = orderingSet.filterIndependentElements(keyPart -> !bindingMap.containsKey(keyPart.getValue()));
+        final var filteredOrderingSet =
+                orderingSet.filterElements(value -> isSingularDirectionalBinding(bindingMap.get(value)));
+
         final var permutations = TopologicalSort.topologicalOrderPermutations(filteredOrderingSet);
-
         for (final var permutation : permutations) {
-            final var containsAll = permutation.subList(0, normalizedRequestedOrderingValues.size())
-                    .stream()
-                    .allMatch(keyPart -> normalizedRequestedOrderingValues.contains(keyPart.getValue()));
-
+            final var containsAll =
+                    reducedRequestedOrderingValues.containsAll(permutation.subList(0, reducedRequestedOrderingValues.size()));
             if (containsAll) {
                 return true;
             }
@@ -266,7 +312,7 @@ public class Ordering {
             pulledUpBindingMapBuilder.putAll(entry.getKey(), pulledUpBindings);
         }
 
-        // pull up the values we actually could also pull up some of the the bindings for
+        // pull up the values we actually could also pull up some of the bindings for
         final var pulledUpBindingMap = pulledUpBindingMapBuilder.build();
         final var pulledUpValuesMap =
                 value.pullUp(pulledUpBindingMap.keySet(), aliasMap, constantAliases, Quantifier.current());
@@ -355,10 +401,8 @@ public class Ordering {
                         .addListWithDependencies(comparisonKeyValues)
                         .build();
 
-        Debugger.sanityCheck(() -> {
-            Verify.verify(comparisonKeyOrderingSet.getSet().stream()
-                    .allMatch(otherValue -> orderingSet.getSet().stream().anyMatch(value -> value.equals(otherValue))));
-        });
+        Debugger.sanityCheck(() -> Verify.verify(comparisonKeyOrderingSet.getSet().stream()
+                .allMatch(otherValue -> orderingSet.getSet().stream().anyMatch(value -> value.equals(otherValue)))));
 
         final var resultBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final Map.Entry<Value, Binding> entry : getBindingMap().entries()) {
@@ -380,6 +424,16 @@ public class Ordering {
                         .build();
         final var resultOrderingSet = PartiallyOrderedSet.of(orderingSet.getSet(), resultDependencyMap);
         return Ordering.ofOrderingSet(resultBindingMapBuilder.build(), resultOrderingSet, isDistinct);
+    }
+
+    public boolean isDirectionalValue(@Nonnull final Value value) {
+        Verify.verify(bindingMap.containsKey(value));
+        final var bindings = bindingMap.get(value);
+        if (isSingularDirectionalBinding(bindings)) {
+            return true;
+        }
+        Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindingMap.get(value))));
+        return false;
     }
 
     @Nonnull
@@ -420,24 +474,23 @@ public class Ordering {
 
     /**
      * Method to compute the {@link PartiallyOrderedSet} representing this {@link Ordering}.
-     *
+     * <br>
      * An ordering expresses the order of e.g. fields {@code a, b, x} and additionally declares some fields, e.g. {@code c}
      * to be equal-bound to a value (e.g. {@code 5}). That means that {@code c} can freely move in the order declaration of
      * {@code a, b, x} and satisfy {@link RequestedOrdering}s such as e.g. {@code a, c, b, x}, {@code a, b, x, c}
      * or similar.
-     *
+     * <br>
      * Generalizing this idea, for this example we can also say that in this case the plan is ordered by
      * {@code c} as well as all the values for {@code c} are identical. Generalizing further, a plan, or by extension,
      * a stream of data can actually be ordered by many things at the same time. For instance, a stream of four
      * fields {@code a, b, x, y} can be ordered by {@code a, b} and {@code x, y} at the same time (consider e.g. that
      * {@code x = 10 * a; y = 10 *b}. Both of these orderings are equally correct and representative.
-     *
+     * <br>
      * Based on these two independent orderings we can construct new orderings that are also correct:
      * {@code a, b, x, y}, {@code a, x, b, y}, or {@code x, y, a, b}, among others.
-     *
+     * <br>
      * In order to properly capture this multitude of orderings, we can use partial orders (see {@link PartiallyOrderedSet})
      * to define the ordering (unfortunate name clash). For our example, we can write
-     *
      * <pre>
      * {@code
      * PartiallyOrderedSet([a, b, x, y], [a < b, x < y])
@@ -554,42 +607,30 @@ public class Ordering {
         return PartiallyOrderedSet.of(orderingSet.getSet(), normalizedDependencyMapBuilder.build());
     }
 
-    private static boolean areAllBindingsFixed(@Nonnull Collection<Binding> bindings) {
+    private static boolean areAllBindingsFixed(@Nonnull final Collection<Binding> bindings) {
         return bindings.stream().allMatch(Binding::isFixed);
+    }
+
+    private static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+        Verify.verify(!bindings.isEmpty());
+        if (bindings.size() == 1) {
+            return Iterables.getOnlyElement(bindings).getSortOrder().isDirectional();
+        }
+        return false;
     }
 
     private static SortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
+
+        if (isSingularDirectionalBinding(bindings)) {
+            return Iterables.getOnlyElement(bindings).getSortOrder();
+        }
+
         if (areAllBindingsFixed(bindings)) {
             return SortOrder.FIXED;
         }
-        // there can only be exactly one binding; otherwise it is an error
-        return Iterables.getOnlyElement(bindings).getSortOrder();
-    }
 
-    @Nonnull
-    public static Set<Set<Value>> enumerateSatisfyingOrderingComparisonKeyValues(@Nonnull final PartiallyOrderedSet<OrderingPart> partiallyOrderedSet,
-                                                                                 @Nonnull final Set<Value> equalityBoundKeyValues,
-                                                                                 @Nonnull final List<OrderingPart> requestedOrderingParts) {
-        final var normalizedRequestedOrderingParts = requestedOrderingParts.stream()
-                .filter(requestedOrderingPart -> !equalityBoundKeyValues.contains(requestedOrderingPart.getValue()))
-                .collect(ImmutableList.toImmutableList());
-
-        final var filteredOrderingSet = partiallyOrderedSet.filterIndependentElements(keyPart -> !equalityBoundKeyValues.contains(keyPart.getValue()));
-
-        final var satisfyingOrderingParts =
-                TopologicalSort.satisfyingPermutations(
-                        filteredOrderingSet,
-                        normalizedRequestedOrderingParts,
-                        Function.identity(),
-                        permutation -> normalizedRequestedOrderingParts.size());
-
-        return Streams.stream(satisfyingOrderingParts)
-                .map(enumeratedOrdering ->
-                        enumeratedOrdering.stream()
-                                .map(OrderingPart::getValue)
-                                .collect(ImmutableSet.toImmutableSet()))
-                .collect(ImmutableSet.toImmutableSet());
+        throw new RecordCoreException("inconsistent ordering state");
     }
 
     @Nonnull

@@ -580,7 +580,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * @param equalityBoundKeyValues  a set of equality-bound key parts
      * @return a boolean that indicates if the list of values passed in can be used as comparison key
      */
-    private static boolean isCompatibleComparisonKey(@Nonnull Set<Value> comparisonKeyValues,
+    private static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
                                                      @Nonnull List<Value> commonPrimaryKeyValues,
                                                      @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
         if (comparisonKeyValues.isEmpty()) {

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -289,7 +290,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
         final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
@@ -308,13 +309,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                             getBaseType());
 
             if (i == scoreOrdinal) {
-                equalityBoundValueMapBuilder.put(normalizedValue, new Comparisons.OpaqueEqualityComparison());
+                bindingMapBuilder.put(normalizedValue, Binding.fixed(new Comparisons.OpaqueEqualityComparison()));
             } else {
-                equalityBoundValueMapBuilder.put(normalizedValue, comparison);
+                bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
             }
         }
 
-        final var result = ImmutableList.<OrderingPart>builder();
+        final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
@@ -332,10 +333,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            result.add(OrderingPart.of(normalizedValue, OrderingPart.SortOrder.fromIsReverse(isReverse)));
+            bindingMapBuilder.put(normalizedValue, Binding.sorted(OrderingPart.SortOrder.fromIsReverse(isReverse)));
+            orderingSequenceBuilder.add(normalizedValue);
         }
 
-        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 
     @Nonnull

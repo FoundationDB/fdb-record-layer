@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -248,7 +247,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Ordering.Binding>builder();
         final var groupingKey = ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey();
 
         if (groupingKey instanceof EmptyKeyExpression) {
@@ -274,10 +273,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             }
 
             final var comparison = equalityComparisons.get(i);
-            equalityBoundValueMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), comparison);
+            bindingMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), Ordering.Binding.fixed(comparison));
         }
 
-        final var result = ImmutableList.<OrderingPart>builder();
+        final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
             if (permutedIndex < normalizedKeyExpressions.size()) {
@@ -296,10 +295,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            result.add(OrderingPart.of(normalizedValue, OrderingPart.SortOrder.fromIsReverse(isReverse)));
+            bindingMapBuilder.put(normalizedValue, Ordering.Binding.sorted(OrderingPart.SortOrder.fromIsReverse(isReverse)));
+            orderingSequenceBuilder.add(normalizedValue);
         }
 
-        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 
     @Nonnull
@@ -344,7 +344,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return recordTypes;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
         final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);

@@ -91,6 +91,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
@@ -283,7 +284,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
-            return deriveForSetOperationFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(), intersectionOnValuePlan.isReverse(), Ordering::unionBindings);
+            return deriveForDistinctSetOperationFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(),
+                    intersectionOnValuePlan.isReverse(), Ordering::unionBindings);
         }
 
         @Nonnull
@@ -488,7 +490,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         @Override
         public Ordering visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
-            return deriveForSetOperationFromOrderings(
+            return deriveForDistinctSetOperationFromOrderings(
                     orderingsFromChildren(unionOnValuesPlan),
                     unionOnValuesPlan.getComparisonKeyValues(),
                     unionOnValuesPlan.isReverse(),
@@ -601,14 +603,14 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     memberOrderings
                             .stream()
                             .allMatch(Ordering::isDistinct);
-            return Ordering.mergeOrderings(memberOrderings, Ordering::intersectBindings, allAreDistinct);
+            return Ordering.merge(memberOrderings, Ordering::intersectBindings, (left, right) -> allAreDistinct);
         }
 
-        public static Ordering deriveForSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
-                                                                  @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                                  final boolean isReverse,
-                                                                  @Nonnull final BinaryOperator<SetMultimap<Value, Comparisons.Comparison>> combineFn) {
-            final Ordering mergedOrdering = Ordering.mergeOrderings(orderings, combineFn, true);
+        public static Ordering deriveForDistinctSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
+                                                                          @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                                          final boolean isReverse,
+                                                                          @Nonnull final BinaryOperator<Set<Ordering.Binding>> combineFn) {
+            final Ordering mergedOrdering = Ordering.merge(orderings, combineFn, (left, right) -> true);
             return mergedOrdering.applyComparisonKey(comparisonKeyValues,
                     Ordering.bindingsForValues(comparisonKeyValues, SortOrder.fromIsReverse(isReverse)));
         }
