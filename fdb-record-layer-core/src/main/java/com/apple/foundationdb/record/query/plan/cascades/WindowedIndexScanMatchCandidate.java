@@ -333,7 +333,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            bindingMapBuilder.put(normalizedValue, Binding.sorted(OrderingPart.SortOrder.fromIsReverse(isReverse)));
+            bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
             orderingSequenceBuilder.add(normalizedValue);
         }
 

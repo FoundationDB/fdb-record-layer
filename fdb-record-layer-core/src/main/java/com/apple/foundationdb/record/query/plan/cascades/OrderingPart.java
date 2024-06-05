@@ -104,7 +104,6 @@ public class OrderingPart {
         return ImmutableList.copyOf(keyParts.subList(0, endExclusive));
     }
 
-    // TODO change callers
     @Nonnull
     public static OrderingPart of(@Nonnull final Value orderByValue) {
         return OrderingPart.of(orderByValue, SortOrder.ASCENDING);

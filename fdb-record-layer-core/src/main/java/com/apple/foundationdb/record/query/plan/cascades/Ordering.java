@@ -185,7 +185,7 @@ public class Ordering {
 
     @Override
     public String toString() {
-        return "[" + (isDistinct ? "distinct " : " ") + orderingSet + "]";
+        return "[" + (isDistinct ? "distinct " : "") + orderingSet + "; bindings: " + bindingMap + "]";
     }
 
     @Nonnull
@@ -228,22 +228,23 @@ public class Ordering {
             return ImmutableSet.of();
         }
 
-        final var satisfyingEnumeratedOrderings = enumerateSatisfyingOrderings(requestedOrdering);
+        final var satisfyingEnumeratedOrderings = enumerateCompatibleRequestedOrderings(requestedOrdering);
         return Streams.stream(satisfyingEnumeratedOrderings)
                 .map(keyParts -> new RequestedOrdering(keyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS))
                 .collect(ImmutableSet.toImmutableSet());
     }
 
     public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
-        return !Iterables.isEmpty(enumerateSatisfyingOrderings(requestedOrdering));
+        return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
     }
 
     @Nonnull
-    public Iterable<List<OrderingPart>> enumerateSatisfyingOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
+    public Iterable<List<OrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableList.of();
         }
 
+        final var requestedOrderingValuesBuilder = ImmutableList.<Value>builder();
         final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, OrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
@@ -255,6 +256,7 @@ public class Ordering {
                 return ImmutableList.of();
             }
 
+            requestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
             requestedOrderingValuesMapBuilder.put(requestedOrderingPart.getValue(), requestedOrderingPart);
         }
         final var requestedOrderingValuesMap = requestedOrderingValuesMapBuilder.build();
@@ -262,12 +264,12 @@ public class Ordering {
         final var satisfyingValuePermutations =
                 TopologicalSort.satisfyingPermutations(
                         getOrderingSet(),
-                        requestedOrdering.getOrderingParts(),
-                        value -> Objects.requireNonNull(requestedOrderingValuesMap.get(value)),
+                        ImmutableList.copyOf(requestedOrderingValuesMap.keySet()),
+                        Function.identity(),
                         permutation -> requestedOrdering.getOrderingParts().size());
         return Iterables.transform(satisfyingValuePermutations,
                 permutation -> permutation.stream()
-                        .map(value -> Objects.requireNonNull(requestedOrderingValuesMap.get(value)))
+                        .map(value -> Objects.requireNonNull(bindingMap.get(value)))
                         .collect(ImmutableList.toImmutableList()));
     }
 
@@ -384,8 +386,8 @@ public class Ordering {
     }
 
     @Nonnull
-    public static SetMultimap<Value, Binding> bindingsForValues(@Nonnull final Collection<? extends Value> values,
-                                                                @Nonnull final SortOrder sortOrder) {
+    public static SetMultimap<Value, Binding> sortedBindingsForValues(@Nonnull final Collection<? extends Value> values,
+                                                                      @Nonnull final SortOrder sortOrder) {
         final var builder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var value : values) {
             builder.put(value, Binding.sorted(sortOrder));
@@ -505,7 +507,7 @@ public class Ordering {
      */
     @Nonnull
     private static PartiallyOrderedSet<Value> computeFromOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                                                          @Nonnull final List<Value> orderingValues) {
+                                                                          @Nonnull final List<? extends Value> orderingValues) {
         final var filteredOrderingValues =
                 orderingValues.stream()
                         .peek(orderingValue -> Verify.verify(bindingMap.containsKey(orderingValue)))
@@ -619,7 +621,7 @@ public class Ordering {
         return false;
     }
 
-    private static SortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
+    public static SortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
 
         if (isSingularDirectionalBinding(bindings)) {
@@ -926,7 +928,7 @@ public class Ordering {
     }
 
     @Nonnull
-    public static Ordering emptyOrdering() {
+    public static Ordering empty() {
         return EMPTY;
     }
 
@@ -941,7 +943,7 @@ public class Ordering {
 
     @Nonnull
     public static Ordering ofOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                              @Nonnull final List<Value> orderingAsList,
+                                              @Nonnull final List<? extends Value> orderingAsList,
                                               final boolean isDistinct) {
         final var normalizedBindingMap = normalizeBindingMap(bindingMap);
         return new Ordering(normalizedBindingMap, computeFromOrderingSequence(normalizedBindingMap, orderingAsList), isDistinct);
@@ -974,9 +976,10 @@ public class Ordering {
             return sortOrder == SortOrder.FIXED;
         }
 
-        @Nullable
+        @Nonnull
         public Comparison getComparison() {
-            return comparison;
+            Verify.verify(sortOrder == SortOrder.FIXED);
+            return Objects.requireNonNull(comparison);
         }
 
         @Override
@@ -996,6 +999,11 @@ public class Ordering {
             return Objects.hash(sortOrder, comparison);
         }
 
+        @Override
+        public String toString() {
+            return sortOrder + (comparison == null ? "" : ", " + comparison);
+        }
+
         @Nonnull
         public static Binding ascending() {
             return sorted(SortOrder.ASCENDING);
@@ -1004,6 +1012,11 @@ public class Ordering {
         @Nonnull
         public static Binding descending() {
             return sorted(SortOrder.DESCENDING);
+        }
+
+        @Nonnull
+        public static Binding sorted(final boolean isReverse) {
+            return sorted(SortOrder.fromIsReverse(isReverse));
         }
 
         @Nonnull

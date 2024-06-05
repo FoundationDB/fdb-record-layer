@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
@@ -75,7 +76,7 @@ public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSo
 
             final ImmutableList.Builder<OrderingPart> keyPartBuilder = ImmutableList.builder();
             for (final var sortValue : sortValues) {
-                keyPartBuilder.add(OrderingPart.of(sortValue.rebase(translationMap), OrderingPart.SortOrder.fromIsReverse(logicalSortExpression.isReverse())));
+                keyPartBuilder.add(OrderingPart.of(sortValue.rebase(translationMap), SortOrder.fromIsReverse(logicalSortExpression.isReverse())));
             }
 
             final var orderings =

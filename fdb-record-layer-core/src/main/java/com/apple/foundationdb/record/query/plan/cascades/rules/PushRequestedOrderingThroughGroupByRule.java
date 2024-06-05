@@ -134,7 +134,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     //
                     // TODO we should push down all permutations
                     //
-                    // Note in the remained we use the terminology 'requested...' for the ordering imposed on this
+                    // Note in the remainder we use the terminology 'requested...' for the ordering imposed on this
                     // expression by a constraint push, and 'required...' for the ordering imposed by the grouping
                     // columns of this expression.
                     //

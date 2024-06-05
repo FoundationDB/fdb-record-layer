@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -247,12 +248,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Ordering.Binding>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         final var groupingKey = ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey();
 
         if (groupingKey instanceof EmptyKeyExpression) {
             // TODO this should be something like anything-order.
-            return Ordering.emptyOrdering();
+            return Ordering.empty();
         }
 
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
@@ -273,7 +274,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             }
 
             final var comparison = equalityComparisons.get(i);
-            bindingMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), Ordering.Binding.fixed(comparison));
+            bindingMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), Binding.fixed(comparison));
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
@@ -295,7 +296,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            bindingMapBuilder.put(normalizedValue, Ordering.Binding.sorted(OrderingPart.SortOrder.fromIsReverse(isReverse)));
+            bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
             orderingSequenceBuilder.add(normalizedValue);
         }
 

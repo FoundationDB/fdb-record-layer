@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -44,13 +46,15 @@ import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -161,32 +165,38 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            final var filteredEqualityBoundValueMap =
-                    Multimaps.filterEntries(providedOrdering.getEqualityBoundValueMap(),
-                            expressionComparisonEntry -> {
-                                final var comparison = expressionComparisonEntry.getValue();
-                                if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
-                                    return true;
-                                }
-                                final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                                return !parameterComparison.isCorrelation() ||
-                                       !explodeAliases.containsAll(parameterComparison.getCorrelatedTo());
-                            });
-            final var inUnionOrdering =
-                    Ordering.ofUnnormalized(filteredEqualityBoundValueMap, providedOrdering.getOrderingSet(), providedOrdering.isDistinct());
-
-            for (final var requestedOrdering : requestedOrderings) {
-                final var equalityBoundValuesBuilder = ImmutableSet.<Value>builder();
-                for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundValueMap().entries()) {
-                    final var comparison = expressionComparisonEntry.getValue();
-                    if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
-                        final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                        if (parameterComparison.isCorrelation() && explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                            equalityBoundValuesBuilder.add(expressionComparisonEntry.getKey());
-                        }
-                    }
+            final var filteredBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+            for (Map.Entry<Value, Binding> entry : providedOrdering.getBindingMap().entries()) {
+                final var value = entry.getKey();
+                final var binding = entry.getValue();
+                if (binding.getSortOrder().isDirectional()) {
+                    filteredBindingMapBuilder.put(value, binding);
+                    continue;
                 }
 
+                Verify.verify(binding.getSortOrder() == OrderingPart.SortOrder.FIXED);
+                final var comparison = binding.getComparison();
+                if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
+                    filteredBindingMapBuilder.put(value, binding);
+                    continue;
+                }
+
+                final var parameterComparison = (Comparisons.ParameterComparison)comparison;
+                if (!parameterComparison.isCorrelation() ||
+                        !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
+                    filteredBindingMapBuilder.put(value, binding);
+                    continue;
+                }
+
+                // TODO support DESCENDING as well
+                filteredBindingMapBuilder.put(value, Binding.ascending());
+            }
+
+            final var inUnionOrdering =
+                    Ordering.ofOrderingSet(filteredBindingMapBuilder.build(), providedOrdering.getOrderingSet(),
+                            providedOrdering.isDistinct());
+
+            for (final var requestedOrdering : requestedOrderings) {
                 for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans

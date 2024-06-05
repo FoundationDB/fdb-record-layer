@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -29,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
@@ -172,20 +173,23 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         final var requestedOrderingParts = requestedOrdering.getOrderingParts();
         final var sourcesBuilder = ImmutableList.<InSource>builder();
         final var outerOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
-        final var innerEqualityBoundValueMap = innerOrdering.getEqualityBoundValueMap();
-        final var resultOrderingEqualityBoundValueMap  =
-                HashMultimap.create(innerEqualityBoundValueMap);
+        final var innerBindingMap = innerOrdering.getBindingMap();
+        final var resultOrderingBindingMap  =
+                HashMultimap.create(innerBindingMap);
 
         for (var i = 0; i < requestedOrderingParts.size() && !availableExplodeAliases.isEmpty(); i++) {
             final var requestedOrderingPart = requestedOrderingParts.get(i);
-            final var comparisons = innerEqualityBoundValueMap.get(requestedOrderingPart.getValue());
-            if (comparisons.isEmpty()) {
+            final var requestedOrderingValue = requestedOrderingPart.getValue();
+            final var innerBindings = innerBindingMap.get(requestedOrderingValue);
+
+            if (innerBindings.isEmpty() || Ordering.sortOrder(innerBindings).isDirectional()) {
                 return ImmutableList.of();
             }
 
-            final var comparisonsCorrelatedTo = comparisons.stream()
-                    .flatMap(comparison -> comparison.getCorrelatedTo().stream())
-                    .collect(ImmutableSet.toImmutableSet());
+            final var comparisonsCorrelatedTo =
+                    innerBindings.stream()
+                            .flatMap(binding -> binding.getComparison().getCorrelatedTo().stream())
+                            .collect(ImmutableSet.toImmutableSet());
 
             if (comparisonsCorrelatedTo.size() > 1) {
                 return ImmutableList.of();
@@ -259,7 +263,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             availableExplodeAliases.remove(explodeAlias);
             sourcesBuilder.add(inSource);
 
-            resultOrderingEqualityBoundValueMap.removeAll(requestedOrderingPart.getValue());
+            resultOrderingBindingMap.removeAll(requestedOrderingValue);
             outerOrderingPartsBuilder.add(requestedOrderingPart);
         }
 
@@ -269,18 +273,25 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             // ordering.
             //
             final var outerOrderingParts = outerOrderingPartsBuilder.build();
-            final var outerOrderingValues = outerOrderingParts.stream().map(OrderingPart::getValue).collect(ImmutableSet.toImmutableSet());
-            final var outerOrderingSet =
-                    PartiallyOrderedSet.<OrderingPart>builder()
-                            .addListWithDependencies(outerOrderingParts)
-                            .build();
-            final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
+            final var outerOrderingValuesBuilder = ImmutableList.<Value>builder();
+            final var outerOrderingBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+            for (final var outerOrderingPart : outerOrderingParts) {
+                final var outerOrderingValue = outerOrderingPart.getValue();
+                outerOrderingValuesBuilder.add(outerOrderingValue);
+                outerOrderingBindingMapBuilder.put(outerOrderingValue, Binding.sorted(outerOrderingPart.getSortOrder()));
+            }
+
+            final var outerOrderingValues = outerOrderingValuesBuilder.build();
+            final var outerOrdering = Ordering.ofOrderingSequence(outerOrderingBindingMapBuilder.build(),
+                    outerOrderingValues, true);
 
             final var filteredInnerOrderingSet =
                     innerOrdering.getOrderingSet()
-                            .filterIndependentElements(keyPart -> !outerOrderingValues.contains(keyPart.getValue()));
-            final var filteredInnerOrdering = new Ordering(resultOrderingEqualityBoundValueMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
-            final var resultOrdering = Ordering.concatOrderings(outerOrdering, filteredInnerOrdering, (l, r) -> resultOrderingEqualityBoundValueMap);
+                            .filterElements(value -> innerOrdering.isDirectionalValue(value) || !outerOrderingValues.contains(value));
+            final var filteredInnerOrdering = Ordering.ofOrderingSet(resultOrderingBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+            final var resultOrdering =
+                    Ordering.concatOrderings(outerOrdering, filteredInnerOrdering,
+                            (l, r) -> ImmutableSetMultimap.<Value, Binding>builder().putAll(l).putAll(r).build());
             return resultOrdering.satisfies(requestedOrdering)
                    ? sourcesBuilder.build()
                    : ImmutableList.of();
