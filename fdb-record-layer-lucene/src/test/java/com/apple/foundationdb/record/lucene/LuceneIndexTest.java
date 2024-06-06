@@ -569,6 +569,45 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void testBlockCacheRemove() {
+        // set cache size to very small, so items will not fit
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE, 2)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            context.commit();
+
+            final FDBStoreTimer timer = context.getTimer();
+            assertTrue(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE) > 0);
+        }
+    }
+
+    @Test
+    void testBlockCacheNotRemove() {
+        // set cache size to large enough, so all blocks fit
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE, 1000)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            context.commit();
+
+            final FDBStoreTimer timer = context.getTimer();
+            assertEquals(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE), 0);
+            assertTrue(timer.getCount(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK) > 0);
+        }
+    }
+
     static Stream<Pair<Index, Tuple>> dualGroupModeIndexProvider() {
         return Stream.of(Pair.of(COMPLEX_PARTITIONED, Tuple.from(1L)), Pair.of(COMPLEX_PARTITIONED_NOGROUP, Tuple.from()));
     }

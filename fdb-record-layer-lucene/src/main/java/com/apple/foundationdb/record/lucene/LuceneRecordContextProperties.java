@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
@@ -116,4 +117,8 @@ public final class LuceneRecordContextProperties {
      * Use "default transaction priority" during merge. The default of this prop is {@code true} because merge over multiple transactions may be preventing user operations.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_USE_DEFAULT_PRIORITY_DURING_MERGE = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.useDefaultPriorityDuringMerge", true);
+    /**
+     * Lucene block cache maximum size. At most these many blocks will be stored in cache.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_BLOCK_CACHE_MAXIMUM_SIZE = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.block.cache.size", FDBDirectory.DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE);
 }
