@@ -484,6 +484,7 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.PreserveStackTrace")
     private CompletableFuture<byte[]> readBlock(@Nonnull IndexInput requestingInput, @Nonnull String fileName,
                                                 @Nullable FDBLuceneFileReference reference, int block) {
         if (LOGGER.isTraceEnabled()) {
