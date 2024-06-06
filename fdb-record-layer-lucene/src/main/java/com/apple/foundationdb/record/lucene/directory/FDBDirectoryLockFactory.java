@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -92,7 +93,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             logSelf("FileLock: Attempt to create a file Lock");
             fileLockSet(false);
             agilityContext.flush();
+            agilityContext.setCommitCheck(this::ensureValidIfNotClosed);
             logSelf("FileLock: Successfully created a file lock");
+        }
+
+        private CompletableFuture<Void> ensureValidIfNotClosed(final FDBRecordContext context) {
+            return closed ? AsyncUtil.DONE : fileLockSet(true, context);
         }
 
         @Override
@@ -206,9 +212,14 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
-            // always flush before declaring this object as closed. Else agilityContext may fail to commit, while this lock may skip retry
-            agilityContext.flush();
-            closed = true;
+            boolean flushed = false;
+            try {
+                closed = true; // prevent lock stamp update
+                agilityContext.flush();
+                flushed = true;
+            } finally {
+                closed = flushed; // allow close retry
+            }
         }
 
         protected void fileLockClearIfLocked() {

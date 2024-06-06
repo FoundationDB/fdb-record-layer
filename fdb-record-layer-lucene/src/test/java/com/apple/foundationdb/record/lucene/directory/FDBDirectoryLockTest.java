@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -34,13 +35,17 @@ import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +92,41 @@ class FDBDirectoryLockTest {
             assertTrue(e.getMessage().contains(alreadyLockedMessage));
             lock2.ensureValid();
             lock2.close();
+        }
+    }
+
+    @Test
+    void testFileLockCallback() throws IOException {
+        try (FDBRecordContext context = fdb.openContext()) {
+            AgilityContext agilityContext = AgilityContext.agile(context, 1000, 100_0000);
+
+            FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+            final String lockName = "file.lock";
+            final Lock lock1 = directory.obtainLock(lockName);
+            final String string1 = lock1.toString();
+            final byte[] firstKey = {1, 2, 3};
+            final byte[] firstValue = {3, 2, 1};
+            agilityContext.accept(aContext -> aContext.ensureActive().set(firstKey, firstValue));
+            agilityContext.accept(aContext -> aContext.ensureActive().set(new byte[]{4, 5, 6}, new byte[]{6, 5, 4}));
+            agilityContext.flush();
+            final String string2 = lock1.toString();
+            final byte[] bytes = agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, agilityContext.apply(aContext -> aContext.ensureActive().get(firstKey)));
+            assertArrayEquals(firstValue, bytes);
+            agilityContext.accept(aContext -> aContext.ensureActive().set(new byte[]{7, 8, 9}, new byte[]{9, 8, 7}));
+            agilityContext.accept(aContext -> aContext.ensureActive().set(new byte[]{10, 11, 12}, new byte[]{12, 11, 10}));
+            final String string22 = lock1.toString();
+
+            assertEquals(string2, string22);
+
+            agilityContext.flush();
+            final String string3 = lock1.toString();
+
+            assertNotEquals(string1, string2);
+            assertNotEquals(string2, string3);
+            assertNotEquals(string3, string1);
+
+            lock1.ensureValid();
+            lock1.close();
         }
     }
 
