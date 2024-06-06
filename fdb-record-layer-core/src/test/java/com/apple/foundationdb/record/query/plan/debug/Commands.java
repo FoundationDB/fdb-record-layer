@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -148,7 +149,7 @@ public class Commands {
                         final String transformName = words.get(2);
                         final Location location =
                                 words.size() == 4
-                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
+                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase(Locale.ROOT)).or(Location.BEGIN)
                                 : Location.BEGIN;
                         plannerRepl.addBreakPoint(new PlannerRepl.OnRuleBreakPoint(transformName, location));
                         return false;
@@ -162,7 +163,7 @@ public class Commands {
                         final String candidateMatchPrefix = words.get(2);
                         final Location location =
                                 words.size() == 4
-                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
+                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase(Locale.ROOT)).or(Location.BEGIN)
                                 : Location.BEGIN;
                         plannerRepl.addBreakPoint(new PlannerRepl.OnRuleCallBreakPoint(candidateMatchPrefix, location));
                         return false;
@@ -173,7 +174,7 @@ public class Commands {
 
                 if ("YIELD".equals(word1)) {
                     if (words.size() == 4) {
-                        final String word2 = words.get(2).toUpperCase();
+                        final String word2 = words.get(2).toUpperCase(Locale.ROOT);
 
                         if ("EXP".equals(word2)) {
                             final String word3 = words.get(3);
@@ -181,7 +182,7 @@ public class Commands {
                                 plannerRepl.printlnError("invalid identifier");
                                 return false;
                             }
-                            plannerRepl.addBreakPoint(new PlannerRepl.OnYieldExpressionBreakPoint(word3.toLowerCase()));
+                            plannerRepl.addBreakPoint(new PlannerRepl.OnYieldExpressionBreakPoint(word3.toLowerCase(Locale.ROOT)));
                             return false;
                         }
 
@@ -223,7 +224,7 @@ public class Commands {
 
                 if (words.size() >= 3) {
                     // "break event_type [location | refId [location]]"
-                    final String word2 = words.get(2).toUpperCase();
+                    final String word2 = words.get(2).toUpperCase(Locale.ROOT);
 
                     Optional<Location> locationOptional = Enums.getIfPresent(Location.class, word2).toJavaUtil();
                     if (words.size() == 3 && locationOptional.isPresent()) {
@@ -237,8 +238,8 @@ public class Commands {
                         // "break event_type refId [location]"
                         if (words.size() >= 4) {
                             // "break event_type refId location"
-                            final String word3 = words.get(3).toUpperCase();
-                            locationOptional = Enums.getIfPresent(Location.class, word3.toUpperCase()).toJavaUtil();
+                            final String word3 = words.get(3).toUpperCase(Locale.ROOT);
+                            locationOptional = Enums.getIfPresent(Location.class, word3.toUpperCase(Locale.ROOT)).toJavaUtil();
                         } else {
                             // "break event_type refId"
                             locationOptional = Optional.empty();
@@ -523,7 +524,7 @@ public class Commands {
                 return false;
             }
 
-            final String word1 = words.get(1).toUpperCase();
+            final String word1 = words.get(1).toUpperCase(Locale.ROOT);
             final boolean identifiersProcessed = plannerRepl.processIdentifiers(word1,
                     expression -> expression.show(true),
                     reference -> reference.show(true),

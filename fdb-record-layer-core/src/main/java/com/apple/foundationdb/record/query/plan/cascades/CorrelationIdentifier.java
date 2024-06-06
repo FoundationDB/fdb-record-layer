@@ -74,7 +74,7 @@ public class CorrelationIdentifier {
      */
     @Nonnull
     public static CorrelationIdentifier uniqueID(@Nonnull final Class<?> clazz) {
-        return uniqueID(clazz, clazz.getSimpleName().substring(0, 1).toLowerCase(Locale.getDefault()));
+        return uniqueID(clazz, clazz.getSimpleName().substring(0, 1).toLowerCase(Locale.ROOT));
     }
 
     /**

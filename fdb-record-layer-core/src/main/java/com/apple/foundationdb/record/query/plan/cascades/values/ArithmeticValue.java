@@ -145,7 +145,7 @@ public class ArithmeticValue extends AbstractValue {
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + leftChild + ", " + rightChild + ")";
     }
 
     @Override
@@ -205,7 +205,7 @@ public class ArithmeticValue extends AbstractValue {
         final Type type1 = arg1.getResultType();
         SemanticException.check(type1.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
-        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
+        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.ROOT)).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
 
