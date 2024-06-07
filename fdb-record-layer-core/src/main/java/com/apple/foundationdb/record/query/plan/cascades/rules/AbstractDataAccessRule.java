@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
-import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -32,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
-import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
@@ -332,7 +330,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             orderingParts
                                     .stream()
                                     .filter(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                    .map(MatchedOrderingPart::getValue)
+                                    .map(OrderingPart.MatchedOrderingPart::getValue)
                                     .collect(ImmutableSet.toImmutableSet());
 
                     final var orderingPartIterator = orderingParts.iterator();
@@ -491,7 +489,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .flatMap(orderingParts ->
                                 orderingParts.stream()
                                         .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                        .map(MatchedOrderingPart::getValue))
+                                        .map(OrderingPart.MatchedOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 
         final var ordering = intersectOrderings(partitionOrderings);
@@ -538,11 +536,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * Private helper method that computes the ordering of the intersection using matches and the common primary key
      * of the data source.
      * @param partitionOrderings partition we would like to intersect
-     * @return a {@link PartiallyOrderedSet}  of {@link OrderingPart}s representing a common intersection ordering.
+     * @return an {@link Ordering} representing a common intersection ordering.
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static Ordering intersectOrderings(@Nonnull final List<List<MatchedOrderingPart>> partitionOrderings) {
+    private static Ordering intersectOrderings(@Nonnull final List<List<OrderingPart.MatchedOrderingPart>> partitionOrderings) {
 
         final var orderingPartialOrders =
                 partitionOrderings.stream()
@@ -560,7 +558,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     final var orderingValue = matchedOrderingPart.getValue();
                                     orderingSequenceBuilder.add(orderingValue);
                                     bindingMapBuilder.put(orderingValue,
-                                            Binding.sorted(matchedOrderingPart.getDirection()));
+                                            Binding.sorted(matchedOrderingPart.getSortOrder()));
                                 }
                             }
 

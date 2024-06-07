@@ -39,8 +39,8 @@ import java.util.Objects;
  */
 public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
-     This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
-     * passed in. Using a list of parameter ids, each {@link MatchedOrderingPart} links together the
+     This synthesizes a list of {@link OrderingPart.MatchedOrderingPart}s from the partial match and the ordering information
+     * passed in. Using a list of parameter ids, each {@link OrderingPart.MatchedOrderingPart} links together the
      * (1) normalized key expression that originally produced the key (from index, or common primary key)
      * (2) a comparison range for this parameter which is contained in the already existent partial match
      * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
@@ -54,15 +54,15 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
      */
     @Nonnull
     @Override
-    default List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                                                  boolean isReverse) {
+    default List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+                                                                               @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                                               boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<MatchedOrderingPart>builder();
+        final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
 
         for (final var parameterId : sortParameterIds) {
@@ -94,7 +94,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             getBaseType());
 
             builder.add(
-                    MatchedOrderingPart.of(value, comparisonRange, isReverse));
+                    OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
         }
 
         return builder.build();

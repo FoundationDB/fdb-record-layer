@@ -232,15 +232,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                                 @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                                                 boolean isReverse) {
+    public List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+                                                                              @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                                              boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<MatchedOrderingPart>builder();
+        final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
 
         for (final var parameterId : sortParameterIds) {
@@ -277,10 +277,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                 builder.add(
-                        MatchedOrderingPart.of(normalizedValue, rankComparisonRange, isReverse));
+                        OrderingPart.MatchedOrderingPart.of(normalizedValue, rankComparisonRange, isReverse));
             } else {
                 builder.add(
-                        MatchedOrderingPart.of(normalizedValue, comparisonRange, isReverse));
+                        OrderingPart.MatchedOrderingPart.of(normalizedValue, comparisonRange, isReverse));
             }
         }
 

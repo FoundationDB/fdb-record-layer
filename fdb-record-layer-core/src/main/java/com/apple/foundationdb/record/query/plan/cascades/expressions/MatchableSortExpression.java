@@ -24,10 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
-import com.apple.foundationdb.record.query.plan.cascades.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -217,7 +217,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     }
 
     /**
-     * This synthesizes a list of {@link MatchedOrderingPart}s from the current partial match and the ordering information
+     * This synthesizes a list of {@link OrderingPart.MatchedOrderingPart}s from the current partial match and the ordering information
      * contained in this expression. It delegates to {@link MatchCandidate#computeMatchedOrderingParts} to do this work as
      * while there is a lot of commonality across different index kinds, special indexes may need to define and declare
      * their order in a specific unique way.
@@ -226,7 +226,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
      *         between query and match candidate
      */
     @Nonnull
-    private List<MatchedOrderingPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
+    private List<OrderingPart.MatchedOrderingPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
         final var matchCandidate = partialMatch.getMatchCandidate();
         return matchCandidate.computeMatchedOrderingParts(partialMatch.getMatchInfo(), getSortParameterIds(), isReverse());
     }

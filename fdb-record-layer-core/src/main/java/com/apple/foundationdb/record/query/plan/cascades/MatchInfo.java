@@ -78,7 +78,7 @@ public class MatchInfo {
     private final PredicateMap accumulatedPredicateMap;
 
     @Nonnull
-    private final List<MatchedOrderingPart> matchedOrderingParts;
+    private final List<OrderingPart.MatchedOrderingPart> matchedOrderingParts;
 
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
@@ -94,7 +94,7 @@ public class MatchInfo {
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
                       @Nonnull final PredicateMap accumulatedPredicateMap,
-                      @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
+                      @Nonnull final List<OrderingPart.MatchedOrderingPart> matchedOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional,
                       @Nonnull final Optional<MaxMatchMap> maxMatchMapOptional) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
@@ -164,7 +164,7 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<MatchedOrderingPart> getMatchedOrderingParts() {
+    public List<OrderingPart.MatchedOrderingPart> getMatchedOrderingParts() {
         return matchedOrderingParts;
     }
 
@@ -179,7 +179,7 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
+    public MatchInfo withOrderingInfo(@Nonnull final List<OrderingPart.MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
@@ -230,7 +230,7 @@ public class MatchInfo {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
         
-        final List<MatchedOrderingPart> orderingParts;
+        final List<OrderingPart.MatchedOrderingPart> orderingParts;
         if (regularQuantifiers.size() == 1) {
             final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));

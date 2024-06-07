@@ -21,7 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +35,7 @@ import java.util.Set;
 /**
  * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
  * towards the sources during planning.
- *
+ * <br>
  * There are two flows of information at work during planning:
  * <ul>
  *     <li>
@@ -55,11 +56,11 @@ public class RequestedOrdering {
      * defines the actual order of records.
      */
     @Nonnull
-    private final List<OrderingPart> orderingParts;
+    private final List<RequestedOrderingPart> orderingParts;
 
     private final Distinctness distinctness;
 
-    public RequestedOrdering(@Nonnull final List<OrderingPart> orderingParts, final Distinctness distinctness) {
+    public RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts, final Distinctness distinctness) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
     }
@@ -82,7 +83,7 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public List<OrderingPart> getOrderingParts() {
+    public List<RequestedOrderingPart> getOrderingParts() {
         return orderingParts;
     }
 
@@ -169,12 +170,12 @@ public class RequestedOrdering {
 
         final var translationMap = AliasMap.ofAliases(lowerBaseAlias, Quantifier.current());
 
-        final var pushedDownOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
+        final var pushedDownOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
         for (int i = 0; i < orderingParts.size(); i++) {
             final var orderingPart = orderingParts.get(i);
             final var orderingValue = Objects.requireNonNull(pushedDownOrderingValues.get(i));
             final var rebasedOrderingValue = orderingValue.rebase(translationMap);
-            pushedDownOrderingPartsBuilder.add(OrderingPart.of(rebasedOrderingValue, orderingPart.getSortOrder()));
+            pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
     }
@@ -193,7 +194,7 @@ public class RequestedOrdering {
                                                    final boolean isReverse,
                                                    @Nonnull final Distinctness distinctness) {
         return new RequestedOrdering(values.stream().map(value ->
-                        OrderingPart.of(value, SortOrder.fromIsReverse(isReverse)))
+                        new RequestedOrderingPart(value, RequestedSortOrder.fromIsReverse(isReverse)))
                 .collect(ImmutableList.toImmutableList()), distinctness);
     }
 

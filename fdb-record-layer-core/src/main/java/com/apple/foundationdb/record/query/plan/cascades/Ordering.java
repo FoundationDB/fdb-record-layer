@@ -25,6 +25,9 @@ import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -104,8 +107,7 @@ public class Ordering {
     private final SetMultimap<Value, Binding> bindingMap;
 
     /**
-     * A list of {@link OrderingPart}s where none of the contained expressions is equality-bound. This list
-     * defines the actual order of records.
+     * A {@link PartiallyOrderedSet} of {@link Value}s.
      */
     @Nonnull
     private final PartiallyOrderedSet<Value> orderingSet;
@@ -201,11 +203,11 @@ public class Ordering {
             }
             final var bindings = bindingMap.get(requestedOrderingPart.getValue());
             final var sortOrder = sortOrder(bindings);
-            if (sortOrder.isDirectional() && sortOrder != requestedOrderingPart.getSortOrder()) {
+            if (!sortOrder.satisfiesRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
 
-            if (sortOrder != SortOrder.FIXED) {
+            if (sortOrder != ProvidedSortOrder.FIXED) {
                 reducedRequestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
             }
         }
@@ -239,20 +241,20 @@ public class Ordering {
     }
 
     @Nonnull
-    public Iterable<List<OrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
+    public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableList.of();
         }
 
         final var requestedOrderingValuesBuilder = ImmutableList.<Value>builder();
-        final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, OrderingPart>builder();
+        final var requestedOrderingValuesMapBuilder = ImmutableMap.<Value, RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
             if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
                 return ImmutableList.of();
             }
             final var bindings = bindingMap.get(requestedOrderingPart.getValue());
             final var sortOrder = sortOrder(bindings);
-            if (sortOrder.isDirectional() && sortOrder != requestedOrderingPart.getSortOrder()) {
+            if (!sortOrder.satisfiesRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
 
@@ -269,7 +271,13 @@ public class Ordering {
                         permutation -> requestedOrdering.getOrderingParts().size());
         return Iterables.transform(satisfyingValuePermutations,
                 permutation -> permutation.stream()
-                        .map(value -> Objects.requireNonNull(bindingMap.get(value)))
+                        .map(value -> {
+                            final var bindings = bindingMap.get(value);
+                            if (areAllBindingsFixed(bindings)) {
+                                return new RequestedOrderingPart(value, RequestedSortOrder.ANY);
+                            }
+                            return new RequestedOrderingPart(value, sortOrder(bindings).toRequestedSortOrder());
+                        })
                         .collect(ImmutableList.toImmutableList()));
     }
 
@@ -387,7 +395,7 @@ public class Ordering {
 
     @Nonnull
     public static SetMultimap<Value, Binding> sortedBindingsForValues(@Nonnull final Collection<? extends Value> values,
-                                                                      @Nonnull final SortOrder sortOrder) {
+                                                                      @Nonnull final ProvidedSortOrder sortOrder) {
         final var builder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var value : values) {
             builder.put(value, Binding.sorted(sortOrder));
@@ -511,7 +519,7 @@ public class Ordering {
         final var filteredOrderingValues =
                 orderingValues.stream()
                         .peek(orderingValue -> Verify.verify(bindingMap.containsKey(orderingValue)))
-                        .filter(orderingValue -> bindingMap.get(orderingValue).stream().anyMatch(Binding::isFixed))
+                        .filter(orderingValue -> bindingMap.get(orderingValue).stream().noneMatch(Binding::isFixed))
                         .collect(ImmutableList.toImmutableList());
 
         return PartiallyOrderedSet.<Value>builder()
@@ -532,12 +540,12 @@ public class Ordering {
                     switch (binding.getSortOrder()) {
                         case ASCENDING:
                             Verify.verify(!isFixed);
-                            Verify.verify(seenSortOrder != SortOrder.DESCENDING);
+                            Verify.verify(seenSortOrder != ProvidedSortOrder.DESCENDING);
                             // We have seen an ASCENDING binding already -- skip
                             break;
                         case DESCENDING:
                             Verify.verify(!isFixed);
-                            Verify.verify(seenSortOrder != SortOrder.ASCENDING);
+                            Verify.verify(seenSortOrder != ProvidedSortOrder.ASCENDING);
                             // We have seen a DESCENDING binding already -- skip
                             break;
                         case FIXED:
@@ -621,7 +629,7 @@ public class Ordering {
         return false;
     }
 
-    public static SortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
+    public static ProvidedSortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
 
         if (isSingularDirectionalBinding(bindings)) {
@@ -629,7 +637,7 @@ public class Ordering {
         }
 
         if (areAllBindingsFixed(bindings)) {
-            return SortOrder.FIXED;
+            return ProvidedSortOrder.FIXED;
         }
 
         throw new RecordCoreException("inconsistent ordering state");
@@ -708,7 +716,8 @@ public class Ordering {
      *
      * @param left an {@link Ordering}
      * @param right an {@link Ordering}
-     * @param combineOperator a combine operator to combine two sets of {@link SortOrder#FIXED} bindings.
+     * @param combineOperator a combine operator to combine two sets of {@link ProvidedSortOrder#FIXED}
+     *        bindings.
      * @param isDistinct indicator if the resulting order is thought to be distinct
      * @return an {@link Ordering}
      */
@@ -796,10 +805,10 @@ public class Ordering {
             return ImmutableSet.of(Binding.sorted(leftSortOrder));
         }
 
-        if (leftSortOrder.isDirectional() && rightSortOrder == SortOrder.FIXED) {
+        if (leftSortOrder.isDirectional() && rightSortOrder == ProvidedSortOrder.FIXED) {
             return ImmutableSet.of(Binding.sorted(leftSortOrder));
         }
-        if (leftSortOrder == SortOrder.FIXED && rightSortOrder.isDirectional()) {
+        if (leftSortOrder == ProvidedSortOrder.FIXED && rightSortOrder.isDirectional()) {
             return ImmutableSet.of(Binding.sorted(rightSortOrder));
         }
 
@@ -810,7 +819,7 @@ public class Ordering {
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
      * @param orderings a collection of orderings
-     * @param combineFn a combine function to combine two maps of {@link SortOrder#FIXED} bindings.
+     * @param combineFn a combine function to combine two maps of {@link ProvidedSortOrder#FIXED} bindings.
      * @return a new ordering representing a concatenation of the given left and right ordering
      */
     @Nonnull
@@ -954,31 +963,32 @@ public class Ordering {
      */
     public static class Binding {
         @Nonnull
-        private final SortOrder sortOrder;
+        private final ProvidedSortOrder sortOrder;
 
         /**
-         * Comparison is set if {@code sortOrder} is set to {@link SortOrder#FIXED}, {@code null} otherwise.
+         * Comparison is set if {@code sortOrder} is set to {@link ProvidedSortOrder#FIXED},
+         * {@code null} otherwise.
          */
         @Nullable
         private final Comparison comparison;
 
-        private Binding(@Nonnull final SortOrder sortOrder, @Nullable final Comparison comparison) {
+        private Binding(@Nonnull final ProvidedSortOrder sortOrder, @Nullable final Comparison comparison) {
             this.sortOrder = sortOrder;
             this.comparison = comparison;
         }
 
         @Nonnull
-        public SortOrder getSortOrder() {
+        public ProvidedSortOrder getSortOrder() {
             return sortOrder;
         }
 
-        boolean isFixed() {
-            return sortOrder == SortOrder.FIXED;
+        public boolean isFixed() {
+            return sortOrder == ProvidedSortOrder.FIXED;
         }
 
         @Nonnull
         public Comparison getComparison() {
-            Verify.verify(sortOrder == SortOrder.FIXED);
+            Verify.verify(sortOrder == ProvidedSortOrder.FIXED);
             return Objects.requireNonNull(comparison);
         }
 
@@ -1006,29 +1016,29 @@ public class Ordering {
 
         @Nonnull
         public static Binding ascending() {
-            return sorted(SortOrder.ASCENDING);
+            return sorted(ProvidedSortOrder.ASCENDING);
         }
 
         @Nonnull
         public static Binding descending() {
-            return sorted(SortOrder.DESCENDING);
+            return sorted(ProvidedSortOrder.DESCENDING);
         }
 
         @Nonnull
         public static Binding sorted(final boolean isReverse) {
-            return sorted(SortOrder.fromIsReverse(isReverse));
+            return sorted(ProvidedSortOrder.fromIsReverse(isReverse));
         }
 
         @Nonnull
-        public static Binding sorted(@Nonnull final SortOrder sortOrder) {
-            Verify.verify(sortOrder == SortOrder.ASCENDING ||
-                    sortOrder == SortOrder.DESCENDING);
+        public static Binding sorted(@Nonnull final ProvidedSortOrder sortOrder) {
+            Verify.verify(sortOrder == ProvidedSortOrder.ASCENDING ||
+                    sortOrder == ProvidedSortOrder.DESCENDING);
             return new Binding(sortOrder, null);
         }
 
         @Nonnull
         public static Binding fixed(@Nonnull final Comparison comparison) {
-            return new Binding(SortOrder.FIXED, comparison);
+            return new Binding(ProvidedSortOrder.FIXED, comparison);
         }
     }
 }

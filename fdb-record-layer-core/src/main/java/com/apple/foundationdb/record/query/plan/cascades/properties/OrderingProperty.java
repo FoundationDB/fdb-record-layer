@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -266,7 +266,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
             final var resultValue = ObjectValue.of(Quantifier.current(), Type.primitiveType(Type.TypeCode.INT));
-            return Ordering.ofOrderingSet(ImmutableSetMultimap.of(resultValue, Binding.sorted(SortOrder.ASCENDING)),
+            return Ordering.ofOrderingSet(ImmutableSetMultimap.of(resultValue, Binding.sorted(ProvidedSortOrder.ASCENDING)),
                     PartiallyOrderedSet.of(
                             ImmutableSet.of(resultValue),
                             ImmutableSetMultimap.of()), true);
@@ -333,8 +333,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     final var value = entry.getKey();
                     final var binding = entry.getValue();
 
-                    if (binding.getSortOrder() != SortOrder.FIXED ||
-                            !value.equals(inValue)) {
+                    if (!binding.isFixed() || !value.equals(inValue)) {
                         resultBindingMapBuilder.put(value, binding);
                     } else {
                         resultBindingMapBuilder.put(value, Binding.sorted(inSource.isReverse()));
@@ -349,8 +348,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     final var value = entry.getKey();
                     final var binding = entry.getValue();
 
-                    if (binding.getSortOrder() == SortOrder.FIXED ||
-                            !value.equals(inValue)) {
+                    if (binding.isFixed() && !value.equals(inValue)) {
                         resultBindingMapBuilder.put(value, binding);
                     }
                 }
@@ -388,7 +386,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             Value inValue = null;
             for (final var entry : bindingMap.entries()) {
                 final var binding = entry.getValue();
-                if (binding.getSortOrder() == SortOrder.FIXED) {
+                if (binding.isFixed()) {
                     final var comparison = binding.getComparison();
                     final var correlatedTo = comparison.getCorrelatedTo();
                     if (correlatedTo.size() != 1) {
@@ -571,7 +569,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             for (final var entry : bindingMap.entries()) {
                 final var value = entry.getKey();
                 final var binding = entry.getValue();
-                if (binding.getSortOrder() == SortOrder.FIXED) {
+                if (binding.isFixed()) {
                     final var correlatedTo = value.getCorrelatedTo();
 
                     if (correlatedTo.stream().anyMatch(sourceAliases::contains)) {
@@ -652,7 +650,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                                                           @Nonnull final BinaryOperator<Set<Binding>> combineFn) {
             final Ordering mergedOrdering = Ordering.merge(orderings, combineFn, (left, right) -> true);
             return mergedOrdering.applyComparisonKey(comparisonKeyValues,
-                    Ordering.sortedBindingsForValues(comparisonKeyValues, SortOrder.fromIsReverse(isReverse)));
+                    Ordering.sortedBindingsForValues(comparisonKeyValues, ProvidedSortOrder.fromIsReverse(isReverse)));
         }
 
         public static Ordering evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {

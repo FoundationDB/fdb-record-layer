@@ -180,13 +180,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nonnull
     @Override
-    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
+    public List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
         final var normalizedKeys =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<MatchedOrderingPart>builder();
+        final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
         final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
@@ -222,7 +222,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             // Grab the value for this sortParameterID from the selectHaving result columns
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
             builder.add(
-                    MatchedOrderingPart.of(value, comparisonRange, isReverse));
+                    OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
         }
 
         return builder.build();

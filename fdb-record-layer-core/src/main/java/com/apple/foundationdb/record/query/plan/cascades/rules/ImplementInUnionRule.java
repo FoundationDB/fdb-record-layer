@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -174,7 +173,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                     continue;
                 }
 
-                Verify.verify(binding.getSortOrder() == OrderingPart.SortOrder.FIXED);
+                Verify.verify(binding.isFixed());
                 final var comparison = binding.getComparison();
                 if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
                     filteredBindingMapBuilder.put(value, binding);

@@ -172,7 +172,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
         final var requestedOrderingParts = requestedOrdering.getOrderingParts();
         final var sourcesBuilder = ImmutableList.<InSource>builder();
-        final var outerOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
+        final var outerRequestedOrderingPartsBuilder = ImmutableList.<OrderingPart.RequestedOrderingPart>builder();
         final var innerBindingMap = innerOrdering.getBindingMap();
         final var resultOrderingBindingMap  =
                 HashMultimap.create(innerBindingMap);
@@ -264,7 +264,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             sourcesBuilder.add(inSource);
 
             resultOrderingBindingMap.removeAll(requestedOrderingValue);
-            outerOrderingPartsBuilder.add(requestedOrderingPart);
+            outerRequestedOrderingPartsBuilder.add(requestedOrderingPart);
         }
 
         if (availableExplodeAliases.isEmpty()) {
@@ -272,13 +272,20 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             // All available explode aliases have been depleted. Create an ordering and check against the requested
             // ordering.
             //
-            final var outerOrderingParts = outerOrderingPartsBuilder.build();
+            final var outerReuqestedOrderingParts = outerRequestedOrderingPartsBuilder.build();
             final var outerOrderingValuesBuilder = ImmutableList.<Value>builder();
             final var outerOrderingBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
-            for (final var outerOrderingPart : outerOrderingParts) {
-                final var outerOrderingValue = outerOrderingPart.getValue();
+            for (final var outerRequestedOrderingPart : outerReuqestedOrderingParts) {
+                final var outerOrderingValue = outerRequestedOrderingPart.getValue();
                 outerOrderingValuesBuilder.add(outerOrderingValue);
-                outerOrderingBindingMapBuilder.put(outerOrderingValue, Binding.sorted(outerOrderingPart.getSortOrder()));
+                final var requestedSortOrder = outerRequestedOrderingPart.getSortOrder();
+                if (requestedSortOrder == OrderingPart.RequestedSortOrder.ANY) {
+                    outerOrderingBindingMapBuilder.put(outerOrderingValue,
+                            Binding.sorted(OrderingPart.ProvidedSortOrder.ASCENDING));
+                } else {
+                    outerOrderingBindingMapBuilder.put(outerOrderingValue,
+                            Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
+                }
             }
 
             final var outerOrderingValues = outerOrderingValuesBuilder.build();

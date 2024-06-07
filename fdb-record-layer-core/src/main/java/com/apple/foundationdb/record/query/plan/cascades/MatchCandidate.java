@@ -158,7 +158,7 @@ public interface MatchCandidate {
     }
 
     /**
-     * Compute a list of {@link MatchedOrderingPart}s which forms a bridge to relate {@link KeyExpression}s and
+     * Compute a list of {@link OrderingPart.MatchedOrderingPart}s which forms a bridge to relate {@link KeyExpression}s and
      * {@link QueryPredicate}s.
      * @param matchInfo a pre-existing match info structure
      * @param sortParameterIds the parameter IDs which the query should be ordered by
@@ -167,9 +167,9 @@ public interface MatchCandidate {
      *         between query and match candidate
      */
     @Nonnull
-    List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                          @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                                          boolean isReverse);
+    List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+                                                                       @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                                       boolean isReverse);
 
     @Nonnull
     Ordering computeOrderingFromScanComparisons(@Nonnull ScanComparisons scanComparisons,

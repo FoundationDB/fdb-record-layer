@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering.Distinctness;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -98,7 +99,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                     final var orderingParts =
                             Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
                                     .stream()
-                                    .map(orderingValue -> OrderingPart.of(orderingValue, OrderingPart.SortOrder.ASCENDING))
+                                    .map(orderingValue -> new RequestedOrderingPart(orderingValue, RequestedSortOrder.ANY))
                                     .collect(ImmutableList.toImmutableList());
 
                     toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(orderingParts, Distinctness.PRESERVE_DISTINCTNESS));
@@ -144,7 +145,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                             new LinkedHashSet<>(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
                                     () -> currentGroupingValue, correlatedTo));
 
-                    final var resultOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
+                    final var resultOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
                     boolean isPushedAndRequiredCompatible = true;
                     for (final var pushedRequestedOrderingPart : pushedRequestedOrdering.getOrderingParts()) {
                         if (requiredOrderingValues.remove(pushedRequestedOrderingPart.getValue())) {
@@ -160,7 +161,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                             // add the remaining key parts from the required set
                             requiredOrderingValues
                                     .stream()
-                                    .map(value -> OrderingPart.of(value, OrderingPart.SortOrder.ASCENDING))
+                                    .map(value -> new RequestedOrderingPart(value, RequestedSortOrder.ASCENDING))
                                     .forEach(resultOrderingPartsBuilder::add);
                             toBePushedRequestedOrderingsBuilder.add(new RequestedOrdering(resultOrderingPartsBuilder.build(), pushedRequestedOrdering.getDistinctness()));
                         }
