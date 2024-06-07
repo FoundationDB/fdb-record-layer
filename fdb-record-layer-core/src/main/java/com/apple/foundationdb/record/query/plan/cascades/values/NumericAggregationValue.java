@@ -117,7 +117,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return operator.name().toLowerCase(Locale.getDefault()) + child.explain(formatter) + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + child.explain(formatter) + ")";
     }
 
     @Nonnull
@@ -150,7 +150,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + child + ")";
     }
 
     @Override
@@ -187,7 +187,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         final Type type0 = arg0.getResultType();
         SemanticException.check(type0.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
-        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
+        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.ROOT)).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
 

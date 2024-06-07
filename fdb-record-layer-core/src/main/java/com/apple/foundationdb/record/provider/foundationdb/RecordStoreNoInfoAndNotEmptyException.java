@@ -34,6 +34,10 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.STABLE)
 public class RecordStoreNoInfoAndNotEmptyException extends RecordCoreStorageException {
+    public RecordStoreNoInfoAndNotEmptyException(@Nonnull String msg, @Nullable Throwable cause) {
+        super(msg, cause);
+    }
+
     public RecordStoreNoInfoAndNotEmptyException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }

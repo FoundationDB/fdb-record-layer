@@ -155,6 +155,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_MAP_ON_VALUE_INDEX_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD;
@@ -565,6 +566,45 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED_NOGROUP).subspace(Tuple.from(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
 
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED_NOGROUP, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    @Test
+    void testBlockCacheRemove() {
+        // set cache size to very small, so items will not fit
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE, 2)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            context.commit();
+
+            final FDBStoreTimer timer = context.getTimer();
+            assertTrue(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE) > 0);
+        }
+    }
+
+    @Test
+    void testBlockCacheNotRemove() {
+        // set cache size to large enough, so all blocks fit
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE, 1000)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            context.commit();
+
+            final FDBStoreTimer timer = context.getTimer();
+            assertEquals(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE), 0);
+            assertTrue(timer.getCount(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK) > 0);
         }
     }
 
@@ -4737,6 +4777,175 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompletePhraseSearchWithMixedCases(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(indexedType.isSynthetic() ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, indexedType.isSynthetic(), capitalizedAutoCaseCompletePhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"STateS of AMeri\"",
+                    ImmutableList.of("United States of America",
+                    "welcome to the United States of America"));
+            test.apply("\"THE oF ameri\"",
+                    ImmutableList.of("United States of America",
+                            "welcome to the United States of America",
+                            "United States is a country in the continent of America"));
+            test.apply("\"THE\"",
+                    ImmutableList.of("There is a country called Armenia"));
+
+            commit(context);
+        }
+    }
+
+    protected static final List<String> autoCompleteCJKPhrases = List.of(
+            "世上无难事",
+            "世上无English word",
+            "世の中に難しいことなんてない",
+            "シマス風ト雷ヲ",
+            "シマス風ト 시험@김치오랜",
+            "평가했다",
+            "세상에 어려운 일은 없다",
+            "用户@例子.广告",
+            "おいしい@すし.あど なんてない",
+            "オイシイ@スシ.アド なんてない",
+            "시험@김치오랜.광고",
+            "asb@icloud.com 김치오랜"
+    );
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteCjkPhraseSearch(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"世上无\"",
+                    ImmutableList.of("世上无难事", "世上无English word"));
+            test.apply("\"世\"",
+                    ImmutableList.of("世上无难事", "世上无English word", "世の中に難しいことなんてない"));
+            test.apply("\"に難しい\"",
+                    ImmutableList.of("世の中に難しいことなんてない"));
+            test.apply("\"シマス\"",
+                    ImmutableList.of("シマス風ト雷ヲ", "シマス風ト 시험@김치오랜"));
+            test.apply("\"평가\"",
+                    ImmutableList.of("평가했다"));
+            test.apply("\"상에 어\"",
+                    ImmutableList.of("세상에 어려운 일은 없다"));
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteCjkEmailSearch(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"用户\"",
+                    ImmutableList.of("用户@例子.广告"));
+            test.apply("\"用户\\@\"",
+                    ImmutableList.of("用户@例子.广告"));
+            test.apply("\"い\\@すし\"",
+                    ImmutableList.of("おいしい@すし.あど なんてない"));
+            test.apply("\"シイ\\@スシ.アド\"",
+                    ImmutableList.of("オイシイ@スシ.アド なんてない"));
+            test.apply("\"시험@김\"",
+                    ImmutableList.of("시험@김치오랜.광고", "シマス風ト 시험@김치오랜"));
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteMultiPhraseLuceneQuery(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"い\\@すし.あど なんあど\"",
+                    ImmutableList.of());
+            test.apply("\"い\\@すし.あど なん\"",
+                    ImmutableList.of("おいしい@すし.あど なんてない"));
+            test.apply("\"シイ\\@スシ.アド な\"",
+                    ImmutableList.of("オイシイ@スシ.アド なんてない"));
+            test.apply("\"asb@icloud.com 김치오\"",
+                    ImmutableList.of("asb@icloud.com 김치오랜"));
+
+            commit(context);
+        }
+    }
+
     private static final List<String> spellcheckWords = List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
 
     @ParameterizedTest
@@ -5811,6 +6020,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             "all the states have been united as a country",
             "united states is a country in the continent of america"
     );
+    protected static final List<String> capitalizedAutoCaseCompletePhrases = List.of(
+            "United States of America",
+            "welcome to the United States of America",
+            "United Kingdom, France, the States",
+            "The countries are United Kingdom, France, the States",
+            "States United as a country",
+            "all the States United as a country",
+            "States have been United as a country",
+            "all the States have been united as a country",
+            "United States is a country in the continent of America",
+            "There is a country called Armenia"
+    );
 
     private void addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {
         if (isSynthetic) {
@@ -5864,7 +6085,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
         this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);

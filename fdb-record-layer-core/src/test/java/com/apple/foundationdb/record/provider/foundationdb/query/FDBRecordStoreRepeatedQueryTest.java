@@ -164,7 +164,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("repeater").oneOfThem().equalsValue(4))
                     .build();
             final RecordQueryPlan plan = planQuery(query);
-            if (useCascadesPlanner) {
+            if (isUseCascadesPlanner()) {
                 assertMatchesExactly(plan, fetchFromPartialRecordPlan(
                         unorderedPrimaryKeyDistinctPlan(
                                 coveringIndexPlan()

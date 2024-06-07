@@ -122,9 +122,9 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     @Override
     public String explain(@Nonnull final Formatter formatter) {
         if (child != null) {
-            return operator.name().toLowerCase(Locale.getDefault()) + "(" + child.explain(formatter) + ")";
+            return operator.name().toLowerCase(Locale.ROOT) + "(" + child.explain(formatter) + ")";
         } else {
-            return operator.name().toLowerCase(Locale.getDefault()) + "()";
+            return operator.name().toLowerCase(Locale.ROOT) + "()";
         }
     }
 
@@ -163,7 +163,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + child + ")";
     }
 
     @Override

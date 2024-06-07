@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import org.jline.reader.ParsedLine;
 
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -74,8 +75,8 @@ public class Processors {
     public static class ExecutingTaskProcessor implements Processor<ExecutingTaskEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final ExecutingTaskEvent event) {
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
-            plannerRepl.printlnKeyValue("shorthand", event.getShorthand().name().toLowerCase());
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("kind", event.getTask().getClass().getSimpleName());
             plannerRepl.printlnKeyValue("current root reference", "");
@@ -84,8 +85,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final ExecutingTaskEvent event) {
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("kind", event.getTask().getClass().getSimpleName() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()));
@@ -104,8 +105,8 @@ public class Processors {
     public static class OptimizeGroupProcessor implements Processor<OptimizeGroupEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final OptimizeGroupEvent event) {
-            plannerRepl.printlnKeyValue("shorthand", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -115,8 +116,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final OptimizeGroupEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()));
@@ -135,8 +136,8 @@ public class Processors {
     public static class ExploreExpressionProcessor implements Processor<ExploreExpressionEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final ExploreExpressionEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -147,8 +148,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final ExploreExpressionEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
@@ -168,8 +169,8 @@ public class Processors {
     public static class ExploreGroupProcessor implements Processor<ExploreGroupEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final ExploreGroupEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -179,8 +180,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final ExploreGroupEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()));
@@ -199,8 +200,8 @@ public class Processors {
     public static class TransformProcessor implements Processor<TransformEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final TransformEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -217,8 +218,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final TransformEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
@@ -244,8 +245,8 @@ public class Processors {
     public static class TransformRuleCallProcessor implements Processor<TransformRuleCallEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final TransformRuleCallEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -273,8 +274,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final TransformRuleCallEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
@@ -300,8 +301,8 @@ public class Processors {
     public static class AdjustMatchProcessor implements Processor<AdjustMatchEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final AdjustMatchEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -313,8 +314,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final AdjustMatchEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");
@@ -334,8 +335,8 @@ public class Processors {
     public static class OptimizeInputsProcessor implements Processor<OptimizeInputsEvent> {
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final OptimizeInputsEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
             plannerRepl.printlnKeyValue("description", event.getDescription());
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
@@ -346,8 +347,8 @@ public class Processors {
 
         @Override
         public void onList(final PlannerRepl plannerRepl, final OptimizeInputsEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentReference()) + "; ");

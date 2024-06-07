@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -196,15 +197,15 @@ public class FDBDirectoryManager implements AutoCloseable {
                             LuceneLogMessageKeys.INDEX_PARTITION, partitionId));
                 }
             } catch (IOException e) {
-                throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
-                        .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
-                                LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+                throw LuceneExceptions.wrapException("Lucene mergeIndex failed", e,
+                        LuceneLogMessageKeys.GROUP, groupingKey,
+                        LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
             }
         } catch (IOException e) {
             // there was an IOException closing the index writer
-            throw new RecordCoreStorageException("Lucene mergeIndex close failed", e)
-                    .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+            throw LuceneExceptions.wrapException("Lucene mergeIndex close failed", e,
+                    LuceneLogMessageKeys.GROUP, groupingKey,
+                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
     }
 
@@ -286,12 +287,16 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
         final Tuple mapKey = getDirectoryKey(groupingKey, partitionId);
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
     }
 
     public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
                                                       final AgilityContext agilityContext) {
-        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext);
+        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+    }
+
+    private int getBlockCacheMaximumSize() {
+        return state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE);
     }
 
     private static Tuple getDirectoryKey(final @Nullable Tuple groupingKey, final @Nullable Integer partitionId) {

@@ -378,12 +378,12 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     @Tag(Tags.Slow)
     public void updateRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
                         .setNumValue2(r.nextInt(20))
                         .build()
-        ).collect(Collectors.toList());
+        ).limit(300).collect(Collectors.toList());
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = records.stream()
                 .filter(rec -> r.nextBoolean())
                 .map(rec -> rec.toBuilder().setNumValue2(r.nextInt(20)).build())
@@ -396,12 +396,12 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     @Tag(Tags.Slow)
     public void deleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
                         .setNumValue2(r.nextInt(50))
                         .build()
-        ).collect(Collectors.toList());
+        ).limit(300).collect(Collectors.toList());
         List<Long> toDelete = records.stream()
                 .filter(rec -> r.nextBoolean())
                 .map(TestRecords1Proto.MySimpleRecord::getRecNo)
@@ -414,12 +414,12 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     @Tag(Tags.Slow)
     public void updateAndDeleteRecordsWhileBuildingSum(@Nullable Index sourceIndex, long seed) {
         Random r = new Random(seed);
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 300).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
                         .setNumValue2(r.nextInt(50))
                         .build()
-        ).collect(Collectors.toList());
+        ).limit(300).collect(Collectors.toList());
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = records.stream()
                 .filter(rec -> r.nextBoolean())
                 .map(rec -> rec.toBuilder().setNumValue2(r.nextInt(20)).build())
@@ -451,13 +451,13 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
     @Tag(Tags.Slow)
     public void updateWhileBuildingFilteredSum(@Nullable Index sourceIndex, boolean filterSource, long seed) {
         Random r = new Random(seed);
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 500).mapToObj(val ->
+        List<TestRecords1Proto.MySimpleRecord> records = Stream.generate(() ->
                 TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(r.nextLong())
                         .setNumValue2(r.nextInt(50) - 25)
                         .setNumValue3Indexed(r.nextInt(2))
                         .build()
-        ).collect(Collectors.toList());
+        ).limit(500).collect(Collectors.toList());
         List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding = records.stream()
                 .filter(rec -> r.nextBoolean())
                 .map(rec -> rec.toBuilder().setNumValue2(r.nextInt(50) - 25).setNumValue3Indexed(r.nextInt(2)).build())

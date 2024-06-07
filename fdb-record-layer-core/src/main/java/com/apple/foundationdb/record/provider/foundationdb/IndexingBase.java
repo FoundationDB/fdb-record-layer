@@ -51,6 +51,8 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -430,55 +432,74 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
+    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
-            store.saveIndexingTypeStamp(index, indexingTypeStamp);
+            store.saveIndexingTypeStamp(index, newStamp);
             return AsyncUtil.DONE;
         }
         return store.loadIndexingTypeStampAsync(index)
                 .thenCompose(savedStamp -> {
                     if (savedStamp == null) {
-                        if (continuedBuild && indexingTypeStamp.getMethod() !=
+                        if (continuedBuild && newStamp.getMethod() !=
                                               IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                             // backward compatibility - maybe continuing an old BY_RECORD session
                             return isWriteOnlyButNoRecordScanned(store, index)
-                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp));
+                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp));
                         }
                         // Here: either not a continuedBuild (new session), or a BY_RECORD session (allowed to overwrite the null stamp)
-                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
+                        store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }
                     // Here: has non-null type stamp
-                    if (indexingTypeStamp.equals(savedStamp)) {
+                    if (newStamp.equals(savedStamp)) {
                         // A matching stamp is already there - One less thing to worry about
                         return AsyncUtil.DONE;
                     }
-                    if (continuedBuild && shouldAllowTakeoverContinue(indexingTypeStamp, savedStamp)) {
-                        // Special case: partly built with multi target, but may be continued indexing on its own
-                        store.saveIndexingTypeStamp(index, indexingTypeStamp);
+                    if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
+                        // Indexing is blocked
+                        throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
+                    }
+                    if (areSimilar(newStamp, savedStamp)) {
+                        // Similar stamps, replace it
+                        store.saveIndexingTypeStamp(index, newStamp);
                         return AsyncUtil.DONE;
                     }
+                    // Here: check if type conversion is allowed
+                    if (continuedBuild && shouldAllowTypeConversionContinue(newStamp, savedStamp)) {
+                        // Special case: partly built by another indexing method, but may be continued with the current one
+                        if (savedStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)) {
+                            // Here: throw an exception if there is an active multi-target session that includes this index
+                            final String otherPrimaryIndexName = savedStamp.getTargetIndex(0);
+                            if (!otherPrimaryIndexName.equals(common.getPrimaryIndex().getName())) {
+                                // Note: For protection, avoid breaking an active multi-target session. This leads to a certain
+                                // inconsistency for buildIndex that is called with a false `useSyncLock` - sync lock will be
+                                // checked during a method conversion, but not during a simple "same method" continue.
+                                return throwIfSyncedLock(otherPrimaryIndexName, store, newStamp, savedStamp)
+                                        .thenCompose(ignore -> {
+                                            store.saveIndexingTypeStamp(index, newStamp);
+                                            return AsyncUtil.DONE;
+                                        });
+                            }
+                        }
+                        store.saveIndexingTypeStamp(index, newStamp);
+                        return AsyncUtil.DONE;
+                    }
+                    // Here: conversion is not allowed, yet there might be a case of a WRITE_ONLY index that hadn't scanned any records.
                     if (forceStampOverwrite) {  // and a continued Build
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, index)
                                 .thenCompose(noRecordScanned ->
-                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, indexingTypeStamp,
+                                throwUnlessNoRecordWasScanned(noRecordScanned, store, index, newStamp,
                                         savedStamp, continuedBuild));
                     }
                     // fall down to exception
-                    throw newPartlyBuiltException(continuedBuild, savedStamp, indexingTypeStamp, index);
+                    throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
                 });
     }
 
-    private boolean shouldAllowTakeoverContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
-        if (isTypeStampBlocked(savedStamp) && !policy.shouldAllowUnblock(savedStamp.getBlockID())) {
-            return false;
-        }
-        if (areSimilar(newStamp, savedStamp)) {
-            return true;
-        }
-        return policy.shouldAllowTakeoverContinue(newStamp.getMethod(), savedStamp.getMethod());
+    private boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        return policy.shouldAllowTypeConversionContinue(newStamp.getMethod(), savedStamp.getMethod());
     }
 
     private static boolean areSimilar(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
@@ -492,6 +513,23 @@ public abstract class IndexingBase {
                 .setBlockID("")
                 .setBlockExpireEpochMilliSeconds(0)
                 .build();
+    }
+
+    CompletableFuture<Void> throwIfSyncedLock(String otherIndexName, FDBRecordStore store, IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
+        final Index otherIndex = store.getRecordMetaData().getIndex(otherIndexName);
+        final Subspace mainLockSubspace = indexBuildLockSubspace(store, otherIndex);
+        return SynchronizedSession.checkActiveSessionExists(store.ensureContextActive(), mainLockSubspace)
+                        .thenApply(hasActiveSession -> {
+                            if (Boolean.TRUE.equals(hasActiveSession)) {
+                                throw new SynchronizedSessionLockedException("Failed to takeover indexing while part of a multi-target with an existing session in progress")
+                                        .addLogInfo(LogMessageKeys.SUBSPACE, mainLockSubspace)
+                                        .addLogInfo(LogMessageKeys.PRIMARY_INDEX, otherIndexName)
+                                        .addLogInfo(LogMessageKeys.EXPECTED, PartlyBuiltException.stampToString(newStamp))
+                                        .addLogInfo(LogMessageKeys.ACTUAL, PartlyBuiltException.stampToString(savedStamp));
+                            }
+                            return null;
+                        });
+
     }
 
     @Nonnull

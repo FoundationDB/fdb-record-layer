@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -366,7 +367,7 @@ public class LuceneHighlighterTest {
     void highlightsSpecialCharacterPrefixSearch(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
         String text = String.format("Do we match special characters like %1$s even when its mashed together like %1$snoSpaces?", specialCharacter);
 
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", specialCharacter.toLowerCase()), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", specialCharacter.toLowerCase(Locale.ROOT)), 1);
         Assertions.assertEquals(2, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...like " + specialCharacter + " even...like " + specialCharacter + "noSpaces?", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -384,7 +385,7 @@ public class LuceneHighlighterTest {
     void highlightsSpecialCharacterTerm(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
         String text = String.format("Do we match special characters like %1$s even when its mashed together like %1$snoSpaces?", specialCharacter);
 
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s", specialCharacter.toLowerCase()), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s", specialCharacter.toLowerCase(Locale.ROOT)), 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...like " + specialCharacter + " even...", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -405,7 +406,7 @@ public class LuceneHighlighterTest {
         String text = "This is a " + longTerm + "  I think, but maybe not also because things are weird";
 
         int maxTokenSize = getMaxTokenSize(queryAnalyzer);
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", longTerm.toLowerCase().substring(0, maxTokenSize - 1)), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", longTerm.toLowerCase(Locale.ROOT).substring(0, maxTokenSize - 1)), 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         if ("Ngram".equals(name)) {
             Assertions.assertEquals("...a " + longTerm + "  ...", result.getSummarizedText(), "Incorrect summary string!");
@@ -439,7 +440,7 @@ public class LuceneHighlighterTest {
 
 
         final String prefix = longTerm.substring(0, 25);
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", prefix.toLowerCase()), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", prefix.toLowerCase(Locale.ROOT)), 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
 
 
@@ -473,7 +474,7 @@ public class LuceneHighlighterTest {
         String longTerm = "reallyLongTermWhichTakesHundredsAndHundredsNoIMeanItLotsAndLotsOfCharactersSoItWillExceedTheLimitOfOurConfigurations";
         String text = "This is a " + longTerm + "  I think, but maybe not also because things are weird";
 
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", longTerm.toLowerCase()), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", longTerm.toLowerCase(Locale.ROOT)), 1);
 
         int maxTokenSize = getMaxTokenSize(indexAnalyzer);
         if (maxTokenSize > 0) {

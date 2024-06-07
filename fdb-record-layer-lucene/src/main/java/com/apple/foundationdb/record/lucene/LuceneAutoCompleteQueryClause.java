@@ -46,6 +46,7 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
@@ -65,6 +66,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -111,19 +113,21 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         final boolean phraseQueryNeeded = LuceneAutoCompleteHelpers.isPhraseSearch(searchArgument);
         final String searchKey = LuceneAutoCompleteHelpers.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
         final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+
+        // The analyzer used to construct the Lucene query should be the FULL_TEXT-index one in order to match how the text was indexed
         final var analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance()
-                        .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.AUTO_COMPLETE, fieldDerivationMap);
+                        .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldDerivationMap);
 
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
         final QueryParser parser = parserFactory.createMultiFieldQueryParser(fields.toArray(new String[0]),
-                analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
+                analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
 
 
         final var finalQuery = phraseQueryNeeded
                                ? buildQueryForPhraseMatching(parser, fields, searchKey)
-                               : buildQueryForTermsMatching(analyzerSelector.provideQueryAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
+                               : buildQueryForTermsMatching(analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug(KeyValueLogMessage.build("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
@@ -257,8 +261,8 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
         for (String field : fieldNames) {
             Query phraseQuery = parser.createPhraseQuery(field, phrase + " " + NONSTOPWORD);
-            if (!(phraseQuery instanceof TermQuery || phraseQuery instanceof PhraseQuery)) {
-                throw new RecordCoreException("Unsupported phrase type in auto-complete");
+            if (!(phraseQuery instanceof TermQuery || phraseQuery instanceof PhraseQuery || phraseQuery instanceof MultiPhraseQuery)) {
+                throw new RecordCoreException("Unsupported phrase type in auto-complete: " + phraseQuery.getClass().getName());
             }
 
             SpanNearQuery.Builder spanQuery = new SpanNearQuery.Builder(field, true).setSlop(0);
@@ -266,25 +270,21 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
             if (phraseQuery instanceof PhraseQuery) {
                 PhraseQuery pq = (PhraseQuery) phraseQuery;
                 Term[] terms = pq.getTerms();
-                int[] positions = pq.getPositions();
-                int prevPosition = -1;
-                boolean endsWithGap = false;
-                for (int i = 0; i < positions.length; i++) {
-                    if (positions[i] - 1 > prevPosition) {
-                        spanQuery.addGap(positions[i] - 1 - prevPosition);
-                        endsWithGap = true;
-                    }
-
-                    if (i < positions.length - 1) {
-                        spanQuery.addClause(new SpanTermQuery(terms[i]));
-                        endsWithGap = false;
-                    }
-
-                    prevPosition = positions[i];
+                buildSpanQuery(spanQuery, terms, pq.getPositions(), useGapForPrefix);
+            } else if (phraseQuery instanceof MultiPhraseQuery) {
+                MultiPhraseQuery mpq = (MultiPhraseQuery) phraseQuery;
+                final Term[][] termArrays = mpq.getTermArrays();
+                final List<Term> terms = new ArrayList<>();
+                /*
+                flatten the arrays by using the last term in each position.
+                example: In the case of WordDelimiterFilter with PRESERVE_ORIGINAL, bob@cat.com would result in:
+                          {bob@cat.com, bob}, {cat}, {com}
+                         Using "bob cat com" in the query would be able to match the indexed text
+                 */
+                for (Term[] t : termArrays) {
+                    terms.add(t[t.length - 1]);
                 }
-                if (useGapForPrefix && !endsWithGap) {
-                    spanQuery.addGap(1);
-                }
+                buildSpanQuery(spanQuery, terms.toArray(Term[]::new), mpq.getPositions(), useGapForPrefix);
             } else {
                 // if NONSTOPWORD is the only term, then the rest of the phrase must be stop words
                 spanQuery.addGap(1);
@@ -302,6 +302,30 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         return queryBuilder.build();
     }
 
+    private static void buildSpanQuery(final SpanNearQuery.Builder spanQuery,
+                                       final Term[] terms,
+                                       final int[] positions,
+                                       final boolean useGapForPrefix) {
+        int prevPosition = -1;
+        boolean endsWithGap = false;
+        for (int i = 0; i < positions.length; i++) {
+            if (positions[i] - 1 > prevPosition) {
+                spanQuery.addGap(positions[i] - 1 - prevPosition);
+                endsWithGap = true;
+            }
+
+            if (i < positions.length - 1) {
+                spanQuery.addClause(new SpanTermQuery(terms[i]));
+                endsWithGap = false;
+            }
+
+            prevPosition = positions[i];
+        }
+        if (useGapForPrefix && !endsWithGap) {
+            spanQuery.addGap(1);
+        }
+    }
+
     @Nonnull
     public static Query buildQueryForPhraseMatching(@Nonnull QueryParser parser,
                                                     @Nonnull Collection<String> fieldNames,
@@ -309,16 +333,15 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         // Construct a query that is essentially:
         //  - in any field,
         //  - the phrase must occur (with possibly the last token in the phrase as a prefix)
+        final String lowercasedSearchKey = searchKey.toLowerCase(Locale.ROOT);
+        List<String> tokens = new ArrayList<>();
         String phrase = null;
-        String prefix = null;
-        final int prefixBegin = searchKey.lastIndexOf(" ");
+        String prefix = getQueryTokens(new AutoCompleteAnalyzer(), lowercasedSearchKey, tokens);
 
-        if (prefixBegin > -1) {
-            phrase = searchKey.substring(0, prefixBegin);
-        }
-
-        if (prefixBegin < searchKey.length() - 1) {
-            prefix = searchKey.substring(prefixBegin + 1);
+        if (!tokens.isEmpty()) {
+            final String lastToken = tokens.get(tokens.size() - 1);
+            final int phraseEnd = lowercasedSearchKey.lastIndexOf(lastToken.toLowerCase(Locale.ROOT)) + lastToken.length();
+            phrase = lowercasedSearchKey.substring(0, phraseEnd);
         }
 
         if (phrase == null && prefix == null) {

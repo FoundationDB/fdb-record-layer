@@ -138,7 +138,7 @@ public class RTree {
      * Indicator if we should maintain a secondary node index consisting of hilbet value and key to speed up
      * update/deletes.
      */
-    public static final boolean DEFAULT_USE_NODE_SLOT_INDEX = true;
+    public static final boolean DEFAULT_USE_NODE_SLOT_INDEX = false;
 
     /**
      * The minimum number of slots a node has (if not the root node). {@code M} should be chosen in a way that the
@@ -185,7 +185,7 @@ public class RTree {
      * offset by a higher likelihood of conflicts.
      */
     @Nonnull
-    public static final Storage DEFAULT_STORAGE = Storage.BY_SLOT;
+    public static final Storage DEFAULT_STORAGE = Storage.BY_NODE;
 
     /**
      * Indicator if Hilbert values should be stored or not with the data (in leaf nodes). A Hilbert value can always
