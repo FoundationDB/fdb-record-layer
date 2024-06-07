@@ -19,7 +19,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 * **Bug fix** The `ArithmeticValue` and `NumericAggregationValue` classes now uses a fixed `Locale` with `toUpperCase` when encapsulating a specified function by name to avoid mismatches when running in the Turkish locale [(Issue #2750)](https://github.com/FoundationDB/fdb-record-layer/issues/2750)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** FDBDirectoryLock won't fail if AgilityContext is flushed while closing [(Issue #2754)](https://github.com/FoundationDB/fdb-record-layer/issues/2754)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Inconsistent nullability status for Array's element type [(Issue #2732)](https://github.com/FoundationDB/fdb-record-layer/issues/2737)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

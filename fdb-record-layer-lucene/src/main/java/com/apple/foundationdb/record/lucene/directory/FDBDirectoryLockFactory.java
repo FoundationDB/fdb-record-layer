@@ -83,6 +83,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         private final int timeWindowMilliseconds;
         private final byte[] fileLockKey;
         private boolean closed;
+        /**
+         * When closing this lock, we set this to the current context, so that when the pre-commit hook runs we won't
+         * fail to heartbeat, as it will expect the lock to be deleted.
+         */
+        private FDBRecordContext closingContext = null;
         private final Object fileLockSetLock = new Object();
 
         private FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
@@ -140,14 +145,23 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             return aContext.ensureActive().get(fileLockKey)
                     .thenAccept(val -> {
                         synchronized (fileLockSetLock) {
-                            if (isHeartbeat) {
-                                fileLockCheckHeartBeat(val);
+                            if (isHeartbeat && aContext == closingContext) {
+                                // we are in a context which has already cleared this lock, the value should be null
+                                if (val != null) {
+                                    long existingTimeStamp = fileLockValueToTimestamp(val);
+                                    UUID existingUuid = fileLockValueToUuid(val);
+                                    throw new AlreadyClosedException("Lock file re-obtained by " + existingUuid + " at " + existingTimeStamp + ". This=" + this);
+                                }
                             } else {
-                                fileLockCheckNewLock(val, nowMillis);
+                                if (isHeartbeat) {
+                                    fileLockCheckHeartBeat(val);
+                                } else {
+                                    fileLockCheckNewLock(val, nowMillis);
+                                }
+                                this.timeStampMillis = nowMillis;
+                                byte[] value = fileLockValue();
+                                aContext.ensureActive().set(fileLockKey, value);
                             }
-                            this.timeStampMillis = nowMillis;
-                            byte[] value = fileLockValue();
-                            aContext.ensureActive().set(fileLockKey, value);
                         }
                     });
         }
@@ -196,6 +210,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                                     if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
                                         // clear the lock if locked and matches uuid
                                         aContext.ensureActive().clear(fileLockKey);
+                                        closingContext = aContext;
                                         logSelf(isRecovery ? "FileLock: Cleared in Recovery path" : "FileLock: Cleared");
                                     } else if (! isRecovery) {
                                         throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
@@ -219,6 +234,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 flushed = true;
             } finally {
                 closed = flushed; // allow close retry
+                closingContext = null;
             }
         }
 
