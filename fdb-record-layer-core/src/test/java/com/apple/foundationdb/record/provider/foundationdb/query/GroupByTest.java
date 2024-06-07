@@ -259,7 +259,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testBitMap() {
+    void testBitMapWithStreamAggregation() {
         RecordMetaDataHook hook = setupHookAndAddData(true, true);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
@@ -312,8 +312,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     void testBitMapWithBitMapIndex() {
         int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, true, true, bitBucketSize);
-        Reference p = constructBitMapGroupByPlan(bitBucketSize, true);
-        //p.show(false);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(

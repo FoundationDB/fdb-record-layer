@@ -275,13 +275,10 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                 //
                 return !fieldDescriptor.isRequired();
             }
-            System.out.println("value class:" + value.getClass() + " value:" + value + " fieldName:" + fieldDescriptor.getName() + " fieldType:" + fieldDescriptor.getType() + "recordDescriptor:" + recordDescriptor.toProto());
             switch (fieldDescriptor.getType()) {
                 case INT32:
                     if (value.getClass().isArray()) {
-                        byte[] valueArray = (byte[])value;
                         value = fromByteArray((byte[])value);
-                        System.out.println("byte array:" + valueArray[3] + "," + valueArray[2] + "," + valueArray[1] + "," + valueArray[0] + " value:" + value);
                     } else {
                         value = ((Long)value).intValue();
                     }

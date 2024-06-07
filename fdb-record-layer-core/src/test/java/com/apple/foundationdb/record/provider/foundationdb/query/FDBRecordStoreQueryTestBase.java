@@ -55,16 +55,18 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -73,7 +75,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -100,22 +104,19 @@ import static org.junit.jupiter.api.Assertions.fail;
  * A base class for common infrastructure used by tests in {@link com.apple.foundationdb.record.provider.foundationdb.query}.
  */
 public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase {
-    protected List<TestRecords1Proto.MySimpleRecord> setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
-                                                                            BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord) {
-        ImmutableList.Builder<TestRecords1Proto.MySimpleRecord> listBuilder = ImmutableList.builder();
+    protected void setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
+                                          BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord)
+            throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
 
             for (int i = 0; i < 100; i++) {
-                TestRecords1Proto.MySimpleRecord.Builder recordBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-                buildRecord.accept(i, recordBuilder);
-                TestRecords1Proto.MySimpleRecord rec = recordBuilder.build();
-                recordStore.saveRecord(rec);
-                listBuilder.add(rec);
+                TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
+                buildRecord.accept(i, record);
+                recordStore.saveRecord(record.build());
             }
             commit(context);
         }
-        return listBuilder.build();
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
@@ -232,6 +233,45 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             }
             commit(context);
         }
+    }
+
+    @Nonnull
+    protected List<Map<String, Object>> queryAsMaps(@Nonnull RecordQueryPlan plan, @Nonnull Bindings bindings) {
+        final TypeRepository types = TypeRepository.newBuilder()
+                .addAllTypes(UsedTypesProperty.evaluate(plan))
+                .build();
+        final EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, types);
+        try (RecordCursor<QueryResult> resultCursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE)) {
+            List<Map<String, Object>> maps = new ArrayList<>();
+            for (RecordCursorResult<QueryResult> res = resultCursor.getNext(); res.hasNext(); res = resultCursor.getNext()) {
+                Message message = res.get().getMessage();
+                Map<String, Object> asMap = message.getAllFields()
+                        .entrySet()
+                        .stream()
+                        .collect(Collectors.toMap(e -> e.getKey().getName(), Map.Entry::getValue));
+                maps.add(asMap);
+            }
+            return maps;
+        }
+    }
+
+    @Nonnull
+    protected static Bindings constantBindings(@Nonnull ConstantObjectValue constant, @Nonnull Object value) {
+        return constantBindings(Map.of(constant, value));
+    }
+
+    @Nonnull
+    protected static Bindings constantBindings(@Nonnull Map<ConstantObjectValue, Object> constantMap) {
+        Map<CorrelationIdentifier, ImmutableMap.Builder<String, Object>> byAlias = new HashMap<>();
+        for (Map.Entry<ConstantObjectValue, Object> constant :  constantMap.entrySet()) {
+            byAlias.computeIfAbsent(constant.getKey().getAlias(), ignore -> ImmutableMap.builder())
+                    .put(constant.getKey().getConstantId(), constant.getValue());
+        }
+        Bindings.Builder bindingsBuilder = Bindings.newBuilder();
+        for (Map.Entry<CorrelationIdentifier, ImmutableMap.Builder<String, Object>> aliasEntry : byAlias.entrySet()) {
+            bindingsBuilder.set(Bindings.Internal.CONSTANT.bindingName(aliasEntry.getKey().getId()), aliasEntry.getValue().build());
+        }
+        return bindingsBuilder.build();
     }
 
     @Nonnull
