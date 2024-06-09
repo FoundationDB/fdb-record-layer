@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -140,11 +141,9 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 final ImmutableList<InSource> sources =
-                        getInSourcesForRequestedOrdering(explodeAliasToQuantifierMap,
-                                explodeAliases,
-                                quantifierToExplodeBiMap,
-                                providedOrdering,
-                                requestedOrdering);
+                        getInSourcesForRequestedOrdering((QuantifiedObjectValue)resultValue,
+                                selectExpression.getCorrelatedTo(), explodeAliasToQuantifierMap, explodeAliases,
+                                quantifierToExplodeBiMap, providedOrdering, requestedOrdering);
                 if (sources.isEmpty()) {
                     continue;
                 }
@@ -163,7 +162,9 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
+    private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final QuantifiedObjectValue resultValue,
+                                                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                     @Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
                                                                      @Nonnull final Set<CorrelationIdentifier> explodeAliases,
                                                                      @Nonnull final IdentityBiMap<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
                                                                      @Nonnull final Ordering innerOrdering,
@@ -296,9 +297,10 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     innerOrdering.getOrderingSet()
                             .filterElements(value -> innerOrdering.isDirectionalValue(value) || !outerOrderingValues.contains(value));
             final var filteredInnerOrdering = Ordering.ofOrderingSet(resultOrderingBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+            final var concatenatedOrdering =
+                    Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);
             final var resultOrdering =
-                    Ordering.concatOrderings(outerOrdering, filteredInnerOrdering,
-                            (l, r) -> ImmutableSetMultimap.<Value, Binding>builder().putAll(l).putAll(r).build());
+                    concatenatedOrdering.pullUp(resultValue, AliasMap.ofAliases(resultValue.getAlias(), Quantifier.current()), constantAliases);
             return resultOrdering.satisfies(requestedOrdering)
                    ? sourcesBuilder.build()
                    : ImmutableList.of();

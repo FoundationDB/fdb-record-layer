@@ -317,7 +317,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     @SuppressWarnings("java:S135")
     private static Optional<Boolean> satisfiedOrderings(@Nonnull final PartialMatch partialMatch, @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        Set<RequestedOrdering> satisfiedOrderings = requestedOrderings
+        Set<RequestedOrdering> satisfiedRequestedOrderings = requestedOrderings
                 .stream()
                 .filter(requestedOrdering -> {
                     if (requestedOrdering.isPreserve()) {
@@ -364,17 +364,15 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     return true;
                 })
                 .collect(ImmutableSet.toImmutableSet());
-        if (satisfiedOrderings.isEmpty()) {
+        if (satisfiedRequestedOrderings.isEmpty()) {
             return Optional.empty();
         }
-        for (final var ordering: satisfiedOrderings) {
-            // Ignore orderings without parts (only containing preserve_distinctness for example)
-            if (!ordering.getOrderingParts().isEmpty()) {
-                // If one is reverse, they are all reverse
-                return Optional.of(ordering.getOrderingParts().get(0).getSortOrder().isReverse());
-            }
-        }
-        return Optional.of(false);
+
+        return satisfiedRequestedOrderings
+                .stream()
+                .map(RequestedOrdering::resolveScanDirection)
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 
     /**
@@ -567,7 +565,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        return Ordering.merge(orderingPartialOrders, Ordering::unionBindings, (left, right) -> true);
+        return Ordering.merge(orderingPartialOrders, Ordering::combineBindingsForIntersection, (left, right) -> true);
     }
 
     /**

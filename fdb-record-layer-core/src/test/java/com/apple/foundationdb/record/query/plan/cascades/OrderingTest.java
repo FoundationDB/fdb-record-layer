@@ -127,7 +127,7 @@ class OrderingTest {
                         rightPartialOrder, false);
 
         final var mergedOrdering =
-                Ordering.merge(leftOrdering, rightOrdering, Ordering::intersectBindings, false);
+                Ordering.merge(leftOrdering, rightOrdering, Ordering::combineBindingsForUnion, false);
 
         final var expectedOrdering =
                 Ordering.ofOrderingSet(bindingMap,
@@ -165,7 +165,7 @@ class OrderingTest {
                         rightPartialOrder, false);
 
         final var mergedOrdering =
-                Ordering.merge(leftOrdering, rightOrdering, Ordering::intersectBindings, false);
+                Ordering.merge(leftOrdering, rightOrdering, Ordering::combineBindingsForUnion, false);
 
         final var expectedOrdering =
                 Ordering.ofOrderingSet(bindingMap,
@@ -202,7 +202,7 @@ class OrderingTest {
                         rightPartialOrder, false);
 
         final var mergedOrdering =
-                Ordering.merge(leftOrdering, rightOrdering, Ordering::intersectBindings, false);
+                Ordering.merge(leftOrdering, rightOrdering, Ordering::combineBindingsForUnion, false);
 
         assertEquals(Ordering.empty(), mergedOrdering);
     }
@@ -362,7 +362,7 @@ class OrderingTest {
 
         final var mergedOrdering =
                 Ordering.merge(ImmutableList.of(one, two, three, four),
-                        Ordering::intersectBindings, (left, right) -> false);
+                        Ordering::combineBindingsForUnion, (left, right) -> false);
 
         final var expectedOrdering =
                 Ordering.ofOrderingSet(abcdBindingMap,
@@ -414,7 +414,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.merge(ImmutableList.of(one, two, three, four), Ordering::intersectBindings,
+                Ordering.merge(ImmutableList.of(one, two, three, four), Ordering::combineBindingsForUnion,
                         (left, right) -> false);
 
         final var requestedOrdering = new RequestedOrdering(
@@ -453,7 +453,7 @@ class OrderingTest {
 
 
         final var mergedOrdering =
-                Ordering.merge(ImmutableList.of(one, two), Ordering::intersectBindings, (left, right) -> false);
+                Ordering.merge(ImmutableList.of(one, two), Ordering::combineBindingsForUnion, (left, right) -> false);
 
         var requestedOrdering = new RequestedOrdering(
                 requested(a, b, c, x),
@@ -491,7 +491,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.merge(ImmutableList.of(one, two), Ordering::intersectBindings, (left, right) -> false);
+                Ordering.merge(ImmutableList.of(one, two), Ordering::combineBindingsForUnion, (left, right) -> false);
 
         final var requestedOrdering = new RequestedOrdering(
                 requested(a, c, b, x),
@@ -529,7 +529,7 @@ class OrderingTest {
                 false);
 
         final var mergedOrdering =
-                Ordering.merge(ImmutableList.of(one, two), Ordering::intersectBindings, (left, right) -> false);
+                Ordering.merge(ImmutableList.of(one, two), Ordering::combineBindingsForUnion, (left, right) -> false);
 
         var requestedOrdering = new RequestedOrdering(
                 requested(a, b, x),

@@ -203,7 +203,7 @@ public class Ordering {
             }
             final var bindings = bindingMap.get(requestedOrderingPart.getValue());
             final var sortOrder = sortOrder(bindings);
-            if (!sortOrder.satisfiesRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
+            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
 
@@ -254,7 +254,7 @@ public class Ordering {
             }
             final var bindings = bindingMap.get(requestedOrderingPart.getValue());
             final var sortOrder = sortOrder(bindings);
-            if (!sortOrder.satisfiesRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
+            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
                 return ImmutableList.of();
             }
 
@@ -411,8 +411,7 @@ public class Ordering {
                         .addListWithDependencies(comparisonKeyValues)
                         .build();
 
-        Debugger.sanityCheck(() -> Verify.verify(comparisonKeyOrderingSet.getSet().stream()
-                .allMatch(otherValue -> orderingSet.getSet().stream().anyMatch(value -> value.equals(otherValue)))));
+        Debugger.sanityCheck(() -> Verify.verify(orderingSet.getSet().containsAll(comparisonKeyOrderingSet.getSet())));
 
         final var resultBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final Map.Entry<Value, Binding> entry : getBindingMap().entries()) {
@@ -541,12 +540,18 @@ public class Ordering {
                         case ASCENDING:
                             Verify.verify(!isFixed);
                             Verify.verify(seenSortOrder != ProvidedSortOrder.DESCENDING);
-                            // We have seen an ASCENDING binding already -- skip
+                            if (seenSortOrder != ProvidedSortOrder.ASCENDING) {
+                                // Not seen an ASCENDING binding already
+                                normalizedBindingMapBuilder.put(value, binding);
+                            }
                             break;
                         case DESCENDING:
                             Verify.verify(!isFixed);
                             Verify.verify(seenSortOrder != ProvidedSortOrder.ASCENDING);
-                            // We have seen a DESCENDING binding already -- skip
+                            if (seenSortOrder != ProvidedSortOrder.DESCENDING) {
+                                // Not seen an DESCENDING binding already
+                                normalizedBindingMapBuilder.put(value, binding);
+                            }
                             break;
                         case FIXED:
                             //
@@ -751,23 +756,22 @@ public class Ordering {
             //
             // "Intersect" the left elements with the right elements. Test their bindings for compatibility.
             //
-            final var intersectedElementsBuilder = ImmutableSet.<Value>builder();
+            final var combinedElementsBuilder = ImmutableSet.<Value>builder();
             for (final var leftElement : leftElements) {
                 for (final var rightElement : rightElements) {
                     if (leftElement.equals(rightElement)) {
-                        final var intersectedBindings =
-                                combineBindings(leftBindingMap.get(leftElement),
-                                        rightBindingMap.get(rightElement), combineOperator);
-                        if (!intersectedBindings.isEmpty()) {
-                            intersectedElementsBuilder.add(leftElement);
+                        final var combinedBindings =
+                                combineOperator.apply(leftBindingMap.get(leftElement), rightBindingMap.get(rightElement));
+                        if (!combinedBindings.isEmpty()) {
+                            combinedElementsBuilder.add(leftElement);
                             elementsBuilder.add(leftElement);
-                            bindingMapBuilder.putAll(leftElement, intersectedBindings);
+                            bindingMapBuilder.putAll(leftElement, combinedBindings);
                         }
                     }
                 }
             }
 
-            final var intersectedElements = intersectedElementsBuilder.build();
+            final var intersectedElements = combinedElementsBuilder.build();
             if (intersectedElements.isEmpty()) {
                 break;
             }
@@ -791,10 +795,16 @@ public class Ordering {
         return Ordering.ofOrderingSet(bindingMapBuilder.build(), orderingSet, isDistinct);
     }
 
+    /**
+     * Union the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
+     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
+     * @param leftBindings set of bindings of the left ordering
+     * @param rightBindings set of bindings of the right ordering
+     * @return newly combined set of bindings
+     */
     @Nonnull
-    private static Set<Binding> combineBindings(@Nonnull final Set<Binding> leftBindings,
-                                                @Nonnull final Set<Binding> rightBindings,
-                                                @Nonnull final BinaryOperator<Set<Binding>> combineOperator) {
+    public static Set<Binding> combineBindingsForUnion(@Nonnull final Set<Binding> leftBindings,
+                                                       @Nonnull final Set<Binding> rightBindings) {
         final var leftSortOrder = sortOrder(leftBindings);
         final var rightSortOrder = sortOrder(rightBindings);
 
@@ -812,22 +822,58 @@ public class Ordering {
             return ImmutableSet.of(Binding.sorted(rightSortOrder));
         }
 
-        // delegate to the combine operator to deal with the fixed bindings
-        return combineOperator.apply(leftBindings, rightBindings);
+        Debugger.sanityCheck(() -> {
+            Verify.verify(areAllBindingsFixed(leftBindings));
+            Verify.verify(areAllBindingsFixed(rightBindings));
+        });
+
+        return ImmutableSet.copyOf(Sets.union(leftBindings, rightBindings));
+    }
+
+    /**
+     * Intersect the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
+     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
+     * @param leftBindings set of bindings of the left ordering
+     * @param rightBindings set of bindings of the right ordering
+     * @return newly combined set of bindings
+     */
+    @Nonnull
+    public static Set<Binding> combineBindingsForIntersection(@Nonnull final Set<Binding> leftBindings,
+                                                              @Nonnull final Set<Binding> rightBindings) {
+        final var leftSortOrder = sortOrder(leftBindings);
+        final var rightSortOrder = sortOrder(rightBindings);
+
+        if (leftSortOrder.isDirectional() && rightSortOrder.isDirectional()) {
+            if (leftSortOrder != rightSortOrder) {
+                return ImmutableSet.of();
+            }
+            return ImmutableSet.of(Binding.sorted(leftSortOrder));
+        }
+
+        if (leftSortOrder.isDirectional() && rightSortOrder == ProvidedSortOrder.FIXED) {
+            return rightBindings;
+        }
+        if (leftSortOrder == ProvidedSortOrder.FIXED && rightSortOrder.isDirectional()) {
+            return leftBindings;
+        }
+
+        Debugger.sanityCheck(() -> {
+            Verify.verify(areAllBindingsFixed(leftBindings));
+            Verify.verify(areAllBindingsFixed(rightBindings));
+        });
+        return ImmutableSet.copyOf(Sets.union(leftBindings, rightBindings));
     }
 
     /**
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
      * @param orderings a collection of orderings
-     * @param combineFn a combine function to combine two maps of {@link ProvidedSortOrder#FIXED} bindings.
      * @return a new ordering representing a concatenation of the given left and right ordering
      */
     @Nonnull
-    public static Ordering concatOrderings(@Nonnull final Collection<Ordering> orderings,
-                                           @Nonnull final BinaryOperator<SetMultimap<Value, Binding>> combineFn) {
+    public static Ordering concatOrderings(@Nonnull final Collection<Ordering> orderings) {
 
         return orderings.stream()
-                .reduce((left, right) -> concatOrderings(left, right, combineFn))
+                .reduce(Ordering::concatOrderings)
                 .orElseThrow(() -> new RecordCoreException("unable to concatenate orderings"));
     }
 
@@ -835,13 +881,11 @@ public class Ordering {
      * Helper method to concatenate the ordering key parts of the participating orderings in iteration order.
      * @param leftOrdering an {@link Ordering}
      * @param rightOrdering another {@link Ordering} to be concatenated to {@code leftOrdering}
-     * @param combineFn a combine function to combine two maps of equality-bound keys (and their bindings)
      * @return a new {@link Ordering}
      */
     @Nonnull
     public static Ordering concatOrderings(@Nonnull final Ordering leftOrdering,
-                                           @Nonnull final Ordering rightOrdering,
-                                           @Nonnull final BinaryOperator<SetMultimap<Value, Binding>> combineFn) {
+                                           @Nonnull final Ordering rightOrdering) {
         final var leftOrderingSet = leftOrdering.getOrderingSet();
         final var rightOrderingSet = rightOrdering.getOrderingSet();
 
@@ -880,60 +924,11 @@ public class Ordering {
 
         final var concatenatedOrderingSet = PartiallyOrderedSet.of(orderingElements, dependencyMapBuilder.build());
 
-        final var combinedEqualityBoundValueMap =
-                combineFn.apply(leftOrdering.getBindingMap(), rightOrdering.getBindingMap());
-        return Ordering.ofOrderingSet(combinedEqualityBoundValueMap, concatenatedOrderingSet, rightOrdering.isDistinct());
-    }
+        final var combinedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+        combinedBindingMapBuilder.putAll(leftOrdering.getBindingMap());
+        combinedBindingMapBuilder.putAll(rightOrdering.getBindingMap());
 
-
-    /**
-     * Union the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
-     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
-     * @param left set of bindings of the left ordering
-     * @param right set of bindings of the right ordering
-     * @return newly combined set of bindings
-     */
-    @Nonnull
-    public static Set<Binding> unionBindings(@Nonnull final Set<Binding> left,
-                                             @Nonnull final Set<Binding> right) {
-        Debugger.sanityCheck(() -> {
-            Verify.verify(areAllBindingsFixed(left));
-            Verify.verify(areAllBindingsFixed(right));
-        });
-        return ImmutableSet.copyOf(Sets.union(left, right));
-    }
-
-    /**
-     * Union the bindings common to two orderings. This method is usually passed in as a method
-     * reference to {@link #concatOrderings(Collection, BinaryOperator)} as the binary operator.
-     * @param left multimap of bindings of the left ordering
-     * @param right multimap of bindings of the right ordering
-     * @return newly combined multimap of bindings
-     */
-    @Nonnull
-    public static SetMultimap<Value, Binding> unionBindingMaps(@Nonnull final SetMultimap<Value, Binding> left,
-                                                               @Nonnull final SetMultimap<Value, Binding> right) {
-        return ImmutableSetMultimap.<Value, Binding>builder()
-                .putAll(left)
-                .putAll(right)
-                .build();
-    }
-
-    /**
-     * Intersect the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
-     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
-     * @param left set of bindings of the left ordering
-     * @param right set of bindings of the right ordering
-     * @return newly combined set of bindings
-     */
-    @Nonnull
-    public static Set<Binding> intersectBindings(@Nonnull final Set<Binding> left,
-                                                 @Nonnull final Set<Binding> right) {
-        Debugger.sanityCheck(() -> {
-            Verify.verify(areAllBindingsFixed(left));
-            Verify.verify(areAllBindingsFixed(right));
-        });
-        return ImmutableSet.copyOf(Sets.intersection(left, right));
+        return Ordering.ofOrderingSet(combinedBindingMapBuilder.build(), concatenatedOrderingSet, rightOrdering.isDistinct());
     }
 
     @Nonnull
@@ -1011,7 +1006,7 @@ public class Ordering {
 
         @Override
         public String toString() {
-            return sortOrder + (comparison == null ? "" : ", " + comparison);
+            return sortOrder + (comparison == null ? "" : ":" + comparison);
         }
 
         @Nonnull

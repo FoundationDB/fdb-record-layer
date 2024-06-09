@@ -109,6 +109,10 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
+        // We keep a set for normalized values in order to check for duplicate values in the index definition.
+        // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
@@ -121,11 +125,9 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
             bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
+            normalizedValues.add(normalizedValue);
         }
 
-        // We keep a set for normalized values in order to check for duplicate values in the index definition.
-        // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
-        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);

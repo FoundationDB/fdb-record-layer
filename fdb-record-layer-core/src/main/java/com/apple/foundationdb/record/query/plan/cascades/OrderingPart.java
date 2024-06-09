@@ -146,7 +146,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-        public boolean satisfiesRequestedSortOrder(@Nonnull final RequestedSortOrder requestedSortOrder) {
+        public boolean isCompatibleWithRequestedSortOrder(@Nonnull final RequestedSortOrder requestedSortOrder) {
             if (requestedSortOrder == RequestedSortOrder.ANY || !isDirectional()) {
                 return true;
             }

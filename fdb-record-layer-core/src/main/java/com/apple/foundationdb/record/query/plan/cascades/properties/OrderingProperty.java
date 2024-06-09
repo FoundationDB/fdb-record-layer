@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -289,7 +290,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
             return deriveForDistinctSetOperationFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(),
-                    intersectionOnValuePlan.isReverse(), Ordering::unionBindings);
+                    intersectionOnValuePlan.isReverse(), Ordering::combineBindingsForIntersection);
         }
 
         @Nonnull
@@ -378,7 +379,11 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var filteredInnerOrdering =
                     Ordering.ofOrderingSet(resultBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
 
-            return Ordering.concatOrderings(outerOrdering, filteredInnerOrdering, (l, r) -> resultBindingMap);
+            final var concatenatedOrdering =
+                    Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);
+            return concatenatedOrdering.pullUp(QuantifiedObjectValue.of(inJoinPlan.getInner()),
+                    AliasMap.ofAliases(inJoinPlan.getInner().getAlias(), Quantifier.current()),
+                    inJoinPlan.getCorrelatedTo());
         }
 
         @Nullable
@@ -479,7 +484,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             //
             // Outer ordering is distinct and the inner max cardinality is not proven to be 1L.
             //
-            return Ordering.concatOrderings(outerOrdering, innerOrdering, Ordering::unionBindingMaps);
+            return Ordering.concatOrderings(outerOrdering, innerOrdering);
         }
 
         @Nonnull
@@ -530,7 +535,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     orderingsFromChildren(unionOnValuesPlan),
                     unionOnValuesPlan.getComparisonKeyValues(),
                     unionOnValuesPlan.isReverse(),
-                    Ordering::intersectBindings);
+                    Ordering::combineBindingsForUnion);
         }
 
         @Nonnull
@@ -641,7 +646,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     memberOrderings
                             .stream()
                             .allMatch(Ordering::isDistinct);
-            return Ordering.merge(memberOrderings, Ordering::intersectBindings, (left, right) -> allAreDistinct);
+            return Ordering.merge(memberOrderings, Ordering::combineBindingsForUnion, (left, right) -> allAreDistinct);
         }
 
         public static Ordering deriveForDistinctSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,

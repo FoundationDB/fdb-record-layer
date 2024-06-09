@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -178,6 +179,33 @@ public class RequestedOrdering {
             pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
+    }
+
+    @Nonnull
+    public Optional<Boolean> resolveScanDirection() {
+        boolean seenAscending = false;
+        boolean seenDescending = false;
+        for (final var orderingPart : getOrderingParts()) {
+            if (orderingPart.getSortOrder() == RequestedSortOrder.ASCENDING) {
+                seenAscending = true;
+            } else if (orderingPart.getSortOrder() == RequestedSortOrder.DESCENDING) {
+                seenDescending = true;
+            }
+        }
+
+        if (seenAscending && seenDescending) {
+            return Optional.empty();
+        }
+
+        if (!seenAscending && !seenDescending) {
+            return Optional.of(false);
+        }
+
+        if (seenAscending) {
+            return Optional.of(false);
+        }
+
+        return Optional.of(true);
     }
 
     /**

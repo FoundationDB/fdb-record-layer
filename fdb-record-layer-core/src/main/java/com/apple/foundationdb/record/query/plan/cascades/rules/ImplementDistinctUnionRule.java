@@ -179,7 +179,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                         final var mergedOrdering =
                                 Ordering.merge(ImmutableList.of(merge.get(lastMerged).getKey(),
                                                 orderings.get(merge.size())),
-                                        Ordering::intersectBindings, (left, right) -> true);
+                                        Ordering::combineBindingsForUnion, (left, right) -> true);
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
                         if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, mergedOrdering)) {
