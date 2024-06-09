@@ -17,21 +17,21 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** The `ArithmeticValue` and `NumericAggregationValue` classes now uses a fixed `Locale` with `toUpperCase` when encapsulating a specified function by name to avoid mismatches when running in the Turkish locale [(Issue #2750)](https://github.com/FoundationDB/fdb-record-layer/issues/2750)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Inconsistent nullability status for Array's element type [(Issue #2732)](https://github.com/FoundationDB/fdb-record-layer/issues/2737)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Make Lucene block cache size configurable [(Issue #2749)](https://github.com/FoundationDB/fdb-record-layer/issues/2749)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Validate filelock on every transaction to reduce ttl [(Issue #2747)](https://github.com/FoundationDB/fdb-record-layer/issues/2747)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,13 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.510.0
+
+* **Bug fix** The `ArithmeticValue` and `NumericAggregationValue` classes now uses a fixed `Locale` with `toUpperCase` when encapsulating a specified function by name to avoid mismatches when running in the Turkish locale [(Issue #2750)](https://github.com/FoundationDB/fdb-record-layer/issues/2750)
+* **Bug fix** Inconsistent nullability status for Array's element type [(Issue #2732)](https://github.com/FoundationDB/fdb-record-layer/issues/2737)
+* **Feature** Make Lucene block cache size configurable [(Issue #2749)](https://github.com/FoundationDB/fdb-record-layer/issues/2749)
+* **Feature** Validate filelock on every transaction to reduce ttl [(Issue #2747)](https://github.com/FoundationDB/fdb-record-layer/issues/2747)
 
 ### 3.4.504.0
 
