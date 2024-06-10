@@ -192,7 +192,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
             }
 
             final var inUnionOrdering =
-                    Ordering.ofOrderingSet(filteredBindingMapBuilder.build(), providedOrdering.getOrderingSet(),
+                    Ordering.UNION.createOrdering(filteredBindingMapBuilder.build(), providedOrdering.getOrderingSet(),
                             providedOrdering.isDistinct());
 
             for (final var requestedOrdering : requestedOrderings) {

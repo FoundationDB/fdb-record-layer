@@ -59,16 +59,17 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                                                                                boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final var normalizedKeys =
+        final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(ordinalInCandidate);
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
@@ -92,9 +93,11 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-
-            builder.add(
-                    OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
+            if (!normalizedValues.contains(value)) {
+                normalizedValues.add(value);
+                builder.add(
+                        OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
+            }
         }
 
         return builder.build();

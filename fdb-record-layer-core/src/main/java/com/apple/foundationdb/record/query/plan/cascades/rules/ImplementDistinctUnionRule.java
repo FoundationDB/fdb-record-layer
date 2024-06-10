@@ -143,7 +143,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
             // keep a side structure to avoid re-computation of the combined orderings
             final var merge =
-                    Lists.<Pair<Ordering /* merged ordering */, Ordering /* current ordering */>>newArrayList();
+                    Lists.<Pair<Ordering.Union /* merged ordering */, Ordering /* current ordering */>>newArrayList();
             while (partitionsCrossProductIterator.hasNext()) {
                 final var partitions = partitionsCrossProductIterator.next();
 
@@ -173,13 +173,13 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
                 while (merge.size() < orderings.size()) {
                     if (merge.isEmpty()) {
-                        merge.add(Pair.of(orderings.get(0), orderings.get(0)));
+                        merge.add(Pair.of(Ordering.UNION.createFromOrdering(orderings.get(0)), orderings.get(0)));
                     } else {
                         final var lastMerged = merge.size() - 1;
                         final var mergedOrdering =
                                 Ordering.merge(ImmutableList.of(merge.get(lastMerged).getKey(),
                                                 orderings.get(merge.size())),
-                                        Ordering::combineBindingsForUnion, (left, right) -> true);
+                                        Ordering.UNION, (left, right) -> true);
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
                         if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, mergedOrdering)) {
@@ -194,7 +194,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                 }
 
                 if (merge.size() == orderings.size()) {
-                    final var mergedOrdering = merge.get(merge.size() - 1).getKey();
+                    final var unionOrdering = merge.get(merge.size() - 1).getKey();
 
                     //
                     // create new quantifiers
@@ -207,7 +207,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                     .collect(ImmutableList.toImmutableList());
 
                     final var enumeratedSatisfyingComparisonKeyValues =
-                            mergedOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+                            unionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
 
                     for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
                         //

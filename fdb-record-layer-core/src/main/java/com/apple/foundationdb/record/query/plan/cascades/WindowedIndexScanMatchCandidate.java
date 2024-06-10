@@ -48,6 +48,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
@@ -237,16 +238,17 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                                               boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final var normalizedKeys =
+        final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(ordinalInCandidate);
             Objects.requireNonNull(normalizedKeyExpression);
             Objects.requireNonNull(parameterId);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
@@ -267,20 +269,23 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            if (parameterId.equals(scoreAlias)) {
-                //
-                // This is the score field of the index which is returned at this ordinal position.
-                // Even though we may not have bound the score field itself via matching we may have bound the
-                // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
-                // We need to record that.
-                //
-                @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
+            if (!normalizedValues.contains(normalizedValue)) {
+                normalizedValues.add(normalizedValue);
+                if (parameterId.equals(scoreAlias)) {
+                    //
+                    // This is the score field of the index which is returned at this ordinal position.
+                    // Even though we may not have bound the score field itself via matching we may have bound the
+                    // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
+                    // We need to record that.
+                    //
+                    @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
-                builder.add(
-                        OrderingPart.MatchedOrderingPart.of(normalizedValue, rankComparisonRange, isReverse));
-            } else {
-                builder.add(
-                        OrderingPart.MatchedOrderingPart.of(normalizedValue, comparisonRange, isReverse));
+                    builder.add(
+                            OrderingPart.MatchedOrderingPart.of(normalizedValue, rankComparisonRange, isReverse));
+                } else {
+                    builder.add(
+                            OrderingPart.MatchedOrderingPart.of(normalizedValue, comparisonRange, isReverse));
+                }
             }
         }
 
@@ -296,6 +301,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
         final var scoreOrdinal = groupingExpression.getGroupingCount();
 
+        // We keep a set for normalized values in order to check for duplicate values in the index definition.
+        // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
             final var comparison = equalityComparisons.get(i);
@@ -308,6 +317,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
+            normalizedValues.add(normalizedValue);
             if (i == scoreOrdinal) {
                 bindingMapBuilder.put(normalizedValue, Binding.fixed(new Comparisons.OpaqueEqualityComparison()));
             } else {
@@ -333,8 +343,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
-            orderingSequenceBuilder.add(normalizedValue);
+
+            if (!normalizedValues.contains(normalizedValue)) {
+                normalizedValues.add(normalizedValue);
+                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
+                orderingSequenceBuilder.add(normalizedValue);
+            }
         }
 
         return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);

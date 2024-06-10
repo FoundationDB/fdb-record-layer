@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 
@@ -183,11 +184,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     public List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final var normalizedKeys =
+        final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
         final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
@@ -201,7 +204,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
             int permutedIndex = indexWithPermutation(ordinalInCandidate);
-            final var normalizedKeyExpression = normalizedKeys.get(permutedIndex);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(permutedIndex);
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
@@ -221,8 +224,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             // Grab the value for this sortParameterID from the selectHaving result columns
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
-            builder.add(
-                    OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
+
+            if (!normalizedValues.contains(value)) {
+                normalizedValues.add(value);
+                builder.add(
+                        OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
+            }
         }
 
         return builder.build();
@@ -263,6 +270,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var normalizedKeyExpressions = groupingKey.normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
+        // We keep a set for normalized values in order to check for duplicate values in the index definition.
+        // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+
         for (var i = 0; i < equalityComparisons.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
             if (permutedIndex < normalizedKeyExpressions.size()) {
@@ -274,7 +285,9 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             }
 
             final var comparison = equalityComparisons.get(i);
-            bindingMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), Binding.fixed(comparison));
+            final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            bindingMapBuilder.put(value, Binding.fixed(comparison));
+            normalizedValues.add(value);
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
@@ -296,8 +309,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
-            orderingSequenceBuilder.add(normalizedValue);
+            if (!normalizedValues.contains(normalizedValue)) {
+                normalizedValues.add(normalizedValue);
+                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
+                orderingSequenceBuilder.add(normalizedValue);
+            }
         }
 
         return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);

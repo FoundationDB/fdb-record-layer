@@ -490,11 +490,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                         .map(OrderingPart.MatchedOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 
-        final var ordering = intersectOrderings(partitionOrderings);
+        final var intersectionOrdering = intersectOrderings(partitionOrderings);
 
         for (final var requestedOrdering : requestedOrderings) {
             final var comparisonKeyValuesIterable =
-                    ordering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+                    intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
                 if (!isCompatibleComparisonKey(comparisonKeyValues,
                         commonPrimaryKeyValues,
@@ -534,11 +534,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * Private helper method that computes the ordering of the intersection using matches and the common primary key
      * of the data source.
      * @param partitionOrderings partition we would like to intersect
-     * @return an {@link Ordering} representing a common intersection ordering.
+     * @return a {@link com.apple.foundationdb.record.query.plan.cascades.Ordering.Intersection} representing a
+     *         common intersection ordering.
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static Ordering intersectOrderings(@Nonnull final List<List<OrderingPart.MatchedOrderingPart>> partitionOrderings) {
+    private static Ordering.Intersection intersectOrderings(@Nonnull final List<List<OrderingPart.MatchedOrderingPart>> partitionOrderings) {
 
         final var orderingPartialOrders =
                 partitionOrderings.stream()
@@ -565,7 +566,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        return Ordering.merge(orderingPartialOrders, Ordering::combineBindingsForIntersection, (left, right) -> true);
+        return Ordering.merge(orderingPartialOrders, Ordering.INTERSECTION, (left, right) -> true);
     }
 
     /**

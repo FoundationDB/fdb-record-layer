@@ -52,7 +52,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiPredicate;
-import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -93,6 +92,38 @@ import java.util.function.Supplier;
 public class Ordering {
     @Nonnull
     private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(), false);
+
+    public static final MergeOperator<Union> UNION = new MergeOperator<>() {
+        @Nonnull
+        @Override
+        public Set<Binding> combineBindings(@Nonnull final Set<Binding> leftBindings, @Nonnull final Set<Binding> rightBindings) {
+            return combineBindingsForUnion(leftBindings, rightBindings);
+        }
+
+        @Nonnull
+        @Override
+        public Union createOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                    @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+                                    final boolean isDistinct) {
+            return new Union(bindingMap, orderingSet, isDistinct);
+        }
+    };
+
+    public static final MergeOperator<Intersection> INTERSECTION = new MergeOperator<>() {
+        @Nonnull
+        @Override
+        public Set<Binding> combineBindings(@Nonnull final Set<Binding> leftBindings, @Nonnull final Set<Binding> rightBindings) {
+            return combineBindingsForIntersection(leftBindings, rightBindings);
+        }
+
+        @Nonnull
+        @Override
+        public Intersection createOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                           @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+                                           final boolean isDistinct) {
+            return new Intersection(bindingMap, orderingSet, isDistinct);
+        }
+    };
 
     /**
      * Multimap from {@link Value} to a set of {@link Comparison}s to capture all expressions that are
@@ -191,40 +222,6 @@ public class Ordering {
     }
 
     @Nonnull
-    public Iterable<List<Value>> enumerateSatisfyingComparisonKeyValues(@Nonnull final RequestedOrdering requestedOrdering) {
-        if (requestedOrdering.isDistinct() && !isDistinct()) {
-            return ImmutableList.of();
-        }
-
-        final var reducedRequestedOrderingValuesBuilder = ImmutableList.<Value>builder();
-        for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
-            if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
-                return ImmutableList.of();
-            }
-            final var bindings = bindingMap.get(requestedOrderingPart.getValue());
-            final var sortOrder = sortOrder(bindings);
-            if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
-                return ImmutableList.of();
-            }
-
-            if (sortOrder != ProvidedSortOrder.FIXED) {
-                reducedRequestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
-            }
-        }
-        final var reducedRequestedOrderingValues = reducedRequestedOrderingValuesBuilder.build();
-
-        // filter out all elements that only have fixed bindings
-        final var filteredOrderingSet =
-                orderingSet.filterElements(this::isDirectionalValue);
-
-        return TopologicalSort.satisfyingPermutations(
-                        filteredOrderingSet,
-                        reducedRequestedOrderingValues,
-                        Function.identity(),
-                        permutation -> reducedRequestedOrderingValues.size());
-    }
-
-    @Nonnull
     public Set<RequestedOrdering> deriveRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableSet.of();
@@ -284,27 +281,28 @@ public class Ordering {
     public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
         if (requestedGroupingValues
                 .stream()
-                .anyMatch(groupingValue -> !bindingMap.containsKey(groupingValue))) {
+                .anyMatch(requestedGroupingValue -> {
+                    if (!bindingMap.containsKey(requestedGroupingValue)) {
+                        return true;
+                    }
+                    final var bindings = bindingMap.get(requestedGroupingValue);
+                    return areAllBindingsFixed(bindings) && !isSingularFixedBinding(bindings);
+                })) {
             return false;
         }
 
-        final var reducedRequestedOrderingValues =
-                requestedGroupingValues.stream()
-                        .filter(requestedGroupingValue -> isSingularDirectionalBinding(bindingMap.get(requestedGroupingValue)))
-                        .collect(ImmutableSet.toImmutableSet());
-
         // no ordering left worth further considerations
-        if (reducedRequestedOrderingValues.isEmpty()) {
+        if (requestedGroupingValues.isEmpty()) {
             return true;
         }
 
         final var filteredOrderingSet =
-                orderingSet.filterElements(value -> isSingularDirectionalBinding(bindingMap.get(value)));
+                orderingSet.filterElements(this::isSingularDirectionalValue);
 
         final var permutations = TopologicalSort.topologicalOrderPermutations(filteredOrderingSet);
         for (final var permutation : permutations) {
             final var containsAll =
-                    reducedRequestedOrderingValues.containsAll(permutation.subList(0, reducedRequestedOrderingValues.size()));
+                    requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
             if (containsAll) {
                 return true;
             }
@@ -435,7 +433,7 @@ public class Ordering {
         return Ordering.ofOrderingSet(resultBindingMapBuilder.build(), resultOrderingSet, isDistinct);
     }
 
-    public boolean isDirectionalValue(@Nonnull final Value value) {
+    public boolean isSingularDirectionalValue(@Nonnull final Value value) {
         Verify.verify(bindingMap.containsKey(value));
         final var bindings = bindingMap.get(value);
         if (isSingularDirectionalBinding(bindings)) {
@@ -443,6 +441,12 @@ public class Ordering {
         }
         Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindingMap.get(value))));
         return false;
+    }
+
+    public boolean isSingularFixedValue(@Nonnull final Value value) {
+        Verify.verify(bindingMap.containsKey(value));
+        final var bindings = bindingMap.get(value);
+        return areAllBindingsFixed(bindings) && isSingularFixedBinding(bindings);
     }
 
     @Nonnull
@@ -626,6 +630,10 @@ public class Ordering {
         return bindings.stream().allMatch(Binding::isFixed);
     }
 
+    private static boolean isSingularFixedBinding(@Nonnull final Collection<Binding> bindings) {
+        return bindings.stream().filter(Binding::isFixed).count() == 1;
+    }
+
     private static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
         if (bindings.size() == 1) {
@@ -650,11 +658,12 @@ public class Ordering {
 
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static Ordering merge(@Nonnull final Iterable<Ordering> orderings,
-                                 @Nonnull final BinaryOperator<Set<Binding>> combineOperator,
-                                 @Nonnull final BiPredicate<Ordering, Ordering> isDistinctPredicate) {
+    public static <O extends SetOperationsOrdering> O merge(@Nonnull final Iterable<Ordering> orderings,
+                                                            @Nonnull final MergeOperator<O> mergeOperator,
+                                                            @Nonnull final BiPredicate<O, O> isDistinctPredicate) {
         return Streams.stream(orderings)
-                .reduce((left, right) -> merge(left, right, combineOperator, isDistinctPredicate.test(left, right)))
+                .map(mergeOperator::createFromOrdering)
+                .reduce((left, right) -> merge(left, right, mergeOperator, isDistinctPredicate.test(left, right)))
                 .orElseThrow(() -> new IllegalStateException("must have an ordering"));
     }
 
@@ -721,17 +730,16 @@ public class Ordering {
      *
      * @param left an {@link Ordering}
      * @param right an {@link Ordering}
-     * @param combineOperator a combine operator to combine two sets of {@link ProvidedSortOrder#FIXED}
-     *        bindings.
+     * @param mergeOperator an operator used to combine the orderings
      * @param isDistinct indicator if the resulting order is thought to be distinct
      * @return an {@link Ordering}
      */
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static Ordering merge(@Nonnull final Ordering left,
-                                 @Nonnull final Ordering right,
-                                 @Nonnull final BinaryOperator<Set<Binding>> combineOperator,
-                                 final boolean isDistinct) {
+    public static <O extends SetOperationsOrdering> O merge(@Nonnull final Ordering left,
+                                                            @Nonnull final Ordering right,
+                                                            @Nonnull final MergeOperator<O> mergeOperator,
+                                                            final boolean isDistinct) {
         final var leftOrderingSet = left.getOrderingSet();
         final var rightOrderingSet = right.getOrderingSet();
         final var leftDependencies = leftOrderingSet.getDependencyMap();
@@ -751,8 +759,6 @@ public class Ordering {
             final var leftElements = leftEligibleSet.eligibleElements();
             final var rightElements = rightEligibleSet.eligibleElements();
 
-            //final var intersectedElements = Sets.intersection(leftElements, rightElements);
-
             //
             // "Intersect" the left elements with the right elements. Test their bindings for compatibility.
             //
@@ -761,7 +767,7 @@ public class Ordering {
                 for (final var rightElement : rightElements) {
                     if (leftElement.equals(rightElement)) {
                         final var combinedBindings =
-                                combineOperator.apply(leftBindingMap.get(leftElement), rightBindingMap.get(rightElement));
+                                mergeOperator.combineBindings(leftBindingMap.get(leftElement), rightBindingMap.get(rightElement));
                         if (!combinedBindings.isEmpty()) {
                             combinedElementsBuilder.add(leftElement);
                             elementsBuilder.add(leftElement);
@@ -792,12 +798,12 @@ public class Ordering {
 
         final var orderingSet =
                 PartiallyOrderedSet.of(elementsBuilder.build(), dependencyBuilder.build());
-        return Ordering.ofOrderingSet(bindingMapBuilder.build(), orderingSet, isDistinct);
+        return mergeOperator.createOrdering(bindingMapBuilder.build(), orderingSet, isDistinct);
     }
 
     /**
-     * Union the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
-     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
+     * Union the bindings of a {@link Value} common to two orderings.  This method implements a merge
+     * operator's {@link MergeOperator#combineBindings(Set, Set)}.
      * @param leftBindings set of bindings of the left ordering
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
@@ -831,8 +837,8 @@ public class Ordering {
     }
 
     /**
-     * Intersect the bindings of a {@link Value} common to two orderings. This method is usually passed in as a method
-     * reference to {@link #merge(Iterable, BinaryOperator, BiPredicate)} as the binary operator.
+     * Intersect the bindings of a {@link Value} common to two orderings. This method implements a merge
+     * operator's {@link MergeOperator#combineBindings(Set, Set)}.
      * @param leftBindings set of bindings of the left ordering
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
@@ -1034,6 +1040,118 @@ public class Ordering {
         @Nonnull
         public static Binding fixed(@Nonnull final Comparison comparison) {
             return new Binding(ProvidedSortOrder.FIXED, comparison);
+        }
+    }
+
+    /**
+     * TODO.
+     */
+    public abstract static class SetOperationsOrdering extends Ordering {
+        public SetOperationsOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                     @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
+            super(bindingMap, orderingSet, isDistinct);
+        }
+
+        @Nonnull
+        public Iterable<List<Value>> enumerateSatisfyingComparisonKeyValues(@Nonnull final RequestedOrdering requestedOrdering) {
+            final var bindingMap = getBindingMap();
+
+            if (requestedOrdering.isDistinct() && !isDistinct()) {
+                return ImmutableList.of();
+            }
+
+            final var reducedRequestedOrderingValuesBuilder = ImmutableList.<Value>builder();
+            for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
+                if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
+                    return ImmutableList.of();
+                }
+                final var bindings = bindingMap.get(requestedOrderingPart.getValue());
+                final var sortOrder = sortOrder(bindings);
+                if (!sortOrder.isCompatibleWithRequestedSortOrder(requestedOrderingPart.getSortOrder())) {
+                    return ImmutableList.of();
+                }
+
+                if (sortOrder != ProvidedSortOrder.FIXED) {
+                    reducedRequestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
+                } else {
+                    // if more than one FIXED binding; ask the specific promotion predicate what to do
+                    if (bindings.size() > 1 && promoteToDirectional()) {
+                        reducedRequestedOrderingValuesBuilder.add(requestedOrderingPart.getValue());
+                    }
+                }
+            }
+            final var reducedRequestedOrderingValues = reducedRequestedOrderingValuesBuilder.build();
+
+            //
+            // Filter out all elements that only have singular fixed bindings (or that should be treated as such).
+            // For instance, a value b may have two fixed binding that come from different legs in a union. b should
+            // participate in the enumeration. On the contrary, if this method is called from an intersection context
+            // we need to consider the bindings identical, as they may be identical even though their value
+            // representation may not be identical (b = 5; b = 2 + 3). Because they are identical, the actual values
+            // flowed at runtime are constant, thus we don't need to have b participate in the comparison key
+            // enumeration.
+            //
+            final var filteredOrderingSet =
+                    getOrderingSet().filterElements(value -> {
+                        final var bindings = bindingMap.get(value);
+                        return isSingularDirectionalValue(value) || (bindings.size() > 1 && promoteToDirectional());
+                    });
+
+            return TopologicalSort.satisfyingPermutations(
+                    filteredOrderingSet,
+                    reducedRequestedOrderingValues,
+                    Function.identity(),
+                    permutation -> reducedRequestedOrderingValues.size());
+        }
+
+        protected abstract boolean promoteToDirectional();
+    }
+
+    /**
+     * TODO.
+     */
+    public static class Union extends SetOperationsOrdering {
+        public Union(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                     @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
+            super(bindingMap, orderingSet, isDistinct);
+        }
+
+        @Override
+        protected boolean promoteToDirectional() {
+            return true;
+        }
+    }
+
+    /**
+     * TODO.
+     */
+    public static class Intersection extends SetOperationsOrdering {
+        public Intersection(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                            @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
+            super(bindingMap, orderingSet, isDistinct);
+        }
+
+        @Override
+        protected boolean promoteToDirectional() {
+            return false;
+        }
+    }
+
+    /**
+     * Merge operator for orderings.
+     * @param <O> the type of the resulting ordering
+     */
+    public interface MergeOperator<O extends SetOperationsOrdering> {
+        @Nonnull
+        Set<Binding> combineBindings(@Nonnull Set<Binding> leftBindings, @Nonnull Set<Binding> rightBindings);
+
+        @Nonnull
+        O createOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                         @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+                         final boolean isDistinct);
+
+        default O createFromOrdering(@Nonnull final Ordering ordering) {
+            return createOrdering(ordering.getBindingMap(), ordering.getOrderingSet(), ordering.isDistinct());
         }
     }
 }

@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -90,8 +89,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -290,7 +287,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
             return deriveForDistinctSetOperationFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(),
-                    intersectionOnValuePlan.isReverse(), Ordering::combineBindingsForIntersection);
+                    intersectionOnValuePlan.isReverse(), Ordering.INTERSECTION);
         }
 
         @Nonnull
@@ -375,15 +372,16 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final var filteredInnerOrderingSet =
                     innerOrdering.getOrderingSet()
-                            .filterElements(value -> innerOrdering.isDirectionalValue(value) || !inValue.equals(value));
+                            .filterElements(value -> innerOrdering.isSingularDirectionalValue(value) || !inValue.equals(value));
             final var filteredInnerOrdering =
                     Ordering.ofOrderingSet(resultBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
 
-            final var concatenatedOrdering =
-                    Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);
-            return concatenatedOrdering.pullUp(QuantifiedObjectValue.of(inJoinPlan.getInner()),
-                    AliasMap.ofAliases(inJoinPlan.getInner().getAlias(), Quantifier.current()),
-                    inJoinPlan.getCorrelatedTo());
+            //
+            // Note, that while we could potentially pull up the concatenated ordering along the result value of the
+            // in-join plan, the ordering would stay identical as we only pull up along a simple QOV over the
+            // inner quantifier.
+            //
+            return Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);
         }
 
         @Nullable
@@ -535,7 +533,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     orderingsFromChildren(unionOnValuesPlan),
                     unionOnValuesPlan.getComparisonKeyValues(),
                     unionOnValuesPlan.isReverse(),
-                    Ordering::combineBindingsForUnion);
+                    Ordering.UNION);
         }
 
         @Nonnull
@@ -646,14 +644,15 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     memberOrderings
                             .stream()
                             .allMatch(Ordering::isDistinct);
-            return Ordering.merge(memberOrderings, Ordering::combineBindingsForUnion, (left, right) -> allAreDistinct);
+
+            return Ordering.merge(memberOrderings, Ordering.UNION, (left, right) -> allAreDistinct);
         }
 
-        public static Ordering deriveForDistinctSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
-                                                                          @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                                          final boolean isReverse,
-                                                                          @Nonnull final BinaryOperator<Set<Binding>> combineFn) {
-            final Ordering mergedOrdering = Ordering.merge(orderings, combineFn, (left, right) -> true);
+        public static <O extends Ordering.SetOperationsOrdering> Ordering deriveForDistinctSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
+                                                                                                                     @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                                                                                     final boolean isReverse,
+                                                                                                                     @Nonnull final Ordering.MergeOperator<O> mergeOperator) {
+            final Ordering mergedOrdering = Ordering.merge(orderings, mergeOperator, (left, right) -> true);
             return mergedOrdering.applyComparisonKey(comparisonKeyValues,
                     Ordering.sortedBindingsForValues(comparisonKeyValues, ProvidedSortOrder.fromIsReverse(isReverse)));
         }
