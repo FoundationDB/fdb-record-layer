@@ -145,7 +145,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             return aContext.ensureActive().get(fileLockKey)
                     .thenAccept(val -> {
                         synchronized (fileLockSetLock) {
-                            if (isHeartbeat && aContext == closingContext) {
+                            if (isHeartbeat && aContext.equals(closingContext)) {
                                 // we are in a context which has already cleared this lock, the value should be null
                                 if (val != null) {
                                     long existingTimeStamp = fileLockValueToTimestamp(val);
