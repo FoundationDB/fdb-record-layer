@@ -294,26 +294,31 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
 
     static Stream<Arguments> flakyMergeArguments() {
+        // because some of these require @SuperSlow, flakyMerge quick covers an example that we can comfortably put in
+        // PRB
         return Stream.concat(
-                Stream.of(
-                        Arguments.of(true, true, true, 31, -644766138635622644L, true)),
-                Stream.concat(
-                        // all of these permutations take multiple minutes, but probably are not all needed as part of
-                        // PRB, so put 3 fixed configuration that we know will fail merges in a variety of places into
-                        // the nightly build
-                        TestConfigurationUtils.onlyNightly(
-                                Stream.of(
-                                        Arguments.of(true, false, false, 50, 9237590782644L, true),
-                                        Arguments.of(false, true, true, 33, -1089113174774589435L, true),
-                                        Arguments.of(false, false, false, 35, 6223372946177329440L, true))
-                        ),
-                        RandomizedTestUtils.randomArguments(random ->
-                                Arguments.of(random.nextBoolean(), // isGrouped
-                                        random.nextBoolean(), // isSynthetic
-                                        random.nextBoolean(), // primaryKeySegmentIndexEnabled
-                                        random.nextInt(40) + 2, // minDocumentCount
-                                        random.nextLong(), // seed for other randomness
-                                        false)))); // require failure
+                // all of these permutations take multiple minutes, but probably are not all needed as part of
+                // PRB, so put 3 fixed configuration that we know will fail merges in a variety of places into
+                // the nightly build
+                TestConfigurationUtils.onlyNightly(
+                        Stream.of(
+                                Arguments.of(true, false, false, 50, 9237590782644L, true),
+                                Arguments.of(false, true, true, 33, -1089113174774589435L, true),
+                                Arguments.of(false, false, false, 35, 6223372946177329440L, true))
+                ),
+                RandomizedTestUtils.randomArguments(random ->
+                        Arguments.of(random.nextBoolean(), // isGrouped
+                                random.nextBoolean(), // isSynthetic
+                                random.nextBoolean(), // primaryKeySegmentIndexEnabled
+                                random.nextInt(40) + 2, // minDocumentCount
+                                random.nextLong(), // seed for other randomness
+                                false))); // require failure
+    }
+
+    @Test
+    @Tag(Tags.Slow)
+    void flakyMergeQuick() throws IOException {
+        flakyMerge(true, true, true, 31, -644766138635622644L, true);
     }
 
     /**
@@ -329,7 +334,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
      */
     @ParameterizedTest(name = "flakyMerge({argumentsWithNames})")
     @MethodSource("flakyMergeArguments")
-    @Tag(Tags.Slow)
+    @SuperSlow
     void flakyMerge(boolean isGrouped,
                     boolean isSynthetic,
                     boolean primaryKeySegmentIndexEnabled,

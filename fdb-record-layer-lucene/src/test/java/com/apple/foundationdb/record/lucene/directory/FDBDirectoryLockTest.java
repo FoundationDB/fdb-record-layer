@@ -40,6 +40,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -75,7 +76,7 @@ class FDBDirectoryLockTest {
                     AgilityContext.agile(context, 1000, 100_0000) :
                     AgilityContext.nonAgile(context);
 
-            FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+            FDBDirectory directory = createDirectory(agilityContext);
             String lockName = "file.lock";
             String alreadyLockedMessage = "FileLock: Lock failed: already locked by another entity";
             final Lock lock1 = directory.obtainLock(lockName);
@@ -100,7 +101,7 @@ class FDBDirectoryLockTest {
         try (FDBRecordContext context = fdb.openContext()) {
             AgilityContext agilityContext = AgilityContext.agile(context, 1000, 100_0000);
 
-            FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+            FDBDirectory directory = createDirectory(agilityContext);
             final String lockName = "file.lock";
             final Lock lock1 = directory.obtainLock(lockName);
             final String string1 = lock1.toString();
@@ -130,6 +131,46 @@ class FDBDirectoryLockTest {
         }
     }
 
+    @Test
+    void testFileLockCallbackFrequently() throws IOException {
+        // This test simulates the situation where the AgilityContext flushes as part of the call to clear
+        final String lockName = "file.lock";
+        try (FDBRecordContext context = fdb.openContext()) {
+            AgilityContext agilityContext = AgilityContext.agile(context, 0, 0);
+            try (FDBDirectory directory = createDirectory(agilityContext)) {
+                final Lock lock1 = directory.obtainLock(lockName);
+                lock1.close();
+            }
+            agilityContext.flushAndClose();
+        }
+
+        assertCanObtainLock(lockName);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testFileLockCallbackFrequentlyLost(boolean clearLock) throws IOException {
+        // This test simulates the situation where the AgilityContext flushes as part of the call to clear
+        final String lockName = "file.lock";
+        try (FDBRecordContext context = fdb.openContext()) {
+            AgilityContext agilityContext = AgilityContext.agile(context, -5, 0);
+            FDBDirectory directory = createDirectory(agilityContext);
+            try {
+                final Lock lock1 = directory.obtainLock(lockName);
+                if (clearLock) {
+                    forceClearLock(lockName);
+                } else {
+                    forceStealLock(lockName);
+                }
+                assertThrows(AlreadyClosedException.class, lock1::close);
+            } finally {
+                assertThrows(AlreadyClosedException.class, directory::close);
+            }
+            agilityContext.abortAndClose();
+        }
+        assertCanObtainLock(lockName);
+    }
+
     @ParameterizedTest
     @CsvSource({"true,true", "true,false", "false,true", "false,false"})
     void testFileLockClose(boolean useAgile, boolean abortAgilityContext) throws IOException {
@@ -141,7 +182,7 @@ class FDBDirectoryLockTest {
                         AgilityContext.agile(context, 1000, 100_0000) :
                         AgilityContext.nonAgile(context);
 
-                FDBDirectory directory = new FDBDirectory(subspace, null, null, null, true, agilityContext);
+                FDBDirectory directory = createDirectory(agilityContext);
                 String lockName = "file.lock";
                 final Lock lock1 = directory.obtainLock(lockName);
                 lock1.ensureValid();
@@ -157,5 +198,44 @@ class FDBDirectoryLockTest {
                 context.commit();
             }
         }
+    }
+
+    private void assertCanObtainLock(final String lockName) throws IOException {
+        try (FDBRecordContext context = fdb.openContext()) {
+            AgilityContext agilityContext = AgilityContext.nonAgile(context);
+            try (FDBDirectory directory = createDirectory(agilityContext)) {
+                directory.obtainLock(lockName).close(); // should be able to obtain the lock
+            }
+            agilityContext.abortAndClose();
+        }
+    }
+
+    private void forceClearLock(final String lockName) {
+        try (FDBRecordContext context = fdb.openContext()) {
+            final AgilityContext agilityContext = AgilityContext.nonAgile(context);
+            try (FDBDirectory directory2 = createDirectory(agilityContext)) {
+                agilityContext.accept(context2 -> {
+                    context2.ensureActive().clear(directory2.fileLockKey(lockName));
+                });
+            }
+            context.commit();
+        }
+    }
+
+    private void forceStealLock(final String lockName) throws IOException {
+        try (FDBRecordContext context = fdb.openContext()) {
+            final AgilityContext agilityContext = AgilityContext.nonAgile(context);
+            try (FDBDirectory directory = createDirectory(agilityContext)) {
+                agilityContext.accept(context2 -> {
+                    context2.ensureActive().clear(directory.fileLockKey(lockName));
+                });
+                directory.obtainLock(lockName);
+            }
+            context.commit();
+        }
+    }
+
+    private @Nonnull FDBDirectory createDirectory(final AgilityContext agilityContext) {
+        return new FDBDirectory(subspace, null, null, null, true, agilityContext);
     }
 }
