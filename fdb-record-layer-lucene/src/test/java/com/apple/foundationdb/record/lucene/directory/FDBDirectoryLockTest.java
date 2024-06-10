@@ -153,7 +153,7 @@ class FDBDirectoryLockTest {
         // This test simulates the situation where the AgilityContext flushes as part of the call to clear
         final String lockName = "file.lock";
         try (FDBRecordContext context = fdb.openContext()) {
-            AgilityContext agilityContext = AgilityContext.agile(context, 0, 0);
+            AgilityContext agilityContext = AgilityContext.agile(context, -5, 0);
             FDBDirectory directory = createDirectory(agilityContext);
             try {
                 final Lock lock1 = directory.obtainLock(lockName);
