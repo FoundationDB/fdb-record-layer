@@ -839,8 +839,8 @@ public class LucenePartitioner {
         }
         return getAllPartitionMetaInfo(groupingKey).thenCompose(partitionInfos -> {
             // need to track the next partition id to use when creating a new one
-
             int maxPartitionId = partitionInfos.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getId).max(Integer::compare).orElse(0);
+
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(partitionInfos.stream()
                         .sorted(Comparator.comparing(pi -> Tuple.fromBytes(pi.getFrom().toByteArray())))

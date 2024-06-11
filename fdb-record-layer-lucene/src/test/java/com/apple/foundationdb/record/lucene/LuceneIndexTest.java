@@ -314,6 +314,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -328,6 +329,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     protected static final Index COMPLEX_PARTITIONED_NOGROUP = complexPartitionedIndexNoGroup(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -351,6 +353,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index JOINED_INDEX = getJoinedIndex(Map.of(
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -366,6 +369,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index JOINED_INDEX_NOGROUP = getJoinedIndexNoGroup(Map.of(
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -1037,6 +1041,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1276,6 +1281,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                                             int... docCounts) throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWaterMark));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
         final Index index = indexConsumerPair.getLeft();
@@ -1460,6 +1466,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void partitionFieldPredicateDetectionTest(boolean isSynthetic) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1506,6 +1513,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void partitionFieldPredicateNotDetectedTest(boolean isSynthetic) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1653,6 +1661,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(3));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
