@@ -1662,25 +1662,25 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         Map<Tuple, Long> primaryKeys = new HashMap<>();
         int docCount = 30;
 
-        try (FDBRecordContext context = openContext(contextProps)) {
-            schemaSetup.accept(context);
-            for (int i = 0; i < docCount; i++) {
-                long timestamp = (long) random.nextInt(10) + 2; // 2 - 11
-                long docId = 1000L + i;
-                ComplexDocument cd = ComplexDocument.newBuilder()
-                        .setGroup(1)
-                        .setDocId(docId)
-                        .setIsSeen(true)
-                        .setText("A word about what I want to say")
-                        .setTimestamp(timestamp)
-                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L + i))
-                        .build();
-                final Tuple primaryKey;
-                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                primaryKeys.put(primaryKey, timestamp);
+        for (SortType sortType : EnumSet.allOf(SortType.class)) {
+            for (Comparisons.Type comparisonType : List.of(Type.EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.GREATER_THAN_OR_EQUALS, Type.GREATER_THAN)) {
+                try (FDBRecordContext context = openContext(contextProps)) {
+                    schemaSetup.accept(context);
+                    for (int i = 0; i < docCount; i++) {
+                        long timestamp = (long) random.nextInt(10) + 2; // 2 - 11
+                        long docId = 1000L + i;
+                        ComplexDocument cd = ComplexDocument.newBuilder()
+                                .setGroup(1)
+                                .setDocId(docId)
+                                .setIsSeen(true)
+                                .setText("A word about what I want to say")
+                                .setTimestamp(timestamp)
+                                .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L + i))
+                                .build();
+                        final Tuple primaryKey;
+                        primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                        primaryKeys.put(primaryKey, timestamp);
 
-                for (SortType sortType : EnumSet.allOf(SortType.class)) {
-                    for (Comparisons.Type comparisonType : List.of(Type.EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.GREATER_THAN_OR_EQUALS, Type.GREATER_THAN)) {
                         for (long queriedValue = 1L; queriedValue <= 12L; queriedValue++) {
                             LOGGER.debug("i={}, queriedValue={}, comparisonType={}, sortType={}", i, queriedValue, comparisonType, sortType);
                             LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, queriedValue, luceneSearch);
@@ -1710,9 +1710,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             }
                         }
                     }
+                    commit(context);
                 }
             }
-            commit(context);
         }
     }
 
