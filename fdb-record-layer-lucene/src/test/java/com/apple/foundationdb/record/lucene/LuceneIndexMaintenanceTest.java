@@ -639,7 +639,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     static Stream<Arguments> mergeLosesLockTest() {
         return Stream.concat(
                 Stream.of( 65).map(Arguments::of), // fixed 65% lock failure rate
-                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextInt(101)))); //  0-100%
+                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextInt(100) + 1))); //  1-100%
     }
 
     // A test of what lucene does when a merge loses its lock
