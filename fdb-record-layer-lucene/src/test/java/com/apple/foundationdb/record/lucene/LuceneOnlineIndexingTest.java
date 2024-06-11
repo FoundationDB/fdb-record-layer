@@ -87,7 +87,6 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
-import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.ENGINEER_JOKE;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTest.WAYLON;
@@ -173,7 +172,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
-                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(2));
 
         Index index = complexPartitionedIndex(options);
@@ -323,7 +321,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
-                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(2));
 
         // store time field
