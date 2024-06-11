@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -53,7 +54,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -165,28 +165,47 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
             final var filteredBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
-            for (Map.Entry<Value, Binding> entry : providedOrdering.getBindingMap().entries()) {
+            for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
                 final var value = entry.getKey();
-                final var binding = entry.getValue();
-                if (binding.getSortOrder().isDirectional()) {
-                    filteredBindingMapBuilder.put(value, binding);
+                final var orderBindings = entry.getValue();
+                final var sortOrder = Ordering.sortOrder(orderBindings);
+                if (sortOrder.isDirectional()) {
+                    filteredBindingMapBuilder.put(value, Binding.sorted(sortOrder));
                     continue;
                 }
 
-                Verify.verify(binding.isFixed());
+                Debugger.sanityCheck(() -> Verify.verify(Ordering.areAllBindingsFixed(orderBindings)));
+                if (!Ordering.isSingularFixedBinding(orderBindings)) {
+                    filteredBindingMapBuilder.putAll(value, orderBindings);
+                    continue;
+                }
+
+                final var binding = Ordering.fixedBinding(orderBindings);
                 final var comparison = binding.getComparison();
-                if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
+
+                if (comparison.getType() != Comparisons.Type.EQUALS) {
                     filteredBindingMapBuilder.put(value, binding);
                     continue;
                 }
 
-                final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                if (!parameterComparison.isCorrelation() ||
-                        !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                    filteredBindingMapBuilder.put(value, binding);
-                    continue;
+                if (comparison instanceof Comparisons.ParameterComparison) {
+                    final var parameterComparison = (Comparisons.ParameterComparison)comparison;
+                    if (!parameterComparison.isCorrelation() ||
+                            !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
+                        filteredBindingMapBuilder.put(value, binding);
+                        continue;
+                    }
+                } else if (comparison instanceof Comparisons.ValueComparison) {
+                    final var valueComparison = (Comparisons.ValueComparison)comparison;
+                    if (!explodeAliases.containsAll(valueComparison.getCorrelatedTo())) {
+                        filteredBindingMapBuilder.put(value, binding);
+                        continue;
+                    }
                 }
 
+                //
+                // This binding can be promoted into a directional binding as it is currently bound by the source of
+                // the in-union.
                 // TODO support DESCENDING as well
                 filteredBindingMapBuilder.put(value, Binding.ascending());
             }

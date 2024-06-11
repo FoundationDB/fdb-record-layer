@@ -1577,12 +1577,12 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         final BindingMatcher<? extends RecordQueryPlan> planMatcher = unionPlanMatcher(orQueryParams, List.of(
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + value2Param + ", EQUALS $" + strValue1Param + "]"))),
                 indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + value2Param + ", EQUALS $" + strValue2Param + "]")))
-        ), isUseCascadesPlanner() ? concatenateFields("num_value_3_indexed", "str_value_indexed", "rec_no") : concatenateFields("num_value_3_indexed", "rec_no"));
+        ), isUseCascadesPlanner() ? concatenateFields("num_value_3_indexed", "rec_no", "str_value_indexed") : concatenateFields("num_value_3_indexed", "rec_no"));
         assertMatchesExactly(plan, planMatcher);
         assertEquals(orQueryParams.isSortReverse(), plan.isReverse());
         if (isUseCascadesPlanner()) {
-            assertEquals(orQueryParams.isSortReverse() ? 973132101L : 973132068L, plan.planHash(CURRENT_LEGACY));
-            assertEquals(orQueryParams.isSortReverse() ? 1977118987L : 1982839045L, plan.planHash(CURRENT_FOR_CONTINUATION));
+            assertEquals(orQueryParams.isSortReverse() ? 973132071L : 973132038L, plan.planHash(CURRENT_LEGACY));
+            assertEquals(orQueryParams.isSortReverse() ? 1977118957L : 1982839015L, plan.planHash(CURRENT_FOR_CONTINUATION));
         } else {
             assertEquals(orQueryParams.isSortReverse() ? -2058994186L : -2058994219L, plan.planHash(CURRENT_LEGACY));
             if (orQueryParams.shouldDeferFetch()) {

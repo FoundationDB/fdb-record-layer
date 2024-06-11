@@ -109,6 +109,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.equalsInList;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inComparandJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inParameterJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionBindingName;
@@ -505,36 +506,19 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             return Reference.of(new LogicalSortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "num_value_3_indexed").rebase(aliasMap)), reverse, selectQun));
         });
 
-        // Neither of these plans are ideal. They should be able to be planned using an In-Join plan with a sorted InSource.
-        // However, the planner does not choose that plan because of a limitation in how the ordering values are handled.
-        // See: https://github.com/FoundationDB/fdb-record-layer/issues/2723
-        // When the above issue is fixed, we should replace this with an assertion that we have a plan like:
-        //    map(Covering(Index(MySimpleRecord$num_value_3_indexed [EQUALS $q50]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])[($q91.num_value_3_indexed as num_value_3_indexed, $q91.rec_no as rec_no)]) WHERE __corr_q50 IN @0
-        if (reverse) {
-            // plan: map(Covering(Index(MySimpleRecord$num_value_3_indexed <,> REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) | $q44.num_value_3_indexed IN @0[($q48.num_value_3_indexed as num_value_3_indexed, $q48.rec_no as rec_no)])
-            assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(
-                    coveringIndexPlan().where(indexPlanOf(
-                            indexPlan()
-                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
-                                    .and(scanComparisons(unbounded()))
-                                    .and(isReverse())
-                    ))
-            )));
-            assertEquals(-1743985005, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1828147399, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        } else {
-            // plan: ∪(__corr_q50 IN @0) map(Covering(Index(MySimpleRecord$num_value_3_indexed [EQUALS $q50]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])[($q91.num_value_3_indexed as num_value_3_indexed, $q91.rec_no as rec_no)])
-            assertMatchesExactly(plan, inUnionOnValuesPlan(mapPlan(
-                    coveringIndexPlan().where(indexPlanOf(
-                            indexPlan()
-                                    .where(indexName("MySimpleRecord$num_value_3_indexed"))
-                                    .and(scanComparisons(equalities(exactly(anyValueComparison()))))
-                                    .and(isNotReverse())
-                    ))
-            )));
-            assertEquals(1061475419, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-1588928626, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        }
+        // map(Covering(Index(MySimpleRecord$num_value_3_indexed [EQUALS $q50]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])[($q91.num_value_3_indexed as num_value_3_indexed, $q91.rec_no as rec_no)]) WHERE __corr_q50 IN @0
+        // map(Covering(Index(MySimpleRecord$num_value_3_indexed [EQUALS $q50] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])[($q91.num_value_3_indexed as num_value_3_indexed, $q91.rec_no as rec_no)]) WHERE __corr_q50 IN @0 SORTED DESC
+        assertMatchesExactly(plan, inComparandJoinPlan(mapPlan(
+                coveringIndexPlan().where(indexPlanOf(
+                        indexPlan()
+                                .where(indexName("MySimpleRecord$num_value_3_indexed"))
+                                .and(scanComparisons(equalities(exactly(anyValueComparison()))))
+                                .and(reverse ? isReverse() : isNotReverse())
+                ))
+        )));
+
+        assertEquals(reverse ? 1779558431L : 1779528826L, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(reverse ? -876416531L : -870875219L, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -991,11 +975,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                     .and(scanComparisons(equalities(exactly(anyValueComparison(), anyValueComparison()))))
                             ))
                         )
-                ).where(inUnionComparisonValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("rec_no"), fieldValueWithFieldNames("num_value_3_indexed"))))
+                ).where(inUnionComparisonValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("str_value_indexed"), fieldValueWithFieldNames("num_value_3_indexed"), fieldValueWithFieldNames("rec_no"))))
         );
 
-        assertEquals(reverse ? -621059029 : -621088820,  plan.planHash(CURRENT_LEGACY));
-        assertEquals(reverse ? -296784601 : -291243475, plan.planHash(CURRENT_FOR_CONTINUATION));
+        assertEquals(reverse ? -621059059L : -621088850L,  plan.planHash(CURRENT_LEGACY));
+        assertEquals(reverse ? -296784631L : -291243505L, plan.planHash(CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

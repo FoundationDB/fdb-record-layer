@@ -626,15 +626,21 @@ public class Ordering {
         return PartiallyOrderedSet.of(orderingSet.getSet(), normalizedDependencyMapBuilder.build());
     }
 
-    private static boolean areAllBindingsFixed(@Nonnull final Collection<Binding> bindings) {
+    public static boolean areAllBindingsFixed(@Nonnull final Collection<Binding> bindings) {
         return bindings.stream().allMatch(Binding::isFixed);
     }
 
-    private static boolean isSingularFixedBinding(@Nonnull final Collection<Binding> bindings) {
+    public static boolean isSingularFixedBinding(@Nonnull final Collection<Binding> bindings) {
         return bindings.stream().filter(Binding::isFixed).count() == 1;
     }
 
-    private static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+    public static Binding fixedBinding(@Nonnull final Collection<Binding> bindings) {
+        Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindings) && isSingularFixedBinding(bindings)));
+        return Iterables.getOnlyElement(bindings);
+    }
+
+
+    public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
         if (bindings.size() == 1) {
             return Iterables.getOnlyElement(bindings).getSortOrder().isDirectional();
