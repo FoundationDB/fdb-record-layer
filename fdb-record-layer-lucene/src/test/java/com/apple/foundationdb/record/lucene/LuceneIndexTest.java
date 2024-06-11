@@ -149,6 +149,8 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY;
@@ -213,6 +215,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -316,6 +319,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     protected static final Index COMPLEX_PARTITIONED = complexPartitionedIndex(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -330,6 +334,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     protected static final Index COMPLEX_PARTITIONED_NOGROUP = complexPartitionedIndexNoGroup(Map.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME,
             INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -353,6 +358,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index JOINED_INDEX = getJoinedIndex(Map.of(
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -368,6 +374,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Index JOINED_INDEX_NOGROUP = getJoinedIndexNoGroup(Map.of(
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
+            INDEX_PARTITION_LOW_WATERMARK, "0",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
@@ -1039,6 +1046,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1278,6 +1286,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                                                             int... docCounts) throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWaterMark));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
         final Index index = indexConsumerPair.getLeft();
@@ -1462,6 +1471,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void partitionFieldPredicateDetectionTest(boolean isSynthetic) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1508,6 +1518,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void partitionFieldPredicateNotDetectedTest(boolean isSynthetic) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1655,6 +1666,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, "0",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(3));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -1751,6 +1763,304 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return hits.stream().map(Map.Entry::getKey).collect(Collectors.toList());
     }
 
+    static Stream<Arguments> integratedConsolidationTest() {
+        return Stream.of(
+                // arguments: high, low, repartitionCount, total docs created, counts to delete from partitions
+
+                // -> start with 3 partitions, 8 docs each,
+                Arguments.of(8, 5, 2, 24, new int[] { 4, 4, 0 }), // delete 4 from oldest, 4 from middle
+                // -> start with 3 partitions, 8 docs each,
+                Arguments.of(8, 5, 2, 24, new int[] { 2, 4, 2 }), // delete 2 from oldest, 4 from middle, 2 from newest
+                // -> start with 2 partitions, 6 and 8 docs respectively,
+                Arguments.of(8, 5, 2, 14, new int[] { 2, 4 }) // delete 2 from oldest, 4 from newest
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void integratedConsolidationTest(int highWatermark,
+                                     int lowWatermark,
+                                     int repartitionDocCount,
+                                     int docCount,
+                                     int... docCountsToDelete) throws IOException {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(lowWatermark),
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWatermark));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionDocCount)
+                .build();
+
+        final long start = Instant.now().toEpochMilli();
+        final String luceneSearch = "text:about";
+
+        final Tuple groupTuple = Tuple.from(1L);
+
+        Map<Tuple, Tuple> primaryKeyToTimestamp = new HashMap<>();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            for (int i = 0; i < docCount; i++) {
+                long timestamp = start + i * 100000L;
+                ComplexDocument cd = ComplexDocument.newBuilder()
+                        .setGroup(1)
+                        .setDocId(1000L + i)
+                        .setIsSeen(true)
+                        .setText("A word about what I want to say")
+                        .setTimestamp(timestamp)
+                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L * -i))
+                        .build();
+                final Tuple primaryKey;
+                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                primaryKeyToTimestamp.put(primaryKey, Tuple.from(timestamp));
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                groupTuple, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(docCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        // get partitions for all groups, post re-partitioning
+        partitionInfos = getPartitionMeta(index, groupTuple, contextProps, schemaSetup);
+
+        LuceneIndexTestValidator luceneIndexTestValidator =
+                new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+                    schemaSetup.accept(context);
+                    return recordStore;
+                });
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+
+        // next delete some docs
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+
+            Collections.reverse(partitionInfos);
+            List<Tuple> sortedPrimaryKeys = primaryKeyToTimestamp.keySet().stream().sorted().collect(Collectors.toList());
+            int docOffset = 0;
+            for (int i = 0; i < docCountsToDelete.length; i++) {
+                int howManyToDelete = docCountsToDelete[i];
+                for (int j = 0; j < howManyToDelete; j++) {
+                    Tuple primaryKeyToDelete = sortedPrimaryKeys.get(docOffset + j);
+                    recordStore.deleteRecord(primaryKeyToDelete);
+                    primaryKeyToTimestamp.remove(primaryKeyToDelete);
+                }
+                docOffset += partitionInfos.get(i).getCount();
+            }
+            context.commit();
+        }
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        // validate that after merge, partitions have been adjusted as expected
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+    }
+
+    @ParameterizedTest
+    @MethodSource(value = "simplePartitionConsolidationTest")
+    public void luceneRepartitionPlannerTest(int lowWatermark,
+                                              int highWatermark,
+                                              int repartitionDocumentCount,
+                                              int[] allPartitionCounts,
+                                              int[] countExpectations) {
+        Tuple groupingKey = Tuple.from(1L);
+        LuceneRepartitionPlanner repartitionPlanner = new LuceneRepartitionPlanner(lowWatermark, highWatermark);
+        int maxPartitionId = allPartitionCounts.length;
+
+        List<LucenePartitionInfoProto.LucenePartitionInfo> allPartitions = new ArrayList<>();
+        for (int i = allPartitionCounts.length - 1; i >= 0; i--) { // the planner expects list in descending order
+            allPartitions.add(LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
+                            .setCount(allPartitionCounts[i])
+                            .setId(i)
+                            .setFrom(ByteString.copyFrom(Tuple.from(i * 1000).pack()))
+                            .setTo(ByteString.copyFrom(Tuple.from(i * 1000 + 999).pack()))
+                            .build());
+        }
+
+        int totalMoved;
+        do {
+            totalMoved = 0;
+            for (int i = 0; i < allPartitions.size(); i++) {
+                LucenePartitionInfoProto.LucenePartitionInfo currentPartitionInfo = allPartitions.get(i);
+
+                if (currentPartitionInfo.getCount() == 0) {
+                    continue;
+                }
+
+                LucenePartitionInfoProto.LucenePartitionInfo newerPartition = i == 0 ? null : allPartitions.get(i - 1);
+                LucenePartitionInfoProto.LucenePartitionInfo olderPartition = i == allPartitions.size() - 1 ? null : allPartitions.get(i + 1);
+
+                LuceneRepartitionPlanner.RepartitioningContext repartitioningContext = repartitionPlanner.determinePartitionRepartitioningAction(groupingKey,
+                        maxPartitionId, currentPartitionInfo, olderPartition, newerPartition, repartitionDocumentCount);
+
+                if (repartitioningContext.action == LuceneRepartitionPlanner.RepartitioningAction.NOT_REQUIRED ||
+                        repartitioningContext.action == LuceneRepartitionPlanner.RepartitioningAction.NO_CAPACITY_FOR_MERGE) {
+                    continue;
+                }
+
+                int actualCountToMove = repartitioningContext.countToMove;
+                if (!repartitioningContext.emptyingPartition && repartitioningContext.newBoundaryRecordPresent) {
+                    actualCountToMove--;
+                }
+
+                switch (repartitioningContext.action) {
+                    case MERGE_INTO_BOTH:
+                    case MERGE_INTO_OLDER:
+                        assertNotNull(olderPartition);
+                        // "move" docs to older partition
+                        allPartitions.set(i + 1, olderPartition.toBuilder().setCount(olderPartition.getCount() + actualCountToMove).build());
+                        totalMoved += actualCountToMove;
+                        break;
+                    case MERGE_INTO_NEWER:
+                        assertNotNull(newerPartition);
+                        // "move" docs to newer partition
+                        allPartitions.set(i - 1, newerPartition.toBuilder().setCount(newerPartition.getCount() + actualCountToMove).build());
+                        totalMoved += actualCountToMove;
+                        break;
+                    case OVERFLOW:
+                        if (olderPartition != null && olderPartition.getCount() + actualCountToMove <= highWatermark) {
+                            // "move" to older partition
+                            allPartitions.set(i + 1, olderPartition.toBuilder().setCount(olderPartition.getCount() + actualCountToMove).build());
+                        } else {
+                            // "create" new overflow partition
+                            LucenePartitionInfoProto.LucenePartitionInfo newOverflowPartition = LucenePartitionInfoProto.LucenePartitionInfo
+                                    .newBuilder()
+                                    .setCount(actualCountToMove)
+                                    .setId(maxPartitionId++)
+                                    .setFrom(ByteString.copyFrom(Tuple.from(i * 1000 + 100).pack())) // dummy
+                                    .setTo(ByteString.copyFrom(Tuple.from(i * 1000 + 200).pack())) // dummy
+                                    .build();
+                            allPartitions.add(i + 1, newOverflowPartition);
+                        }
+                        totalMoved += actualCountToMove;
+                        break;
+                    default:
+                        break;
+                }
+                if (actualCountToMove > 0) {
+                    allPartitions.set(i, currentPartitionInfo.toBuilder().setCount(currentPartitionInfo.getCount() - actualCountToMove).build());
+                    allPartitions = allPartitions.stream().filter(pInfo -> pInfo.getCount() > 0).collect(Collectors.toList());
+                    break;
+                }
+            }
+        } while (totalMoved > 0);
+
+        // back to Arguments order
+        Collections.reverse(allPartitions);
+
+        int[] actualCounts = allPartitions.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getCount).toArray();
+        assertArrayEquals(countExpectations, actualCounts);
+    }
+
+    static Stream<Arguments> simplePartitionConsolidationTest() {
+        // the first int array is the count of docs in each partition, starting with
+        // the oldest partition -> newest
+        // the second int array is the resulting count of docs in each partition
+        // after merge, in the same order
+
+        return Stream.of(
+                // consolidate two low partitions into one
+                Arguments.of(2, 4, 3, new int[] {1, 1}, new int[] {2}),
+                // consolidate a partition into its previous neighbor
+                Arguments.of(2, 4, 3, new int[] {2, 2, 1}, new int[] {2, 3}),
+                // consolidate a partition falling between two partitions with capacity into its previous neighbor
+                Arguments.of(3, 7, 3, new int[] {5, 2, 5}, new int[] {7, 5}),
+                // consolidate a partition falling between two partitions which individually don't have enough
+                // capacity, but together they do
+                Arguments.of(3, 7, 3, new int[] {6, 2, 6}, new int[] {7, 7}),
+                // cannot consolidate a partition that has no neighbors with capacity
+                Arguments.of(3, 7, 3, new int[] {6, 2, 7}, new int[] {6, 2, 7}),
+                // cannot consolidate a partition that has no neighbors with capacity
+                Arguments.of(3, 7, 3, new int[] {7, 2, 6}, new int[] {7, 2, 6}),
+                // cannot consolidate partitions that have no neighbors with capacity
+                Arguments.of(3, 7, 3, new int[] {6, 2, 7, 3}, new int[] {6, 2, 7, 3}),
+                Arguments.of(4, 7, 3, new int[] {6, 3, 4, 5, 5, 5, 5}, new int[] { 6, 7, 5, 5, 5, 5 }),
+                // consolidate one partition that has a neighbor with capacity, while another
+                // that doesn't, won't be consolidated
+                Arguments.of(3, 7, 3, new int[] {6, 2, 6, 1}, new int[] {6, 2, 7}),
+                // splitting one partition, removes the need to consolidate a previous low partition
+                Arguments.of(3, 7, 3, new int[] {6, 1, 8}, new int[] {6, 4, 5}),
+                // consolidating two neighboring partitions into their left and right neighbors
+                Arguments.of(3, 7, 3, new int[] {6, 1, 1, 6}, new int[] {7, 7}),
+                // two low partitions merge into one
+                Arguments.of(5, 7, 3, new int[] {3, 4}, new int[] {7}),
+                // multiple-stage split
+                Arguments.of(3, 7, 3, new int[] { 15 }, new int[] {6, 3, 6})
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void simplePartitionConsolidationTest(int lowWatermark,
+                                          int highWatermark,
+                                          int repartitionCount,
+                                          int[] initialPartitionCounts,
+                                          int[] expectedPartitionCounts) {
+        boolean isSynthetic = false;
+
+        Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWatermark),
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(lowWatermark)
+                );
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .build();
+
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:vision";
+        Map<Tuple, Map<Tuple, Tuple>> createdKeys;
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            createdKeys = createPartitionsAndComplexDocs(index, initialPartitionCounts);
+            context.commit();
+        }
+
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                Tuple.from(1), contextProps, schemaSetup);
+        partitionInfos.sort(Comparator.comparing(LucenePartitionInfoProto.LucenePartitionInfo::getId));
+
+        // assert sane initial setup
+        assertEquals(initialPartitionCounts.length, partitionInfos.size());
+        assertArrayEquals(initialPartitionCounts, partitionInfos.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getCount).toArray());
+
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        partitionInfos = getPartitionMeta(index, Tuple.from(1), contextProps, schemaSetup);
+        partitionInfos.sort(Comparator.comparing(pInfo -> Tuple.fromBytes(pInfo.getFrom().toByteArray())));
+
+        // assert correct partition setup after repartitioning
+        assertEquals(expectedPartitionCounts.length, partitionInfos.size());
+        assertArrayEquals(expectedPartitionCounts, partitionInfos.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getCount).toArray());
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            // finally, assert all docs are accounted for
+            assertIndexEntryPrimaryKeyTuples(createdKeys.get(Tuple.from(1L)).keySet(),
+                    recordStore.scanIndex(COMPLEX_PARTITIONED, groupedTextSearch(COMPLEX_PARTITIONED, luceneSearch, 1), null, ExecuteProperties.newBuilder().build().asScanProperties(false)));
+        }
+    }
+
+    @Test
+    void integratedPartitionConsolidationTest() {
+
+    }
+
     @Test
     void simpleCrossPartitionQuery() {
         try (FDBRecordContext context = openContext()) {
@@ -1779,6 +2089,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(0),
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
         final Index index = indexConsumerPair.getLeft();
@@ -2086,11 +2397,34 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         yesterday = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
     }
 
+    Map<Tuple, Map<Tuple, Tuple>> createPartitionsAndComplexDocs(Index index, int[] docCounts) {
+        Map<Tuple, Map<Tuple, Tuple>> keys = new HashMap<>();
+        Tuple groupingKey = Tuple.from(1L);
+        keys.put(groupingKey, new HashMap<>());
+        long startTime = 1000;
+        for (int i = 0; i < docCounts.length; i++) {
+            long from = startTime * (i + 1);
+            long to = from + 999;
+
+            createPartitionMetadata(index, groupingKey, i, from, to);
+
+            for (int j = 0; j < docCounts[i]; j++) {
+                long timestamp = ThreadLocalRandom.current().nextLong(from, to + 1);
+                keys.get(groupingKey).put(recordStore.saveRecord(createComplexDocument(i * 100L + j, ENGINEER_JOKE, 1, timestamp)).getPrimaryKey(), Tuple.from(timestamp));
+            }
+        }
+        return keys;
+    }
+
     void createDualPartitionsWithComplexDocs(int docCount) {
+        createDualPartitionsWithComplexDocs(COMPLEX_PARTITIONED, docCount);
+    }
+
+    void createDualPartitionsWithComplexDocs(Index index, int docCount) {
         // two partitions: 0 and 1. 0 has older messages, 1 has newer.
         // doc keys in 0 start at (1, 0), doc keys in 1 start at (1, 1000)
-        createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1L), 0, timestamp60DaysAgo, timestamp30DaysAgo);
-        createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1L), 1, timestamp29DaysAgo, yesterday);
+        createPartitionMetadata(index, Tuple.from(1L), 0, timestamp60DaysAgo, timestamp30DaysAgo);
+        createPartitionMetadata(index, Tuple.from(1L), 1, timestamp29DaysAgo, yesterday);
         for (int i = 0; i < docCount; i++) {
             recordStore.saveRecord(createComplexDocument(i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp60DaysAgo, timestamp30DaysAgo + 1)));
         }

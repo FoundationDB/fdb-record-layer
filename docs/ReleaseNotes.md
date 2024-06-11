@@ -30,7 +30,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Reproduce abandoned FileLock due to conflict issue [(Issue #2731)](https://github.com/FoundationDB/fdb-record-layer/issues/2731)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Merge partitions when they become too small [(Issue #2739)](https://github.com/FoundationDB/fdb-record-layer/issues/2739)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

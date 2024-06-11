@@ -57,7 +57,31 @@ public class LuceneIndexValidator extends IndexValidator {
     public static void validateIndexOptions(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
+        validatePartitionOptions(index);
         validatePrimaryKeyOptions(index.getOptions());
+    }
+
+    private static void validatePartitionOptions(@Nonnull Index index) {
+        String lowWatermarkOption = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
+        String highWatermarkOption = index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK);
+        Integer highWatermark = null;
+        int lowWatermark;
+        if (highWatermarkOption != null) {
+            highWatermark = Integer.parseInt(highWatermarkOption);
+            if (highWatermark < 1) {
+                throw new MetaDataException(
+                        "Invalid value for " + LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK + ": must be > 1");
+            }
+        }
+
+        if (lowWatermarkOption != null) {
+            lowWatermark = Integer.parseInt(lowWatermarkOption);
+            if (lowWatermark < 0 || (highWatermark != null && lowWatermark > highWatermark)) {
+                throw new MetaDataException(
+                        "Invalid value for " + LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK +
+                                ": must be > 0 and less than " + LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK);
+            }
+        }
     }
 
     private static void validatePrimaryKeyOptions(final Map<String, String> options) {
