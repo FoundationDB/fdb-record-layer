@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.IndexedType;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
+import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
@@ -97,9 +99,11 @@ import com.google.protobuf.Message;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -135,6 +139,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -6102,4 +6107,91 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertEquals(primaryKeys,
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
     }
+
+    @Test
+    void testConflictWithLock() throws IOException {
+        // Recreate the scenario of:
+        //  - Lucene file lock is successfully acquired.
+        //  - Another transaction fails with conflict while attempting to release the file lock.
+        // With a recent code, the lock is cleared during the directory's close.
+        Index index = SIMPLE_TEXT_SUFFIXES;
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            context.commit();
+        }
+        Tuple conflictTuple = Tuple.from(100, 100, 100);
+        try (final FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore.Builder builder = recordStore.asBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(recordStore.getMetaDataProvider());
+
+            final FDBRecordStore store = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+
+            // Obtain lock
+            final AgilityContext agile = AgilityContext.agile(context, TimeUnit.SECONDS.toMillis(4), 100_000);
+            final FDBDirectory directory = new FDBDirectory(store.indexSubspace(index), index.getOptions(),
+                    null, null, true, agile);
+
+            final Lock lock = directory.obtainLock(IndexWriter.WRITE_LOCK_NAME); // will also flush lock
+
+            // Read/write the conflicting value (without committing, yet)
+            testConflictWithLockAgileSet(agile, conflictTuple);
+
+            // Cause the conflict
+            testConflictWithLockCauseConflict(conflictTuple);
+
+            // finalize - imitating the Lucene flow (close lock, close directory, flush agility-context, then close user-context)
+            boolean gotException = false;
+            try {
+                try {
+                    lock.close();
+                } catch (RuntimeException ex) {
+                    gotException = true;
+                }
+                try {
+                    directory.close();
+                } catch (RuntimeException ex) {
+                    gotException = true;
+                }
+                agile.flushAndClose();
+                context.commit();
+            } catch (RuntimeException ex) {
+                gotException = true;
+            } finally {
+                assertTrue(gotException);
+            }
+        }
+
+        // ensure that a new lock is possible
+        TestRecordsTextProto.SimpleDocument doc3 = createSimpleDocument(1623L, "Salesmen jokes are funnier", 2);
+        try (final FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore.Builder builder = recordStore.asBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(recordStore.getMetaDataProvider());
+
+            final FDBRecordStore store = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            store.saveRecord(doc3);
+            context.commit();
+        }
+    }
+
+    private void testConflictWithLockAgileSet(AgilityContext agile1, Tuple conflictTuple) {
+        agile1.accept(aContext -> {
+            byte [] conflictKey = path.toSubspace(aContext).pack(conflictTuple);
+            final Transaction tr = aContext.ensureActive();
+            tr.get(conflictKey).join();
+            tr.set(conflictKey, Tuple.from(100, 20).pack());
+        });
+    }
+
+    private void testConflictWithLockCauseConflict(Tuple conflictTuple) {
+        try (final FDBRecordContext context = fdb.openContext()) {
+            byte [] conflictKey = path.toSubspace(context).pack(conflictTuple);
+            final Transaction tr = context.ensureActive();
+            tr.get(conflictKey).join();
+            tr.set(conflictKey, Tuple.from(100, 10).pack());
+            context.commit();
+        }
+    }
 }
+
