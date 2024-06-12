@@ -581,6 +581,10 @@ public class Ordering {
                             Verify.verify(!isFixed);
                             normalizedBindingMapBuilder.put(value, binding);
                             break;
+                        case CHOOSE:
+                            Verify.verify(!isFixed);
+                            normalizedBindingMapBuilder.put(value, binding);
+                            break;
                         case FIXED:
                             //
                             // If it is not fixed there will be an ASCENDING or DESCENDING as well, so we don't want to
@@ -990,6 +994,7 @@ public class Ordering {
                     seenDescending = true;
                     break;
                 case FIXED:
+                case CHOOSE:
                     break;
                 default:
                     throw new RecordCoreException("unexpected sort order");
@@ -1075,14 +1080,18 @@ public class Ordering {
         }
 
         @Nonnull
+        public static Binding choose() {
+            return sorted(ProvidedSortOrder.CHOOSE);
+        }
+
+        @Nonnull
         public static Binding sorted(final boolean isReverse) {
             return sorted(ProvidedSortOrder.fromIsReverse(isReverse));
         }
 
         @Nonnull
         public static Binding sorted(@Nonnull final ProvidedSortOrder sortOrder) {
-            Verify.verify(sortOrder == ProvidedSortOrder.ASCENDING ||
-                    sortOrder == ProvidedSortOrder.DESCENDING);
+            Verify.verify(sortOrder.isDirectional());
             return new Binding(sortOrder, null);
         }
 
@@ -1136,7 +1145,7 @@ public class Ordering {
             // Filter out all elements that only have singular fixed bindings (or that should be treated as such).
             // For instance, a value b may have two fixed binding that come from different legs in a union. b should
             // participate in the enumeration. On the contrary, if this method is called from an intersection context
-            // we need to consider the bindings identical, as they may be identical even though their value
+            // we need to consider the bindings to be identical, as they may be identical even though their value
             // representation may not be identical (b = 5; b = 2 + 3). Because they are identical, the actual values
             // flowed at runtime are constant, thus we don't need to have b participate in the comparison key
             // enumeration.

@@ -129,7 +129,8 @@ public abstract class OrderingPart<S extends OrderingPart.SortOrder> {
     public enum ProvidedSortOrder implements SortOrder {
         ASCENDING("↑"),
         DESCENDING("↓"),
-        FIXED("=");
+        FIXED("="),
+        CHOOSE("?");
 
         @Nonnull
         private final String arrowIndicator;
@@ -153,12 +154,12 @@ public abstract class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Override
         public boolean isDirectional() {
-            return this == ASCENDING || this == DESCENDING;
+            return this == ASCENDING || this == DESCENDING || this == CHOOSE;
         }
 
         @SuppressWarnings("BooleanMethodIsAlwaysInverted")
         public boolean isCompatibleWithRequestedSortOrder(@Nonnull final RequestedSortOrder requestedSortOrder) {
-            if (requestedSortOrder == RequestedSortOrder.ANY || !isDirectional()) {
+            if (requestedSortOrder == RequestedSortOrder.ANY || this == CHOOSE || !isDirectional()) {
                 return true;
             }
 
@@ -189,7 +190,7 @@ public abstract class OrderingPart<S extends OrderingPart.SortOrder> {
     public enum RequestedSortOrder implements SortOrder {
         ASCENDING("↑"),
         DESCENDING("↓"),
-        ANY("↑↓");
+        ANY("↕");
 
         @Nonnull
         private final String arrowIndicator;

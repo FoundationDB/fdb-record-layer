@@ -205,21 +205,38 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                             filteredBindingMapBuilder.put(value, binding);
                             continue;
                         }
+                    } else {
+                        filteredBindingMapBuilder.put(value, binding);
+                        continue;
                     }
 
                     //
                     // This binding can be promoted into a directional binding as it is currently bound by the source of
                     // the in-union.
                     //
-                    if (valueRequestedSortOrderMap.containsKey(value)) {
-                        filteredBindingMapBuilder.put(value, Binding.sorted(valueRequestedSortOrderMap.get(value).toProvidedSortOrder()));
+                    if (!valueRequestedSortOrderMap.containsKey(value)) {
+                        //filteredBindingMapBuilder.put(value, binding);
+                        continue;
+                    }
+
+                    final var requestedSortOrder = valueRequestedSortOrderMap.get(value);
+                    if (!requestedSortOrder.isDirectional() && requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
+                        filteredBindingMapBuilder.put(value, binding);
+                        continue;
+                    }
+
+                    if (requestedSortOrder == OrderingPart.RequestedSortOrder.ANY) {
+                        filteredBindingMapBuilder.put(value, Binding.choose());
                     } else {
-                        filteredBindingMapBuilder.put(value, Binding.ascending());
+                        filteredBindingMapBuilder.put(value, Binding.sorted(valueRequestedSortOrderMap.get(value).toProvidedSortOrder()));
                     }
                 }
 
+                final var filteredBindingsMap = filteredBindingMapBuilder.build();
+                final var filteredOrderingSet = providedOrdering.getOrderingSet().filterElements(filteredBindingsMap::containsKey);
+
                 final var inUnionOrdering =
-                        Ordering.UNION.createOrdering(filteredBindingMapBuilder.build(), providedOrdering.getOrderingSet(),
+                        Ordering.UNION.createOrdering(filteredBindingsMap, filteredOrderingSet,
                                 providedOrdering.isDistinct());
 
                 for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
