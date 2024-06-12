@@ -397,12 +397,13 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     public static RecordQueryInUnionOnValuesPlan from(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final List<? extends InSource> inSources,
                                                       @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                      final boolean isReverse,
                                                       final int maxNumberOfValuesAllowed,
                                                       @Nonnull final Bindings.Internal internal) {
         return RecordQueryInUnionOnValuesPlan.inUnion(inner,
                 inSources,
                 comparisonKeyValues,
-                Quantifiers.isReversed(ImmutableList.of(inner)),
+                isReverse,
                 maxNumberOfValuesAllowed,
                 internal);
     }

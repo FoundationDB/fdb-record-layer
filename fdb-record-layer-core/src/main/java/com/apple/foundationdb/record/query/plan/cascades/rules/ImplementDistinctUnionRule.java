@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -210,10 +211,17 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                             unionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
 
                     for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
+                        final var directionalOrderingParts =
+                                unionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, OrderingPart.ProvidedSortOrder.FIXED);
+                        final var comparisonDirectionOptional =
+                                Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
+                        comparisonDirectionOptional.ifPresent(isReverse ->
+                                call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
+                                        ImmutableList.copyOf(comparisonKeyValues), isReverse,
+                                        true)));
                     }
                 }
             }

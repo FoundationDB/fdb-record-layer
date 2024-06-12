@@ -25,13 +25,18 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedO
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
@@ -61,9 +66,13 @@ public class RequestedOrdering {
 
     private final Distinctness distinctness;
 
+    @Nonnull
+    private final Supplier<Map<Value, RequestedSortOrder>> valueRequestedSortOrderMapSupplier;
+
     public RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts, final Distinctness distinctness) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
+        this.valueRequestedSortOrderMapSupplier = Suppliers.memoize(this::computeValueSortOrderMap);
     }
 
     public Distinctness getDistinctness() {
@@ -86,6 +95,11 @@ public class RequestedOrdering {
     @Nonnull
     public List<RequestedOrderingPart> getOrderingParts() {
         return orderingParts;
+    }
+
+    @Nonnull
+    public Map<Value, RequestedSortOrder> getValueRequestedSortOrderMap() {
+        return valueRequestedSortOrderMapSupplier.get();
     }
 
     public int size() {
@@ -206,6 +220,19 @@ public class RequestedOrdering {
         }
 
         return Optional.of(true);
+    }
+
+    @Nonnull
+    private Map<Value, RequestedSortOrder> computeValueSortOrderMap() {
+        return getOrderingParts()
+                .stream()
+                .collect(Collectors.toMap(OrderingPart::getValue, OrderingPart::getSortOrder,
+                        (left, right) -> {
+                            if (left == right) {
+                                return left;
+                            }
+                            return RequestedSortOrder.ANY;
+                        }, LinkedHashMap::new));
     }
 
     /**

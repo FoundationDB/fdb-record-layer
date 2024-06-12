@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -164,67 +165,82 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            final var filteredBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
-            for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
-                final var value = entry.getKey();
-                final var orderBindings = entry.getValue();
-                final var sortOrder = Ordering.sortOrder(orderBindings);
-                if (sortOrder.isDirectional()) {
-                    filteredBindingMapBuilder.put(value, Binding.sorted(sortOrder));
-                    continue;
-                }
-
-                Debugger.sanityCheck(() -> Verify.verify(Ordering.areAllBindingsFixed(orderBindings)));
-                if (!Ordering.isSingularFixedBinding(orderBindings)) {
-                    filteredBindingMapBuilder.putAll(value, orderBindings);
-                    continue;
-                }
-
-                final var binding = Ordering.fixedBinding(orderBindings);
-                final var comparison = binding.getComparison();
-
-                if (comparison.getType() != Comparisons.Type.EQUALS) {
-                    filteredBindingMapBuilder.put(value, binding);
-                    continue;
-                }
-
-                if (comparison instanceof Comparisons.ParameterComparison) {
-                    final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                    if (!parameterComparison.isCorrelation() ||
-                            !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                        filteredBindingMapBuilder.put(value, binding);
-                        continue;
-                    }
-                } else if (comparison instanceof Comparisons.ValueComparison) {
-                    final var valueComparison = (Comparisons.ValueComparison)comparison;
-                    if (!explodeAliases.containsAll(valueComparison.getCorrelatedTo())) {
-                        filteredBindingMapBuilder.put(value, binding);
-                        continue;
-                    }
-                }
-
-                //
-                // This binding can be promoted into a directional binding as it is currently bound by the source of
-                // the in-union.
-                // TODO support DESCENDING as well
-                filteredBindingMapBuilder.put(value, Binding.ascending());
-            }
-
-            final var inUnionOrdering =
-                    Ordering.UNION.createOrdering(filteredBindingMapBuilder.build(), providedOrdering.getOrderingSet(),
-                            providedOrdering.isDistinct());
 
             for (final var requestedOrdering : requestedOrderings) {
+                final var valueRequestedSortOrderMap = requestedOrdering.getValueRequestedSortOrderMap();
+                final var filteredBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+                for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
+                    final var value = entry.getKey();
+                    final var orderBindings = entry.getValue();
+                    final var sortOrder = Ordering.sortOrder(orderBindings);
+                    if (sortOrder.isDirectional()) {
+                        filteredBindingMapBuilder.put(value, Binding.sorted(sortOrder));
+                        continue;
+                    }
+
+                    Debugger.sanityCheck(() -> Verify.verify(Ordering.areAllBindingsFixed(orderBindings)));
+                    if (Ordering.hasMultipleFixedBindings(orderBindings)) {
+                        filteredBindingMapBuilder.putAll(value, orderBindings);
+                        continue;
+                    }
+
+                    final var binding = Ordering.fixedBinding(orderBindings);
+                    final var comparison = binding.getComparison();
+
+                    if (comparison.getType() != Comparisons.Type.EQUALS) {
+                        filteredBindingMapBuilder.put(value, binding);
+                        continue;
+                    }
+
+                    if (comparison instanceof Comparisons.ParameterComparison) {
+                        final var parameterComparison = (Comparisons.ParameterComparison)comparison;
+                        if (!parameterComparison.isCorrelation() ||
+                                !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
+                            filteredBindingMapBuilder.put(value, binding);
+                            continue;
+                        }
+                    } else if (comparison instanceof Comparisons.ValueComparison) {
+                        final var valueComparison = (Comparisons.ValueComparison)comparison;
+                        if (!explodeAliases.containsAll(valueComparison.getCorrelatedTo())) {
+                            filteredBindingMapBuilder.put(value, binding);
+                            continue;
+                        }
+                    }
+
+                    //
+                    // This binding can be promoted into a directional binding as it is currently bound by the source of
+                    // the in-union.
+                    //
+                    if (valueRequestedSortOrderMap.containsKey(value)) {
+                        filteredBindingMapBuilder.put(value, Binding.sorted(valueRequestedSortOrderMap.get(value).toProvidedSortOrder()));
+                    } else {
+                        filteredBindingMapBuilder.put(value, Binding.ascending());
+                    }
+                }
+
+                final var inUnionOrdering =
+                        Ordering.UNION.createOrdering(filteredBindingMapBuilder.build(), providedOrdering.getOrderingSet(),
+                                providedOrdering.isDistinct());
+
                 for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
-                    //
-                    // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
-                    //
-                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
-                    call.yieldExpression(RecordQueryInUnionPlan.from(newInnerQuantifier,
-                                    inSources,
-                                    ImmutableList.copyOf(satisfyingComparisonKeyValues),
-                                    attemptFailedInJoinAsUnionMaxSize,
-                                    CORRELATION));
+                    final var directionalOrderingParts =
+                            inUnionOrdering.directionalOrderingParts(satisfyingComparisonKeyValues,
+                                    valueRequestedSortOrderMap, OrderingPart.ProvidedSortOrder.FIXED);
+                    final var comparisonDirectionOptional = Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
+
+                    if (comparisonDirectionOptional.isPresent()) {
+                        //
+                        // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
+                        //
+                        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
+                        call.yieldExpression(
+                                RecordQueryInUnionPlan.from(newInnerQuantifier,
+                                        inSources,
+                                        ImmutableList.copyOf(satisfyingComparisonKeyValues),
+                                        comparisonDirectionOptional.get(),
+                                        attemptFailedInJoinAsUnionMaxSize,
+                                        CORRELATION));
+                    }
                 }
             }
         }

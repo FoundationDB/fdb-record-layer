@@ -2080,6 +2080,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest
     void testInQueryOrDifferentCondition() throws Exception {
         complexQuerySetup(NO_HOOK);
+        planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());
+
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.or(
@@ -2100,15 +2102,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(224679143, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(2117979117, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {
-            // Cascades planner avoids IN-JOIN causing a primary scan and a UNION-ALL
             assertMatchesExactly(plan,
                     RecordQueryPlanMatchers.unionOnValuesPlan(
                             indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([null],[910])"))),
-                            predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
-                                    .where(predicates(valuePredicate(fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(2, 0))))))
-                            .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("rec_no")))));
-            assertEquals(-285991040, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1454288912, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                            inUnionOnValuesPlan(
+                                    predicatesFilterPlan(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>"))))
+                                            .where(predicates(valuePredicate(fieldValueWithFieldNames("num_value_2"), anyValueComparison()))))
+                                    .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("num_value_unique"), fieldValueWithFieldNames("rec_no"))))));
+            assertEquals(-1104949180L, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1269621129L, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(16, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> {

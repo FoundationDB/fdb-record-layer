@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -233,6 +234,9 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
             final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
+            final var requestedSortOrder =
+                    requestedOrderingPart.getDirectionalSortOrderOrDefault(RequestedSortOrder.ASCENDING);
+
             final InSource inSource;
             final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
             if (explodeCollectionValue instanceof LiteralValue<?>) {
@@ -241,19 +245,19 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     inSource = new SortedInValuesSource(
                             bindingName,
                             (List<Object>)literalValue,
-                            requestedOrderingPart.getSortOrder().isReverse());
+                            requestedSortOrder.isReverse());
                 } else {
                     return ImmutableList.of();
                 }
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new SortedInParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId(),
-                        requestedOrderingPart.getSortOrder().isReverse());
+                        requestedSortOrder.isReverse());
             } else if (explodeCollectionValue.isConstant()) {
                 inSource = new SortedInComparandSource(
                         bindingName,
                         new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue),
-                        requestedOrderingPart.getSortOrder().isReverse());
+                        requestedSortOrder.isReverse());
             } else {
                 return ImmutableList.of();
             }
@@ -275,14 +279,9 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             for (final var outerRequestedOrderingPart : outerReuqestedOrderingParts) {
                 final var outerOrderingValue = outerRequestedOrderingPart.getValue();
                 outerOrderingValuesBuilder.add(outerOrderingValue);
-                final var requestedSortOrder = outerRequestedOrderingPart.getSortOrder();
-                if (requestedSortOrder == OrderingPart.RequestedSortOrder.ANY) {
-                    outerOrderingBindingMapBuilder.put(outerOrderingValue,
-                            Binding.sorted(OrderingPart.ProvidedSortOrder.ASCENDING));
-                } else {
-                    outerOrderingBindingMapBuilder.put(outerOrderingValue,
-                            Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
-                }
+                final var requestedSortOrder = outerRequestedOrderingPart.getDirectionalSortOrderOrDefault(RequestedSortOrder.ASCENDING);
+                outerOrderingBindingMapBuilder.put(outerOrderingValue,
+                        Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
             }
 
             final var outerOrderingValues = outerOrderingValuesBuilder.build();

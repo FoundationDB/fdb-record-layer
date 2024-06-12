@@ -517,12 +517,21 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
-                    final var intersectionPlan = RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues));
-                    final var compensatedIntersection =
-                            compensation.isNeeded()
-                            ? compensation.apply(memoizer, intersectionPlan)
-                            : intersectionPlan;
-                    expressionsBuilder.add(compensatedIntersection);
+                    final var directionalOrderingParts =
+                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, OrderingPart.ProvidedSortOrder.FIXED);
+                    final var comparisonDirectionOptional =
+                            Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
+
+                    if (comparisonDirectionOptional.isPresent()) {
+                        final var intersectionPlan =
+                                RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
+                                        ImmutableList.copyOf(comparisonKeyValues), comparisonDirectionOptional.get());
+                        final var compensatedIntersection =
+                                compensation.isNeeded()
+                                ? compensation.apply(memoizer, intersectionPlan)
+                                : intersectionPlan;
+                        expressionsBuilder.add(compensatedIntersection);
+                    }
                 }
             }
         }

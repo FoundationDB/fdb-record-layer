@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * A value that is used to express ordered-ness.
  * @param <S> the sort order that is being used
  */
-public class OrderingPart<S extends OrderingPart.SortOrder> {
+public abstract class OrderingPart<S extends OrderingPart.SortOrder> {
     @Nonnull
     private final Value value;
 
@@ -58,6 +58,14 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
     public S getSortOrder() {
         return sortOrder;
+    }
+
+    @Nonnull
+    public S getDirectionalSortOrderOrDefault(@Nonnull final S defaultSortOrder) {
+        if (sortOrder.isDirectional()) {
+            return sortOrder;
+        }
+        return defaultSortOrder;
     }
 
     @Override
@@ -111,6 +119,8 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Nonnull
         String getArrowIndicator();
+
+        boolean isDirectional();
     }
 
     /**
@@ -141,6 +151,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return this == DESCENDING;
         }
 
+        @Override
         public boolean isDirectional() {
             return this == ASCENDING || this == DESCENDING;
         }
@@ -200,6 +211,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return this == DESCENDING;
         }
 
+        @Override
         public boolean isDirectional() {
             return this == ASCENDING || this == DESCENDING;
         }

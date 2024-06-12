@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
@@ -50,6 +51,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -286,7 +288,7 @@ public class Ordering {
                         return true;
                     }
                     final var bindings = bindingMap.get(requestedGroupingValue);
-                    return areAllBindingsFixed(bindings) && !isSingularFixedBinding(bindings);
+                    return areAllBindingsFixed(bindings) && hasMultipleFixedBindings(bindings);
                 })) {
             return false;
         }
@@ -446,7 +448,7 @@ public class Ordering {
     public boolean isSingularFixedValue(@Nonnull final Value value) {
         Verify.verify(bindingMap.containsKey(value));
         final var bindings = bindingMap.get(value);
-        return areAllBindingsFixed(bindings) && isSingularFixedBinding(bindings);
+        return areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings);
     }
 
     @Nonnull
@@ -630,15 +632,14 @@ public class Ordering {
         return bindings.stream().allMatch(Binding::isFixed);
     }
 
-    public static boolean isSingularFixedBinding(@Nonnull final Collection<Binding> bindings) {
-        return bindings.stream().filter(Binding::isFixed).count() == 1;
+    public static boolean hasMultipleFixedBindings(@Nonnull final Collection<Binding> bindings) {
+        return bindings.stream().filter(Binding::isFixed).count() > 1;
     }
 
     public static Binding fixedBinding(@Nonnull final Collection<Binding> bindings) {
-        Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindings) && isSingularFixedBinding(bindings)));
+        Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings)));
         return Iterables.getOnlyElement(bindings);
     }
-
 
     public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
@@ -966,6 +967,48 @@ public class Ordering {
     }
 
     /**
+     * Helper to attempt to resolve a comparison direction. This is needed for distinct set operations that use
+     * comparison keys. In the future there won't be a common direction but each comparison value will encode that
+     * information separately.
+     * @param providedOrderingParts an iterable of {@link ProvidedOrderingPart}s
+     * @return {@code Optional.empty()} if individual orderings are mixed (i.e. some are ascending, others are
+     *         descending); {@code Optional.of(false)} if all directional sort orders are not descending;
+     *         {@code Optional.of(true)} if all directional sort orders are descending
+     */
+    @Nonnull
+    public static Optional<Boolean> resolveComparisonDirectionMaybe(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts) {
+        boolean seenAscending = false;
+        boolean seenDescending = false;
+
+        for (final var providedOrderingPart : providedOrderingParts) {
+            final var sortOrder = providedOrderingPart.getSortOrder();
+            switch (sortOrder) {
+                case ASCENDING:
+                    seenAscending = true;
+                    break;
+                case DESCENDING:
+                    seenDescending = true;
+                    break;
+                case FIXED:
+                    break;
+                default:
+                    throw new RecordCoreException("unexpected sort order");
+            }
+        }
+        if (seenAscending && seenDescending) {
+            // shrug
+            return Optional.empty();
+        }
+
+        if (!seenAscending && !seenDescending) {
+            // in the absence of anything we return forward by default
+            return Optional.of(false);
+        }
+
+        return seenAscending ? Optional.of(false) : Optional.of(true);
+    }
+
+    /**
      * TODO.
      */
     public static class Binding {
@@ -1086,6 +1129,7 @@ public class Ordering {
                     }
                 }
             }
+
             final var reducedRequestedOrderingValues = reducedRequestedOrderingValuesBuilder.build();
 
             //
@@ -1111,6 +1155,49 @@ public class Ordering {
         }
 
         protected abstract boolean promoteToDirectional();
+
+        @Nonnull
+        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> values,
+                                                                   @Nonnull final RequestedOrdering requestedOrdering,
+                                                                   @Nonnull final ProvidedSortOrder defaultProvidedSortOrder) {
+            final var valueRequestedSortOrderMapMap =
+                    requestedOrdering.getValueRequestedSortOrderMap();
+            return directionalOrderingParts(values, valueRequestedSortOrderMapMap, defaultProvidedSortOrder);
+        }
+
+        @Nonnull
+        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> values,
+                                                                   @Nonnull final Map<Value, RequestedSortOrder> valueRequestedSortOrderMap,
+                                                                   @Nonnull final ProvidedSortOrder defaultProvidedSortOrder) {
+            final var bindingMap = getBindingMap();
+            final var resultBuilder = ImmutableList.<ProvidedOrderingPart>builder();
+            for (final var value : values) {
+                Verify.verify(bindingMap.containsKey(value));
+                final var bindings = bindingMap.get(value);
+                if (isSingularDirectionalBinding(bindings)) {
+                    resultBuilder.add(new ProvidedOrderingPart(value, sortOrder(bindings)));
+                } else {
+                    Debugger.sanityCheck(() -> areAllBindingsFixed(bindings));
+                    if (!valueRequestedSortOrderMap.containsKey(value)) {
+                        resultBuilder.add(new ProvidedOrderingPart(value, defaultProvidedSortOrder));
+                    } else {
+                        final var requestedSortOrder = valueRequestedSortOrderMap.get(value);
+                        switch (requestedSortOrder) {
+                            case ASCENDING:
+                            case DESCENDING:
+                                resultBuilder.add(new ProvidedOrderingPart(value, requestedSortOrder.toProvidedSortOrder()));
+                                break;
+                            case ANY:
+                                resultBuilder.add(new ProvidedOrderingPart(value, defaultProvidedSortOrder));
+                                break;
+                            default:
+                                throw new RecordCoreException("unable to resolve directional order");
+                        }
+                    }
+                }
+            }
+            return resultBuilder.build();
+        }
     }
 
     /**
