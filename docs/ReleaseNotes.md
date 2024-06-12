@@ -17,9 +17,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix flaky test - break loop into smaller commits [(Issue #2756)](https://github.com/FoundationDB/fdb-record-layer/issues/2756)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** FDBDirectoryLock won't fail if AgilityContext is flushed while closing [(Issue #2754)](https://github.com/FoundationDB/fdb-record-layer/issues/2754)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -29,7 +29,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Reproduce abandoned FileLock due to conflict issue [(Issue #2731)](https://github.com/FoundationDB/fdb-record-layer/issues/2731)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,12 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.511.0
+
+* **Bug fix** Fix flaky test - break loop into smaller commits [(Issue #2756)](https://github.com/FoundationDB/fdb-record-layer/issues/2756)
+* **Bug fix** FDBDirectoryLock won't fail if AgilityContext is flushed while closing [(Issue #2754)](https://github.com/FoundationDB/fdb-record-layer/issues/2754)
+* **Feature** Reproduce abandoned FileLock due to conflict issue [(Issue #2731)](https://github.com/FoundationDB/fdb-record-layer/issues/2731)
 
 ### 3.4.510.0
 
