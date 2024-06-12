@@ -135,8 +135,8 @@ class MessageTupleTest {
                         RecordLayerColumn.newBuilder().setName("REST_NO").setDataType(DataType.Primitives.STRING.type()).build(),
                         RecordLayerColumn.newBuilder().setName("NAME").setDataType(DataType.Primitives.LONG.type()).build(),
                         RecordLayerColumn.newBuilder().setName("LOCATION").setDataType(location.getDatatype().withNullable(false)).build(),
-                        RecordLayerColumn.newBuilder().setName("REVIEWS").setDataType(DataType.ArrayType.from(restaurantReview.getDatatype(), nullableArray)).build(),
-                        RecordLayerColumn.newBuilder().setName("TAGS").setDataType(DataType.ArrayType.from(restaurantTag.getDatatype(), nullableArray)).build(),
+                        RecordLayerColumn.newBuilder().setName("REVIEWS").setDataType(DataType.ArrayType.from(restaurantReview.getDatatype().withNullable(false), nullableArray)).build(),
+                        RecordLayerColumn.newBuilder().setName("TAGS").setDataType(DataType.ArrayType.from(restaurantTag.getDatatype().withNullable(false), nullableArray)).build(),
                         RecordLayerColumn.newBuilder().setName("CUSTOMER").setDataType(DataType.Primitives.STRING.type()).build(),
                         RecordLayerColumn.newBuilder().setName("ENCODED_BYTES").setDataType(DataType.Primitives.BYTES.type()).build()))
                 .build();

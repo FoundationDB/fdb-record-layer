@@ -21,10 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -107,6 +107,11 @@ public class DataTypeUtils {
                 return Type.Record.fromFieldsWithName(struct.getName(), struct.isNullable(), fields);
             case ARRAY:
                 final var asArray = (DataType.ArrayType) type;
+                // Currently, Record-Layer does not support Nullable array elements. In the Postgres world, the elements of an array are by default nullable,
+                // but since in RL we store the elements as a 'repeated' field, there is not a way to tell if an element is explicitly 'null'.
+                // The current RL behavior loses the nullability information even if the constituent of Type.Array is explicitly marked 'nullable'. Hence,
+                // the check here avoids silently swallowing the requirement.
+                Assert.thatUnchecked(!asArray.getElementType().isNullable(), ErrorCode.UNSUPPORTED_OPERATION, "No support for nullable array elements.");
                 return new Type.Array(asArray.isNullable(), toRecordLayerType(asArray.getElementType()));
             case ENUM:
                 final var asEnum = (DataType.EnumType) type;

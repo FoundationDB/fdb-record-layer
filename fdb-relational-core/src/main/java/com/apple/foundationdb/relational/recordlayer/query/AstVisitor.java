@@ -1441,7 +1441,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
 
         var dataType = visitColumnType(ctx.columnType());
         if (isRepeated) {
-            dataType = DataType.ArrayType.from(dataType, isNullable);
+            dataType = DataType.ArrayType.from(dataType.withNullable(false), isNullable);
         } else {
             dataType = dataType.withNullable(isNullable);
         }

@@ -123,7 +123,7 @@ public class RelationalArrayTest {
                         "[x'31', x'32'], null, " +
                         "[(11, '11'), (22, '22')], null " +
                         ")"));
-        // This should not go throw since non-null array is not initialized, However, that is being currently getting
+        // This should not go through since non-null array is not initialized, However, that is being currently getting
         // initialized by an empty array (no elements in unwrapped REPEATED field in proto).
         // This phenomenon is also true with basic types, i.e., non-nullability is not enforced and is tracked by
         // TODO (Add support + tests for column nullable/not null)
@@ -189,7 +189,7 @@ public class RelationalArrayTest {
         assertEquals(2, arrayMetadata.getColumnCount());
         assertEquals(ResultSetMetaData.columnNoNulls, arrayMetadata.isNullable(1));
         // TODO: TODO (Support array element nullability): The nullability of array element is not being propagated correctly!
-//        assertEquals(ResultSetMetaData.columnNoNulls, arrayMetadata.isNullable(2));
+        assertEquals(ResultSetMetaData.columnNoNulls, arrayMetadata.isNullable(2));
         assertEquals(Types.INTEGER, arrayMetadata.getColumnType(1));
         assertEquals(sqlType, arrayMetadata.getColumnType(2));
         for (int i = 0; i < elements.size(); i++) {
