@@ -67,7 +67,7 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     public TextCollator getTextCollator(@Nonnull String locale, int strength) {
         return MapUtils.computeIfAbsent(collators, NonnullPair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
-                                      Collator.getInstance() :
+                                      Collator.getInstance(Locale.ROOT) :
                                       // Some minimal consistency between BCP 47 and C-like identifiers.
                                       Collator.getInstance(Locale.forLanguageTag(locale.replace("_", "-")));
             collator.setStrength(strength);

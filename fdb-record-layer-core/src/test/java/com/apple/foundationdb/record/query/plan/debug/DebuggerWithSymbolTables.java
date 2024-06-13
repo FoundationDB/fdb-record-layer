@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -192,7 +193,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     boolean isValidEntityName(@Nonnull final String identifier) {
-        final String lowerCase = identifier.toLowerCase();
+        final String lowerCase = identifier.toLowerCase(Locale.ROOT);
         if (!lowerCase.startsWith("exp") &&
                 !lowerCase.startsWith("ref") &&
                 !lowerCase.startsWith("qun")) {

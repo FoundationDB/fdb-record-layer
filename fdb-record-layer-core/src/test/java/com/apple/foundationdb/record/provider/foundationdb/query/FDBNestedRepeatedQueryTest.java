@@ -1621,7 +1621,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             createOrOpenMapStore(context, hook);
 
             @Nullable Map<String, Tuple> cascadeResults = null;
-            if (useCascadesPlanner && querySupplier != null) {
+            if (isUseCascadesPlanner() && querySupplier != null) {
                 final RecordQueryPlan plan = planGraph(querySupplier);
                 cascadeResults = new HashMap<>();
                 try (RecordCursor<QueryResult> cascadeCursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {

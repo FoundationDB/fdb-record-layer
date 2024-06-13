@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.lucene.LuceneIndexTypes;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.LucenePartitionInfoProto;
@@ -40,6 +41,8 @@ import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
@@ -113,7 +116,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
         // This agilityContext will be used to determine/iterate grouping keys and partitions. The time gap between calls might
         // be too long for a non-agile context.
-        final AgilityContext agilityContext = getAgilityContext(true);
+        final AgilityContext agilityContext = getAgilityContext(true, false);
 
         if (! (rootExpression instanceof GroupingKeyExpression)) {
             // Here: empty grouping keys tuple
@@ -170,7 +173,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private void mergeIndexNow(LuceneAnalyzerWrapper analyzerWrapper, Tuple groupingKey, @Nullable final Integer partitionId) {
-        final AgilityContext agilityContext = getAgilityContext(true);
+        final AgilityContext agilityContext = getAgilityContext(true, true);
         try {
             mergeIndexWithContext(analyzerWrapper, groupingKey, partitionId, agilityContext);
         } finally {
@@ -194,15 +197,15 @@ public class FDBDirectoryManager implements AutoCloseable {
                             LuceneLogMessageKeys.INDEX_PARTITION, partitionId));
                 }
             } catch (IOException e) {
-                throw new RecordCoreStorageException("Lucene mergeIndex failed", e)
-                        .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
-                                LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+                throw LuceneExceptions.wrapException("Lucene mergeIndex failed", e,
+                        LuceneLogMessageKeys.GROUP, groupingKey,
+                        LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
             }
         } catch (IOException e) {
             // there was an IOException closing the index writer
-            throw new RecordCoreStorageException("Lucene mergeIndex close failed", e)
-                    .addLogInfo(LuceneLogMessageKeys.GROUP, groupingKey,
-                            LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
+            throw LuceneExceptions.wrapException("Lucene mergeIndex close failed", e,
+                    LuceneLogMessageKeys.GROUP, groupingKey,
+                    LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
     }
 
@@ -279,17 +282,21 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
-        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false));
+        return getDirectoryWrapper(groupingKey, partitionId, getAgilityContext(false, false));
     }
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
         final Tuple mapKey = getDirectoryKey(groupingKey, partitionId);
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
     }
 
     public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
                                                       final AgilityContext agilityContext) {
-        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext);
+        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+    }
+
+    private int getBlockCacheMaximumSize() {
+        return state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE);
     }
 
     private static Tuple getDirectoryKey(final @Nullable Tuple groupingKey, final @Nullable Integer partitionId) {
@@ -300,7 +307,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         return mapKey;
     }
 
-    private AgilityContext getAgilityContext(boolean useAgilityContext) {
+    private AgilityContext getAgilityContext(boolean useAgilityContext, boolean allowDefaultPriority) {
         final IndexDeferredMaintenanceControl deferredControl = state.store.getIndexDeferredMaintenanceControl();
         if (!useAgilityContext || Boolean.TRUE.equals(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_DISABLE_AGILITY_CONTEXT))) {
             // Avoid potential retries:
@@ -319,7 +326,14 @@ public class FDBDirectoryManager implements AutoCloseable {
             sizeQuotaBytes =  Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA), 900_000);
             deferredControl.setSizeQuotaBytes(sizeQuotaBytes);
         }
-        return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
+        boolean useDefaultPriorityDuringMerge = allowDefaultPriority && Objects.requireNonNullElse(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_DEFAULT_PRIORITY_DURING_MERGE), true);
+        if (useDefaultPriorityDuringMerge) {
+            final FDBRecordContextConfig.Builder contextBuilder = state.context.getConfig().toBuilder();
+            contextBuilder.setPriority(FDBTransactionPriority.DEFAULT);
+            return AgilityContext.agile(state.context, contextBuilder, timeQuotaMillis, sizeQuotaBytes);
+        } else {
+            return AgilityContext.agile(state.context, timeQuotaMillis, sizeQuotaBytes);
+        }
     }
 
     @Nonnull

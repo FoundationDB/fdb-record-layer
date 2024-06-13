@@ -349,19 +349,19 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(autoMerge);
     }
 
 
-    private class FailCommitsAgilityContext extends AgilityContext.Agile {
+    private static class FailCommitsAgilityContext extends AgilityContext.Agile {
         private final Object indexSubspaceKey;
         private int commitCount = 0;
 
         public FailCommitsAgilityContext(FDBRecordContext callerContext, final Object indexSubspaceKey) {
-            super(callerContext, 1L, 1L);
+            super(callerContext, null, 1L, 1L);
             this.indexSubspaceKey = indexSubspaceKey;
         }
 

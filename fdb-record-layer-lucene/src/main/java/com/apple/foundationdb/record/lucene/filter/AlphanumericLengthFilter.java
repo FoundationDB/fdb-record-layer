@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.lucene.filter;
 
 import com.google.common.base.Preconditions;
 import org.apache.lucene.analysis.FilteringTokenFilter;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 
@@ -39,7 +38,7 @@ public final class AlphanumericLengthFilter extends FilteringTokenFilter {
     private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
 
-    AlphanumericLengthFilter(final TokenStream in,
+    public AlphanumericLengthFilter(final TokenStream in,
                              final int minAlphanumLength,
                              final int maxAlphanumLength) {
         super(in);
@@ -55,37 +54,38 @@ public final class AlphanumericLengthFilter extends FilteringTokenFilter {
 
     @Override
     protected boolean accept() {
-        String typeAttStr = typeAtt.type();
-        if (UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.IDEOGRAPHIC].equals(typeAttStr) ||
-                UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.HANGUL].equals(typeAttStr) ||
-                UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.HIRAGANA].equals(typeAttStr) ||
-                UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.KATAKANA].equals(typeAttStr)
-        ) {
-            return true;
-        } else {
-            int len = termAtt.length();
-            return (len >= minAlphanumLength && len <= maxAlphanumLength);
-        }
+        return CjkUnigramFilter.isUnigramTokenType(typeAtt.type())
+                || isLengthWithinRange(termAtt.length());
+    }
+
+    private boolean isLengthWithinRange(final int len) {
+        return (len >= minAlphanumLength && len <= maxAlphanumLength);
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource") //nothing to actually close
-    public boolean equals(final Object o) {
+    public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof AlphanumericLengthFilter)) {
+
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         if (!super.equals(o)) {
             return false;
         }
-        final AlphanumericLengthFilter that = (AlphanumericLengthFilter)o;
-        return minAlphanumLength == that.minAlphanumLength && maxAlphanumLength == that.maxAlphanumLength;
+
+        AlphanumericLengthFilter that = (AlphanumericLengthFilter) o;
+        return minAlphanumLength == that.minAlphanumLength &&
+                maxAlphanumLength == that.maxAlphanumLength &&
+                typeAtt.equals(that.typeAtt) &&
+                termAtt.equals(that.termAtt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), minAlphanumLength, maxAlphanumLength);
+        return Objects.hash(super.hashCode(), minAlphanumLength, maxAlphanumLength, typeAtt, termAtt);
     }
 }

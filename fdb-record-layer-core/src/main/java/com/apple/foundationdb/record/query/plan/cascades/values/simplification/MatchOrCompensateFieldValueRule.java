@@ -104,42 +104,4 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
         call.yieldValue(fieldValue, newMatchedValuesMap);
     }
 
-    /**
-     * A compensation that utilizes a field access.
-     */
-    public static class FieldValueCompensation implements Function<Value, Value> {
-        @Nonnull
-        private final FieldValue.FieldPath fieldPath;
-
-        @Nonnull
-        private final Function<Value, Value> downstreamCompensation;
-
-        public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath) {
-            this(fieldPath, Function.identity());
-        }
-
-        public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
-            this.fieldPath = fieldPath;
-            this.downstreamCompensation = downstreamCompensation;
-        }
-
-
-        @Nonnull
-        public FieldValue.FieldPath getFieldPath() {
-            return fieldPath;
-        }
-
-        @Nonnull
-        @Override
-        public Value apply(final Value value) {
-            return downstreamCompensation.apply(FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
-        }
-
-        public Function<Value, Value> withSuffix(@Nonnull final FieldValue.FieldPath suffixFieldPath) {
-            if (suffixFieldPath.isEmpty()) {
-                return downstreamCompensation;
-            }
-            return new FieldValueCompensation(suffixFieldPath, downstreamCompensation);
-        }
-    }
 }

@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.lucene.exact.ExactTokenAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

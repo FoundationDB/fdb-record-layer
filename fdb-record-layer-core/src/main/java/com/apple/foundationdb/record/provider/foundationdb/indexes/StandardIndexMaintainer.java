@@ -75,7 +75,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -660,17 +659,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                                             indexEntryKey(indexEntryWithoutPrimaryKey.getKey(), record.getPrimaryKey()),
                                             indexEntryWithoutPrimaryKey.getValue()
                                     ))
-                                    .map(indexEntry -> Pair.of(indexEntry, record))
+                                    .map(indexEntry -> InvalidIndexEntry.newMissing(indexEntry, record))
                                     .collect(Collectors.toList()),
                             cont);
                 },
                 continuation, pipelineSizer.getPipelineSize(PipelineOperation.RECORD_FUNCTION))
-        .filterAsync(indexEntryRecordPair -> {
-            final byte[] keyBytes = state.indexSubspace.pack(indexEntryRecordPair.getLeft().getKey());
+        .filterAsync(missingEntryCandidate -> {
+            final byte[] keyBytes = state.indexSubspace.pack(missingEntryCandidate.getEntry().getKey());
             return state.transaction.get(keyBytes).thenApply(Objects::isNull);
-        }, pipelineSizer.getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER))
-        .map(indexEntryKeyRecordPair ->
-                InvalidIndexEntry.newMissing(indexEntryKeyRecordPair.getLeft(), indexEntryKeyRecordPair.getRight()));
+        }, pipelineSizer.getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER));
     }
 
     protected <M extends Message> void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,

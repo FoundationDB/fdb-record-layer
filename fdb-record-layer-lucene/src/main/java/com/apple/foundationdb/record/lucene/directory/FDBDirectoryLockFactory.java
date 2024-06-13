@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
@@ -28,13 +28,18 @@ import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableException;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockFactory;
+import org.apache.lucene.store.LockObtainFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -53,9 +58,19 @@ public final class FDBDirectoryLockFactory extends LockFactory {
     }
 
     @Override
-    public Lock obtainLock(final Directory dir, final String lockName) {
+    public Lock obtainLock(final Directory dir, final String lockName) throws IOException {
         // dir is ignored
-        return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
+        try {
+            return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
+        } catch (FDBDirectoryLockException ex) {
+            // Wrap in a Lucene-compatible exception (that extends IOException)
+            throw new LockObtainFailedException(ex.getMessage(), ex);
+        }
+    }
+
+    @VisibleForTesting
+    public Lock obtainLock(final AgilityContext agilityContext, final byte[] fileLockKey, final String lockName) {
+        return new FDBDirectoryLock(agilityContext, lockName, fileLockKey, timeWindowMilliseconds);
     }
 
     protected static class FDBDirectoryLock extends Lock {
@@ -68,6 +83,11 @@ public final class FDBDirectoryLockFactory extends LockFactory {
         private final int timeWindowMilliseconds;
         private final byte[] fileLockKey;
         private boolean closed;
+        /**
+         * When closing this lock, we set this to the current context, so that when the pre-commit hook runs we won't
+         * fail to heartbeat, as it will expect the lock to be deleted.
+         */
+        private FDBRecordContext closingContext = null;
         private final Object fileLockSetLock = new Object();
 
         private FDBDirectoryLock(final AgilityContext agilityContext, final String lockName, byte[] fileLockKey, int timeWindowMilliseconds) {
@@ -78,19 +98,12 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             logSelf("FileLock: Attempt to create a file Lock");
             fileLockSet(false);
             agilityContext.flush();
+            agilityContext.setCommitCheck(this::ensureValidIfNotClosed);
             logSelf("FileLock: Successfully created a file lock");
         }
 
-        @Override
-        public void close() {
-            fileLockClear();
-            flushAndClose();
-        }
-
-        private void flushAndClose() {
-            // always flush before declaring this object as closed. Else agilityContext may fail to commit, while this lock may skip retry
-            agilityContext.flush();
-            closed = true;
+        private CompletableFuture<Void> ensureValidIfNotClosed(final FDBRecordContext context) {
+            return closed ? AsyncUtil.DONE : fileLockSet(true, context);
         }
 
         @Override
@@ -132,14 +145,23 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             return aContext.ensureActive().get(fileLockKey)
                     .thenAccept(val -> {
                         synchronized (fileLockSetLock) {
-                            if (isHeartbeat) {
-                                fileLockCheckHeartBeat(val);
+                            if (isHeartbeat && aContext.equals(closingContext)) {
+                                // we are in a context which has already cleared this lock, the value should be null
+                                if (val != null) {
+                                    long existingTimeStamp = fileLockValueToTimestamp(val);
+                                    UUID existingUuid = fileLockValueToUuid(val);
+                                    throw new AlreadyClosedException("Lock file re-obtained by " + existingUuid + " at " + existingTimeStamp + ". This=" + this);
+                                }
                             } else {
-                                fileLockCheckNewLock(val, nowMillis);
+                                if (isHeartbeat) {
+                                    fileLockCheckHeartBeat(val);
+                                } else {
+                                    fileLockCheckNewLock(val, nowMillis);
+                                }
+                                this.timeStampMillis = nowMillis;
+                                byte[] value = fileLockValue();
+                                aContext.ensureActive().set(fileLockKey, value);
                             }
-                            this.timeStampMillis = nowMillis;
-                            byte[] value = fileLockValue();
-                            aContext.ensureActive().set(fileLockKey, value);
                         }
                     });
         }
@@ -165,7 +187,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             if (existingTimeStamp > (nowMillis - timeWindowMilliseconds) &&
                     existingTimeStamp < (nowMillis + timeWindowMilliseconds)) {
                 // Here: this lock is valid
-                throw new RecordCoreException("FileLock: Lock failed: already locked by another entity")
+                throw new FDBDirectoryLockException("FileLock: Lock failed: already locked by another entity")
                         .addLogInfo(LuceneLogMessageKeys.LOCK_EXISTING_TIMESTAMP, existingTimeStamp,
                                 LuceneLogMessageKeys.LOCK_EXISTING_UUID, existingUuid,
                                 LuceneLogMessageKeys.LOCK_DIRECTORY, this);
@@ -179,36 +201,19 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
-
-        private void fileLockClear() {
-            agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
-                    agilityContext.apply(aContext ->
-                            aContext.ensureActive().get(fileLockKey)
-                                    .thenAccept(val -> {
-                                        synchronized (fileLockSetLock) {
-                                            fileLockCheckHeartBeat(val); // ensure valid
-                                            aContext.ensureActive().clear(fileLockKey);
-                                            logSelf("FileLock: Cleared");
-                                        }
-                                    })
-                    ));
-        }
-
-        protected void fileLockClearIfLocked() {
-            if (closed) {
-                // Here: the lock was already cleared and closed.
-                return;
-            }
-            // Here: the lock was not cleared in the regular path while the wrapping resource is being closed -
-            // clear the lock unconditionally if locked and matches uuid
+        private void fileLockClearFlushAndClose(boolean isRecovery) {
             Function<FDBRecordContext, CompletableFuture<Void>> fileLockFunc = aContext ->
                     aContext.ensureActive().get(fileLockKey)
                             .thenAccept(val -> {
                                 synchronized (fileLockSetLock) {
                                     UUID existingUuid = fileLockValueToUuid(val);
                                     if (existingUuid != null && existingUuid.compareTo(selfStampUuid) == 0) {
+                                        // clear the lock if locked and matches uuid
                                         aContext.ensureActive().clear(fileLockKey);
-                                        logSelf("FileLock: Cleared in Recovery path");
+                                        closingContext = aContext;
+                                        logSelf(isRecovery ? "FileLock: Cleared in Recovery path" : "FileLock: Cleared");
+                                    } else if (! isRecovery) {
+                                        throw new AlreadyClosedException("FileLock: Expected to be locked during close.This=" + this + " existingUuid=" + existingUuid); // The string append methods should handle null arguments.
                                     }
                                 }
                             });
@@ -222,7 +227,32 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                 agilityContext.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_CLEAR,
                         agilityContext.apply(fileLockFunc));
             }
-            flushAndClose();
+            boolean flushed = false;
+            try {
+                closed = true; // prevent lock stamp update
+                agilityContext.flush();
+                flushed = true;
+            } finally {
+                closed = flushed; // allow close retry
+                closingContext = null;
+            }
+        }
+
+        protected void fileLockClearIfLocked() {
+            if (closed) {
+                // Here: the lock was already cleared and closed.
+                return;
+            }
+            // Here: the lock was not cleared in the regular path while the wrapping resource is being closed -
+            fileLockClearFlushAndClose(true);
+        }
+
+        @Override
+        public void close() {
+            if (closed) {
+                throw new AlreadyClosedException("Lock file is already closed. This=" + this);
+            }
+            fileLockClearFlushAndClose(false);
         }
 
         @Override
@@ -239,6 +269,18 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                         LogMessageKeys.KEY, ByteArrayUtil2.loggable(fileLockKey)));
             }
 
+        }
+    }
+
+    /**
+     * An exception class thrown when obtaining the lock failed.
+     * Note: This exception is a {@link RuntimeException} so that {@link com.apple.foundationdb.record.provider.foundationdb.FDBExceptions#wrapException(Throwable)}
+     * does not wrap it but leave it as a pass-through.
+     */
+    @SuppressWarnings("serial")
+    public static class FDBDirectoryLockException extends LoggableException {
+        public FDBDirectoryLockException(@Nonnull final String msg) {
+            super(msg);
         }
     }
 }

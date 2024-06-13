@@ -51,8 +51,12 @@ public interface AgilityContext {
         return new NonAgile(callerContext);
     }
 
+    static AgilityContext agile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        return new Agile(callerContext, contextBuilder, timeQuotaMillis, sizeQuotaBytes);
+    }
+
     static AgilityContext agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
-        return new Agile(callerContext, timeQuotaMillis, sizeQuotaBytes);
+        return agile(callerContext, null, timeQuotaMillis, sizeQuotaBytes);
     }
 
     /**
@@ -167,6 +171,14 @@ public interface AgilityContext {
     }
 
     /**
+     * The {@code commitCheck} callback is expected to use the argument context but should never call other
+     * agility context functions as it may cause a deadlock.
+     *
+     * @param commitCheck callback
+     */
+    void setCommitCheck(Function<FDBRecordContext, CompletableFuture<Void>> commitCheck);
+
+    /**
      * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
      */
     class Agile implements AgilityContext {
@@ -193,10 +205,11 @@ public interface AgilityContext {
         private boolean committingNow = false;
         private long prevCommitCheckTime;
         private boolean closed = false;
+        private Function<FDBRecordContext, CompletableFuture<Void>> commitCheck;
 
-        protected Agile(FDBRecordContext callerContext, final long timeQuotaMillis, final long sizeQuotaBytes) {
+        protected Agile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
-            contextConfigBuilder = callerContext.getConfig().toBuilder();
+            contextConfigBuilder = contextBuilder != null ? contextBuilder : callerContext.getConfig().toBuilder();
             contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
             database = callerContext.getDatabase();
             this.timeQuotaMillis = timeQuotaMillis;
@@ -216,6 +229,11 @@ public interface AgilityContext {
         }
 
         @Override
+        public void setCommitCheck(final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
+            this.commitCheck = commitCheck;
+        }
+
+        @Override
         @Nonnull
         public FDBRecordContext getCallerContext() {
             return callerContext;
@@ -230,12 +248,19 @@ public interface AgilityContext {
             synchronized (createLockSync) {
                 if (currentContext == null) {
                     ensureOpen();
-                    FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
+                    final FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
                     currentContext = database.openContext(contextConfig);
+                    addCommitCheckToContext(currentContext, commitCheck);
                     creationTime = now();
                     prevCommitCheckTime = creationTime;
                     currentWriteSize = 0;
                 }
+            }
+        }
+
+        private static void addCommitCheckToContext(final FDBRecordContext commitCheckContext, @Nullable final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
+            if (commitCheck != null) {
+                commitCheckContext.addCommitCheck(() -> commitCheck.apply(commitCheckContext));
             }
         }
 
@@ -281,9 +306,8 @@ public interface AgilityContext {
                     committingNow = true;
                     final long stamp = lock.writeLock();
 
-                    try {
-                        currentContext.commit();
-                        currentContext.close();
+                    try (FDBRecordContext commitContext = currentContext) {
+                        commitContext.commit();
                     } catch (RuntimeException ex) {
                         closed = true;
                         reportFdbException(ex);
@@ -316,6 +340,7 @@ public interface AgilityContext {
         @Override
         public <R> CompletableFuture<R> apply(Function<FDBRecordContext, CompletableFuture<R>> function) {
             ensureOpen();
+            commitIfNeeded();
             final long stamp = lock.readLock();
             boolean successfulCreate = false;
             try {
@@ -363,6 +388,7 @@ public interface AgilityContext {
         @Override
         public void accept(final Consumer<FDBRecordContext> function) {
             ensureOpen();
+            commitIfNeeded();
             final long stamp = lock.readLock();
             try {
                 createIfNeeded();
@@ -446,8 +472,8 @@ public interface AgilityContext {
 
         @Override
         public <R> CompletableFuture<R> applyInRecoveryPath(Function<FDBRecordContext, CompletableFuture<R>> function) {
-            // No recovery for a single user transaction
-            return CompletableFuture.completedFuture(null);
+            // Best effort - skip ensureOpen, ignore exceptions.
+            return function.apply(callerContext).exceptionally(ex -> null);
         }
 
         @Override
@@ -492,6 +518,11 @@ public interface AgilityContext {
         @Override
         public boolean isClosed() {
             return closed;
+        }
+
+        @Override
+        public void setCommitCheck(final Function<FDBRecordContext, CompletableFuture<Void>> commitCheck) {
+            callerContext.addCommitCheck(() -> commitCheck.apply(callerContext));
         }
     }
 

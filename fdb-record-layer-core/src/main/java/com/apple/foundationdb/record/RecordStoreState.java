@@ -173,6 +173,29 @@ public class RecordStoreState {
         return getState(indexName).equals(IndexState.READABLE);
     }
 
+
+    /**
+     * Determines whether the index of the given name is in readable-unique-pending. This state means that
+     * the index is fully indexed, but cannot be readable because of duplicated entries that contradict its
+     * UNIQUE flag.
+     * @param indexName the name of the index to check
+     * @return <code>true</code> if the given index is readable-unique-pending and <code>false</code> otherwise
+     */
+    public boolean isReadableUniquePending(@Nonnull String indexName) {
+        return getState(indexName).equals(IndexState.READABLE_UNIQUE_PENDING);
+    }
+
+
+    /**
+     * Determines whether the index of the given name is in scannable. This state means that the index is
+     * either readable or readable-unique-pending.
+     * @param indexName the name of the index to check
+     * @return <code>true</code> if the given index is scannable and <code>false</code> otherwise
+     */
+    public boolean isScannable(@Nonnull String indexName) {
+        return getState(indexName).isScannable();
+    }
+
     /**
      * Determine the state of an index. Note that all indexes are assumed to be
      * readable unless marked otherwise, i.e., this will return {@link IndexState#READABLE IndexState.READABLE}

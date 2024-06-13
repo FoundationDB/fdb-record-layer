@@ -57,8 +57,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -89,11 +87,11 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     private final Iterable<? extends Value> children;
 
     @Nonnull
-    private static final Supplier<Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
+    private static final Supplier<Map<UnaryOperatorSignature, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeUnaryOperatorMap);
 
     @Nonnull
-    private static final Supplier<Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
+    private static final Supplier<Map<BinaryOperatorSignature, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
     protected RelOpValue(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PRelOpValue relOpValueProto) {
@@ -278,7 +276,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
         if (arguments.size() == 1) {
             final UnaryPhysicalOperator physicalOperator =
-                    getUnaryOperatorMap().get(Pair.of(comparisonType, res0.getTypeCode()));
+                    getUnaryOperatorMap().get(new UnaryOperatorSignature(comparisonType, res0.getTypeCode()));
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
@@ -292,7 +290,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             SemanticException.check(res1.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
-                    getBinaryOperatorMap().get(Triple.of(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
+                    getBinaryOperatorMap().get(new BinaryOperatorSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
@@ -304,29 +302,29 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    private static Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> computeUnaryOperatorMap() {
-        final ImmutableMap.Builder<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<UnaryOperatorSignature, UnaryPhysicalOperator> computeUnaryOperatorMap() {
+        final ImmutableMap.Builder<UnaryOperatorSignature, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final UnaryPhysicalOperator operator : UnaryPhysicalOperator.values()) {
-            mapBuilder.put(Pair.of(operator.getType(), operator.getArgType()), operator);
+            mapBuilder.put(new UnaryOperatorSignature(operator.getType(), operator.getArgType()), operator);
         }
         return mapBuilder.build();
     }
 
     @Nonnull
-    private static Map<Pair<Comparisons.Type, Type.TypeCode>, UnaryPhysicalOperator> getUnaryOperatorMap() {
+    private static Map<UnaryOperatorSignature, UnaryPhysicalOperator> getUnaryOperatorMap() {
         return unaryOperatorMapSupplier.get();
     }
 
-    private static Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator> computeBinaryOperatorMap() {
-        final ImmutableMap.Builder<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<BinaryOperatorSignature, BinaryPhysicalOperator> computeBinaryOperatorMap() {
+        final ImmutableMap.Builder<BinaryOperatorSignature, BinaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final BinaryPhysicalOperator operator : BinaryPhysicalOperator.values()) {
-            mapBuilder.put(Triple.of(operator.getType(), operator.getLeftArgType(), operator.getRightArgType()), operator);
+            mapBuilder.put(new BinaryOperatorSignature(operator.getType(), operator.getLeftArgType(), operator.getRightArgType()), operator);
         }
         return mapBuilder.build();
     }
 
     @Nonnull
-    private static Map<Triple<Comparisons.Type, Type.TypeCode, Type.TypeCode>, BinaryPhysicalOperator> getBinaryOperatorMap() {
+    private static Map<BinaryOperatorSignature, BinaryPhysicalOperator> getBinaryOperatorMap() {
         return binaryOperatorMapSupplier.get();
     }
 
@@ -1018,6 +1016,103 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                                              @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
                 return UnaryRelOpValue.fromProto(serializationContext, unaryRelOpValueProto);
             }
+        }
+    }
+
+    static final class UnaryOperatorSignature {
+
+        @Nonnull
+        private final Comparisons.Type comparisonType;
+        @Nonnull
+        private final Type.TypeCode argumentType;
+
+        UnaryOperatorSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode argumentType) {
+            this.comparisonType = comparisonType;
+            this.argumentType = argumentType;
+        }
+
+        @Nonnull
+        public Comparisons.Type getComparisonType() {
+            return comparisonType;
+        }
+
+        @Nonnull
+        public Type.TypeCode getArgumentType() {
+            return argumentType;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final UnaryOperatorSignature that = (UnaryOperatorSignature)o;
+            return comparisonType == that.comparisonType && argumentType == that.argumentType;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(comparisonType, argumentType);
+        }
+
+        @Override
+        public String toString() {
+            return  comparisonType + "(" + argumentType + ")";
+        }
+    }
+
+    static final class BinaryOperatorSignature {
+        @Nonnull
+        private final Comparisons.Type comparisonType;
+        @Nonnull
+        private final Type.TypeCode leftType;
+        @Nonnull
+        private final Type.TypeCode rightType;
+
+        BinaryOperatorSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode leftType, @Nonnull Type.TypeCode rightType) {
+            this.comparisonType = comparisonType;
+            this.leftType = leftType;
+            this.rightType = rightType;
+        }
+
+        @Nonnull
+        public Comparisons.Type getComparisonType() {
+            return comparisonType;
+        }
+
+        @Nonnull
+        public Type.TypeCode getLeftType() {
+            return leftType;
+        }
+
+        @Nonnull
+        public Type.TypeCode getRightType() {
+            return rightType;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final BinaryOperatorSignature that = (BinaryOperatorSignature)o;
+            return comparisonType == that.comparisonType && leftType == that.leftType && rightType == that.rightType;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(comparisonType, leftType, rightType);
+        }
+
+        @Override
+        public String toString() {
+            return comparisonType + "(" + leftType + ", " + rightType + ")";
         }
     }
 }

@@ -62,6 +62,8 @@ public class LuceneEvents {
         LUCENE_ADD_DOCUMENT("lucene add document"),
         /** Number of times query is needed for document delete. */
         LUCENE_DELETE_DOCUMENT_BY_QUERY("lucene delete document by query"),
+        /** Number of times query is needed for document delete in WriteOnly mode. */
+        LUCENE_DELETE_DOCUMENT_BY_QUERY_IN_WRITE_ONLY_MODE("lucene delete document by query in WRITE_ONLY mode"),
         /** Number of times primary key index used for document delete. */
         LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY("lucene delete document by primary key"),
         /** Number of merge calls to the FDBDirectory. */
@@ -232,8 +234,9 @@ public class LuceneEvents {
         /** Number of agile context commits after exceeding time quota. */
         LUCENE_AGILE_COMMITS_TIME_QUOTA("lucene agile commits time quota", false),
         /** Count of times a rebalance was called. */
-        LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false)
-        ;
+        LUCENE_REPARTITION_CALLS("Count of Lucene repartition calls", false),
+        /** Count of the number of times a block was removed from the block cache. */
+        LUCENE_BLOCK_CACHE_REMOVE("Count of blocks removed from cache", false);
 
         private final String title;
         private final boolean isSize;

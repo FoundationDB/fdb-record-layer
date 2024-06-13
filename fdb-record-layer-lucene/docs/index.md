@@ -2,14 +2,144 @@
 
 ## Data Layout
 
-### Sequence Space 
-#### {Directory Bytes}{indexspace}{key=0 value={atomic integer}}
-This first section stores the atomic integer to make sure temporary files prior to renaming are unique.
+### Directory subspaces
+The `LuceneIndexMaintainer` puts all data in a set of contiguous keys managed by `FDBDirectory` instances.
 
-### Metadata Space 
-#### {Directory Bytes}{indexspace}{1}[{key=file123, value={id=1, size=2018, blockSize=1024}},{key=file12345, value={id=2, size=124, blockSize=1024}}]
-The metadata is keyed by filename and in the value it provides the total size, the block size, and an id to lookup the data.
+If the index is grouped, all the data written by the `FDBDirectory` will be prefixed by the grouping key.
+If the index is partitioned, all the data written by the `FDBDirectory` will be prefixed by a partition.
 
-### Data Space 
-#### {Directory Bytes}{indexspace}{2}[{key=(1,1), value=byte[]},{key=(1,2), value=byte[]},{key=(2,1), value=byte[]}]
-The data section is keyed via the files id in the metadata directory coupled with a block number.
+So you may have the following formats for the directory subspace:
+
+#### ungrouped, non-partitioned
+Everything is prefixed in the same way as every other index
+```
+[indexspace]
+```
+#### grouped, non-partitioned
+If the grouping key generates the tuples (`group0`, `group1`, ... `group100`) the directories will be prefixed with the keys:
+```
+[indexspace][group0]
+[indexspace][group1]
+    ⋮
+[indexspace][group100]
+
+```
+
+#### ungrouped, partitioned
+The partitioning adds a partition, it also adds adjacent metadata to manage the partitions, so if you have 14 partitions,
+it would be something like this:
+```
+[indexspace][0, t0, pk0] -> partition metadata for records between t0 (inclusive) and t1 (exclusive) (the primary key is added to deduplicate if needed)
+[indexspace][0, t1, pk1] -> partition metadata for records greater than t1 (the primary key is added to deduplicate if needed)
+    ⋮
+[indexspace][0, t1, pk2] -> partition metadata for "most recent" partition
+[indexspace][1, 0] -> the data for the directory in the 0th partition 
+[indexspace][1, 1]
+    ⋮
+[indexspace][1, 13]
+```
+
+#### grouped, partitioned
+If both grouping and partitioning are enabled, the tuples are concatenated.
+```
+[indexspace][group0, 0, t1, pk0] -> metadata for earliest partition in group0
+[indexspace][group0, 0, t2, pk1]
+    ⋮
+[indexspace][group0, 0, t3, pk2] -> metadata for most-recent partition in group0
+[indexspace][group0, 1, 0] -> data for partition 0 in group 0
+[indexspace][group0, 1, 1]
+    ⋮
+[indexspace][group0, 1, 13] -> data fro partition 13 in group 0
+[indexspace][group1, 0, t0, pk3] -> metadata for earliest partition in group1
+[indexspace][group1, 0, t1, pk4]
+    ⋮
+[indexspace][group1, 0, t2, pk5] -> metadata for most-recent partition in group1
+[indexspace][group1, 1, 0] -> data for partition 0 in group 1
+[indexspace][group1, 1, 1]
+    ⋮
+[indexspace][group1, 1, 8] -> data for partition 8 in group 1
+```
+
+### Within a Directory
+
+
+#### Sequence Space
+```
+[directory-subspace][0] -> [Atomic Integer]
+```
+This stores a counter that is used for mapping various data below to an integer.
+
+#### Metadata Space
+```
+[directory-subspace][1][filename1] -> {id=1, size=234, ..., content=0xabcde234098}
+[directory-subspace][1][filename2] -> {id=1, size=234, ...}
+    ⋮
+```
+Lucene is designed to store a bunch of files, this maps file names to an id (created via the sequence number), 
+It also stores metadata about the files, such as size, and block size. See `FDBLuceneFileReference`.
+For some files, that are always very small, and always read, we store the content here directly, and not in the data 
+space (see below).
+The key is made up of the fixed `[1]`, followed by a tuple containing the filename.
+
+#### Data Space
+```
+[directory-subspace][2][1, 0] -> first block-size bytes for the file with id=1
+[directory-subspace][2][1, 1] -> next block-size bytes for the file with id=1
+[directory-subspace][2][2, 0] -> first block-size bytes for the file with id=2
+[directory-subspace][2][2, 1] -> second block for the file with id=2
+[directory-subspace][2][2, 2] -> third block for the file with id=2
+    ⋮
+```
+Each file is broken into a bunch of blocks, of a fixed size.
+The key is made up of the fixed `[2]`, followed by a tuple containing the file id (from the file reference in the
+Metadata subspace), and a block number. Each block is a fixed  size.
+
+#### Schema subspace
+A deprecated subspace of `[3]`
+
+#### PrimaryKey Subspace
+```
+[directory-subspace][4][pk0][1, 13]
+[directory-subspace][4][pk0][2, 33]
+[directory-subspace][4][pk1][1, 8]
+    ⋮
+```
+If enabled (via the index options `primaryKeySegmentIndexEnabled` (deprecated) or `primaryKeySegmentIndexV2Enabled`), this stores a
+mapping from the records primary key to the segment(s) that have that document. This is used for efficient deletes.
+The key is made up of the fixed `[4]`, followed by the primary key, followed by a tuple containing the `segmentId` and
+the `docId` within that segment.
+The `segmentId` is derived by creating a file reference for a fake `.pky` file for the segment.
+
+Note: A record may exist in multiple segments if the segment is in the process of being merged, or a merge failed part
+way through. Lucene will automatically clean this up at some point. We don't know here which one is valid, but instead
+we have to consult the `IndexWriter` to get the list of valid segments, and use the segment listed here that is in the
+set of segments that the `IndexWriter` thinks exist.
+
+#### FieldInfos Subspace
+```
+[directory-subspace][5][-2] -> FieldInfos
+[directory-subspace][5][8] -> FieldInfos
+    ⋮
+```
+This contains the data associated with the FieldInfos. The key is made up of the fixed `[5]` followed by an id.
+The `-2` is a constant id for the global field infos, which will always be there, and we try to add new field there.
+In the case where two segments have incompatible Fields, additional entries may be added, using an id fetched from the
+sequence counter.
+
+#### Stored Fields Subspace
+```
+[directory-subspace][6][seg0, 0] -> LuceneStoredFieldsProto.LuceneStoredFields
+[directory-subspace][6][seg0, 1] -> LuceneStoredFieldsProto.LuceneStoredFields
+[directory-subspace][6][seg1, 0] -> LuceneStoredFieldsProto.LuceneStoredFields
+    ⋮
+```
+This stores a protobuf for the stored fields. The key is made up of the fixed `[6]` followed by a tuple containing the
+segment name and the `docId` within the segment.
+Enabled via the index options `OPTIMIZED_STORED_FIELDS_FORMAT_ENABLED` or `PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED`.
+
+#### File Lock Subspace
+```
+[directory-subspace][7][lockName] -> [uuid, timeStamp]
+```
+This contains a file lock for the directory. The key is made up of the fixed `[7]` followed by a tuple containing the
+lock name that is provided by lucene. This is necessary to support multi-transaction merges.

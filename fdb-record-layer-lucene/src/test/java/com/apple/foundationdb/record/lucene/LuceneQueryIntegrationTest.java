@@ -77,7 +77,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
-        if (useCascadesPlanner) {
+        if (isUseCascadesPlanner()) {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         } else {
             if (indexTypes == null) {
@@ -110,7 +110,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void selectsFromMultipleIndexes() throws Exception {
-        useCascadesPlanner = false;
+        setUseCascadesPlanner(false);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaData -> {
                 metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, textIndex);
@@ -132,7 +132,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void selectsFromMultipleNestedIndexes() throws Exception {
-        useCascadesPlanner = false;
+        setUseCascadesPlanner(false);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaData -> {
                 metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, new Index(nestedDualIndex.toProto()));
@@ -154,7 +154,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void notLucene() throws Exception {
-        useCascadesPlanner = false;
+        setUseCascadesPlanner(false);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaData -> {
                 metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, new Index(nestedDualIndex.toProto()));

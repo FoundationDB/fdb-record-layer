@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TestRecordsTextProto.ComplexDocument;
 import com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.IndexedType;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedPostingsFormat;
+import com.apple.foundationdb.record.lucene.directory.AgilityContext;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
@@ -65,6 +67,8 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTest
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.Type;
+import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
@@ -92,12 +96,14 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -105,6 +111,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,11 +133,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -150,6 +160,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS;
+import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_MAP_ON_VALUE_INDEX_STORED_FIELDS;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD;
@@ -189,7 +200,6 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MANY_FIELDS_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.MAP_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
-import static com.apple.foundationdb.record.query.expressions.Comparisons.Type;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -309,7 +319,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
     @Nonnull
-    private static Index complexPartitionedIndex(final Map<String, String> options) {
+    static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
                         function(LuceneFunctionNames.LUCENE_SORTED, field("timestamp"))).groupBy(field("group")),
@@ -561,6 +571,45 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             final Subspace partition1Subspace = recordStore.indexSubspace(COMPLEX_PARTITIONED_NOGROUP).subspace(Tuple.from(LucenePartitioner.PARTITION_DATA_SUBSPACE).add(0));
 
             validateSegmentAndIndexIntegrity(COMPLEX_PARTITIONED_NOGROUP, partition1Subspace, context, "_0.cfs");
+        }
+    }
+
+    @Test
+    void testBlockCacheRemove() {
+        // set cache size to very small, so items will not fit
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE, 2)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            context.commit();
+
+            final FDBStoreTimer timer = context.getTimer();
+            assertTrue(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE) > 0);
+        }
+    }
+
+    @Test
+    void testBlockCacheNotRemove() {
+        // set cache size to large enough, so all blocks fit
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE, 1000)
+                .build();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
+            recordStore.saveRecord(createComplexDocument(6666L, ENGINEER_JOKE, 1, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(7777L, ENGINEER_JOKE, 2, Instant.now().toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(8888L, WAYLON, 2, Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()));
+            recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
+            context.commit();
+
+            final FDBStoreTimer timer = context.getTimer();
+            assertEquals(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE), 0);
+            assertTrue(timer.getCount(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK) > 0);
         }
     }
 
@@ -1341,42 +1390,251 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private LuceneScanQuery buildLuceneScanQuery(Index index,
-                                                 boolean isSynthetic,
-                                                 Comparisons.Type comparisonType,
-                                                 SortType sortType,
-                                                 long predicateComparand,
-                                                 String luceneSearch) {
-        final Sort sort;
-        if (sortType == SortType.UNSORTED) {
-            sort = null;
+
+    LuceneScanQuery buildLuceneScanQuery(Index index,
+                                         boolean isSynthetic,
+                                         Comparisons.Type comparisonType,
+                                         SortType sortType,
+                                         long predicateComparand,
+                                         String luceneSearch) {
+        Map<Comparisons.Type, BiFunction<Field, Object, QueryComponent>> comparisonToQueryFunction = Map.of(
+                Type.GREATER_THAN, Field::greaterThan,
+                Type.GREATER_THAN_OR_EQUALS, Field::greaterThanOrEquals,
+                Type.LESS_THAN, Field::lessThan,
+                Type.LESS_THAN_OR_EQUALS, Field::lessThanOrEquals,
+                Type.EQUALS, Field::equalsValue,
+                Type.NOT_EQUALS, Field::notEquals
+        );
+
+        String partitionFieldName = "timestamp";
+        final RecordQuery recordQuery;
+        List<QueryComponent> queryComponents = new ArrayList<>();
+        if (isSynthetic) {
+            queryComponents.add(Query.field("complex").matches(Query.field("group").equalsParameter("group_value")));
+            if (comparisonType != Type.NOT_EQUALS) {
+                queryComponents.add(Query.field("complex").matches(comparisonToQueryFunction.get(comparisonType).apply(Query.field(partitionFieldName), predicateComparand)));
+            }
+            if (luceneSearch != null) {
+                queryComponents.add(new LuceneQueryComponent(luceneSearch, List.of("simple_text")));
+            }
+            QueryComponent filter;
+            if (queryComponents.size() > 1) {
+                filter = Query.and(queryComponents);
+            } else {
+                filter = queryComponents.get(0);
+            }
+            recordQuery = RecordQuery.newBuilder()
+                    .setRecordType("luceneJoinedPartitionedIdx")
+                    .setFilter(filter)
+                    .setSort(field("complex").nest("timestamp"), sortType != SortType.ASCENDING)
+                    .build();
         } else {
-            sort = new Sort(new SortField(isSynthetic ? "complex_timestamp" : "timestamp", SortField.Type.LONG, sortType == SortType.DESCENDING));
+            queryComponents.add(Query.field("group").equalsParameter("group_value"));
+            if (comparisonType != Type.NOT_EQUALS) {
+                queryComponents.add(comparisonToQueryFunction.get(comparisonType).apply(Query.field(partitionFieldName), predicateComparand));
+            }
+            if (luceneSearch != null) {
+                queryComponents.add(new LuceneQueryComponent(luceneSearch, List.of("text")));
+            }
+            QueryComponent filter;
+            if (queryComponents.size() > 1) {
+                filter = Query.and(queryComponents);
+            } else {
+                filter = queryComponents.get(0);
+            }
+            recordQuery = RecordQuery.newBuilder()
+                    .setRecordType(COMPLEX_DOC)
+                    .setFilter(filter)
+                    .setSort(field(partitionFieldName), sortType != SortType.ASCENDING)
+                    .build();
         }
 
-        final List<LuceneQueryClause> luceneQueryClauses;
+        LucenePlanner planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, recordStore.getTimer());
+        RecordQueryPlan plan = planner.plan(recordQuery);
+        assertTrue(plan instanceof LuceneIndexQueryPlan);
+        LuceneIndexQueryPlan luceneIndexQueryPlan = (LuceneIndexQueryPlan) plan;
+        LuceneScanParameters scanParameters = (LuceneScanParameters)luceneIndexQueryPlan.getScanParameters();
+        return (LuceneScanQuery)scanParameters.bind(recordStore, index, EvaluationContext.forBinding("group_value", 1));
+    }
 
-        if (comparisonType == Type.NOT_EQUALS) {
-            luceneQueryClauses = List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false));
-        } else {
-            luceneQueryClauses = List.of(new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, luceneSearch, false),
-                    new LuceneQueryFieldComparisonClause.LongQuery(
-                            LuceneQueryType.QUERY, isSynthetic ? "complex_timestamp" : "timestamp",
-                            LuceneIndexExpressions.DocumentFieldType.LONG,
-                            new Comparisons.SimpleComparison(comparisonType, predicateComparand),
-                            false,
-                            null));
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void partitionFieldPredicateDetectionTest(boolean isSynthetic) {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
+                .build();
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
+
+            for (Comparisons.Type comparisonType : List.of(Type.NOT_EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.GREATER_THAN, Type.LESS_THAN_OR_EQUALS, Type.EQUALS)) {
+                for (SortType sortType : EnumSet.allOf(SortType.class)) {
+                    LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(
+                            index,
+                            isSynthetic,
+                            comparisonType,
+                            sortType,
+                            15L,
+                            luceneSearch);
+
+                    LuceneComparisonQuery luceneComparisonQuery = partitioner.checkQueryForPartitionFieldPredicate(luceneScanQuery);
+                    final LuceneComparisonQuery expectedLuceneComparisonQuery;
+                    if (comparisonType == Type.NOT_EQUALS) {
+                        expectedLuceneComparisonQuery = null;
+                    } else {
+                        expectedLuceneComparisonQuery = new LuceneComparisonQuery(
+                                toRangeQuery(Objects.requireNonNull(partitioner.getPartitionFieldNameInLucene()), comparisonType, 15L),
+                                partitioner.getPartitionFieldNameInLucene(),
+                                comparisonType,
+                                15L);
+                    }
+                    assertEquals(expectedLuceneComparisonQuery, luceneComparisonQuery);
+                }
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void partitionFieldPredicateNotDetectedTest(boolean isSynthetic) {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
+                .build();
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
+        final String luceneSearch2 = isSynthetic ? "simple_text:mary" : "text:mary";
+        final String textFieldName = isSynthetic ? "simple_text" : "text";
+        final String partitionFieldName = isSynthetic ? "complex_timestamp" : "timestamp";
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
+
+            // test some "negative" use cases, asserting we won't mistakenly detect a partition field predicate and use
+            // it to optimize the query
+            QueryComponent textSearchPredicate = new LuceneQueryComponent(luceneSearch, List.of(textFieldName));
+            QueryComponent secondTextSearchPredicate = new LuceneQueryComponent(luceneSearch2, List.of(textFieldName));
+            QueryComponent luceneDslPredicate = new LuceneQueryComponent(luceneSearch + " " + partitionFieldName + ":[1 TO 10]", List.of(textFieldName, partitionFieldName));
+            final QueryComponent partitionFieldPredicate;
+            final QueryComponent secondPartitionFieldPredicate;
+            final QueryComponent groupPredicate;
+            if (isSynthetic) {
+                partitionFieldPredicate = Query.field("complex").matches(Query.field("timestamp").greaterThan(15L));
+                secondPartitionFieldPredicate = Query.field("complex").matches(Query.field("timestamp").greaterThan(55L));
+                groupPredicate = Query.field("complex").matches(Query.field("group").equalsParameter("group_value"));
+            } else {
+                partitionFieldPredicate = Query.field(partitionFieldName).greaterThan(15L);
+                secondPartitionFieldPredicate = Query.field(partitionFieldName).greaterThan(55L);
+                groupPredicate = Query.field("group").equalsParameter("group_value");
+            }
+            Map<QueryComponent, QueryPlanningExpectation> filterToOutcomeMap = Map.of(
+                    // full disjunction
+                    Query.or(groupPredicate, textSearchPredicate, partitionFieldPredicate), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN),
+                    // group AND (text search OR partition field predicate)
+                    Query.and(groupPredicate, Query.or(textSearchPredicate, partitionFieldPredicate)), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN),
+                    // conjunction, and multiple partition group predicates
+                    Query.and(groupPredicate, textSearchPredicate, partitionFieldPredicate, secondPartitionFieldPredicate), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED,
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED),
+                    // group AND (text search 1 OR (text search 2 AND partition field))
+                    Query.and(groupPredicate, Query.or(textSearchPredicate, Query.and(secondTextSearchPredicate, partitionFieldPredicate))), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN),
+                    // no group predicate
+                    Query.and(textSearchPredicate, partitionFieldPredicate), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN,
+                            QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN),
+                    // Lucene DSL query (both search and timestamp expressed in single, lucene-single, string)
+                    Query.and(groupPredicate, luceneDslPredicate), new QueryPlanningExpectation(
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED,
+                            QueryPlanningExpectation.DetectionStatus.PREDICATE_NOT_SELECTED)
+            );
+
+            for (Map.Entry<QueryComponent, QueryPlanningExpectation> entry : filterToOutcomeMap.entrySet()) {
+                QueryComponent filter = entry.getKey();
+                QueryPlanningExpectation expectation = entry.getValue();
+
+                RecordQuery recordQuery = RecordQuery.newBuilder()
+                        .setRecordType(isSynthetic ? "luceneJoinedPartitionedIdx" : COMPLEX_DOC)
+                        .setFilter(filter)
+                        .build();
+
+                if (isSynthetic && expectation.forSynthetic == QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN ||
+                        !isSynthetic && expectation.forSimple == QueryPlanningExpectation.DetectionStatus.EXCEPTION_THROWN) {
+                    assertThrows(RecordCoreException.class, () -> planner.plan(recordQuery));
+                } else {
+                    RecordQueryPlan plan = planner.plan(recordQuery);
+                    if (isSynthetic && expectation.forSynthetic == QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN ||
+                            !isSynthetic && expectation.forSimple == QueryPlanningExpectation.DetectionStatus.NON_LUCENE_PLAN) {
+                        assertFalse(plan instanceof LuceneIndexQueryPlan);
+                    } else {
+                        LuceneIndexQueryPlan luceneIndexQueryPlan = (LuceneIndexQueryPlan)plan;
+                        LuceneScanParameters scanParameters = (LuceneScanParameters)luceneIndexQueryPlan.getScanParameters();
+                        LuceneScanQuery luceneScanQuery = (LuceneScanQuery)scanParameters.bind(recordStore, index, EvaluationContext.forBinding("group_value", 1));
+                        LuceneComparisonQuery detectedPredicate = partitioner.checkQueryForPartitionFieldPredicate(luceneScanQuery);
+                        assertEquals(detectedPredicate != null, expectation == QueryPlanningExpectation.SELECTED);
+                    }
+                }
+            }
+        }
+    }
+
+    static class QueryPlanningExpectation {
+        static final QueryPlanningExpectation SELECTED = new QueryPlanningExpectation(
+                DetectionStatus.PREDICATE_SELECTED,
+                DetectionStatus.PREDICATE_SELECTED);
+
+        enum DetectionStatus {
+            NON_LUCENE_PLAN,
+            EXCEPTION_THROWN,
+            PREDICATE_SELECTED,
+            PREDICATE_NOT_SELECTED
         }
 
-        LuceneQueryClause clause = new LuceneBooleanQuery(LuceneQueryType.QUERY, luceneQueryClauses, BooleanClause.Occur.MUST);
-        LuceneScanQueryParameters scan = new LuceneScanQueryParameters(
-                Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
-                clause,
-                sort,
-                null,
-                null,
-                null);
-        return scan.bind(recordStore, index, EvaluationContext.EMPTY);
+        DetectionStatus forSynthetic;
+        DetectionStatus forSimple;
+
+        QueryPlanningExpectation(DetectionStatus forSimple,
+                                 DetectionStatus forSynthetic) {
+            this.forSynthetic = forSynthetic;
+            this.forSimple = forSimple;
+        }
+    }
+
+    private org.apache.lucene.search.Query toRangeQuery(String fieldName, Type comparisonType, Long comparand) {
+        switch (comparisonType) {
+            case EQUALS:
+                return LongPoint.newExactQuery(fieldName, comparand);
+            case LESS_THAN:
+                return LongPoint.newRangeQuery(fieldName, Long.MIN_VALUE, comparand - 1);
+            case LESS_THAN_OR_EQUALS:
+                return LongPoint.newRangeQuery(fieldName, Long.MIN_VALUE, comparand);
+            case GREATER_THAN:
+                return LongPoint.newRangeQuery(fieldName, comparand + 1, Long.MAX_VALUE);
+            case GREATER_THAN_OR_EQUALS:
+                return LongPoint.newRangeQuery(fieldName, comparand, Long.MAX_VALUE);
+            default:
+                throw new IllegalArgumentException("unsupported comparison type: " + comparisonType);
+        }
     }
 
     static Stream<Arguments> functionalPartitionFieldPredicateTest() {
@@ -1405,29 +1663,29 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
-        final String luceneSearch = "text:about";
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
         Map<Tuple, Long> primaryKeys = new HashMap<>();
         int docCount = 30;
 
-        try (FDBRecordContext context = openContext(contextProps)) {
-            schemaSetup.accept(context);
-            for (int i = 0; i < docCount; i++) {
-                long timestamp = (long) random.nextInt(10) + 2; // 2 - 11
-                long docId = 1000L + i;
-                ComplexDocument cd = ComplexDocument.newBuilder()
-                        .setGroup(1)
-                        .setDocId(docId)
-                        .setIsSeen(true)
-                        .setText("A word about what I want to say")
-                        .setTimestamp(timestamp)
-                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L + i))
-                        .build();
-                final Tuple primaryKey;
-                primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
-                primaryKeys.put(primaryKey, timestamp);
+        for (SortType sortType : EnumSet.allOf(SortType.class)) {
+            for (Comparisons.Type comparisonType : List.of(Type.EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.GREATER_THAN_OR_EQUALS, Type.GREATER_THAN)) {
+                try (FDBRecordContext context = openContext(contextProps)) {
+                    schemaSetup.accept(context);
+                    for (int i = 0; i < docCount; i++) {
+                        long timestamp = (long) random.nextInt(10) + 2; // 2 - 11
+                        long docId = 1000L + i;
+                        ComplexDocument cd = ComplexDocument.newBuilder()
+                                .setGroup(1)
+                                .setDocId(docId)
+                                .setIsSeen(true)
+                                .setText("A word about what I want to say")
+                                .setTimestamp(timestamp)
+                                .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L + i))
+                                .build();
+                        final Tuple primaryKey;
+                        primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+                        primaryKeys.put(primaryKey, timestamp);
 
-                for (SortType sortType : EnumSet.allOf(SortType.class)) {
-                    for (Comparisons.Type comparisonType : List.of(Type.EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.GREATER_THAN_OR_EQUALS, Type.GREATER_THAN)) {
                         for (long queriedValue = 1L; queriedValue <= 12L; queriedValue++) {
                             LOGGER.debug("i={}, queriedValue={}, comparisonType={}, sortType={}", i, queriedValue, comparisonType, sortType);
                             LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, queriedValue, luceneSearch);
@@ -1457,9 +1715,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                             }
                         }
                     }
+                    commit(context);
                 }
             }
-            commit(context);
         }
     }
 
@@ -1506,6 +1764,156 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(2, getCounter(context, FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             commit(context);
+        }
+    }
+
+    static Stream<Arguments> findStartingPartitionTest() {
+        return Stream.concat(
+                Stream.of(true, false).map(isSynthetic -> Arguments.of(isSynthetic, 1714058544895L)),
+                RandomizedTestUtils.randomArguments(random -> Arguments.of(random.nextBoolean(), random.nextLong())));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void findStartingPartitionTest(boolean isSynthetic, long startTime) {
+
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
+                .build();
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
+
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            LucenePartitioner partitioner = getIndexMaintainer(index).getPartitioner();
+            Tuple groupKey = Tuple.from(1L);
+            
+            // timestamps present in partition keys
+            long time0 = Math.abs(startTime);
+            long time1 = time0 + 1000;
+            long time2 = time0 + 2000;
+            
+            // timestamp not in partition keys, but within a partition
+            long time1_2 = time1 + 500; // between time1 and time2
+
+            // timestamps outside the bounds of the partitions
+            long timeTooOld = time0 - 500;
+            long timeTooNew = time2 + 500;
+
+            Map<Long, String> timesForLogging = Map.of(
+                    time0, "time0",
+                    time1, "time1",
+                    time2, "time2",
+                    time1_2, "time1_2",
+                    timeTooOld, "timeTooOld",
+                    timeTooNew, "timeTooNew");
+
+            //
+            // p0: from: t0+1200 to: t0+1300
+            // p1: from: t0+1301 to: t1+1400
+            // p2: from: t1+1410 to: t2+1500
+            // p3: from: t2+1510 to: t2+1600
+            // create partition metadata directly rather than depending on repartitioning to ensure that the partitions
+            // have predetermined boundaries.
+            createPartitionMetadata(index, groupKey, 0, time0, time0, Tuple.from(1, 1300), Tuple.from(1, 1400));
+            createPartitionMetadata(index, groupKey, 1, time0, time1, Tuple.from(1, 1500), Tuple.from(1, 1100));
+            createPartitionMetadata(index, groupKey, 2, time1, time2 - 200, Tuple.from(1, 1700), Tuple.from(1, 1000));
+            createPartitionMetadata(index, groupKey, 3, time2, time2, Tuple.from(1, 900), Tuple.from(1, 910));
+
+            Map<Long, Map<Comparisons.Type, Map<SortType, Integer>>> startingPartitionExpectation = new HashMap<>();
+
+            // =====================================
+            // Expectations for time0
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime0 = Map.of(
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1));
+            startingPartitionExpectation.put(time0, expectationsForTime0);
+
+            // =====================================
+            // Expectations for time1
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime1 = Map.of(
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 1, SortType.UNSORTED, 1),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, 1, SortType.DESCENDING, 2, SortType.UNSORTED, 2));
+            startingPartitionExpectation.put(time1, expectationsForTime1);
+
+            // =====================================
+            // Expectations for time2
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime2 = Map.of(
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, 3, SortType.DESCENDING, 3, SortType.UNSORTED, 3));
+            startingPartitionExpectation.put(time2, expectationsForTime2);
+
+            // =====================================
+            // Expectations for time1_2
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTime1_2 = Map.of(
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 2, SortType.UNSORTED, 2),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, 2, SortType.DESCENDING, 2, SortType.UNSORTED, 2));
+            startingPartitionExpectation.put(time1_2, expectationsForTime1_2);
+
+            // =====================================
+            // Expectations for timeTooOld
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTimeTooOld = Map.of(
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1));
+            startingPartitionExpectation.put(timeTooOld, expectationsForTimeTooOld);
+
+            // =====================================
+            // Expectations for timeTooNew
+            // =====================================
+            Map<Comparisons.Type, Map<SortType, Integer>> expectationsForTimeTooNew = Map.of(
+                    Type.GREATER_THAN, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.GREATER_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1),
+                    Type.LESS_THAN, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.LESS_THAN_OR_EQUALS, Map.of(SortType.ASCENDING, 0, SortType.DESCENDING, 3, SortType.UNSORTED, 3),
+                    Type.EQUALS, Map.of(SortType.ASCENDING, -1, SortType.DESCENDING, -1, SortType.UNSORTED, -1));
+            startingPartitionExpectation.put(timeTooNew, expectationsForTimeTooNew);
+
+            // check all combinations against expectations
+            for (Long predicateComparand : List.of(time0, time1, time2, time1_2, timeTooOld, timeTooNew)) {
+                for (Comparisons.Type comparisonType : List.of(Type.NOT_EQUALS, Type.GREATER_THAN, Type.GREATER_THAN_OR_EQUALS, Type.LESS_THAN, Type.LESS_THAN_OR_EQUALS, Type.EQUALS)) {
+                    for (SortType sortType : EnumSet.allOf(SortType.class)) {
+                        LOGGER.debug("comparison: {} sort: {} time: {}", comparisonType, sortType, timesForLogging.get(predicateComparand));
+                        LuceneScanQuery luceneScanQuery = buildLuceneScanQuery(index, isSynthetic, comparisonType, sortType, predicateComparand, luceneSearch);
+                        LucenePartitionInfoProto.LucenePartitionInfo selectedPartitionInfo = partitioner.selectQueryPartition(groupKey, luceneScanQuery).startPartition;
+                        if (comparisonType == Type.NOT_EQUALS) {
+                            // comparisonType == NOT_EQUALS means no partition field predicate was in the query,
+                            // in which case we start from oldest partition when ASCENDING, and latest partition
+                            // otherwise
+                            assertNotNull(selectedPartitionInfo);
+                            assertTrue((sortType == SortType.ASCENDING && selectedPartitionInfo.getId() == 0)
+                                    || selectedPartitionInfo.getId() == 3);
+                        } else {
+                            assertEquals(startingPartitionExpectation.get(predicateComparand).get(comparisonType).get(sortType), selectedPartitionInfo == null ? -1 : selectedPartitionInfo.getId());
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1689,6 +2097,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         for (int i = 0; i < docCount; i++) {
             recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp29DaysAgo, yesterday + 1)));
         }
+    }
+
+    void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp, Tuple fromPrimaryKey, Tuple toPrimaryKey) {
+        Tuple from = Tuple.from(fromTimestamp).add(fromPrimaryKey);
+        Tuple to = Tuple.from(toTimestamp).add(toPrimaryKey);
+        LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = LucenePartitionInfoProto.LucenePartitionInfo.newBuilder()
+                .setCount(0)
+                .setFrom(ByteString.copyFrom(from.pack()))
+                .setTo(ByteString.copyFrom(to.pack()))
+                .setId(partitionId)
+                .build();
+
+        byte[] primaryKey = recordStore.indexSubspace(index).pack(groupKey.add(PARTITION_META_SUBSPACE).addAll(from));
+        recordStore.getContext().ensureActive().set(primaryKey, partitionInfo.toByteArray());
     }
 
     void createPartitionMetadata(Index index, Tuple groupKey, int partitionId, long fromTimestamp, long toTimestamp) {
@@ -4360,7 +4782,176 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static final List<String> spellcheckWords = java.util.List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompletePhraseSearchWithMixedCases(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(indexedType.isSynthetic() ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, indexedType.isSynthetic(), capitalizedAutoCaseCompletePhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"STateS of AMeri\"",
+                    ImmutableList.of("United States of America",
+                    "welcome to the United States of America"));
+            test.apply("\"THE oF ameri\"",
+                    ImmutableList.of("United States of America",
+                            "welcome to the United States of America",
+                            "United States is a country in the continent of America"));
+            test.apply("\"THE\"",
+                    ImmutableList.of("There is a country called Armenia"));
+
+            commit(context);
+        }
+    }
+
+    protected static final List<String> autoCompleteCJKPhrases = List.of(
+            "世上无难事",
+            "世上无English word",
+            "世の中に難しいことなんてない",
+            "シマス風ト雷ヲ",
+            "シマス風ト 시험@김치오랜",
+            "평가했다",
+            "세상에 어려운 일은 없다",
+            "用户@例子.广告",
+            "おいしい@すし.あど なんてない",
+            "オイシイ@スシ.アド なんてない",
+            "시험@김치오랜.광고",
+            "asb@icloud.com 김치오랜"
+    );
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteCjkPhraseSearch(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"世上无\"",
+                    ImmutableList.of("世上无难事", "世上无English word"));
+            test.apply("\"世\"",
+                    ImmutableList.of("世上无难事", "世上无English word", "世の中に難しいことなんてない"));
+            test.apply("\"に難しい\"",
+                    ImmutableList.of("世の中に難しいことなんてない"));
+            test.apply("\"シマス\"",
+                    ImmutableList.of("シマス風ト雷ヲ", "シマス風ト 시험@김치오랜"));
+            test.apply("\"평가\"",
+                    ImmutableList.of("평가했다"));
+            test.apply("\"상에 어\"",
+                    ImmutableList.of("세상에 어려운 일은 없다"));
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteCjkEmailSearch(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"用户\"",
+                    ImmutableList.of("用户@例子.广告"));
+            test.apply("\"用户\\@\"",
+                    ImmutableList.of("用户@例子.广告"));
+            test.apply("\"い\\@すし\"",
+                    ImmutableList.of("おいしい@すし.あど なんてない"));
+            test.apply("\"シイ\\@スシ.アド\"",
+                    ImmutableList.of("オイシイ@スシ.アド なんてない"));
+            test.apply("\"시험@김\"",
+                    ImmutableList.of("시험@김치오랜.광고", "シマス風ト 시험@김치오랜"));
+
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    void autoCompleteMultiPhraseLuceneQuery(IndexedType indexedType) throws Exception {
+        final Index index = indexedType.getIndex(EMAIL_CJK_SYM_TEXT_WITH_AUTO_COMPLETE_KEY);
+        final boolean isSynthetic = indexedType.isSynthetic();
+        try (FDBRecordContext context = openContext()) {
+            final List<KeyExpression> storedFields = ImmutableList.of(isSynthetic ? JOINED_SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD : SIMPLE_TEXT_WITH_AUTO_COMPLETE_STORED_FIELD);
+            addIndexAndSaveRecordForAutoComplete(context, index, isSynthetic, autoCompleteCJKPhrases);
+
+            BiFunction<String, List<String>, Object> test = (query, expected) -> {
+                try {
+                    queryAndAssertAutoCompleteSuggestionsReturned(index,
+                            indexedType.isSynthetic(),
+                            indexedType.isSynthetic() ? "simple" : null,
+                            storedFields,
+                            "text",
+                            query,
+                            expected);
+                } catch (Exception ex) {
+                    Assertions.fail(ex);
+                }
+                return null;
+            };
+
+            test.apply("\"い\\@すし.あど なんあど\"",
+                    ImmutableList.of());
+            test.apply("\"い\\@すし.あど なん\"",
+                    ImmutableList.of("おいしい@すし.あど なんてない"));
+            test.apply("\"シイ\\@スシ.アド な\"",
+                    ImmutableList.of("オイシイ@スシ.アド なんてない"));
+            test.apply("\"asb@icloud.com 김치오\"",
+                    ImmutableList.of("asb@icloud.com 김치오랜"));
+
+            commit(context);
+        }
+    }
+
+    private static final List<String> spellcheckWords = List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps");
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
@@ -5434,6 +6025,18 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             "all the states have been united as a country",
             "united states is a country in the continent of america"
     );
+    protected static final List<String> capitalizedAutoCaseCompletePhrases = List.of(
+            "United States of America",
+            "welcome to the United States of America",
+            "United Kingdom, France, the States",
+            "The countries are United Kingdom, France, the States",
+            "States United as a country",
+            "all the States United as a country",
+            "States have been United as a country",
+            "all the States have been united as a country",
+            "United States is a country in the continent of America",
+            "There is a country called Armenia"
+    );
 
     private void addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {
         if (isSynthetic) {
@@ -5487,7 +6090,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
         this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
@@ -5504,4 +6107,91 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         assertEquals(primaryKeys,
                 indexEntries.stream().map(IndexEntry::getPrimaryKey).collect(Collectors.toSet()));
     }
+
+    @Test
+    void testConflictWithLock() throws IOException {
+        // Recreate the scenario of:
+        //  - Lucene file lock is successfully acquired.
+        //  - Another transaction fails with conflict while attempting to release the file lock.
+        // With a recent code, the lock is cleared during the directory's close.
+        Index index = SIMPLE_TEXT_SUFFIXES;
+        try (final FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, SIMPLE_DOC, index);
+            context.commit();
+        }
+        Tuple conflictTuple = Tuple.from(100, 100, 100);
+        try (final FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore.Builder builder = recordStore.asBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(recordStore.getMetaDataProvider());
+
+            final FDBRecordStore store = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+
+            // Obtain lock
+            final AgilityContext agile = AgilityContext.agile(context, TimeUnit.SECONDS.toMillis(4), 100_000);
+            final FDBDirectory directory = new FDBDirectory(store.indexSubspace(index), index.getOptions(),
+                    null, null, true, agile);
+
+            final Lock lock = directory.obtainLock(IndexWriter.WRITE_LOCK_NAME); // will also flush lock
+
+            // Read/write the conflicting value (without committing, yet)
+            testConflictWithLockAgileSet(agile, conflictTuple);
+
+            // Cause the conflict
+            testConflictWithLockCauseConflict(conflictTuple);
+
+            // finalize - imitating the Lucene flow (close lock, close directory, flush agility-context, then close user-context)
+            boolean gotException = false;
+            try {
+                try {
+                    lock.close();
+                } catch (RuntimeException ex) {
+                    gotException = true;
+                }
+                try {
+                    directory.close();
+                } catch (RuntimeException ex) {
+                    gotException = true;
+                }
+                agile.flushAndClose();
+                context.commit();
+            } catch (RuntimeException ex) {
+                gotException = true;
+            } finally {
+                assertTrue(gotException);
+            }
+        }
+
+        // ensure that a new lock is possible
+        TestRecordsTextProto.SimpleDocument doc3 = createSimpleDocument(1623L, "Salesmen jokes are funnier", 2);
+        try (final FDBRecordContext context = fdb.openContext()) {
+            FDBRecordStore.Builder builder = recordStore.asBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(recordStore.getMetaDataProvider());
+
+            final FDBRecordStore store = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+            store.saveRecord(doc3);
+            context.commit();
+        }
+    }
+
+    private void testConflictWithLockAgileSet(AgilityContext agile1, Tuple conflictTuple) {
+        agile1.accept(aContext -> {
+            byte [] conflictKey = path.toSubspace(aContext).pack(conflictTuple);
+            final Transaction tr = aContext.ensureActive();
+            tr.get(conflictKey).join();
+            tr.set(conflictKey, Tuple.from(100, 20).pack());
+        });
+    }
+
+    private void testConflictWithLockCauseConflict(Tuple conflictTuple) {
+        try (final FDBRecordContext context = fdb.openContext()) {
+            byte [] conflictKey = path.toSubspace(context).pack(conflictTuple);
+            final Transaction tr = context.ensureActive();
+            tr.get(conflictKey).join();
+            tr.set(conflictKey, Tuple.from(100, 10).pack());
+            context.commit();
+        }
+    }
 }
+

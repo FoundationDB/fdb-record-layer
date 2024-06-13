@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -48,7 +49,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -142,12 +142,12 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
     }
 
-    private static final Map<Pair<Type.TypeCode, Type.TypeCode>, PhysicalOperator> PROMOTION_MAP;
+    private static final Map<NonnullPair<Type.TypeCode, Type.TypeCode>, PhysicalOperator> PROMOTION_MAP;
 
     static {
-        final var mapBuilder = ImmutableMap.<Pair<Type.TypeCode, Type.TypeCode>, PhysicalOperator>builder();
+        final var mapBuilder = ImmutableMap.<NonnullPair<Type.TypeCode, Type.TypeCode>, PhysicalOperator>builder();
         for (final var operator : PhysicalOperator.values()) {
-            mapBuilder.put(Pair.of(operator.getFrom(), operator.getTo()), operator);
+            mapBuilder.put(NonnullPair.of(operator.getFrom(), operator.getTo()), operator);
         }
         PROMOTION_MAP = mapBuilder.build();
     }
@@ -400,7 +400,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
     @Nullable
     static PhysicalOperator resolvePhysicalOperator(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
-        return PROMOTION_MAP.get(Pair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
+        return PROMOTION_MAP.get(NonnullPair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 
     public static boolean isPromotionNeeded(@Nonnull final Type inType, @Nonnull final Type promoteToType) {

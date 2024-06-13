@@ -146,11 +146,11 @@ tasks.withType(Test) { theTask ->
         exceptionFormat = 'full'
     }
     beforeTest { descriptor -> 
-        println "${getFullDisplayName(descriptor)} STARTED"
+        println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
     } 
     afterTest { descriptor, result ->
         def duration = result.endTime - result.startTime
-        println "${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
+        println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
         println()
     }
     reports {
