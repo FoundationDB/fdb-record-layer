@@ -1112,12 +1112,12 @@ public class Ordering {
 
         @Nonnull
         public Iterable<List<Value>> enumerateSatisfyingComparisonKeyValues(@Nonnull final RequestedOrdering requestedOrdering) {
-            final var bindingMap = getBindingMap();
-
             if (requestedOrdering.isDistinct() && !isDistinct()) {
                 return ImmutableList.of();
             }
 
+            final var bindingMap = getBindingMap();
+            final var valuesRequestedSortOrderMap = requestedOrdering.getValueRequestedSortOrderMap();
             final var reducedRequestedOrderingValuesBuilder = ImmutableList.<Value>builder();
             for (final var requestedOrderingPart : requestedOrdering.getOrderingParts()) {
                 if (!bindingMap.containsKey(requestedOrderingPart.getValue())) {
@@ -1153,7 +1153,9 @@ public class Ordering {
             final var filteredOrderingSet =
                     getOrderingSet().filterElements(value -> {
                         final var bindings = bindingMap.get(value);
-                        return isSingularDirectionalValue(value) || (bindings.size() > 1 && promoteToDirectional());
+                        return isSingularDirectionalValue(value) ||
+                                // (bindings.size() > 1 && promoteToDirectional() && valuesRequestedSortOrderMap.containsKey(value));
+                                (bindings.size() > 1 && promoteToDirectional());
                     });
 
             return TopologicalSort.satisfyingPermutations(
@@ -1230,7 +1232,12 @@ public class Ordering {
     public static class Intersection extends SetOperationsOrdering {
         public Intersection(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                             @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
-            super(bindingMap, orderingSet, isDistinct);
+            //
+            // Unlike for union, we need to normalize the ordering set as values that were dependent on other
+            // values in the participating orderings prior to the intersection can become independent due to a
+            // stronger fixed binding on the other side.
+            //
+            super(bindingMap, Ordering.normalizeOrderingSet(bindingMap, orderingSet), isDistinct);
         }
 
         @Override

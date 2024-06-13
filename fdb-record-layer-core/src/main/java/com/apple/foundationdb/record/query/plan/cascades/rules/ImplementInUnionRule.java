@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -53,6 +54,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -168,75 +170,17 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
 
             for (final var requestedOrdering : requestedOrderings) {
                 final var valueRequestedSortOrderMap = requestedOrdering.getValueRequestedSortOrderMap();
-                final var filteredBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+                final var adjustedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
                 for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
                     final var value = entry.getKey();
-                    final var orderBindings = entry.getValue();
-                    final var sortOrder = Ordering.sortOrder(orderBindings);
-                    if (sortOrder.isDirectional()) {
-                        filteredBindingMapBuilder.put(value, Binding.sorted(sortOrder));
-                        continue;
-                    }
-
-                    Debugger.sanityCheck(() -> Verify.verify(Ordering.areAllBindingsFixed(orderBindings)));
-                    if (Ordering.hasMultipleFixedBindings(orderBindings)) {
-                        filteredBindingMapBuilder.putAll(value, orderBindings);
-                        continue;
-                    }
-
-                    final var binding = Ordering.fixedBinding(orderBindings);
-                    final var comparison = binding.getComparison();
-
-                    if (comparison.getType() != Comparisons.Type.EQUALS) {
-                        filteredBindingMapBuilder.put(value, binding);
-                        continue;
-                    }
-
-                    if (comparison instanceof Comparisons.ParameterComparison) {
-                        final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                        if (!parameterComparison.isCorrelation() ||
-                                !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                            filteredBindingMapBuilder.put(value, binding);
-                            continue;
-                        }
-                    } else if (comparison instanceof Comparisons.ValueComparison) {
-                        final var valueComparison = (Comparisons.ValueComparison)comparison;
-                        if (!explodeAliases.containsAll(valueComparison.getCorrelatedTo())) {
-                            filteredBindingMapBuilder.put(value, binding);
-                            continue;
-                        }
-                    } else {
-                        filteredBindingMapBuilder.put(value, binding);
-                        continue;
-                    }
-
-                    //
-                    // This binding can be promoted into a directional binding as it is currently bound by the source of
-                    // the in-union.
-                    //
-                    if (!valueRequestedSortOrderMap.containsKey(value)) {
-                        //filteredBindingMapBuilder.put(value, binding);
-                        continue;
-                    }
-
-                    final var requestedSortOrder = valueRequestedSortOrderMap.get(value);
-                    if (!requestedSortOrder.isDirectional() && requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
-                        filteredBindingMapBuilder.put(value, binding);
-                        continue;
-                    }
-
-                    if (requestedSortOrder == OrderingPart.RequestedSortOrder.ANY) {
-                        filteredBindingMapBuilder.put(value, Binding.choose());
-                    } else {
-                        filteredBindingMapBuilder.put(value, Binding.sorted(valueRequestedSortOrderMap.get(value).toProvidedSortOrder()));
-                    }
+                    adjustedBindingMapBuilder.putAll(value,
+                            adjustBindings(entry.getValue(), explodeAliases, valueRequestedSortOrderMap.get(value)));
                 }
 
-                final var filteredBindingsMap = filteredBindingMapBuilder.build();
-                final var filteredOrderingSet = providedOrdering.getOrderingSet().filterElements(filteredBindingsMap::containsKey);
+                final var adjustedBindingsMap = adjustedBindingMapBuilder.build();
 
                 final var inUnionOrdering =
-                        Ordering.UNION.createOrdering(filteredBindingsMap, filteredOrderingSet,
+                        Ordering.UNION.createOrdering(adjustedBindingsMap, providedOrdering.getOrderingSet(),
                                 providedOrdering.isDistinct());
 
                 for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
@@ -261,6 +205,61 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                 }
             }
         }
+    }
+
+    @Nonnull
+    private static Iterable<Binding> adjustBindings(@Nonnull final Collection<Binding> bindings,
+                                                    @Nonnull final Set<CorrelationIdentifier> explodeAliases,
+                                                    @Nullable final OrderingPart.RequestedSortOrder requestedSortOrder) {
+        final var sortOrder = Ordering.sortOrder(bindings);
+
+        if (sortOrder.isDirectional()) {
+            return ImmutableList.of(Binding.sorted(sortOrder));
+        }
+
+        Debugger.sanityCheck(() -> Verify.verify(Ordering.areAllBindingsFixed(bindings)));
+        if (Ordering.hasMultipleFixedBindings(bindings)) {
+            return bindings;
+        }
+
+        final var binding = Ordering.fixedBinding(bindings);
+        final var comparison = binding.getComparison();
+
+        if (comparison.getType() != Comparisons.Type.EQUALS) {
+            return bindings;
+        }
+
+        if (comparison instanceof Comparisons.ParameterComparison) {
+            final var parameterComparison = (Comparisons.ParameterComparison)comparison;
+            if (!parameterComparison.isCorrelation() ||
+                    !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
+                return bindings;
+            }
+        } else if (comparison instanceof Comparisons.ValueComparison) {
+            final var valueComparison = (Comparisons.ValueComparison)comparison;
+            if (!explodeAliases.containsAll(valueComparison.getCorrelatedTo())) {
+                return bindings;
+            }
+        } else {
+            return bindings;
+        }
+
+        //
+        // This binding can be promoted into a directional binding as it is currently bound by the source of
+        // the in-union.
+        //
+        if (requestedSortOrder == null) {
+            return ImmutableList.of(Binding.choose());
+        }
+
+        if (!requestedSortOrder.isDirectional() && requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
+            return bindings;
+        }
+
+        if (requestedSortOrder == OrderingPart.RequestedSortOrder.ANY) {
+            return ImmutableList.of(Binding.choose());
+        }
+        return ImmutableList.of(Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
     }
 
     private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,

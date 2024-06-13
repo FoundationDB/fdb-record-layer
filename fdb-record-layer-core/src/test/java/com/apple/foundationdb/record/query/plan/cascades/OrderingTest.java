@@ -209,23 +209,23 @@ class OrderingTest {
 
     @Test
     void testPullUp1() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = ValueTestHelpers.field(rcv, "a");
-        final var b = ValueTestHelpers.field(rcv, "b");
-        final var c = ValueTestHelpers.field(rcv, "c");
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
         final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
         final var innerOrdering =
                 Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
                         b, ProvidedSortOrder.ASCENDING,
                         c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
-        final var rcv2 = rcvWrapper("a", "b", "c");
+        final var rcv2 = select("a", "b", "c");
         final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
 
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = ValueTestHelpers.field(qov, "ap");
-        final var bp = ValueTestHelpers.field(qov, "bp");
-        final var cp = ValueTestHelpers.field(qov, "cp");
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var bp = ValueTestHelpers.field(qovCurrent, "bp");
+        final var cp = ValueTestHelpers.field(qovCurrent, "cp");
 
         final var expectedOrdering =
                 Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
@@ -240,11 +240,11 @@ class OrderingTest {
 
     @Test
     void testPullUp2() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = ValueTestHelpers.field(rcv, "a");
-        final var b = ValueTestHelpers.field(rcv, "b");
-        final var c = ValueTestHelpers.field(rcv, "c");
-        final var d = ValueTestHelpers.field(rcv, "d");
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
         final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, d, c));
         final var innerOrdering =
                 Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
@@ -252,13 +252,13 @@ class OrderingTest {
                         c, ProvidedSortOrder.ASCENDING,
                         d, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
-        final var rcv2 = rcvWrapper("a", "b", "c");
+        final var rcv2 = select("a", "b", "c");
         final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
 
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = ValueTestHelpers.field(qov, "ap");
-        final var bp = ValueTestHelpers.field(qov, "bp");
-        final var cp = ValueTestHelpers.field(qov, "cp");
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var bp = ValueTestHelpers.field(qovCurrent, "bp");
+        final var cp = ValueTestHelpers.field(qovCurrent, "cp");
 
         final var expectedOrdering =
                 Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
@@ -272,17 +272,17 @@ class OrderingTest {
 
     @Test
     void testPullUp3() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = ValueTestHelpers.field(rcv, "a");
-        final var b = ValueTestHelpers.field(rcv, "b");
-        final var c = ValueTestHelpers.field(rcv, "c"); // a <- b <- c
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c"); // a <- b <- c
         final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b));
         final var innerOrdering =
                 Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
                         b, ProvidedSortOrder.ASCENDING,
                         c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
-        final var rcv2 = rcvWrapper("b", "c");
+        final var rcv2 = select("b", "c");
         final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
 
         assertEquals(Ordering.empty(), pulledUpOrdering);
@@ -290,11 +290,11 @@ class OrderingTest {
 
     @Test
     void testPullUp4() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = ValueTestHelpers.field(rcv, "a");
-        final var b = ValueTestHelpers.field(rcv, "b");
-        final var c = ValueTestHelpers.field(rcv, "c");
-        final var d = ValueTestHelpers.field(rcv, "d");
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
         // a <- b <- c
         //   <- d
         final var innerOrderedSet =
@@ -305,12 +305,12 @@ class OrderingTest {
                         c, ProvidedSortOrder.ASCENDING,
                         d, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
-        final var rcv2 = rcvWrapper("a", "d");
+        final var rcv2 = select("a", "d");
         final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
 
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = ValueTestHelpers.field(qov, "ap");
-        final var dp = ValueTestHelpers.field(qov, "dp");
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var dp = ValueTestHelpers.field(qovCurrent, "dp");
         final var expectedOrdering =
                 Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
                                 dp, ProvidedSortOrder.ASCENDING),
@@ -539,9 +539,9 @@ class OrderingTest {
     }
 
     @Nonnull
-    private static RecordConstructorValue rcvWrapper(@Nonnull final String... projection) {
+    private static RecordConstructorValue select(@Nonnull final String... projection) {
 
-        final var rcv = ValueTestHelpers.rcv();
+        final var rcv = ValueTestHelpers.qov();
         final List<Column<? extends Value>> columns = Arrays.stream(projection)
                 .map(field -> FieldValue.ofFieldName(rcv, field))
                 .map(field -> Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(field.getLastFieldName().orElseThrow() + "p")), field))
