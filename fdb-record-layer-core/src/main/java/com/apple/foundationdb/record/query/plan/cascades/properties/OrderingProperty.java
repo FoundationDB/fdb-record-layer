@@ -36,8 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -93,7 +91,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BinaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -237,25 +234,9 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
             final var childOrdering = orderingFromSingleChild(mapPlan);
-            final var childQuantifier = Iterables.getOnlyElement(mapPlan.getQuantifiers());
-            final var childCorrelation = childQuantifier.getAlias();
+            final var resultValue = mapPlan.getResultValue();
 
-            // replace occurrences of child QOV with the child value itself.
-            final var childValue = RecordConstructorValue.ofUnnamed(childQuantifier.getFlowedValues().stream().map(
-                    flowedValue -> flowedValue.replaceLeavesMaybe(value -> {
-                        if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(childCorrelation)) {
-                            return QuantifiedObjectValue.of(Quantifier.current(), value.getResultType());
-                        }
-                        return value;
-                    }).orElseThrow()).collect(ImmutableList.toImmutableList()));
-            final var resultValue = mapPlan.getResultValue().replaceLeavesMaybe(value -> {
-                if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(childCorrelation)) {
-                    return childValue;
-                }
-                return value;
-            }).orElseThrow();
-
-            return childOrdering.pullUp(resultValue, AliasMap.identitiesFor(ImmutableSet.of(Quantifier.current())), mapPlan.getCorrelatedTo());
+            return childOrdering.pullUp(resultValue, AliasMap.ofAliases(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
         }
 
         @Nonnull
