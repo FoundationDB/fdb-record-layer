@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -60,9 +59,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -192,13 +189,10 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
-
-
         // flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
         // we need to refer to the following column later on in GroupByExpression, but since its ordinal position is fixed, we can simply refer
         // to it using an ordinal FieldAccessor (we do the same in plan generation).
-        //builder.addResultColumn(Column.unnamedOf(groupingValue));
         Stream.concat(Stream.of(baseQuantifier), baseExpansion.getQuantifiers().stream())
                 .forEach(qun -> {
                     final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
@@ -226,9 +220,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         if (groupedValue instanceof EmptyValue) {
             argument = RecordConstructorValue.ofColumns(ImmutableList.of());
         } else if (groupedValue instanceof FieldValue) {
-            final var result = selectWhereQun.getRangesOver().get().getResultValue().pullUp(List.of(groupedValue), AliasMap.emptyMap(), ImmutableSet.of(), selectWhereQun.getAlias());
+            final var aliasMap = AliasMap.identitiesFor(Sets.union(selectWhereQun.getCorrelatedTo(),
+                    groupedValue.getCorrelatedTo()));
+            final var result = selectWhereQun.getRangesOver().get().getResultValue()
+                    .pullUp(List.of(groupedValue), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
             if (!result.containsKey(groupedValue)) {
-                throw new RecordCoreException("could not find grouped value")
+                throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
             }
             argument = result.get(groupedValue);
@@ -250,7 +247,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues, aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
         final var pulledUpGroupingValues = groupingValues.stream().map(groupingValue -> {
             if (!pulledUpGroupingValuesMap.containsKey(groupingValue)) {
-                throw new RecordCoreException("could not find grouping value")
+                throw new RecordCoreException("could not pull grouping value " + groupingValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupingValue);
             }
             return pulledUpGroupingValuesMap.get(groupingValue);

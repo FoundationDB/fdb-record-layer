@@ -270,7 +270,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         // the grouping values are encoded directly in the underlying SELECT-WHERE, reaching this point means that the
         // grouping values had exact match, so we don't need to check them.
 
-        // check that aggregate value is the same, and that the grouping value is the same (for now).
+        // check that the aggregate value is the same, and that the grouping value is the same.
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
         final var otherGroupingValue = candidateGroupByExpression.getGroupingValue();
         if (aggregateValue.subsumedBy(otherAggregateValue, bindingAliasMap) && (groupingValue == null ? otherGroupingValue == null : groupingValue.subsumedBy(otherGroupingValue, bindingAliasMap))) {

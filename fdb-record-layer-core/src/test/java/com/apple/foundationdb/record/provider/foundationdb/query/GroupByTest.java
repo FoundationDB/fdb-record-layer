@@ -68,6 +68,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.streamingAggregationPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
 
@@ -94,7 +95,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                         indexPlan()
                                                 .where(scanComparisons(range("<,>")))
                                 )).where(aggregations(recordConstructorValue(exactly(sumAggregationValue())))
-                                .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
+                                .and(groupings(ValueMatchers.anyValue())))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -138,7 +139,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                         indexPlan()
                                                 .where(scanComparisons(range("[[42],>")))
                                 )).where(aggregations(recordConstructorValue(exactly(sumAggregationValue())))
-                                .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
+                                .and(groupings(anyValue())))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -185,22 +186,16 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         final var num2Value = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
 
         final var scanAlias = qun.getAlias();
-        final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
-        final var groupingCol = Column.of(Optional.of("num_value_2"), num2Value);
-        final var groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingCol));
 
-        // 1. build the underlying select, result expr = ( (num_value_2 as GB) <group1>, ($qun as qun) <group2>)
+        // 1. build the underlying select, result expr = ( ($qun as qun) <qun>)
         {
             final var selectBuilder = GraphExpansion.builder();
 
-            // <group1>
-            final var col1 = Column.of(Optional.of(groupByColAlias.getId()), groupingColGroup);
-
-            // <group2>
+            // <qun>
             final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
             final var col2 = Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue);
 
-            selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
+            selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col2));
 
             if (withPredicateInSelectWhere) {
                 selectBuilder.addPredicate(new ValuePredicate(num2Value, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 42)));
@@ -217,7 +212,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
             // 2.2. construct grouping columns expression.
-            final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
+            final var groupingExpr = RecordConstructorValue.ofUnnamed(ImmutableList.of(FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0), "num_value_2")));
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
@@ -227,9 +222,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         // 3. construct the select expression on top containing the final result set
         {
             // construct a result set that makes sense.
-            final var numValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "num_value_2");
+            final var numValue2FieldValue = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0);
             final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
-            final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), 0));
+            final var aggregateReference = Column.unnamedOf(FieldValue.ofOrdinalNumber(FieldValue.ofOrdinalNumber(ObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 1), 0));
 
             final var graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(numValue2Reference,  aggregateReference));
 

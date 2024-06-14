@@ -110,30 +110,6 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
     }
 
     /**
-     * Returns the planner expression that is passed in as a graph in DOT format.
-     * @param renderSingleGroups iff true group references with just one member are not rendered
-     * @param relationalExpression the planner expression to be rendered.
-     * @return the planner expression that is passed in as a graph in DOT format.
-     */
-    @Nonnull
-    public static String exportToDot(final boolean renderSingleGroups, @Nonnull final RelationalExpression relationalExpression) {
-        return exportToDot(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, relationalExpression);
-    }
-
-    /**
-     * Returns the planner expression that is passed in as a graph in DOT format.
-     * @param flags iff true group references with just one member are not rendered
-     * @param relationalExpression the planner expression to be rendered.
-     * @return the planner expression that is passed in as a graph in DOT format.
-     */
-    @Nonnull
-    public static String exportToDot(final int flags, @Nonnull final RelationalExpression relationalExpression) {
-        final PlannerGraph plannerGraph =
-                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
-        return exportToDot(plannerGraph);
-    }
-
-    /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
      * @param renderSingleGroups iff true group references with just one member are not rendered
      * @param relationalExpression the planner expression to be rendered.
@@ -163,7 +139,9 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
      */
     @Nonnull
     public static String show(final int flags, @Nonnull final RelationalExpression relationalExpression) {
-        final String dotString = exportToDot(flags, relationalExpression);
+        final PlannerGraph plannerGraph =
+                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
+        final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
 

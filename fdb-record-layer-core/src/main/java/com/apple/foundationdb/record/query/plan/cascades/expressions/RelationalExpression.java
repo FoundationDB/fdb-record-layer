@@ -812,9 +812,4 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default String show(final boolean renderSingleGroups) {
         return PlannerGraphProperty.show(renderSingleGroups, this);
     }
-
-    @Nonnull
-    default String exportToDot(final boolean renderSingleGroups) {
-        return PlannerGraphProperty.exportToDot(renderSingleGroups, this);
-    }
 }
