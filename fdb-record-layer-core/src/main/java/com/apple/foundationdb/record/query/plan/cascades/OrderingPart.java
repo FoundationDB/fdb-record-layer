@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * A value that is used to express ordered-ness.
  * @param <S> the sort order that is being used
  */
-public abstract class OrderingPart<S extends OrderingPart.SortOrder> {
+public class OrderingPart<S extends OrderingPart.SortOrder> {
     @Nonnull
     private final Value value;
 

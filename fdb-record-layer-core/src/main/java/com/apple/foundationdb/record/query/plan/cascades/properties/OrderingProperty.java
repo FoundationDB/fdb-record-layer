@@ -187,7 +187,14 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             }
             final var resultBindingMap = resultBindingMapBuilder.build();
 
-            final var orderingSet = PartiallyOrderedSet.of(resultOrderingSetDomain, childOrderingSet.getDependencyMap());
+            //
+            // Create ordering set based on information compiled above; note that the ordering set needs to
+            // be normalized as there are dependencies in the original dependency map that need to be removed due to
+            // newly-introduced equalities.
+            //
+            final var orderingSet =
+                    Ordering.normalizeOrderingSet(resultBindingMap,
+                            PartiallyOrderedSet.of(resultOrderingSetDomain, childOrderingSet.getDependencyMap()));
             return Ordering.ofOrderingSet(resultBindingMap, orderingSet, childOrdering.isDistinct());
         }
 
@@ -652,7 +659,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                                                                                                      @Nonnull final List<? extends Value> comparisonKeyValues,
                                                                                                                      final boolean isReverse,
                                                                                                                      @Nonnull final Ordering.MergeOperator<O> mergeOperator) {
-            final Ordering mergedOrdering = Ordering.merge(orderings, mergeOperator, (left, right) -> true);
+            final var mergedOrdering = Ordering.merge(orderings, mergeOperator, (left, right) -> true);
             return mergedOrdering.applyComparisonKey(comparisonKeyValues,
                     Ordering.sortedBindingsForValues(comparisonKeyValues, ProvidedSortOrder.fromIsReverse(isReverse)));
         }

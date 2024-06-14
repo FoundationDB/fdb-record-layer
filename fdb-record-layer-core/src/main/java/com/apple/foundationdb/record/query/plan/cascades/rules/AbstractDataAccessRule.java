@@ -550,7 +550,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     private static Ordering.Intersection intersectOrderings(@Nonnull final List<List<OrderingPart.MatchedOrderingPart>> partitionOrderings) {
 
-        final var orderingPartialOrders =
+        final var orderings =
                 partitionOrderings.stream()
                         .map(matchedOrderingParts -> {
                             final var bindingMapBuilder =
@@ -575,7 +575,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        return Ordering.merge(orderingPartialOrders, Ordering.INTERSECTION, (left, right) -> true);
+        return Ordering.merge(orderings, Ordering.INTERSECTION, (left, right) -> true);
     }
 
     /**
