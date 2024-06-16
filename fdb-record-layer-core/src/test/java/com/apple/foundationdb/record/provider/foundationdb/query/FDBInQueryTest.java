@@ -271,11 +271,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexPlanOf(indexPlan()
                                             .where(indexName("MySimpleRecord$num_value_3_indexed"))
                                             .and(scanComparisons(equalities(only(anyValueComparison())))))
-                                            .and(reverse ? isReverse() : isNotReverse())
+                                            .and(isNotReverse())
                                     ))
                             .where(inValuesList(equalsObject(comparisonLs)))));
-            assertEquals(reverse ? 721952821 : 702573636, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(reverse ? 520855137 : 518266389, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(reverse ? 721946094 : 702573636, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(reverse ? 521033883 : 518266389, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
@@ -379,11 +379,11 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                             .where(indexPlanOf(indexPlan()
                                                     .where(indexName("MySimpleRecord$num_value_3_indexed"))
                                                     .and(scanComparisons(equalities(only(anyValueComparison()))))
-                                                    .and(reverse ? isReverse() : isNotReverse())
+                                                    .and(isNotReverse())
                                             )))
                                     .where(inValuesList(equalsObject(comparisonLs))));
-            assertEquals(reverse ? 716702872 : 713934417, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(reverse ? -1862825718 : -1865414466, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(reverse ? 716701911 : 713934417, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(reverse ? -1862646972 : -1865414466, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
@@ -468,8 +468,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(indexName("MySimpleRecord$num_value_3_indexed"))
                                     .and(scanComparisons(equalities(only(anyValueComparison()))))))
                     ).where(RecordQueryPlanMatchers.inParameter(equalsObject("valueThrees")))));
-            assertEquals(reverse ? 1904355872 : 1904350447, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(reverse ? 76203102 : 76382034, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(reverse ? 1904349145 : 1904350447, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(reverse ? 76381848 : 76382034, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         int count = querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", asList(1, 3, 4)),
@@ -513,12 +513,12 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         indexPlan()
                                 .where(indexName("MySimpleRecord$num_value_3_indexed"))
                                 .and(scanComparisons(equalities(exactly(anyValueComparison()))))
-                                .and(reverse ? isReverse() : isNotReverse())
+                                .and(isNotReverse())
                 ))
         )));
 
-        assertEquals(reverse ? 1779558431 : 1779528826, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(reverse ? -876416531 : -870875219, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertEquals(reverse ? 1779528640 : 1779528826, plan.planHash(PlanHashable.CURRENT_LEGACY));
+        assertEquals(reverse ? -870875405 : -870875219, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -795,8 +795,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                             .where(indexName("MySimpleRecord$num_value_3_indexed"))
                                             .and(scanComparisons(equalities(only(anyValueComparison()))))))
                                     ).where(inValuesList(equalsObject(comparisonList)))));
-            assertEquals(reverse ? 721952821 : 702573636, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(reverse ? 520855137 : 518266389, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(reverse ? 721946094 : 702573636, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(reverse ? 521033883 : 518266389, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),

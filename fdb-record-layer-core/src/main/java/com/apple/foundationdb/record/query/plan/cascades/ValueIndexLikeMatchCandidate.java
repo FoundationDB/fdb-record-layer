@@ -96,7 +96,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             if (!normalizedValues.contains(value)) {
                 normalizedValues.add(value);
                 builder.add(
-                        OrderingPart.MatchedOrderingPart.of(value, comparisonRange, isReverse));
+                        OrderingPart.MatchedOrderingPart.of(value, comparisonRange, false));
             }
         }
 

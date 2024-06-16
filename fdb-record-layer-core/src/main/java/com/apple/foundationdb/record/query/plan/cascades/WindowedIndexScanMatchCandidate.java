@@ -281,10 +281,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                     builder.add(
-                            OrderingPart.MatchedOrderingPart.of(normalizedValue, rankComparisonRange, isReverse));
+                            OrderingPart.MatchedOrderingPart.of(normalizedValue, rankComparisonRange, false));
                 } else {
                     builder.add(
-                            OrderingPart.MatchedOrderingPart.of(normalizedValue, comparisonRange, isReverse));
+                            OrderingPart.MatchedOrderingPart.of(normalizedValue, comparisonRange, false));
                 }
             }
         }

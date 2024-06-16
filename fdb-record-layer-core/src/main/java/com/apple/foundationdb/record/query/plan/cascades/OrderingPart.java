@@ -187,6 +187,67 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     /**
      * TODO.
      */
+    public enum MatchedSortOrder implements SortOrder {
+        ASCENDING("↑"),
+        DESCENDING("↓"),
+        FIXED("=");
+
+        @Nonnull
+        private final String arrowIndicator;
+
+        MatchedSortOrder(@Nonnull final String arrowIndicator) {
+            this.arrowIndicator = arrowIndicator;
+        }
+
+        @Nonnull
+        @Override
+        public String getArrowIndicator() {
+            return arrowIndicator;
+        }
+
+        public boolean isReverse() {
+            if (this == FIXED) {
+                throw new RecordCoreException("cannot determine if this is reverse or not");
+            }
+            return this == DESCENDING;
+        }
+
+        @Override
+        public boolean isDirectional() {
+            return this == ASCENDING || this == DESCENDING;
+        }
+
+        @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+        public boolean isCompatibleWithRequestedSortOrder(@Nonnull final RequestedSortOrder requestedSortOrder) {
+            if (requestedSortOrder == RequestedSortOrder.ANY || !isDirectional()) {
+                return true;
+            }
+
+            return this == ASCENDING && requestedSortOrder == RequestedSortOrder.ASCENDING ||
+                    this == DESCENDING && requestedSortOrder == RequestedSortOrder.DESCENDING;
+        }
+
+        @Nonnull
+        public ProvidedSortOrder toProvidedSortOrder() {
+            switch (this) {
+                case ASCENDING:
+                    return ProvidedSortOrder.ASCENDING;
+                case DESCENDING:
+                    return ProvidedSortOrder.DESCENDING;
+                default:
+                    throw new RecordCoreException("cannot translate this sort order to provided sort order");
+            }
+        }
+
+        @Nonnull
+        public static MatchedSortOrder fromIsReverse(final boolean isReverse) {
+            return isReverse ? DESCENDING : ASCENDING;
+        }
+    }
+
+    /**
+     * TODO.
+     */
     public enum RequestedSortOrder implements SortOrder {
         ASCENDING("↑"),
         DESCENDING("↓"),
@@ -222,6 +283,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return isReverse ? DESCENDING : ASCENDING;
         }
 
+        @Nonnull
         public ProvidedSortOrder toProvidedSortOrder() {
             switch (this) {
                 case ASCENDING:
@@ -255,7 +317,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     /**
      * An {@link OrderingPart} that is bound by a comparison during graph matching.
      */
-    public static class MatchedOrderingPart extends OrderingPart<ProvidedSortOrder> {
+    public static class MatchedOrderingPart extends OrderingPart<MatchedSortOrder> {
         @Nonnull
         private final ComparisonRange comparisonRange;
 
@@ -267,7 +329,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         private MatchedOrderingPart(@Nonnull final Value orderByValue,
                                     @Nonnull final ComparisonRange comparisonRange,
                                     final boolean isReverse) {
-            super(orderByValue, ProvidedSortOrder.fromIsReverse(isReverse));
+            super(orderByValue, MatchedSortOrder.fromIsReverse(isReverse));
             this.comparisonRange = comparisonRange;
         }
 

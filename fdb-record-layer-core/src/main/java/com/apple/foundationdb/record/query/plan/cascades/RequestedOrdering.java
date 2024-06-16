@@ -196,7 +196,7 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public Optional<Boolean> resolveScanDirection() {
+    public Optional<Boolean> resolveScanDirectionMaybe() {
         boolean seenAscending = false;
         boolean seenDescending = false;
         for (final var orderingPart : getOrderingParts()) {
