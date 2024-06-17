@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -228,7 +229,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             if (!normalizedValues.contains(value)) {
                 normalizedValues.add(value);
                 builder.add(
-                        OrderingPart.MatchedOrderingPart.of(value, comparisonRange, false));
+                        OrderingPart.MatchedOrderingPart.of(parameterId, value, comparisonRange,
+                                MatchedSortOrder.ASCENDING));
             }
         }
 

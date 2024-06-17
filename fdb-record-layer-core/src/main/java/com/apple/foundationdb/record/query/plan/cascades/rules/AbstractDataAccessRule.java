@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -264,7 +263,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
                                                                              @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var partialMatchesWithCompensation =
-                matchesWithCompensations(matches, requestedOrderings);
+                prepareMatchesAndCompensations(matches, requestedOrderings);
 
         final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatchWithCompensation>builder();
         for (var i = 0; i < partialMatchesWithCompensation.size(); i++) {
@@ -277,6 +276,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             for (var j = 0; j < partialMatchesWithCompensation.size(); j++) {
                 final var innerPartialMatchWithCompensation =
                         partialMatchesWithCompensation.get(j);
+
+                if (outerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate() !=
+                        innerPartialMatchWithCompensation.getPartialMatch().getMatchCandidate()) {
+                    continue;
+                }
+
+                if (outerPartialMatchWithCompensation.isReverseScanOrder() !=
+                        innerPartialMatchWithCompensation.isReverseScanOrder()) {
+                    continue;
+                }
+
                 final var innerBindingPredicates = innerPartialMatchWithCompensation.getPartialMatch().getBindingPredicates();
                 // check if outer is completely contained in inner
                 if (outerBindingPredicates.size() >= innerBindingPredicates.size()) {
@@ -301,8 +311,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
-    private static ArrayList<PartialMatchWithCompensation> matchesWithCompensations(final @Nonnull Collection<? extends PartialMatch> matches,
-                                                                                    final @Nonnull Set<RequestedOrdering> requestedOrderings) {
+    private static ArrayList<PartialMatchWithCompensation> prepareMatchesAndCompensations(final @Nonnull Collection<? extends PartialMatch> matches,
+                                                                                          final @Nonnull Set<RequestedOrdering> requestedOrderings) {
         final var partialMatchesWithCompensation = new ArrayList<PartialMatchWithCompensation>();
         for (final var partialMatch: matches) {
             final var scanDirectionOptional = satisfiesAnyRequestedOrderings(partialMatch, requestedOrderings);
@@ -566,12 +576,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                                 @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
 
-        final var partitionOrderings = partition
-                .stream()
-                .map(PartialMatchWithCompensation::getPartialMatch)
-                .map(PartialMatch::getMatchInfo)
-                .map(MatchInfo::getMatchedOrderingParts) // not just prefix but all matches
-                .collect(ImmutableList.toImmutableList());
+        final var partitionOrderings = adjustMatchedOrderingParts(partition);
 
         final var equalityBoundKeyValues =
                 partitionOrderings
@@ -610,7 +615,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     .collect(ImmutableList.toImmutableList());
 
                     final var directionalOrderingParts =
-                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, OrderingPart.ProvidedSortOrder.FIXED);
+                            intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
+                                    OrderingPart.ProvidedSortOrder.FIXED);
                     final var comparisonDirectionOptional =
                             Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
 
@@ -631,16 +637,35 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         return expressionsBuilder.build();
     }
 
+    @Nonnull
+    private static List<List<MatchedOrderingPart>> adjustMatchedOrderingParts(@Nonnull final List<PartialMatchWithCompensation> partialMatchWithCompensations) {
+        return partialMatchWithCompensations
+                .stream()
+                .map(partialMatchWithCompensation -> {
+                    final var partialMatch = partialMatchWithCompensation.getPartialMatch();
+                    final var boundParametersPrefixMap =
+                            partialMatch.getBoundParameterPrefixMap();
+                    return partialMatch.getMatchInfo()
+                            .getMatchedOrderingParts()
+                            .stream()
+                            .map(matchedOrderingPart ->
+                                    !matchedOrderingPart.getComparisonRange().isEquality() ||
+                                            boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
+                                    ? matchedOrderingPart : matchedOrderingPart.demote())
+                            .collect(ImmutableList.toImmutableList());
+                })
+                .collect(ImmutableList.toImmutableList());
+    }
+
     /**
-     * Private helper method that computes the ordering of the intersection using matches and the common primary key
-     * of the data source.
+     * Private helper method that computes the ordering of the intersection using matches.
      * @param partitionOrderings partition we would like to intersect
      * @return a {@link com.apple.foundationdb.record.query.plan.cascades.Ordering.Intersection} representing a
      *         common intersection ordering.
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static Ordering.Intersection intersectOrderings(@Nonnull final List<List<MatchedOrderingPart>> partitionOrderings) {
+    private static Ordering.Intersection intersectOrderings(@Nonnull final List<? extends List<MatchedOrderingPart>> partitionOrderings) {
 
         final var orderings =
                 partitionOrderings.stream()
@@ -725,6 +750,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     private enum ScanDirection {
         FORWARD,
         REVERSE,
-        BOTH;
+        BOTH
     }
 }

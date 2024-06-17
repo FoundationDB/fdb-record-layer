@@ -351,7 +351,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
 
-            if (expressionSet.size() == 1) {
+            if (false && expressionSet.size() == 1) {
                 final Optional<Reference> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
                 if (memoizedRefMaybe.isPresent()) {
                     Debugger.withDebugger(debugger ->

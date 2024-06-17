@@ -34,6 +34,8 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -233,15 +235,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                                              @Nonnull List<CorrelationIdentifier> sortParameterIds,
-                                                                              boolean isReverse) {
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+                                                                 @Nonnull List<CorrelationIdentifier> sortParameterIds,
+                                                                 boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<OrderingPart.MatchedOrderingPart>builder();
+        final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
@@ -281,10 +283,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                     builder.add(
-                            OrderingPart.MatchedOrderingPart.of(normalizedValue, rankComparisonRange, false));
+                            MatchedOrderingPart.of(rankAlias, normalizedValue, rankComparisonRange, MatchedSortOrder.ASCENDING));
                 } else {
                     builder.add(
-                            OrderingPart.MatchedOrderingPart.of(normalizedValue, comparisonRange, false));
+                            MatchedOrderingPart.of(parameterId, normalizedValue, comparisonRange, MatchedSortOrder.ASCENDING));
                 }
             }
         }
