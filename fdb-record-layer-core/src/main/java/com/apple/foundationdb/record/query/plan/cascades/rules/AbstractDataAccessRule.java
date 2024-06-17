@@ -574,7 +574,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                                 @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
                                                                                 @Nonnull final List<PartialMatchWithCompensation> partition,
                                                                                 @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-        final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
 
         final var partitionOrderings = adjustMatchedOrderingParts(partition);
 
@@ -589,6 +588,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         final var intersectionOrdering = intersectOrderings(partitionOrderings);
 
+        final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var requestedOrdering : requestedOrderings) {
             final var comparisonKeyValuesIterable =
                     intersectionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
@@ -648,10 +648,17 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     return partialMatch.getMatchInfo()
                             .getMatchedOrderingParts()
                             .stream()
-                            .map(matchedOrderingPart ->
-                                    !matchedOrderingPart.getComparisonRange().isEquality() ||
-                                            boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())
-                                    ? matchedOrderingPart : matchedOrderingPart.demote())
+                            .map(matchedOrderingPart -> {
+                                MatchedOrderingPart adjustedMatchOrderingPart = matchedOrderingPart;
+                                if (matchedOrderingPart.getComparisonRange().isEquality() &&
+                                        !boundParametersPrefixMap.containsKey(matchedOrderingPart.getParameterId())) {
+                                    adjustedMatchOrderingPart = matchedOrderingPart.demote();
+                                }
+                                if (partialMatchWithCompensation.isReverseScanOrder()) {
+                                    adjustedMatchOrderingPart = adjustedMatchOrderingPart.flip();
+                                }
+                                return adjustedMatchOrderingPart;
+                            })
                             .collect(ImmutableList.toImmutableList());
                 })
                 .collect(ImmutableList.toImmutableList());

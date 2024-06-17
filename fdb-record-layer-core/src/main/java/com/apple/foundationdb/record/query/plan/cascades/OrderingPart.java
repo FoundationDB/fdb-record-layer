@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * A value that is used to express ordered-ness. The base class {@code OrderingPart} itself only has a protected
  * constructor. All subclasses are also final static nested classes of {@code OrderingPart}, thus emulating a sealed
  * trait.
- * @param <S> the sort order that is being used
+ * @param <S> the type sort order that is being used
  */
 public class OrderingPart<S extends OrderingPart.SortOrder> {
     @Nonnull
@@ -149,12 +149,31 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     }
 
     /**
-     * TODO.
+     * Enum implementing {@link SortOrder} that provides sort orders that for instance a plan can <em>provide</em> to
+     * downstream operators.
      */
     public enum ProvidedSortOrder implements SortOrder {
+        /**
+         * Ascending.
+         */
         ASCENDING("↑"),
+        /**
+         * Descending.
+         */
         DESCENDING("↓"),
+        /**
+         * Fixed sort order which indicates that something restrict records to only ever be of exactly one value.
+         */
         FIXED("="),
+        /**
+         * Choose the sort order. This is only ever used by intermediate orderings such as
+         * {@link Ordering.SetOperationsOrdering}. This enum value indicates that the sort order of this part can be
+         * chosen by e.g. applying a comparison key. It usually means that there were multiple fixed values that
+         * a comparison key can order freely in any way (ascending or descending). When this enum value is set we
+         * do not know yet if the order eventually will become ascending or descending. Note that {@code CHOOSE} does
+         * not mean that to just ignore the associated ordering part when enumerating comparison keys. It will
+         * have to be either ascending or descending; it cannot be nothing.
+         */
         CHOOSE("?");
 
         @Nonnull
@@ -210,7 +229,17 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     }
 
     /**
-     * TODO.
+     * Sort order that can be assigned during index matching. Note that this sort only distinguishes between ascending
+     * and descending. Ascending and descending are pretty much meaningless here without knowing what the scan direction
+     * will be which is not known during matching. The only important semantic meaning that is imposed is that
+     * the sort order ascending and the sort order descending are polar opposites of each other. These enum values
+     * could also be named regular and inverse, or black and white. The reason they are named ascending and descending
+     * is that by convention the ascending sort order becomes the actual ascending sort order when a forward scan is
+     * used; the descending sort order becomes descending sort order when a forward scan is used. On the contrary,
+     * ascending becomes descending, and descending becomes ascending if a reverse scan is used.
+     * The matched sort order is only ever set to descending when modelling and inverse ordering values, i.e.
+     * the sort order of {@code inverse(fieldValue(q, x))} is descending iff the sort order of
+     * {@code fieldValue(q, x)} is ascending.
      */
     public enum MatchedSortOrder implements SortOrder {
         ASCENDING("↑"),
@@ -238,16 +267,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return true;
         }
 
-        @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-        public boolean isCompatibleWithRequestedSortOrder(@Nonnull final RequestedSortOrder requestedSortOrder) {
-            if (requestedSortOrder == RequestedSortOrder.ANY || !isDirectional()) {
-                return true;
-            }
-
-            return this == ASCENDING && requestedSortOrder == RequestedSortOrder.ASCENDING ||
-                    this == DESCENDING && requestedSortOrder == RequestedSortOrder.DESCENDING;
-        }
-
         @Nonnull
         public ProvidedSortOrder toProvidedSortOrder() {
             switch (this) {
@@ -259,19 +278,25 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
                     throw new RecordCoreException("cannot translate this sort order to provided sort order");
             }
         }
-
-        @Nonnull
-        public static MatchedSortOrder fromIsReverse(final boolean isReverse) {
-            return isReverse ? DESCENDING : ASCENDING;
-        }
     }
 
     /**
-     * TODO.
+     * Sort order used to model requested orderings, that is orderings that a down stream operator or the client
+     * requires the result set of the upstream operator to adhere to.
      */
     public enum RequestedSortOrder implements SortOrder {
+        /**
+         * Ascending.
+         */
         ASCENDING("↑"),
+        /**
+         * Descending.
+         */
         DESCENDING("↓"),
+        /**
+         * Any ordering. This requested ordering still needs an actual produced order that can either be ascending or
+         * descending. It cannot be unordered.
+         */
         ANY("↕");
 
         @Nonnull
@@ -318,7 +343,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     }
 
     /**
-     * TODO.
+     * Final class to tag provided ordering parts and to seal {@link OrderingPart}.
      */
     public static final class ProvidedOrderingPart extends OrderingPart<ProvidedSortOrder> {
         public ProvidedOrderingPart(@Nonnull final Value value, final ProvidedSortOrder sortOrder) {
@@ -327,7 +352,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     }
 
     /**
-     * TODO.
+     * Final class to tag requested ordering parts and to seal {@link OrderingPart}.
      */
     public static final class RequestedOrderingPart extends OrderingPart<RequestedSortOrder> {
         public RequestedOrderingPart(@Nonnull final Value value, final RequestedSortOrder sortOrder) {
@@ -393,6 +418,14 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         @Override
         public int hashCode() {
             return Objects.hash(super.hashCode(), parameterId, comparisonRange);
+        }
+
+        @Nonnull
+        public MatchedOrderingPart flip() {
+            return new MatchedOrderingPart(getParameterId(), getValue(), getComparisonRange(),
+                    getSortOrder() == MatchedSortOrder.ASCENDING
+                    ? MatchedSortOrder.DESCENDING
+                    : MatchedSortOrder.ASCENDING);
         }
 
         @Nonnull
