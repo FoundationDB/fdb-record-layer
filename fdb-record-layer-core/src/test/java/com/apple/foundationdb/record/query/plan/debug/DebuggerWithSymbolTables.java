@@ -80,7 +80,8 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Override
     public boolean isSane() {
         //
-        // Report insanity here which then causes all sanity checks will be run which may be CPU-intensive.
+        // Report insanity here which then causes all sanity checks to be run which may be CPU-intensive. Deactivate
+        // this behavior by returning true if performance is measured.
         //
         return false;
     }

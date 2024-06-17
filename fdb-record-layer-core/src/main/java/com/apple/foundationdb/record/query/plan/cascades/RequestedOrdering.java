@@ -33,7 +33,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -97,6 +96,12 @@ public class RequestedOrdering {
         return orderingParts;
     }
 
+    /**
+     * Returns a map from {@link Value} to {@link RequestedSortOrder}. It is meant for quick lookups of the
+     * sort order of a given value.
+     * @return a map from {@link Value} to {@link RequestedSortOrder}. It is lazily computed and memoized. Subsequent
+     *         calls return instantaneously.
+     */
     @Nonnull
     public Map<Value, RequestedSortOrder> getValueRequestedSortOrderMap() {
         return valueRequestedSortOrderMapSupplier.get();
@@ -104,15 +109,6 @@ public class RequestedOrdering {
 
     public int size() {
         return orderingParts.size();
-    }
-
-    @Nonnull
-    public RequestedOrdering removePrefix(int prefixSize) {
-        if (prefixSize >= size()) {
-            return preserve();
-        }
-
-        return new RequestedOrdering(getOrderingParts().subList(prefixSize, size()), getDistinctness());
     }
 
     @Override
@@ -193,33 +189,6 @@ public class RequestedOrdering {
             pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
-    }
-
-    @Nonnull
-    public Optional<Boolean> resolveScanDirectionMaybe() {
-        boolean seenAscending = false;
-        boolean seenDescending = false;
-        for (final var orderingPart : getOrderingParts()) {
-            if (orderingPart.getSortOrder() == RequestedSortOrder.ASCENDING) {
-                seenAscending = true;
-            } else if (orderingPart.getSortOrder() == RequestedSortOrder.DESCENDING) {
-                seenDescending = true;
-            }
-        }
-
-        if (seenAscending && seenDescending) {
-            return Optional.empty();
-        }
-
-        if (!seenAscending && !seenDescending) {
-            return Optional.of(false);
-        }
-
-        if (seenAscending) {
-            return Optional.of(false);
-        }
-
-        return Optional.of(true);
     }
 
     @Nonnull

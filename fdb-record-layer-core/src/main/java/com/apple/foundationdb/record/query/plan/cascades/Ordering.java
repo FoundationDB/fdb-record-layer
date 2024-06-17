@@ -1166,6 +1166,12 @@ public class Ordering {
                     getOrderingSet().filterElements(value -> {
                         final var bindings = bindingMap.get(value);
                         return isSingularDirectionalValue(value) ||
+                                //
+                                // This commented line changes the behavior in a way that values that have multiple
+                                // fixed bindings but no requested sort order do not get a comparison key part and
+                                // therefore do not take part in the resulting provided ordering of the set operation.
+                                // It turns out that that is probably a bad idea as it is wasting an opportunity to make
+                                // something ordered.
                                 // (bindings.size() > 1 && promoteToDirectional() && valuesRequestedSortOrderMap.containsKey(value));
                                 (bindings.size() > 1 && promoteToDirectional());
                     });
@@ -1212,39 +1218,57 @@ public class Ordering {
             return Ordering.ofOrderingSet(resultBindingMapBuilder.build(), resultOrderingSet, isDistinct());
         }
 
+        /**
+         * Method that reduces this set-operation ordering to only directional ordering parts by using a
+         * comparison key, a {@link RequestedOrdering} and a default.
+         * @param comparisonKeyValues list of {@link Value}s representing the comparison key
+         * @param requestedOrdering a requested ordering
+         * @param defaultProvidedSortOrder a default sort order to be applied if the requested ordering does not
+         *        contain a value
+         * @return a list of {@link ProvidedOrderingPart}s
+         */
         @Nonnull
-        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> values,
+        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> comparisonKeyValues,
                                                                    @Nonnull final RequestedOrdering requestedOrdering,
                                                                    @Nonnull final ProvidedSortOrder defaultProvidedSortOrder) {
             final var valueRequestedSortOrderMapMap =
                     requestedOrdering.getValueRequestedSortOrderMap();
-            return directionalOrderingParts(values, valueRequestedSortOrderMapMap, defaultProvidedSortOrder);
+            return directionalOrderingParts(comparisonKeyValues, valueRequestedSortOrderMapMap, defaultProvidedSortOrder);
         }
 
+        /**
+         * Method that reduces this set-operation ordering to only directional ordering parts by using a
+         * comparison key, a {@link RequestedOrdering} and a default.
+         * @param comparisonKeyValues list of {@link Value}s representing the comparison key
+         * @param valueRequestedSortOrderMap a requested ordering as map
+         * @param defaultProvidedSortOrder a default sort order to be applied if the requested ordering does not
+         *        contain a value
+         * @return a list of {@link ProvidedOrderingPart}s
+         */
         @Nonnull
-        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> values,
+        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> comparisonKeyValues,
                                                                    @Nonnull final Map<Value, RequestedSortOrder> valueRequestedSortOrderMap,
                                                                    @Nonnull final ProvidedSortOrder defaultProvidedSortOrder) {
             final var bindingMap = getBindingMap();
             final var resultBuilder = ImmutableList.<ProvidedOrderingPart>builder();
-            for (final var value : values) {
-                Verify.verify(bindingMap.containsKey(value));
-                final var bindings = bindingMap.get(value);
+            for (final var comparisonKeyValue : comparisonKeyValues) {
+                Verify.verify(bindingMap.containsKey(comparisonKeyValue));
+                final var bindings = bindingMap.get(comparisonKeyValue);
                 if (isSingularDirectionalBinding(bindings)) {
-                    resultBuilder.add(new ProvidedOrderingPart(value, sortOrder(bindings)));
+                    resultBuilder.add(new ProvidedOrderingPart(comparisonKeyValue, sortOrder(bindings)));
                 } else {
                     Debugger.sanityCheck(() -> areAllBindingsFixed(bindings));
-                    if (!valueRequestedSortOrderMap.containsKey(value)) {
-                        resultBuilder.add(new ProvidedOrderingPart(value, defaultProvidedSortOrder));
+                    if (!valueRequestedSortOrderMap.containsKey(comparisonKeyValue)) {
+                        resultBuilder.add(new ProvidedOrderingPart(comparisonKeyValue, defaultProvidedSortOrder));
                     } else {
-                        final var requestedSortOrder = valueRequestedSortOrderMap.get(value);
+                        final var requestedSortOrder = valueRequestedSortOrderMap.get(comparisonKeyValue);
                         switch (requestedSortOrder) {
                             case ASCENDING:
                             case DESCENDING:
-                                resultBuilder.add(new ProvidedOrderingPart(value, requestedSortOrder.toProvidedSortOrder()));
+                                resultBuilder.add(new ProvidedOrderingPart(comparisonKeyValue, requestedSortOrder.toProvidedSortOrder()));
                                 break;
                             case ANY:
-                                resultBuilder.add(new ProvidedOrderingPart(value, defaultProvidedSortOrder));
+                                resultBuilder.add(new ProvidedOrderingPart(comparisonKeyValue, defaultProvidedSortOrder));
                                 break;
                             default:
                                 throw new RecordCoreException("unable to resolve directional order");

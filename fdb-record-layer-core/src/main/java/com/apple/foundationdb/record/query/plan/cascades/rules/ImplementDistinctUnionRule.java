@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -212,7 +212,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
                     for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
                         final var directionalOrderingParts =
-                                unionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, OrderingPart.ProvidedSortOrder.FIXED);
+                                unionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, ProvidedSortOrder.FIXED);
                         final var comparisonDirectionOptional =
                                 Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
                         //

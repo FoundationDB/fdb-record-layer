@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -207,10 +208,18 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
     }
 
+    /**
+     * Method that adjusts bindings that refer to the explode-aliases (the in-sources).
+     * @param bindings original bindings for a value
+     * @param explodeAliases a set of explode-aliases
+     * @param requestedSortOrder a requested sort order
+     * @return an iterable of bindings, either the input or adjusted if there is a singular fixed binding referring
+     *         to an explode-alias.
+     */
     @Nonnull
     private static Iterable<Binding> adjustBindings(@Nonnull final Collection<Binding> bindings,
                                                     @Nonnull final Set<CorrelationIdentifier> explodeAliases,
-                                                    @Nullable final OrderingPart.RequestedSortOrder requestedSortOrder) {
+                                                    @Nullable final RequestedSortOrder requestedSortOrder) {
         final var sortOrder = Ordering.sortOrder(bindings);
 
         if (sortOrder.isDirectional()) {
@@ -248,17 +257,19 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         // This binding can be promoted into a directional binding as it is currently bound by the source of
         // the in-union.
         //
-        if (requestedSortOrder == null) {
+
+        //
+        // If we cannot infer the requested order we will defer that decision by indicating to choose the sort
+        // order when we enumerate the comparison keys.
+        //
+        if (requestedSortOrder == null || requestedSortOrder == RequestedSortOrder.ANY) {
             return ImmutableList.of(Binding.choose());
         }
 
-        if (!requestedSortOrder.isDirectional() && requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
+        if (!requestedSortOrder.isDirectional()) {
             return bindings;
         }
 
-        if (requestedSortOrder == OrderingPart.RequestedSortOrder.ANY) {
-            return ImmutableList.of(Binding.choose());
-        }
         return ImmutableList.of(Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
     }
 

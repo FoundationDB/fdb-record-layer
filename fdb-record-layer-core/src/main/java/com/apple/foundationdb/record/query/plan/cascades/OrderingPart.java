@@ -269,11 +269,16 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Nonnull
         public ProvidedSortOrder toProvidedSortOrder() {
+            return toProvidedSortOrder(false);
+        }
+
+        @Nonnull
+        public ProvidedSortOrder toProvidedSortOrder(final boolean isReverse) {
             switch (this) {
                 case ASCENDING:
-                    return ProvidedSortOrder.ASCENDING;
+                    return isReverse ? ProvidedSortOrder.DESCENDING : ProvidedSortOrder.ASCENDING;
                 case DESCENDING:
-                    return ProvidedSortOrder.DESCENDING;
+                    return isReverse ? ProvidedSortOrder.ASCENDING : ProvidedSortOrder.DESCENDING;
                 default:
                     throw new RecordCoreException("cannot translate this sort order to provided sort order");
             }
@@ -418,14 +423,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         @Override
         public int hashCode() {
             return Objects.hash(super.hashCode(), parameterId, comparisonRange);
-        }
-
-        @Nonnull
-        public MatchedOrderingPart flip() {
-            return new MatchedOrderingPart(getParameterId(), getValue(), getComparisonRange(),
-                    getSortOrder() == MatchedSortOrder.ASCENDING
-                    ? MatchedSortOrder.DESCENDING
-                    : MatchedSortOrder.ASCENDING);
         }
 
         @Nonnull

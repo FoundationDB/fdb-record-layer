@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.google.common.base.Equivalence;
@@ -78,7 +79,7 @@ public class MatchInfo {
     private final PredicateMap accumulatedPredicateMap;
 
     @Nonnull
-    private final List<OrderingPart.MatchedOrderingPart> matchedOrderingParts;
+    private final List<MatchedOrderingPart> matchedOrderingParts;
 
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
@@ -94,7 +95,7 @@ public class MatchInfo {
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
                       @Nonnull final PredicateMap accumulatedPredicateMap,
-                      @Nonnull final List<OrderingPart.MatchedOrderingPart> matchedOrderingParts,
+                      @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional,
                       @Nonnull final Optional<MaxMatchMap> maxMatchMapOptional) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
@@ -164,7 +165,7 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<OrderingPart.MatchedOrderingPart> getMatchedOrderingParts() {
+    public List<MatchedOrderingPart> getMatchedOrderingParts() {
         return matchedOrderingParts;
     }
 
@@ -179,7 +180,7 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public MatchInfo withOrderingInfo(@Nonnull final List<OrderingPart.MatchedOrderingPart> matchedOrderingParts) {
+    public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
@@ -230,7 +231,7 @@ public class MatchInfo {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
         
-        final List<OrderingPart.MatchedOrderingPart> orderingParts;
+        final List<MatchedOrderingPart> orderingParts;
         if (regularQuantifiers.size() == 1) {
             final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
