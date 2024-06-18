@@ -195,10 +195,12 @@ public class GraphExpansion {
                         .collect(ImmutableList.toImmutableList());
 
         if (!placeholders.isEmpty()) {
-
             // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
             // order of parameters determines their sargability.
-            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(PredicateWithValueAndRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
+            final var deDupPlaceholders =
+                    new ArrayList<>(placeholders.stream()
+                            .collect(Collectors.toMap(PredicateWithValueAndRanges::getValue, v -> v,
+                                    (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
 
             // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
             // don't know that yet.

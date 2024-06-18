@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -113,8 +114,13 @@ import java.util.function.Supplier;
  */
 public class Ordering {
     @Nonnull
-    private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(), false);
+    private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(),
+            false, (b, o) -> { } );
 
+    /**
+     * Union merge operator to be used to obtain the resulting order of a distinct ordered union operation,
+     * or an in-union operation.
+     */
     public static final MergeOperator<Union> UNION = new MergeOperator<>() {
         @Nonnull
         @Override
@@ -131,6 +137,9 @@ public class Ordering {
         }
     };
 
+    /**
+     * Intersection merge operator to be used to obtain the resulting order of a distinct intersection operation.
+     */
     public static final MergeOperator<Intersection> INTERSECTION = new MergeOperator<>() {
         @Nonnull
         @Override
@@ -160,6 +169,7 @@ public class Ordering {
      * contradiction causing a predicate to always evaluate to {@code false}. In other cases, we may encounter
      * {@code x = 5} and {@code x = $p} where it is unclear if we just encountered a contradiction as well or
      * if the predicate is just redundant (where {@code $p} is bound to {@code 5} when the query is executed).
+     * {@link SetOperationsOrdering}s.
      */
     @Nonnull
     private final SetMultimap<Value, Binding> bindingMap;
@@ -170,20 +180,30 @@ public class Ordering {
     @Nonnull
     private final PartiallyOrderedSet<Value> orderingSet;
 
+    /**
+     * Indicator if the records flowed are to be considered distinct, thus producing a strict order. This field
+     * should get deprecated as it is not correct to assign this property to all enumerated orderings. For instance,
+     * an ordering that produces {@code a, b, c} is also ordered by {@code a, b}. While the former one might be strict,
+     * the latter one may not. I think for now we should just interpret this indicator in a way that only enumerated
+     * orderings that contain all values of the ordering are strict if this indicator is {@code true}.
+     */
     private final boolean isDistinct;
 
     @Nonnull
     private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier;
 
-    private Ordering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                     @Nonnull final PartiallyOrderedSet<Value> orderingSet,
-                     final boolean isDistinct) {
-        Debugger.sanityCheck(() -> {
-            final var normalizedBindingMap = normalizeBindingMap(bindingMap);
-            Verify.verify(bindingMap.equals(normalizedBindingMap));
-            final var normalizedOrderingSet = normalizeOrderingSet(bindingMap, orderingSet);
-            Verify.verify(orderingSet.equals(normalizedOrderingSet));
-        });
+    /**
+     * Primary constructor. Protected from the outside world.
+     * @param bindingMap a multimap of bindings
+     * @param orderingSet a {@link PartiallyOrderedSet} of {@link Value}s
+     * @param isDistinct an indicator if this ordering is strict
+     * @param sanityCheckConsumer a consumer that is executed in an insane environment
+     */
+    protected Ordering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                       @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+                       final boolean isDistinct,
+                       @Nonnull final BiConsumer<SetMultimap<Value, Binding>, PartiallyOrderedSet<Value>> sanityCheckConsumer) {
+        Debugger.sanityCheck(() -> sanityCheckConsumer.accept(bindingMap, orderingSet));
 
         this.orderingSet = orderingSet;
         this.bindingMap = ImmutableSetMultimap.copyOf(bindingMap);
@@ -248,6 +268,13 @@ public class Ordering {
         return "[" + (isDistinct ? "distinct " : "") + orderingSet + "; bindings: " + bindingMap + "]";
     }
 
+    /**
+     * Method to derive {@link RequestedOrdering}s from this {@link Ordering}. This logic is needed when a set operation
+     * uses the provided ordering of one leg of the set operation to find compatible orderings among the other legs of
+     * that operation.
+     * @param requestedOrdering the {@link RequestedOrdering} of the set operation itself
+     * @return a set of {@link RequestedOrdering}s that can be pushed down the legs of the set operation
+     */
     @Nonnull
     public Set<RequestedOrdering> deriveRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
@@ -482,33 +509,13 @@ public class Ordering {
     }
 
     /**
-     * Method to compute the {@link PartiallyOrderedSet} representing this {@link Ordering}.
+     * Method to compute the {@link PartiallyOrderedSet} based on a binding map and a sequence of {@link Value}s.
      * <br>
-     * An ordering expresses the order of e.g. fields {@code a, b, x} and additionally declares some fields, e.g. {@code c}
-     * to be equal-bound to a value (e.g. {@code 5}). That means that {@code c} can freely move in the order declaration of
-     * {@code a, b, x} and satisfy {@link RequestedOrdering}s such as e.g. {@code a, c, b, x}, {@code a, b, x, c}
-     * or similar.
-     * <br>
-     * Generalizing this idea, for this example we can also say that in this case the plan is ordered by
-     * {@code c} as well as all the values for {@code c} are identical. Generalizing further, a plan, or by extension,
-     * a stream of data can actually be ordered by many things at the same time. For instance, a stream of four
-     * fields {@code a, b, x, y} can be ordered by {@code a, b} and {@code x, y} at the same time (consider e.g. that
-     * {@code x = 10 * a; y = 10 *b}. Both of these orderings are equally correct and representative.
-     * <br>
-     * Based on these two independent orderings we can construct new orderings that are also correct:
-     * {@code a, b, x, y}, {@code a, x, b, y}, or {@code x, y, a, b}, among others.
-     * <br>
-     * In order to properly capture this multitude of orderings, we can use partial orders (see {@link PartiallyOrderedSet})
-     * to define the ordering (unfortunate name clash). For our example, we can write
-     * <pre>
-     * {@code
-     * PartiallyOrderedSet([a, b, x, y], [a < b, x < y])
-     * }
-     * </pre>
+     * The partially ordered set is created in a way that we insert a dependency for each element and it predecessor in
+     * the ordering sequence that is passed in. For example, passing in {@code [a, b, c]} as ordering sequence without
+     * any fixed bindings we create a partially ordered set {@code (a, b, c), (a ← b, b ← c)}.
      *
-     * and mean all topologically correct permutations of {@code a, b, x, y}.
-     *
-     * @param bindingMap a normalized binding map
+     * @param bindingMap a binding map that is used to avoid creating dependencies for fixed bindings
      * @param orderingValues a list of ordering {@link Value}s
      * @return a {@link PartiallyOrderedSet} for this ordering
      */
@@ -527,6 +534,38 @@ public class Ordering {
                 .build();
     }
 
+    /**
+     * Helper method to normalize the binding map handed in. The steps to normalize a binding map can be summarized
+     * as follows:
+     * <ul>
+     *     <li>
+     *         If the binding set of a value contains only a directional binding, that binding is added to the
+     *         resulting biding map (for that value).
+     *     </li>
+     *     <li>
+     *         If the binding set of a value contains only fixed bindings, these fixed bindings are added to the
+     *         resulting biding map (for that value).
+     *     </li>
+     *     <li>
+     *         If the binding set of a value contains a directional binding and otherwise only fixed bindings, the
+     *         directional binding is added to the resulting binding map (for that value). Thus the binding set is
+     *         promoted to the directional binding.
+     *     </li>
+     *     <li>
+     *         We verify that the binding set of a value does not contain multiple directional bindings (they must
+     *         be different in their sort order as the bindings for a value are represented by a set, i.e. it is
+     *         impossible to see e.g. multiple {@code ASCENDING}s in the binding set.).
+     *     </li>
+     * </ul>
+     * <br>
+     * Callers that create orderings are supposed to ensure that the binding map is already normalized. This method
+     * just double-checks that that is indeed the case (as part of a sanity check). This method is public and can be
+     * called by a client prior to creating an ordering, however, without a proper reason it is discouraged to do so
+     * as that may lead to poorly understood conditions in the callers logic.
+     * @param bindingMap a binding map that is potentially not normalized.
+     * @return a normalized binding map which may just be the copy of the binding map passed in if that binding had
+     *         already been normalized
+     */
     @Nonnull
     public static ImmutableSetMultimap<Value, Binding> normalizeBindingMap(@Nonnull final SetMultimap<Value, Binding> bindingMap) {
         final var normalizedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
@@ -601,8 +640,8 @@ public class Ordering {
 
     /**
      * Method to <em>normalize</em> a partially-ordered set representing an ordering, that is, it removes all
-     * dependencies from or to a particular element contained in the set if that element is also equality-bound. If an
-     * element is equality-bound, that is, it is constant for all practical purposes, it is in also independent with
+     * dependencies from or to a particular element contained in the set if that element is also has a binding that is
+     * fixed. If an element is fixed, that is, it is constant for all practical purposes, it is in also independent with
      * respect to all other elements in the set.
      * @param bindingMap a multimap relating values and equality comparisons
      * @param orderingSet a partially ordered set representing the ordering set of an ordering
@@ -782,16 +821,16 @@ public class Ordering {
             final var rightElements = rightEligibleSet.eligibleElements();
 
             //
-            // "Intersect" the left elements with the right elements. Test their bindings for compatibility.
+            // Join the left eligible elements with the matching right eligible elements. Combine their bindings.
             //
-            final var combinedElementsBuilder = ImmutableSet.<Value>builder();
+            final var intersectedElementsBuilder = ImmutableSet.<Value>builder();
             for (final var leftElement : leftElements) {
                 for (final var rightElement : rightElements) {
                     if (leftElement.equals(rightElement)) {
                         final var combinedBindings =
                                 mergeOperator.combineBindings(leftBindingMap.get(leftElement), rightBindingMap.get(rightElement));
                         if (!combinedBindings.isEmpty()) {
-                            combinedElementsBuilder.add(leftElement);
+                            intersectedElementsBuilder.add(leftElement);
                             elementsBuilder.add(leftElement);
                             bindingMapBuilder.putAll(leftElement, combinedBindings);
                         }
@@ -799,14 +838,38 @@ public class Ordering {
                 }
             }
 
-            final var intersectedElements = combinedElementsBuilder.build();
+            //
+            // Note that this is a full-outer operation, that is we need to also consider elements that do not have
+            // matching counterparts on the other side. This is important as e.g. a singular fixed bindings from one of
+            // the legs of an intersection operation that does not even have a binding on the other legs still
+            // needs to have that singular binding in the resulting set ordering.
+            //
+            for (final var leftElement : Sets.difference(leftElements, rightElements)) {
+                final var combinedBindings =
+                        mergeOperator.combineBindings(leftBindingMap.get(leftElement), ImmutableSet.of());
+                if (!combinedBindings.isEmpty()) {
+                    elementsBuilder.add(leftElement);
+                    bindingMapBuilder.putAll(leftElement, combinedBindings);
+                }
+            }
+            for (final var rightElement : Sets.difference(rightElements, leftElements)) {
+                final var combinedBindings =
+                        mergeOperator.combineBindings(ImmutableSet.of(), leftBindingMap.get(rightElement));
+                if (!combinedBindings.isEmpty()) {
+                    elementsBuilder.add(rightElement);
+                    bindingMapBuilder.putAll(rightElement, combinedBindings);
+                }
+            }
+
+            final var intersectedElements = intersectedElementsBuilder.build();
             if (intersectedElements.isEmpty()) {
                 break;
             }
 
             for (final var intersectedElement : intersectedElements) {
                 for (final var lastElement : lastElements) {
-                    if (leftDependencies.get(intersectedElement).contains(lastElement) || rightDependencies.get(intersectedElement).contains(lastElement)) {
+                    if (leftDependencies.get(intersectedElement).contains(lastElement) ||
+                            rightDependencies.get(intersectedElement).contains(lastElement)) {
                         dependencyBuilder.put(intersectedElement, lastElement);
                     }
                 }
@@ -831,8 +894,12 @@ public class Ordering {
      * @return newly combined set of bindings
      */
     @Nonnull
-    public static Set<Binding> combineBindingsForUnion(@Nonnull final Set<Binding> leftBindings,
-                                                       @Nonnull final Set<Binding> rightBindings) {
+    private static Set<Binding> combineBindingsForUnion(@Nonnull final Set<Binding> leftBindings,
+                                                        @Nonnull final Set<Binding> rightBindings) {
+        if (leftBindings.isEmpty() || rightBindings.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
         final var leftSortOrder = sortOrder(leftBindings);
         final var rightSortOrder = sortOrder(rightBindings);
 
@@ -866,8 +933,24 @@ public class Ordering {
      * @return newly combined set of bindings
      */
     @Nonnull
-    public static Set<Binding> combineBindingsForIntersection(@Nonnull final Set<Binding> leftBindings,
-                                                              @Nonnull final Set<Binding> rightBindings) {
+    private static Set<Binding> combineBindingsForIntersection(@Nonnull final Set<Binding> leftBindings,
+                                                               @Nonnull final Set<Binding> rightBindings) {
+        if (leftBindings.isEmpty() && rightBindings.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        if (rightBindings.isEmpty() && areAllBindingsFixed(leftBindings)) {
+            return leftBindings;
+        }
+
+        if (leftBindings.isEmpty() && areAllBindingsFixed(rightBindings)) {
+            return rightBindings;
+        }
+
+        if (leftBindings.isEmpty() || rightBindings.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
         final var leftSortOrder = sortOrder(leftBindings);
         final var rightSortOrder = sortOrder(rightBindings);
 
@@ -936,9 +1019,9 @@ public class Ordering {
                         .putAll(rightOrderingSet.getDependencyMap());
 
         //
-        // Find the maximum values of the left ordering. The eligible set of a partially-ordered set are its minimum elements.
-        // Thus, the maximum elements are the minimum elements (that is the eligible elements) of the dual of the
-        // partially-ordered set.
+        // Find the maximum values of the left ordering. The eligible set of a partially-ordered set are its minimum
+        // elements. Thus, the maximum elements are the minimum elements (that is the eligible elements) of the dual
+        // of the partially-ordered set.
         // Find the maximum values of the left ordering. Make the minimum elements of the right ordering become dependent
         // on the maximum elements of the left ordering.
         //
@@ -970,23 +1053,56 @@ public class Ordering {
     }
 
     @Nonnull
+    protected static BiConsumer<SetMultimap<Value, Binding>, PartiallyOrderedSet<Value>> normalizationCheckConsumer() {
+        return Ordering::normalizationCheck;
+    }
+
+    protected static void normalizationCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                             @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+        final var normalizedBindingMap = normalizeBindingMap(bindingMap);
+        Verify.verify(bindingMap.equals(normalizedBindingMap));
+        final var normalizedOrderingSet = normalizeOrderingSet(bindingMap, orderingSet);
+        Verify.verify(orderingSet.equals(normalizedOrderingSet));
+    }
+
+    protected static void singularFixedBindingCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                                    @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+        for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
+            final var bindings = valueBindingsEntry.getValue();
+            Verify.verify(!areAllBindingsFixed(bindings) || !hasMultipleFixedBindings(bindings));
+        }
+    }
+
+    protected static void noChooseBindingCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
+                                               @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+        for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
+            final var bindings = valueBindingsEntry.getValue();
+            if (isSingularDirectionalBinding(bindings)) {
+                Verify.verify(sortOrder(bindings) != ProvidedSortOrder.CHOOSE);
+            }
+        }
+    }
+
+    @Nonnull
     public static Ordering ofOrderingSet(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                                          @Nonnull final PartiallyOrderedSet<Value> orderingSet,
                                          final boolean isDistinct) {
-        return new Ordering(bindingMap, orderingSet, isDistinct);
+        return new Ordering(bindingMap, orderingSet, isDistinct,
+                normalizationCheckConsumer().andThen(Ordering::singularFixedBindingCheck).andThen(Ordering::noChooseBindingCheck));
     }
 
     @Nonnull
     public static Ordering ofOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                                               @Nonnull final List<? extends Value> orderingAsList,
                                               final boolean isDistinct) {
-        return new Ordering(bindingMap, computeFromOrderingSequence(bindingMap, orderingAsList), isDistinct);
+        return ofOrderingSet(bindingMap, computeFromOrderingSequence(bindingMap, orderingAsList), isDistinct);
     }
 
     /**
      * Helper to attempt to resolve a comparison direction. This is needed for distinct set operations that use
      * comparison keys. In the future there won't be a common direction but each comparison value will encode that
-     * information separately.
+     * information separately. Note that this method is probably going to be deprecated once we have comparison keys
+     * that use an independent comparison direction per ordering part.
      * @param providedOrderingParts an iterable of {@link ProvidedOrderingPart}s
      * @return {@code Optional.empty()} if individual orderings are mixed (i.e. some are ascending, others are
      *         descending); {@code Optional.of(false)} if all directional sort orders are not descending;
@@ -1027,7 +1143,11 @@ public class Ordering {
     }
 
     /**
-     * TODO.
+     * A helper class used inside an {@link Ordering} to indicate if a value is considered to be ascending, descending,
+     * or fixed to a comparison/a set of comparisons (which have to be of type {@link ComparisonRange.Type#EQUALITY}).
+     * If the value is fixed to a set of more than one comparison, the context defines how that is interpreted:
+     * For regular {@link Ordering}s and {@link Intersection}s, the bindings are interpreted as a logical conjunction,
+     * for {@link Union} the bindings are interpreted as a disjunction.
      */
     public static class Binding {
         @Nonnull
@@ -1115,12 +1235,16 @@ public class Ordering {
     }
 
     /**
-     * TODO.
+     * Abstract static class that represents an ordering that is produced by an ordered set operation such as a union or
+     * intersection operation prior to the application of a comparison key. This sort ordering slightly modifies the
+     * semantics of multiple fixed bindings in the binding set of a {@link Value} imposed by {@link Ordering}
+     * by interpreting multiple bindings according to the kind of set operation. It also allows to create bindings
+     * of type {@link ProvidedSortOrder#CHOOSE}.
      */
     public abstract static class SetOperationsOrdering extends Ordering {
         public SetOperationsOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
                                      @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
-            super(bindingMap, orderingSet, isDistinct);
+            super(bindingMap, orderingSet, isDistinct, Ordering::normalizationCheck); // do not do the single binding check
         }
 
         @Nonnull
@@ -1197,16 +1321,29 @@ public class Ordering {
             Debugger.sanityCheck(() -> Verify.verify(orderingSet.getSet().containsAll(comparisonKeyOrderingSet.getSet())));
 
             final var resultBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
-            for (final Map.Entry<Value, Binding> entry : getBindingMap().entries()) {
-                final var key = entry.getKey();
-                if (!comparisonKeyBindingMap.containsKey(key)) {
-                    resultBindingMapBuilder.put(entry);
+            for (final var entry : getBindingMap().asMap().entrySet()) {
+                final var value = entry.getKey();
+                final var bindings = entry.getValue();
+
+                if (!comparisonKeyBindingMap.containsKey(value)) {
+                    if (areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings)) {
+                        // there is only one fixed binding
+                        resultBindingMapBuilder.putAll(value, bindings);
+                    }
+                    //
+                    // We don't output a binding if the there are multiple fixed bindings or there is a directional
+                    // binding that is not part of the comparison key
+                    //
                 } else {
-                    final var comparisonKeyBindings = comparisonKeyBindingMap.get(key);
+                    final var comparisonKeyBindings = comparisonKeyBindingMap.get(value);
                     Verify.verify(comparisonKeyBindings.stream().noneMatch(Binding::isFixed));
-                    resultBindingMapBuilder.put(key, Iterables.getOnlyElement(comparisonKeyBindings));
+                    resultBindingMapBuilder.put(value, Iterables.getOnlyElement(comparisonKeyBindings));
                 }
             }
+
+            final var resultBindingMap = resultBindingMapBuilder.build();
+            // result binding map's key set is a subset of the set backing this ordering set
+            final var resultSet = Sets.intersection(orderingSet.getSet(), resultBindingMap.keySet());
 
             final var otherDependencyMap = comparisonKeyOrderingSet.getDependencyMap();
             final var resultDependencyMap =
@@ -1214,8 +1351,9 @@ public class Ordering {
                             .putAll(orderingSet.getDependencyMap())
                             .putAll(otherDependencyMap)
                             .build();
-            final var resultOrderingSet = PartiallyOrderedSet.of(orderingSet.getSet(), resultDependencyMap);
-            return Ordering.ofOrderingSet(resultBindingMapBuilder.build(), resultOrderingSet, isDistinct());
+            final var resultOrderingSet =
+                    PartiallyOrderedSet.of(resultSet, resultDependencyMap);
+            return Ordering.ofOrderingSet(resultBindingMap, resultOrderingSet, isDistinct());
         }
 
         /**
