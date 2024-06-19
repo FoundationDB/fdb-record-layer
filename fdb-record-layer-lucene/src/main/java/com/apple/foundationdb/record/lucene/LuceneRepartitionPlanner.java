@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * Manage repartitioning details (merging small partitions and splitting large ones).
@@ -44,22 +46,31 @@ public class LuceneRepartitionPlanner {
      * Determine the repartitioning action and parameters for a given partition.
      *
      * @param groupingKey grouping key
-     * @param maxPartitionId max partition id (in case a new partition should be created)
-     * @param candidatePartition current partition
-     * @param olderPartition next older partition of current partition
-     * @param newerPartition next newer partition of current partition
+     * @param allPartitions all partition info, sorted in descending key order
+     * @param currentPartitionPosition position of current partition in list
      * @param repartitionDocumentCount max allowed documents to move per iteration
      * @return repartitioning context instance ({@link RepartitioningContext}
      */
     @Nonnull
-    RepartitioningContext determinePartitionRepartitioningAction(@Nonnull final Tuple groupingKey,
-                                                                 int maxPartitionId,
-                                                                 @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo candidatePartition,
-                                                                 @Nullable LucenePartitionInfoProto.LucenePartitionInfo olderPartition,
-                                                                 @Nullable LucenePartitionInfoProto.LucenePartitionInfo newerPartition,
-                                                                 int repartitionDocumentCount) {
-        // reset to defaults
-        RepartitioningContext repartitioningContext = new RepartitioningContext(groupingKey, maxPartitionId, candidatePartition);
+    RepartitioningContext determineRepartitioningAction(@Nonnull final Tuple groupingKey,
+                                                        @Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> allPartitions,
+                                                        int currentPartitionPosition,
+                                                        int repartitionDocumentCount) {
+        int maxPartitionId = allPartitions.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getId).max().orElse(0);
+        LucenePartitionInfoProto.LucenePartitionInfo candidatePartition = allPartitions.get(currentPartitionPosition);
+
+        Pair<LucenePartitionInfoProto.LucenePartitionInfo, LucenePartitionInfoProto.LucenePartitionInfo> neighborPartitions =
+                LucenePartitioner.getPartitionNeighbors(allPartitions, currentPartitionPosition);
+
+        // partitions sorted by key descending
+        LucenePartitionInfoProto.LucenePartitionInfo olderPartition = neighborPartitions.getRight();
+        LucenePartitionInfoProto.LucenePartitionInfo newerPartition = neighborPartitions.getLeft();
+
+        RepartitioningContext repartitioningContext = new RepartitioningContext(groupingKey,
+                maxPartitionId,
+                candidatePartition,
+                olderPartition,
+                newerPartition);
 
         // candidate partition's current doc count
         final int currentPartitionCount = candidatePartition.getCount();
@@ -67,9 +78,6 @@ public class LuceneRepartitionPlanner {
             // repartitioning not required
             return repartitioningContext;
         }
-
-        // here: repartitioning is required
-        repartitioningContext.sourcePartition = candidatePartition;
 
         if (currentPartitionCount < indexPartitionLowWatermark) {
             if (currentPartitionCount > repartitionDocumentCount) {
@@ -151,7 +159,9 @@ public class LuceneRepartitionPlanner {
     @VisibleForTesting
     public static class RepartitioningContext {
         @Nonnull Tuple groupingKey;
-        LucenePartitionInfoProto.LucenePartitionInfo sourcePartition;
+        @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition;
+        @Nullable final LucenePartitionInfoProto.LucenePartitionInfo olderPartition;
+        @Nullable final LucenePartitionInfoProto.LucenePartitionInfo newerPartition;
         boolean emptyingPartition;
         int countToMove;
         int maxPartitionId;
@@ -160,10 +170,14 @@ public class LuceneRepartitionPlanner {
 
         RepartitioningContext(@Nonnull final Tuple groupingKey,
                               int maxPartitionId,
-                              @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition) {
+                              @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition,
+                              @Nullable final LucenePartitionInfoProto.LucenePartitionInfo olderPartition,
+                              @Nullable final LucenePartitionInfoProto.LucenePartitionInfo newerPartition) {
             this.groupingKey = groupingKey;
             this.maxPartitionId = maxPartitionId;
             this.sourcePartition = sourcePartition;
+            this.olderPartition = olderPartition;
+            this.newerPartition = newerPartition;
             this.action = RepartitioningAction.NOT_REQUIRED;
         }
     }

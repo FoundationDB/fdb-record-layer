@@ -56,6 +56,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -478,17 +479,17 @@ public class LucenePartitioner {
      *
      * @param groupingKey grouping key
      * @param partitioningKey partitioning key
-     * @param assignedPartitionIdHint assigned partition override, if not null
+     * @param assignedPartitionIdOverride assigned partition override, if not null
      * @return assigned partition id
      */
     @Nonnull
     private CompletableFuture<Integer> addToAndSavePartitionMetadata(@Nonnull final Tuple groupingKey,
                                                                      @Nonnull final Tuple partitioningKey,
-                                                                     @Nullable final Integer assignedPartitionIdHint) {
+                                                                     @Nullable final Integer assignedPartitionIdOverride) {
 
         final CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> assignmentFuture;
-        if (assignedPartitionIdHint != null) {
-            assignmentFuture = getPartitionMetaInfoById(assignedPartitionIdHint, groupingKey);
+        if (assignedPartitionIdOverride != null) {
+            assignmentFuture = getPartitionMetaInfoById(assignedPartitionIdOverride, groupingKey);
         } else {
             assignmentFuture = getOrCreatePartitionInfo(groupingKey, partitioningKey);
         }
@@ -838,8 +839,6 @@ public class LucenePartitioner {
             throw new IllegalArgumentException("number of documents to move can't be zero");
         }
         return getAllPartitionMetaInfo(groupingKey).thenCompose(partitionInfos -> {
-            // need to track the next partition id to use when creating a new one
-            int maxPartitionId = partitionInfos.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getId).max(Integer::compare).orElse(0);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(partitionInfos.stream()
@@ -855,11 +854,8 @@ public class LucenePartitioner {
                     LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitionDocumentCount, partitionInfo));
                 }
 
-                LucenePartitionInfoProto.LucenePartitionInfo newerPartition = i == 0 ? null : partitionInfos.get(i - 1);
-                LucenePartitionInfoProto.LucenePartitionInfo olderPartition = i == partitionInfos.size() - 1 ? null : partitionInfos.get(i + 1);
-
-                LuceneRepartitionPlanner.RepartitioningContext repartitioningContext = repartitionPlanner.determinePartitionRepartitioningAction(groupingKey,
-                        maxPartitionId, partitionInfo, olderPartition, newerPartition, repartitionDocumentCount);
+                LuceneRepartitionPlanner.RepartitioningContext repartitioningContext = repartitionPlanner.determineRepartitioningAction(groupingKey,
+                        partitionInfos, i, repartitionDocumentCount);
 
                 if (repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NOT_REQUIRED &&
                         repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NO_CAPACITY_FOR_MERGE) {
@@ -961,7 +957,7 @@ public class LucenePartitioner {
         // we create the cursor here explicitly (vs. e.g. calling state.store.scanIndex(...)) because we want the search
         // to be performed specifically in the provided partition.
         // alternatively we can include a partitionInfo in the lucene scan parameters--tbd
-        try (LuceneRecordCursor cursor = new LuceneRecordCursor(
+        return new LuceneRecordCursor(
                 state.context.getExecutor(),
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                 this,
@@ -970,10 +966,7 @@ public class LucenePartitioner {
                 scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
                 scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(),
                 LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos),
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos))) {
-
-            return cursor;
-        }
+                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.AUTO_COMPLETE, fieldInfos));
     }
 
     /**
@@ -997,82 +990,79 @@ public class LucenePartitioner {
         final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = repartitioningContext.sourcePartition;
         final Tuple groupingKey = repartitioningContext.groupingKey;
 
-        try (LuceneRecordCursor cursor = removingOldest ?
-                                         getOldestNDocuments(partitionInfo, groupingKey, repartitioningContext.countToMove)
-                                                        :
-                                         getNewestNDocuments(partitionInfo, groupingKey, repartitioningContext.countToMove)) {
+        LuceneRecordCursor cursor = removingOldest ?
+                                    getOldestNDocuments(partitionInfo, groupingKey, repartitioningContext.countToMove)
+                                                   :
+                                    getNewestNDocuments(partitionInfo, groupingKey, repartitioningContext.countToMove);
 
-            final CompletableFuture<? extends List<? extends FDBIndexableRecord<Message>>> fetchedRecordsFuture;
-            if (recordTypes.iterator().next().isSynthetic()) {
-                fetchedRecordsFuture = cursor.mapPipelined(indexEntry -> state.store.loadSyntheticRecord(indexEntry.getPrimaryKey()),
-                        state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD)).asList();
+        CompletableFuture<? extends List<? extends FDBIndexableRecord<Message>>> fetchedRecordsFuture;
+        if (recordTypes.iterator().next().isSynthetic()) {
+            fetchedRecordsFuture = cursor.mapPipelined(indexEntry -> state.store.loadSyntheticRecord(indexEntry.getPrimaryKey()),
+                    state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD)).asList();
+        } else {
+            fetchedRecordsFuture = state.store.fetchIndexRecords(cursor, IndexOrphanBehavior.SKIP).map(FDBIndexedRecord::getStoredRecord).asList();
+        }
+
+        fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
+        return fetchedRecordsFuture.thenCompose(records -> {
+            Tuple newBoundaryPartitionKey = null;
+            // if there would be records left in the partition, and more than 1 records to remove
+            if (!repartitioningContext.emptyingPartition && repartitioningContext.newBoundaryRecordPresent) {
+                // remove the (n + 1)th record from the records to be moved
+                newBoundaryPartitionKey = toPartitionKey(records.get(records.size() - 1));
+                records.remove(records.size() - 1);
+            }
+            // reset partition info
+            state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
+            LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
+            if (repartitioningContext.emptyingPartition) {
+                Range partitionDataRange = Range.startsWith(state.indexSubspace.subspace(groupingKey.add(PARTITION_DATA_SUBSPACE).add(partitionInfo.getId())).pack());
+                state.context.ensureActive().clear(partitionDataRange);
             } else {
-                fetchedRecordsFuture = state.store.fetchIndexRecords(cursor, IndexOrphanBehavior.SKIP).map(FDBIndexedRecord::getStoredRecord).asList();
+                // shortcut delete docs from current partition
+                // (we do this, instead of calling LuceneIndexMaintainer.update() in order to avoid a chicken-and-egg
+                // situation with the partition metadata keys.
+                records.forEach(r -> {
+                    try {
+                        indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
+                    } catch (IOException e) {
+                        throw new RecordCoreException(e);
+                    }
+                });
+                // update source partition's meta
+                LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = partitionInfo.toBuilder()
+                        .setCount(partitionInfo.getCount() - records.size());
+                if (removingOldest) {
+                    builder.setFrom(ByteString.copyFrom(Objects.requireNonNull(newBoundaryPartitionKey).pack()));
+                } else {
+                    builder.setTo(ByteString.copyFrom(Objects.requireNonNull(newBoundaryPartitionKey).pack()));
+                }
+                savePartitionMetadata(groupingKey, builder);
             }
 
-            return fetchedRecordsFuture.thenCompose(records -> {
-                Tuple newBoundaryPartitionKey = null;
-                // if there would be records left in the partition, and more than 1 records to remove
-                if (!repartitioningContext.emptyingPartition && repartitioningContext.newBoundaryRecordPresent) {
-                    // remove the (n + 1)th record from the records to be moved
-                    newBoundaryPartitionKey = toPartitionKey(records.get(records.size() - 1));
-                    records.remove(records.size() - 1);
-                }
-                if (records.size() > 0) {
-                    LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
-                    // shortcut delete docs from current partition
-                    // (we do this, instead of calling LuceneIndexMaintainer.update() in order to avoid a chicken-and-egg
-                    // situation with the partition metadata keys.
-                    records.forEach(r -> {
-                        try {
-                            indexMaintainer.deleteDocument(groupingKey, partitionInfo.getId(), r.getPrimaryKey());
-                        } catch (IOException e) {
-                            throw new RecordCoreException(e);
-                        }
-                    });
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(repartitionLogMessage("Repartitioned records", groupingKey, records.size(), partitionInfo));
+            }
 
-                    // reset partition info
-                    state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
-                    if (!repartitioningContext.emptyingPartition) {
-                        // update current partition's meta
-                        LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = partitionInfo.toBuilder()
-                                .setCount(partitionInfo.getCount() - records.size());
-                        if (removingOldest) {
-                            builder.setFrom(ByteString.copyFrom(Objects.requireNonNull(newBoundaryPartitionKey).pack()));
-                        } else {
-                            builder.setTo(ByteString.copyFrom(Objects.requireNonNull(newBoundaryPartitionKey).pack()));
-                        }
-                        savePartitionMetadata(groupingKey, builder);
-                    }
+            // value of the "destination" partition's `from` value
+            final Tuple overflowPartitioningKey = toPartitionKey(records.get(0));
+            LucenePartitionInfoProto.LucenePartitionInfo destinationPartition = removingOldest ?
+                                                                                repartitioningContext.olderPartition
+                                                                                               :
+                                                                                repartitioningContext.newerPartition;
 
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(repartitionLogMessage("Repartitioned records", groupingKey, records.size(), partitionInfo));
-                    }
+            if (destinationPartition == null || destinationPartition.getCount() + records.size() > indexPartitionHighWatermark || destinationPartition.getId() == partitionInfo.getId()) {
+                // create a new "overflow" partition
+                destinationPartition = newPartitionMetadata(overflowPartitioningKey, repartitioningContext.maxPartitionId + 1);
+                savePartitionMetadata(groupingKey, destinationPartition.toBuilder());
+            }
 
-                    // value of the "destination" partition's `from` value
-                    final Tuple overflowPartitioningKey = toPartitionKey(records.get(0));
-                    final CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> futureDestination;
-                    if (removingOldest) {
-                        futureDestination = findPartitionInfo(groupingKey, overflowPartitioningKey);
-                    } else {
-                        futureDestination = getNextNewerPartitionInfo(state.context, groupingKey, overflowPartitioningKey, state.indexSubspace);
-                    }
-                    return futureDestination.thenCompose(destinationPartition -> {
-                        if (destinationPartition == null || destinationPartition.getCount() + records.size() > indexPartitionHighWatermark || destinationPartition.getId() == partitionInfo.getId()) {
-                            // create a new "overflow" partition
-                            destinationPartition = newPartitionMetadata(overflowPartitioningKey,  repartitioningContext.maxPartitionId + 1);
-                            savePartitionMetadata(groupingKey, destinationPartition.toBuilder());
-                        }
-
-                        Iterator<? extends FDBIndexableRecord<Message>> recordIterator = records.iterator();
-                        final int destinationPartitionId = destinationPartition.getId();
-                        return AsyncUtil.whileTrue(() -> indexMaintainer.update(null, recordIterator.next(), destinationPartitionId)
-                                .thenApply(ignored -> recordIterator.hasNext()), state.context.getExecutor());
-                    }).thenApply(ignored -> records.size());
-                }
-                return CompletableFuture.completedFuture(0);
-            });
-        }
+            Iterator<? extends FDBIndexableRecord<Message>> recordIterator = records.iterator();
+            final int destinationPartitionId = destinationPartition.getId();
+            return AsyncUtil.whileTrue(() -> indexMaintainer.update(null, recordIterator.next(), destinationPartitionId)
+                    .thenApply(ignored -> recordIterator.hasNext()), state.context.getExecutor())
+                    .thenApply(ignored -> records.size());
+        });
     }
 
     /**
@@ -1292,6 +1282,23 @@ public class LucenePartitioner {
                     '}';
         }
     }
+
+    /**
+     * return the neighbors of a given partition in a list.
+     *
+     * @param allPartitions all partitions
+     * @param currentPartitionPosition current partition's position in the list
+     * @return pair of left and right neighbors
+     */
+    @Nonnull
+    public static Pair<LucenePartitionInfoProto.LucenePartitionInfo, LucenePartitionInfoProto.LucenePartitionInfo> getPartitionNeighbors(
+            @Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> allPartitions,
+            int currentPartitionPosition) {
+        LucenePartitionInfoProto.LucenePartitionInfo leftPartition = currentPartitionPosition == 0 ? null : allPartitions.get(currentPartitionPosition - 1);
+        LucenePartitionInfoProto.LucenePartitionInfo rightPartition = currentPartitionPosition == allPartitions.size() - 1 ? null : allPartitions.get(currentPartitionPosition + 1);
+        return Pair.of(leftPartition, rightPartition);
+    }
+
 
     /**
      * encapsulate and manage additional log messages when repartitioning.
