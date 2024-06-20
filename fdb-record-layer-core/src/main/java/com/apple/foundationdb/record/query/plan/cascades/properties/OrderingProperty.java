@@ -530,7 +530,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var sourceAliases =
                     inUnionOnValuePlan.getInSources()
                             .stream()
-                            .map(inSource -> CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))
+                            .map(inSource -> CorrelationIdentifier.of(CORRELATION.typedIdentifier(inSource.getBindingName())))
                             .collect(ImmutableSet.toImmutableSet());
 
             for (final var entry : equalityBoundValueMap.entries()) {

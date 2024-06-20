@@ -100,7 +100,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     public CorrelationIdentifier getInAlias() {
-        return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
+        return CorrelationIdentifier.of(internal.typedIdentifier(inSource.getBindingName()));
     }
 
     @Nonnull

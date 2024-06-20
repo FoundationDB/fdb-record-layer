@@ -134,7 +134,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
     @Nonnull
     public CorrelationIdentifier getInAlias(@Nonnull final InSource inSource) {
-        return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
+        return CorrelationIdentifier.of(internal.typedIdentifier(inSource.getBindingName()));
     }
 
     @SuppressWarnings("resource")
@@ -205,7 +205,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
 
         final var inAliases = getInSources()
                 .stream()
-                .map(inSource -> CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(inSource.getBindingName())))
+                .map(inSource -> CorrelationIdentifier.of(Bindings.Internal.identifier(inSource.getBindingName())))
                 .collect(ImmutableSet.toImmutableSet());
         inner.getCorrelatedTo()
                 .stream()

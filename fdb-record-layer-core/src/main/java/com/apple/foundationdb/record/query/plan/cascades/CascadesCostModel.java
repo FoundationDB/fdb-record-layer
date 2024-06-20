@@ -368,14 +368,14 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         if (leftExpression instanceof RecordQueryInJoinPlan) {
             final var inJoinPlan = (RecordQueryInJoinPlan)leftExpression;
             final var inSource = inJoinPlan.getInSource();
-            if (!scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))) {
+            if (!scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.typedIdentifier(inSource.getBindingName())))) {
                 return OptionalInt.of(1);
             }
         } else if (leftExpression instanceof RecordQueryInUnionPlan) {
             final var inUnionPlan = (RecordQueryInUnionPlan)leftExpression;
             if (inUnionPlan.getInSources()
                     .stream()
-                    .noneMatch(inValuesSource -> scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.identifier(inValuesSource.getBindingName()))))) {
+                    .noneMatch(inValuesSource -> scanComparisonsCorrelatedTo.contains(CorrelationIdentifier.of(CORRELATION.typedIdentifier(inValuesSource.getBindingName()))))) {
                 return OptionalInt.of(1);
             }
         }
