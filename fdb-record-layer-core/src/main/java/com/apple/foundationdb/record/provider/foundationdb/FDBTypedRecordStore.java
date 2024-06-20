@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -181,6 +182,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return untypedStore.scanTypedRecords(typedSerializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<FDBStoredRecord<M>> scanRecordsKeyRange(@Nonnull final KeyRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return untypedStore.scanTypedRecordsKeyRange(typedSerializer, range, continuation, scanProperties);
     }
 
     @Nonnull
