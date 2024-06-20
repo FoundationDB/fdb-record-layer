@@ -92,23 +92,23 @@ public class MemoExpressionTest {
         assertTrue(justALeaf1.containsAllInMemo(justALeaf1, AliasMap.emptyMap()));
         assertFalse(justALeaf1.containsAllInMemo(justALeaf2, AliasMap.emptyMap()));
 
-        Reference multipleLeaves1 = Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
-        Reference multipleLeaves2 = Reference.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"));
+        Reference multipleLeaves1 = Reference.of(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
+        Reference multipleLeaves2 = Reference.of(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"));
         assertTrue(multipleLeaves1.containsAllInMemo(multipleLeaves1, AliasMap.emptyMap()));
         assertFalse(multipleLeaves1.containsAllInMemo(multipleLeaves2, AliasMap.emptyMap()));
 
-        Reference complexExpression = Reference.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2"));
+        Reference complexExpression = Reference.of(middleExpressions.get("middle1-3"), middleExpressions.get("middle2"));
         assertTrue(complexExpression.containsAllInMemo(complexExpression, AliasMap.emptyMap()));
     }
 
     @Test
     public void flatSets() {
-        Reference allLeaves = Reference.from(leafExpressions.values());
+        Reference allLeaves = Reference.of(leafExpressions.values());
         Reference justALeaf = Reference.of(leafExpressions.get("leaf1"));
         assertTrue(allLeaves.containsAllInMemo(justALeaf, AliasMap.emptyMap()));
         assertFalse(justALeaf.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
 
-        Reference multipleLeaves = Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
+        Reference multipleLeaves = Reference.of(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
         assertTrue(allLeaves.containsAllInMemo(multipleLeaves, AliasMap.emptyMap()));
         assertFalse(multipleLeaves.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
     }
@@ -116,20 +116,20 @@ public class MemoExpressionTest {
     @Test
     public void complexReferences() {
         SyntheticPlannerExpression root1 = new SyntheticPlannerExpression("root1",
-                ImmutableList.of(Reference.from(middleExpressions.get("middle1"), middleExpressions.get("middle2")),
-                        Reference.from(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"))));
+                ImmutableList.of(Reference.of(middleExpressions.get("middle1"), middleExpressions.get("middle2")),
+                        Reference.of(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"))));
         SyntheticPlannerExpression root2 = new SyntheticPlannerExpression("root2",
-                ImmutableList.of(Reference.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2-2")),
-                        Reference.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"))));
+                ImmutableList.of(Reference.of(middleExpressions.get("middle1-3"), middleExpressions.get("middle2-2")),
+                        Reference.of(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"))));
         SyntheticPlannerExpression root1copy = new SyntheticPlannerExpression("root1",
                     ImmutableList.of(Reference.of(leafExpressions.get("leaf3")),
                             Reference.of(leafExpressions.get("leaf4"))));
-        Reference firstTwoRoots = Reference.from(root1, root2);
-        Reference allRoots = Reference.from(root1, root2, root1copy);
+        Reference firstTwoRoots = Reference.of(root1, root2);
+        Reference allRoots = Reference.of(root1, root2, root1copy);
         assertEquals(3, allRoots.getMembers().size());
 
         assertTrue(firstTwoRoots.containsAllInMemo(Reference.of(root1), AliasMap.emptyMap()));
-        assertTrue(firstTwoRoots.containsAllInMemo(Reference.from(root1, root2), AliasMap.emptyMap()));
+        assertTrue(firstTwoRoots.containsAllInMemo(Reference.of(root1, root2), AliasMap.emptyMap()));
         assertTrue(allRoots.containsAllInMemo(firstTwoRoots, AliasMap.emptyMap()));
         assertFalse(firstTwoRoots.containsAllInMemo(Reference.of(root1copy), AliasMap.emptyMap()));
         assertFalse(firstTwoRoots.containsAllInMemo(allRoots, AliasMap.emptyMap()));

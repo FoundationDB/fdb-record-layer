@@ -447,11 +447,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public static Physical fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PPhysicalQuantifier physicalQuantifierProto) {
-            final ImmutableList.Builder<RelationalExpression> membersBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<RecordQueryPlan> membersBuilder = ImmutableList.builder();
             for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
                 membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
             }
-            final Reference reference = Reference.from(membersBuilder.build());
+            final Reference reference = Reference.ofPlans(membersBuilder.build());
             return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
                     .build(reference);
         }
@@ -510,13 +510,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public abstract String getShorthand();
 
     /**
-     * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
+     * Allow the computation of {@link SimpleExpressionVisitor}s across the quantifiers in the data flow graph.
      * @param visitor the planner property that is being computed
      * @param <U> the type of the property being computed
      * @return the property
      */
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
+    public <U> U acceptPropertyVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
         if (visitor.shouldVisit(this)) {
             return visitor.evaluateAtQuantifier(this, getRangesOver().acceptPropertyVisitor(visitor));
         }

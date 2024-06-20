@@ -62,7 +62,7 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.STORED_RECORD),
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
@@ -95,11 +95,11 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
         final var unsatisfiedMap = unsatisfiedMapBuilder.build();
 
         if (!noTypeFilterNeeded.isEmpty()) {
-            call.yieldExpression(noTypeFilterNeeded);
+            call.yieldFinalExpressions(noTypeFilterNeeded);
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yieldExpression(
+            call.yieldFinalExpression(
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(call.memoizeMemberPlans(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),

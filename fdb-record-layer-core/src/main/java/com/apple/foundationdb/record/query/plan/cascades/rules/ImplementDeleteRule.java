@@ -53,7 +53,7 @@ public class ImplementDeleteRule extends CascadesRule<DeleteExpression> {
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(STORED_RECORD),
                     any(innerPlanPartitionMatcher)));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
@@ -77,7 +77,7 @@ public class ImplementDeleteRule extends CascadesRule<DeleteExpression> {
         final var planPartitionReference =
                 call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
         final var distinctPlansReference =
-                innerPlanPartition.getAttributeValue(DistinctRecordsProperty.DISTINCT_RECORDS)
+                innerPlanPartition.getPropertyValue(DistinctRecordsProperty.DISTINCT_RECORDS)
                 ? planPartitionReference
                 : call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 
@@ -85,6 +85,6 @@ public class ImplementDeleteRule extends CascadesRule<DeleteExpression> {
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(distinctPlansReference);
-        call.yieldExpression(deleteExpression.toPlan(physicalQuantifier));
+        call.yieldFinalExpression(deleteExpression.toPlan(physicalQuantifier));
     }
 }

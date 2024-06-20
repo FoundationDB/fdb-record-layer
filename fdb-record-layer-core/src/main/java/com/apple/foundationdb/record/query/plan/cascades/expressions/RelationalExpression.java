@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
@@ -44,9 +42,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -55,6 +53,8 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -132,8 +132,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
             final var fuseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
-            baseRef = Reference.of(
-                    new LogicalTypeFilterExpression(
+            baseRef = Reference.of(new LogicalTypeFilterExpression(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
                             Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(queriedRecordTypes))));
@@ -788,13 +787,13 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
-     * {@link ExpressionProperty#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
-     * @param visitor a {@link ExpressionProperty} visitor to evaluate
+     * {@link SimpleExpressionVisitor#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
+     * @param visitor a {@link SimpleExpressionVisitor} visitor to evaluate
      * @param <U> the type of the evaluated property
      * @return the result of evaluating the property on the subtree rooted at this expression
      */
     @Nullable
-    default <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
+    default <U> U acceptPropertyVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
         if (visitor.shouldVisit(this)) {
             return visitor.visit(this);
         }

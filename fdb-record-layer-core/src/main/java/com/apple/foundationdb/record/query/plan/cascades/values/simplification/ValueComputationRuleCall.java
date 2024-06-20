@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -46,7 +47,7 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     @Nonnull
     private final Function<Value, Pair<Value, RESULT>> retrieveResultFunction;
 
-    public ValueComputationRuleCall(@Nonnull final AbstractRule<Pair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>, Value, ? extends Value> rule,
+    public ValueComputationRuleCall(@Nonnull final PlannerRule<Pair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>, ? extends Value> rule,
                                     @Nonnull final Value root,
                                     @Nonnull final Value current,
                                     @Nullable final ARGUMENT argument,
@@ -70,6 +71,6 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     }
 
     public void yieldValue(@Nonnull final Value value, @Nonnull final RESULT result) {
-        super.yieldExpression(Pair.of(value, result));
+        super.yieldResult(Pair.of(value, result));
     }
 }

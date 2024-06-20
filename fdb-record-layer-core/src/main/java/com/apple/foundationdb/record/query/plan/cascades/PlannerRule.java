@@ -41,7 +41,7 @@ public interface PlannerRule<R, C extends PlannerRuleCall<R>, T> {
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
      * Used primarily for indexing rules for more efficient rule search.
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
-     * @see PlannerRuleSet
+     * @see PlanningRuleSet
      */
     @Nonnull
     Optional<Class<?>> getRootOperator();

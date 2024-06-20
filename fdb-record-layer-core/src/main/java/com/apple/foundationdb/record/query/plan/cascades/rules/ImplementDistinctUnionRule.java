@@ -48,7 +48,7 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.cascades.PropertiesMap.allAttributesExcept;
+import static com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap.allAttributesExcept;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
@@ -78,8 +78,8 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD) &&
-                                                  planPartition.getAttributeValue(PRIMARY_KEY).isPresent(),
+            planPartitions(where(planPartition -> planPartition.getPropertyValue(STORED_RECORD) &&
+                                                  planPartition.getPropertyValue(PRIMARY_KEY).isPresent(),
                     rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))));
 
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
@@ -150,7 +150,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
                 final var commonPrimaryKeyValuesMaybe =
                         PrimaryKeyProperty.commonPrimaryKeyValuesMaybeFromOptionals(partitions.stream()
-                                .map(partition -> partition.getAttributeValue(PRIMARY_KEY))
+                                .map(partition -> partition.getPropertyValue(PRIMARY_KEY))
                                 .collect(ImmutableList.toImmutableList()));
 
                 if (commonPrimaryKeyValuesMaybe.isEmpty()) {
@@ -161,7 +161,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                 final ImmutableList<Ordering> orderings =
                         partitions
                                 .stream()
-                                .map(planPartition -> planPartition.getAttributeValue(ORDERING))
+                                .map(planPartition -> planPartition.getPropertyValue(ORDERING))
                                 .collect(ImmutableList.toImmutableList());
                 pushInterestingOrders(call, unionForEachQuantifier, orderings, requestedOrdering);
 
@@ -214,7 +214,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
+                        call.yieldFinalExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
                     }
                 }
             }

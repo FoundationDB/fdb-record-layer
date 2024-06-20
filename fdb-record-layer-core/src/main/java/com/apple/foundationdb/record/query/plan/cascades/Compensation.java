@@ -752,7 +752,9 @@ public interface Compensation {
             //
             // At this point we definitely need a new SELECT expression.
             //
-            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)), matchedForEachQuantifierAlias);
+            final var newBaseQuantifier =
+                    Quantifier.forEach(memoizer.memoizeReference(Reference.ofAny(relationalExpression)),
+                            matchedForEachQuantifierAlias);
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
 
             final var injectCompensationFunctions = predicateCompensationMap.values();
