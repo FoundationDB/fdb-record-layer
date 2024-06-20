@@ -95,7 +95,7 @@ public class LucenePartitioner {
 
     private static final FDBStoreTimer.Waits WAIT_LOAD_LUCENE_PARTITION_METADATA = FDBStoreTimer.Waits.WAIT_LOAD_LUCENE_PARTITION_METADATA;
     private static final Logger LOGGER = LoggerFactory.getLogger(LucenePartitioner.class);
-    private static final int DEFAULT_PARTITION_HIGH_WATERMARK = 400_000;
+    static final int DEFAULT_PARTITION_HIGH_WATERMARK = 400_000;
     @VisibleForTesting
     public static final int DEFAULT_PARTITION_LOW_WATERMARK = 0;
     private static final ConcurrentHashMap<String, KeyExpression> partitioningKeyExpressionCache = new ConcurrentHashMap<>();

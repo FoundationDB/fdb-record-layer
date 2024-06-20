@@ -44,9 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * tests for the lucene repartition planner.
  */
 @Tag(Tags.RequiresFDB)
-public class LuceneRepartitionPlannerTest extends LuceneIndexTest {
+public class LuceneRepartitionPlannerTest {
     @ParameterizedTest
-    @MethodSource(value = "simplePartitionConsolidationTest")
+    @MethodSource(value = "com.apple.foundationdb.record.lucene.LuceneIndexTest#simplePartitionConsolidationTest")
     public void luceneRepartitionPlannerTest(int lowWatermark,
                                              int highWatermark,
                                              int repartitionDocumentCount,

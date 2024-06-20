@@ -76,10 +76,17 @@ public class LuceneIndexValidator extends IndexValidator {
 
         if (lowWatermarkOption != null) {
             lowWatermark = Integer.parseInt(lowWatermarkOption);
-            if (lowWatermark < 0 || (highWatermark != null && lowWatermark > highWatermark)) {
+            if (lowWatermark < 0) {
                 throw new MetaDataException(
                         "Invalid value for " + LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK +
-                                ": must be > 0 and less than " + LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK);
+                                ": must be > 0");
+            } else {
+                int actualHighWatermark = highWatermark == null ? LucenePartitioner.DEFAULT_PARTITION_HIGH_WATERMARK : highWatermark;
+                if (lowWatermark >= actualHighWatermark) {
+                    throw new MetaDataException(
+                            "Invalid value for " + LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK +
+                                    ": less than " + LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK + ": " + actualHighWatermark);
+                }
             }
         }
     }
