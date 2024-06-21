@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -649,4 +650,117 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
     }
+
+    @Test
+    void testGetEnforcedDelayMillis() {
+        testGetEnforcedDelayMillis(1000, 100, 100, 0);
+        testGetEnforcedDelayMillis(1000, 100, 1000, 9000);
+        testGetEnforcedDelayMillis(3500, 100, 1000, 6500);
+        testGetEnforcedDelayMillis(1000, 350, 1000, (650000 / 350)); // wait for a period of time that could have compensated for the extra 650 deletes in a 350/sec rate
+        testGetEnforcedDelayMillis(-1, 100, 100, 999); // round up to 1, wait to fill up a 100/sec rate
+        testGetEnforcedDelayMillis(1, 100, 200, 1999);
+        testGetEnforcedDelayMillis(500, 100, 100, 500);
+        testGetEnforcedDelayMillis(500, 1, 0, 0); // count 0 should always return 0 (never wait)
+        testGetEnforcedDelayMillis(500, 2, 1, 0);
+        testGetEnforcedDelayMillis(2000, 2, 4, 0);
+    }
+
+    void testGetEnforcedDelayMillis(int intervalMillis, int maxPerSecond, int count, int expected) {
+        int got = IndexingScrubDangling.getEnforcedDelayMillis(intervalMillis, maxPerSecond, count);
+        Assertions.assertEquals(expected, got);
+    }
+
+    @Test
+    void testScrubberExpectedDangling() throws ExecutionException, InterruptedException {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 61;
+        long res;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
+
+        // manually delete a few records w/o updating the indexes
+        openSimpleMetaData(hook);
+        int danglingCount = 0;
+        try (FDBRecordContext context = openContext(false)) {
+            List<FDBIndexedRecord<Message>> indexRecordEntries = recordStore.scanIndexRecords(tgtIndex.getName(), IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            for (int i = 3; i < numRecords; i *= 2) {
+                final FDBIndexedRecord<Message> indexRecord = indexRecordEntries.get(i);
+                final FDBStoredRecord<Message> rec = indexRecord.getStoredRecord();
+                final Subspace subspace = recordStore.recordsSubspace().subspace(rec.getPrimaryKey());
+                recordStore.getContext().ensureActive().clear(subspace.range());
+                danglingCount ++;
+            }
+            context.commit();
+        }
+
+        // verify the missing entries are found (report only, no repair), use partial scan
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setEntriesScanLimit(12)
+                        .setAllowRepair(false))
+                .setLimit(4)
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        // Verify that it was a partial scan
+        assertEquals(12, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(2, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(2, res);
+
+        // Fix all dangling index (expect missing entries - so no warning + full scan)
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setMaxDeletesPerSecond(10)
+                        .setFullScan(true)
+                        .setLogWarningsLimit(0)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(danglingCount, res);
+
+        numRecords -= danglingCount; // if the dangling indexes were removed, this should be reflected later
+
+        // now verify it's fixed
+        timer.reset();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .build())
+                .build()) {
+            res = indexScrubber.scrubDanglingIndexEntries();
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        assertEquals(0, res);
+    }
+
 }

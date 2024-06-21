@@ -142,19 +142,23 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false, 0);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
         private final boolean ignoreIndexTypeCheck;
+        private final boolean fullScan;
+        private final int maxDeletesPerSecond;
 
         public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
-                               boolean ignoreIndexTypeCheck) {
+                               boolean ignoreIndexTypeCheck, boolean fullScan, int maxDeletesPerSecond) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
             this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
+            this.fullScan = fullScan;
+            this.maxDeletesPerSecond = maxDeletesPerSecond;
         }
 
         boolean allowRepair() {
@@ -171,6 +175,14 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         public int getLogWarningsLimit() {
             return logWarningsLimit;
+        }
+
+        public boolean isFullScan() {
+            return fullScan;
+        }
+
+        public int getMaxDeletesPerSecond() {
+            return maxDeletesPerSecond;
         }
 
         /**
@@ -196,6 +208,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
             boolean allowRepair = true;
             long entriesScanLimit = 0;
             boolean ignoreIndexTypeCheck = false;
+            boolean fullScan = false;
+            int maxDeletesPerSecond = 0;
 
             protected Builder() {
             }
@@ -254,8 +268,18 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 return this;
             }
 
+            public Builder setFullScan(final boolean fullScan) {
+                this.fullScan = fullScan;
+                return this;
+            }
+
+            public Builder setMaxDeletesPerSecond(final int maxDeletesPerSecond) {
+                this.maxDeletesPerSecond = maxDeletesPerSecond;
+                return this;
+            }
+
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck, fullScan, maxDeletesPerSecond);
             }
         }
     }

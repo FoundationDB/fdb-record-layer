@@ -103,6 +103,13 @@ public class IndexingThrottle {
             // - For simplicity and locality, assume that the next chunk starts at nowMillis+waitMillis
             // - Avoiding negative delta and restricting toWait's range implies self initialization
             // - Ignore failed transactions (they should be rare, and limited in number)
+            final int enforcedDelay = common.getResetEnforcedDelayMilliseconds();
+            if (enforcedDelay > 0) {
+                // Here: The end module decided to override potential throttle delay. Respect it.
+                recordsScannedSinceForcedDelayMilliSeconds = 0;
+                forcedDelayTimestampMilliSeconds = 0;
+                return enforcedDelay;
+            }
             int recordsPerSecond = common.config.getRecordsPerSecond();
             if (recordsPerSecond == IndexingCommon.UNLIMITED) {
                 // in case config loader changes this value from UNLIMITED to limit

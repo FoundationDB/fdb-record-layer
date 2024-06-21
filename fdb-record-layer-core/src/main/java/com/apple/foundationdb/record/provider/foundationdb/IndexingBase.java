@@ -585,13 +585,13 @@ public abstract class IndexingBase {
         validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
                 "Not a scrubber type-stamp");
 
-        final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
+        final Index index = common.getIndex(); // Note: the scrubbers does not support multi target (yet)
         IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index);
         IndexingRangeSet recordsRangeSet = IndexingRangeSet.forScrubbingRecords(store, index);
         final CompletableFuture<Range> indexRangeFuture = indexRangeSet.firstMissingRangeAsync();
         final CompletableFuture<Range> recordRangeFuture = recordsRangeSet.firstMissingRangeAsync();
         return indexRangeFuture.thenCompose(indexRange -> {
-            if (indexRange == null) {
+            if (shouldResetIndexScrubbingRange() || indexRange == null) {
                 // Here: no un-scrubbed index range was left for this call. We will
                 // erase the 'ranges' data to allow a fresh index re-scrubbing.
                 if (LOGGER.isDebugEnabled()) {
@@ -602,7 +602,7 @@ public abstract class IndexingBase {
                 indexRangeSet.clear();
             }
             return recordRangeFuture.thenAccept(recordRange -> {
-                if (recordRange == null) {
+                if (shouldResetRecordScrubbingRange() || recordRange == null) {
                     // Here: no un-scrubbed records range was left for this call. We will
                     // erase the 'ranges' data to allow a fresh records re-scrubbing.
                     if (LOGGER.isDebugEnabled()) {
@@ -614,6 +614,14 @@ public abstract class IndexingBase {
                 }
             });
         });
+    }
+
+    protected boolean shouldResetIndexScrubbingRange() {
+        return false;
+    }
+
+    protected boolean shouldResetRecordScrubbingRange() {
+        return false;
     }
 
     @Nonnull
