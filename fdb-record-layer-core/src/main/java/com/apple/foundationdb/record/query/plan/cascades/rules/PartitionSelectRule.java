@@ -281,8 +281,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                 final var lowerAlias = ((QuantifiedObjectValue)lowerResultColumn.getValue()).getAlias();
                 final var index = i;
                 translationMapBuilder.when(lowerAlias)
-                        .then(lowerAliasCorrelatedToByUpperAliases,
-                                (sourceAlias, targetAlias, oldLeafValue) -> FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(newUpperQuantifier), index));
+                        .then((sourceAlias, oldLeafValue) -> FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(newUpperQuantifier), index));
             }
 
             final var translationMap = translationMapBuilder.build();

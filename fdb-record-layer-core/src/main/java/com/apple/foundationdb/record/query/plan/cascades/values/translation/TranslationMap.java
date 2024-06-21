@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -62,29 +61,10 @@ public class TranslationMap {
     }
 
     @Nonnull
-    public CorrelationIdentifier getTargetAlias(@Nonnull final CorrelationIdentifier sourceAlias) {
-        return Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getTargetAliasOrDefault(@Nonnull final CorrelationIdentifier sourceAlias,
-                                                         @Nonnull final CorrelationIdentifier defaultTargetAlias) {
-        if (aliasToTargetMap.containsKey(sourceAlias)) {
-            return Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias)).getTargetAlias();
-        }
-        return defaultTargetAlias;
-    }
-
-    @Nonnull
-    public TranslationFunction getTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias) {
-        return Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias)).getTranslationFunction();
-    }
-
-    @Nonnull
     public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
                                           @Nonnull final LeafValue leafValue) {
         final var translationTarget = Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias));
-        return translationTarget.getTranslationFunction().apply(sourceAlias, translationTarget.getTargetAlias(), leafValue);
+        return translationTarget.translate(sourceAlias, leafValue);
     }
 
     @Nonnull
@@ -106,8 +86,8 @@ public class TranslationMap {
     public static TranslationMap rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
         final var translationMapBuilder = ImmutableMap.<CorrelationIdentifier, TranslationTarget>builder();
         for (final var entry : aliasMap.entrySet()) {
-            translationMapBuilder.put(entry.getKey(), new TranslationTarget(entry.getValue(),
-                    ((sourceAlias, targetAlias, leafValue) -> leafValue.rebaseLeaf(targetAlias))));
+            translationMapBuilder.put(entry.getKey(),
+                    new TranslationTarget(((sourceAlias, leafValue) -> leafValue.rebaseLeaf(entry.getValue()))));
         }
         return new AliasMapBasedTranslationMap(translationMapBuilder.build(), aliasMap);
     }
@@ -146,23 +126,16 @@ public class TranslationMap {
     
     private static class TranslationTarget {
         @Nonnull
-        private final CorrelationIdentifier targetAlias;
-        @Nonnull
         private final TranslationFunction translationFunction;
 
-        public TranslationTarget(@Nonnull final CorrelationIdentifier targetAlias, @Nonnull final TranslationFunction translationFunction) {
-            this.targetAlias = targetAlias;
+        public TranslationTarget(@Nonnull final TranslationFunction translationFunction) {
             this.translationFunction = translationFunction;
         }
 
         @Nonnull
-        public CorrelationIdentifier getTargetAlias() {
-            return targetAlias;
-        }
-
-        @Nonnull
-        public TranslationFunction getTranslationFunction() {
-            return translationFunction;
+        public Value translate(@Nonnull final CorrelationIdentifier sourceAlias,
+                               @Nonnull final LeafValue leafValue) {
+            return translationFunction.apply(sourceAlias, leafValue);
         }
     }
 
@@ -173,7 +146,6 @@ public class TranslationMap {
     public interface TranslationFunction {
         @Nonnull
         Value apply(@Nonnull CorrelationIdentifier sourceAlias,
-                    @Nonnull CorrelationIdentifier targetAlias,
                     @Nonnull LeafValue leafValue);
     }
 
@@ -232,8 +204,8 @@ public class TranslationMap {
             }
 
             @Nonnull
-            public Builder then(@Nonnull CorrelationIdentifier targetAlias, @Nonnull TranslationFunction translationFunction) {
-                aliasToTargetMap.put(sourceAlias, new TranslationTarget(targetAlias, translationFunction));
+            public Builder then(@Nonnull final TranslationFunction translationFunction) {
+                aliasToTargetMap.put(sourceAlias, new TranslationTarget(translationFunction));
                 return Builder.this;
             }
         }
@@ -252,7 +224,7 @@ public class TranslationMap {
             @Nonnull
             public Builder then(@Nonnull TranslationFunction translationFunction) {
                 for (final CorrelationIdentifier sourceAlias : sourceAliases) {
-                    aliasToTargetMap.put(sourceAlias, new TranslationTarget(Quantifier.current(), translationFunction));
+                    aliasToTargetMap.put(sourceAlias, new TranslationTarget(translationFunction));
                 }
                 return Builder.this;
             }

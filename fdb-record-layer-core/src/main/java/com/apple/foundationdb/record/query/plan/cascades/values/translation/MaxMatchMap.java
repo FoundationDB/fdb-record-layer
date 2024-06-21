@@ -106,7 +106,7 @@ public class MaxMatchMap {
                                                @Nonnull final CorrelationIdentifier candidateCorrelation) {
         final var translatedQueryValue = translateQueryValue(candidateCorrelation);
         return TranslationMap.builder()
-                .when(queryCorrelation).then(candidateCorrelation, (src, tgt, quantifiedValue) -> translatedQueryValue)
+                .when(queryCorrelation).then((src, quantifiedValue) -> translatedQueryValue)
                 .build();
     }
 
