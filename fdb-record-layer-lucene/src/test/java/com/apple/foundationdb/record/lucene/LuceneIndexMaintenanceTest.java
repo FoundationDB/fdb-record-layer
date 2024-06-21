@@ -47,9 +47,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurr
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -103,10 +105,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexMaintenanceTest.class);
 
-    public LuceneIndexMaintenanceTest() {
-        super(null);
-    }
-
     static Stream<Arguments> configurationArguments() {
         // This has found situations that should have explicit tests:
         //      1. Multiple groups
@@ -158,8 +156,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
         final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
         Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
-        final RecordMetaData metadata = metaDataBuilder.build();
-        Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context -> createOrOpenRecordStore(context, metadata);
+        final Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = getSchemaSetup(metaDataBuilder);
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -179,6 +176,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         if (isGrouped) {
             validateDeleteWhere(isSynthetic, repartitionCount, ids, contextProps, schemaSetup, index);
         }
+    }
+
+    private @Nonnull Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> getSchemaSetup(final RecordMetaDataBuilder metaDataBuilder) {
+        final RecordMetaData metadata = metaDataBuilder.build();
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        return context -> createOrOpenRecordStore(context, metadata, path);
     }
 
     static Stream<Arguments> manyDocumentsArgumentsSlow() {
@@ -262,8 +265,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
         final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
         Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
-        final RecordMetaData metadata = metaDataBuilder.build();
-        Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context -> createOrOpenRecordStore(context, metadata);
+        Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = getSchemaSetup(metaDataBuilder);
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -355,8 +357,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
         final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
         Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
-        final RecordMetaData metadata = metaDataBuilder.build();
-        Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context -> createOrOpenRecordStore(context, metadata);
+        Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = getSchemaSetup(metaDataBuilder);
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, 2.0)
@@ -440,7 +441,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Index index = complexPartitionedIndex(options);
-
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context ->
                 LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner);
 
@@ -514,7 +515,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
         Index index = complexPartitionedIndex(options);
-
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context ->
                 LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner);
 
@@ -599,7 +600,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(100));
 
         Index index = complexPartitionedIndex(options);
-
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context ->
                 LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -650,7 +651,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(200));
         Index index = complexPartitionedIndex(options);
-
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, Pair<FDBRecordStore, QueryPlanner>> schemaSetup = context ->
                 LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner);
 

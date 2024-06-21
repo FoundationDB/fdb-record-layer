@@ -433,15 +433,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
     }
 
-    @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
-        return FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
-                .setKeySpacePath(path)
-                .setContext(context)
-                .setMetaDataProvider(metaData);
-    }
-
     @Override
     protected RecordLayerPropertyStorage.Builder addDefaultProps(final RecordLayerPropertyStorage.Builder props) {
         return super.addDefaultProps(props)
