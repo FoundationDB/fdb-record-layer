@@ -139,7 +139,7 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
                 for (int j = 1; j <= 3; j++) {
                     TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childBuilder = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();
                     childBuilder.setRecNo(i * 10 + j);
-                    childBuilder.setStrValue(String.format("%d.%d", i, j));
+                    childBuilder.setStrValue(i + "." + j);
                     if (parentToChild) {
                         parentBuilder.addChildRecNos(childBuilder.getRecNo());
                     } else {

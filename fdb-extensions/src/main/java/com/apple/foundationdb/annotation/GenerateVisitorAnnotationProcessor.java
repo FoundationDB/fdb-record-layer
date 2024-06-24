@@ -53,6 +53,7 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -327,7 +328,7 @@ public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
                        final String msg,
                        final Object... args) {
         Objects.requireNonNull(messager).printMessage(Diagnostic.Kind.ERROR,
-                String.format(msg, args),
+                String.format(Locale.ROOT, msg, args),
                 e);
     }
 }

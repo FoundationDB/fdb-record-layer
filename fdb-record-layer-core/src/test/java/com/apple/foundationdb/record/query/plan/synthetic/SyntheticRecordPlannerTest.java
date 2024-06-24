@@ -1806,16 +1806,16 @@ public class SyntheticRecordPlannerTest {
         List<TestRecordsJoinIndexProto.CustomerWithHeader> customers = IntStream.range(0, 10)
                 .mapToObj(i -> TestRecordsJoinIndexProto.CustomerWithHeader.newBuilder()
                         .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setIntRecId(i).build())
-                        .setName(String.format("Customer %d", i))
+                        .setName("Customer " + i)
                         .build()
                 )
                 .collect(Collectors.toList());
         List<TestRecordsJoinIndexProto.OrderWithHeader> orders = IntStream.range(0, customers.size())
                 .mapToObj(i -> TestRecordsJoinIndexProto.OrderWithHeader.newBuilder()
-                        .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setRecId(String.format("order_%d", i)))
+                        .setHeader(TestRecordsJoinIndexProto.Header.newBuilder().setZKey(1L).setRecId("order_" + i))
                         .setOrderNo(1000 + i)
                         .setQuantity(100)
-                        .addAllCc(IntStream.range(0, i).mapToObj(refId -> TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue(String.format("i:%d", refId)).build()).collect(Collectors.toList()))
+                        .addAllCc(IntStream.range(0, i).mapToObj(refId -> TestRecordsJoinIndexProto.Ref.newBuilder().setStringValue("i:" + refId).build()).collect(Collectors.toList()))
                         .build())
                 .collect(Collectors.toList());
 
@@ -1847,7 +1847,7 @@ public class SyntheticRecordPlannerTest {
                         .map(TestRecordsJoinIndexProto.Ref::getStringValue)
                         .collect(Collectors.toSet());
                 final List<String> customerNames = customers.stream()
-                        .filter(customer -> ccIds.contains(String.format("i:%d", customer.getHeader().getIntRecId())))
+                        .filter(customer -> ccIds.contains("i:" + customer.getHeader().getIntRecId()))
                         .map(TestRecordsJoinIndexProto.CustomerWithHeader::getName)
                         .collect(Collectors.toList());
                 try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
@@ -1946,7 +1946,7 @@ public class SyntheticRecordPlannerTest {
                 .mapToObj(i -> TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
                         .setRecNo(i + 1000L)
                         .setNumValue2(i)
-                        .setStrValue(String.format("Record %d", i))
+                        .setStrValue("Record " + i)
                         .build())
                 .collect(Collectors.toList());
         List<TestRecordsJoinIndexProto.MyOtherRecord> otherRecords = IntStream.range(-10, 10)
@@ -2104,7 +2104,7 @@ public class SyntheticRecordPlannerTest {
     private static void assertConstituentPlansMatch(SyntheticRecordPlanner planner, JoinedRecordType joinedRecordType,
                                                     Map<String, Matcher<? super SyntheticRecordFromStoredRecordPlan>> constituentMatchers) {
         for (JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
-            assertThat(String.format("constituent matchers missing matcher for constituent %s", constituent.getName()),
+            assertThat("constituent matchers missing matcher for constituent " + constituent.getName(),
                     constituentMatchers, Matchers.hasKey(constituent.getName()));
             Matcher<? super SyntheticRecordFromStoredRecordPlan> matcher = constituentMatchers.get(constituent.getName());
             final SyntheticRecordFromStoredRecordPlan plan = planner.forJoinConstituent(joinedRecordType, constituent);

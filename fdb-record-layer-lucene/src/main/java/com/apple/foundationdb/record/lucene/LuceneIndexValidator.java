@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -112,8 +113,11 @@ public class LuceneIndexValidator extends IndexValidator {
         String analyzerNamePerFieldOption = index.getOption(optionKey);
         if (analyzerNamePerFieldOption != null) {
             LuceneIndexOptions.validateKeyValuePairOptionValue(analyzerNamePerFieldOption,
-                    new MetaDataException(String.format("Index %s has invalid option value for %s: %s",
-                            index.getName(), optionKey, analyzerNamePerFieldOption)));
+                    new MetaDataException("Index has invalid option value")
+                            .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName())
+                            .addLogInfo(LogMessageKeys.INDEX_OPTION, optionKey)
+                            .addLogInfo(LogMessageKeys.VALUE, analyzerNamePerFieldOption)
+            );
         }
     }
 }

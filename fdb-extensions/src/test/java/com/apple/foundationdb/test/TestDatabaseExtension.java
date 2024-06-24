@@ -63,8 +63,7 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     public static int getAPIVersion() {
         int apiVersion = Integer.parseInt(System.getProperty(API_VERSION_PROPERTY, "630"));
         if (apiVersion < MIN_API_VERSION || apiVersion > MAX_API_VERSION) {
-            throw new IllegalStateException(String.format("unsupported API version %d (must be between %d and %d)",
-                    apiVersion, MIN_API_VERSION, MAX_API_VERSION));
+            throw new IllegalStateException("unsupported API version " + apiVersion + " (must be between " + MIN_API_VERSION + " and " + MAX_API_VERSION + ")");
         }
         return apiVersion;
     }

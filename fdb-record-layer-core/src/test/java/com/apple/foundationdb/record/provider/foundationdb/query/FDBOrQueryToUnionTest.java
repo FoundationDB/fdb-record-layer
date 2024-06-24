@@ -307,7 +307,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             // Cascades does not mark everything as reversed in this case, but validate that all of the children go the same way
             boolean planReverseness = plan.getQueryPlanChildren().get(0).isReverse();
             plan.getQueryPlanChildren().forEach(child ->
-                    assertEquals(planReverseness, child.isReverse(), () -> String.format("expected child %s to have same reverseness as first child", child)));
+                    assertEquals(planReverseness, child.isReverse(), () -> "expected child " + child + " to have same reverseness as first child"));
             assertEquals(725509027, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-1507585422, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         } else {

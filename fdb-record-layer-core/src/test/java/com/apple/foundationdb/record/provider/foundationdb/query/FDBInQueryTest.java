@@ -1090,7 +1090,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     unionOnExpressionPlan(inList.stream().map(number ->
                             indexPlan().where(indexName("compoundIndex"))
-                                    .and(scanComparisons(range(String.format("[[%d],[%d]]", number, number)))))
+                                    .and(scanComparisons(range("[[" + number + "],[" + number + "]]"))))
                             .collect(ImmutableList.toImmutableList()))
                             .where(comparisonKey(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
             assertEquals(-1813975352, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -1174,7 +1174,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertMatchesExactly(plan,
                     unionOnExpressionPlan(
                             inList.stream()
-                                    .map(number -> indexPlan().where(indexName("compoundIndex")).and(scanComparisons(range(String.format("([%d, bar],[%d, foo])", number, number)))))
+                                    .map(number -> indexPlan().where(indexName("compoundIndex")).and(scanComparisons(range("([" + number + ", bar],[" + number + ", foo])"))))
                                     .collect(ImmutableList.toImmutableList()))
                             .where(RecordQueryPlanMatchers.comparisonKey(equalsObject(concat(field("str_value_indexed"), primaryKey("MySimpleRecord"))))));
             assertEquals(651476052, plan.planHash(PlanHashable.CURRENT_LEGACY));

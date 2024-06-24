@@ -2544,24 +2544,28 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         param2 -> Arguments.of(indexedType, param2)));
     }
 
+    @Nonnull
+    private String specialCharacterText(String specialCharacter) {
+        return "Do we match special characters like " + specialCharacter + ", even when its mashed together like " + specialCharacter + "noSpaces?";
+    }
+
     @ParameterizedTest
     @MethodSource({"specialCharacterParams"})
     void insertAndSearchWithSpecialCharacters(IndexedType indexedType, String specialCharacter) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
-        String baseText = "Do we match special characters like %s, even when its mashed together like %snoSpaces?";
         try (FDBRecordContext context = openContext()) {
             if (indexedType.isSynthetic()) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
-                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, String.format(baseText, specialCharacter, specialCharacter), "", true, System.currentTimeMillis(), 0);
-                createComplexRecordJoinedToSimple(1, 1547L, 1547L, String.format(baseText, " ", " "), "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, specialCharacterText(specialCharacter), "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, specialCharacterText(" "), "", true, System.currentTimeMillis(), 0);
                 timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, specialCharacter), null, ScanProperties.FORWARD_SCAN));
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 //one document when the chars, one without
-                recordStore.saveRecord(createSimpleDocument(1623L, String.format(baseText, specialCharacter, specialCharacter), 2));
-                recordStore.saveRecord(createSimpleDocument(1547L, String.format(baseText, " ", " "), 1));
+                recordStore.saveRecord(createSimpleDocument(1623L, specialCharacterText(specialCharacter), 2));
+                recordStore.saveRecord(createSimpleDocument(1547L, specialCharacterText(" "), 1));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, specialCharacter), null, ScanProperties.FORWARD_SCAN));
             }
@@ -5466,7 +5470,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     () -> recordStore.deleteRecordsWhere(SIMPLE_DOC, indexedType.isSynthetic() ? Query.field("simple").matches(qc) : qc));
             assertThat(err.getMessage(), containsString(indexedType.isSynthetic()
                     ? "deleteRecordsWhere not matching primary key " + SIMPLE_DOC
-                    : String.format("deleteRecordsWhere not supported by index %s", index.getName())));
+                    : "deleteRecordsWhere not supported by index " + index.getName()));
 
             FDBStoredRecord<? extends Message> storedRecord = indexedType.isSynthetic()
                                                     ? recordStore.loadSyntheticRecord(primaryKey).get().getConstituent("simple")
@@ -5644,12 +5648,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     if (indexedType.isSynthetic()) {
                         int newId = group + (int) docId;
                         createComplexRecordJoinedToSimple(newId, newId, newId,
-                                TextSamples.TELUGU, String.format("hello there %d", group), false, System.currentTimeMillis(), group);
+                                TextSamples.TELUGU, "hello there " + group, false, System.currentTimeMillis(), group);
                     } else {
                         ComplexDocument doc = ComplexDocument.newBuilder()
                                 .setGroup(group)
                                 .setDocId(docId)
-                                .setText(String.format("hello there %d", group))
+                                .setText("hello there " + group)
                                 .setText2(TextSamples.TELUGU)
                                 .build();
                         recordStore.saveRecord(doc);
@@ -5687,7 +5691,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName(indexedType.isSynthetic() ? "text2" : "text");
                     assertTrue(record.hasField(textFieldDescriptor));
                     final String textField = (String)record.getField(textFieldDescriptor);
-                    assertEquals(String.format("hello there %d", group), textField);
+                    assertEquals("hello there " + group, textField);
 
                     final IndexEntry entry = result.getIndexEntry();
                     Assertions.assertNotNull(entry);
@@ -5733,7 +5737,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName("text");
                         assertTrue(record.hasField(textFieldDescriptor));
                         final String textField = (String)record.getField(textFieldDescriptor);
-                        assertEquals(String.format("hello there %d", group), textField);
+                        assertEquals("hello there " + group, textField);
                         final IndexEntry entry = result.getIndexEntry();
                         Assertions.assertNotNull(entry);
                         Tuple primaryKey = entry.getPrimaryKey();

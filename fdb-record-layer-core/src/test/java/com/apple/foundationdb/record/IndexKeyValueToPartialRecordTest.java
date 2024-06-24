@@ -63,7 +63,7 @@ class IndexKeyValueToPartialRecordTest {
         try {
             descriptorWithNewField = Descriptors.FileDescriptor.buildFrom(fileProto, new Descriptors.FileDescriptor[] {});
         } catch (Descriptors.DescriptorValidationException e) {
-            throw new RuntimeException(String.format("Could not construct descriptor from synthetic descriptor proto for %s", originalDescriptor.getName()), e);
+            throw new RuntimeException("Could not construct descriptor from synthetic descriptor proto for " + originalDescriptor.getName(), e);
         }
         return descriptorWithNewField.findMessageTypeByName(descriptorWithNewFieldProto.getName());
     }

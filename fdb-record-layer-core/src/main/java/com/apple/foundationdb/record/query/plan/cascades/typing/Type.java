@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PPrimitiveType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PRecordType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PRelationType;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PTypeCode;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
@@ -600,7 +601,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         if (typeCode.isPrimitive()) {
             return Type.primitiveType(typeCode, false);
         }
-        throw new RecordCoreException(String.format("Unable to convert %s to Type", object));
+        throw new RecordCoreException("Unable to convert value to Type")
+                .addLogInfo(LogMessageKeys.VALUE, object);
     }
 
     @Nonnull

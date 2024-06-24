@@ -222,7 +222,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
             Verify.verify(arguments.size() == 1);
             final Typed arg0 = arguments.get(0);
             final Type type0 = arg0.getResultType();
-            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MIN_EVER_LONG));
+            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, "only numeric types allowed in " + IndexTypes.MIN_EVER_LONG + " aggregation operation");
             return new MinEverLongValue(PhysicalOperator.MIN_EVER_LONG, (Value)arg0);
         }
 
@@ -302,7 +302,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
             Verify.verify(arguments.size() == 1);
             final Typed arg0 = arguments.get(0);
             final Type type0 = arg0.getResultType();
-            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MAX_EVER_LONG));
+            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, "only numeric types allowed in " + IndexTypes.MAX_EVER_LONG + " aggregation operation");
             return new MaxEverLongValue(PhysicalOperator.MAX_EVER_LONG, (Value)arg0);
         }
 

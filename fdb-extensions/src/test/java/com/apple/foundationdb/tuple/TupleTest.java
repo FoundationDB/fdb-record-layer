@@ -22,12 +22,18 @@ package com.apple.foundationdb.tuple;
 
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -101,19 +107,42 @@ public class TupleTest {
             .add()
             .build();
 
+    @Nonnull
+    static Stream<ExpectedTupleEncoding<?>> testTuple() {
+        return tests.stream();
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testTuple(ExpectedTupleEncoding<?> test) {
+        test.check();
+    }
+
     @Test
-    public void testTuple() {
+    void testAllTuples() {
         for (ExpectedTupleEncoding<?> test : tests) {
-            test.check();
+            assertNotNull(String.valueOf(test.obj), test.encodedLoggable);
         }
-        ExpectedTupleEncoding.check(tests);
+
+        // Construct a single large tuple of all the items
+        final Tuple objects = Tuple.fromList(tests.stream()
+                .map(expectedTupleEncoding -> expectedTupleEncoding.obj)
+                .collect(Collectors.toList()));
+        // The expected encoding of concatenating all the items into a large tuple should be the same
+        // as concatenating the expected encodings
+        String expected = tests.stream()
+                .map(expectedTupleEncoding -> expectedTupleEncoding.encodedLoggable)
+                .collect(Collectors.joining());
+        assertEquals(expected, ByteArrayUtil2.loggable(objects.pack()));
     }
 
     private static class ExpectedTupleEncoding<T> {
+        @Nullable
         private T obj;
+        @Nullable
         private String encodedLoggable;
 
-        public ExpectedTupleEncoding(T o, String encodedLoggable) {
+        public ExpectedTupleEncoding(@Nullable T o, @Nullable String encodedLoggable) {
             obj = o;
             this.encodedLoggable = encodedLoggable;
         }
@@ -121,6 +150,9 @@ public class TupleTest {
         public void check() {
             byte[] actualAlone = Tuple.from(obj).pack();
             if (encodedLoggable == null) {
+                // This is used to generate new test cases.
+                // To add a new test case, create a new ExpectedTupleEncoding with a null string, then run
+                // testTuple above. Then copy the encoding into the test case from standard output
                 if (actualAlone != null) {
                     System.out.println("\"" +
                             ByteArrayUtil2.loggable(actualAlone).replaceAll("\\\\", "\\\\\\\\") + "\"");
@@ -130,18 +162,9 @@ public class TupleTest {
             }
         }
 
-        public static void check(List<ExpectedTupleEncoding<?>> tests) {
-            for (ExpectedTupleEncoding<?> test : tests) {
-                assertNotNull(String.valueOf(test.obj), test.encodedLoggable);
-            }
-
-            final Tuple objects = Tuple.fromList(tests.stream()
-                    .map(expectedTupleEncoding -> expectedTupleEncoding.obj)
-                    .collect(Collectors.toList()));
-            String expected = tests.stream()
-                    .map(expectedTupleEncoding -> expectedTupleEncoding.encodedLoggable)
-                    .collect(Collectors.joining());
-            assertEquals(expected, ByteArrayUtil2.loggable(objects.pack()));
+        @Override
+        public String toString() {
+            return encodedLoggable == null ? Objects.toString(obj) : encodedLoggable;
         }
     }
 }

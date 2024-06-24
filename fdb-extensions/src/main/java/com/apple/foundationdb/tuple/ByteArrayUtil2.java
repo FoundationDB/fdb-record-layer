@@ -41,6 +41,8 @@ public class ByteArrayUtil2 {
 
     private static final char[] HEX_CHARS =
             { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+    private static final char[] LOWER_CASE_HEX_CHARS =
+            { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
 
     @Nullable
     public static String toHexString(@Nullable byte[] bytes) {
@@ -73,7 +75,7 @@ public class ByteArrayUtil2 {
                 } else if (b == BACKSLASH_CHARACTER) {
                     sb.append("\\\\");
                 } else {
-                    sb.append(String.format("\\x%02x", b));
+                    sb.append("\\x").append(LOWER_CASE_HEX_CHARS[(b >>> 4) & 0x0F]).append(LOWER_CASE_HEX_CHARS[b & 0x0F]);
                 }
             }
 

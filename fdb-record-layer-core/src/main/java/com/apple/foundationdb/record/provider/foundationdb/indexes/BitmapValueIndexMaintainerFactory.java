@@ -64,7 +64,8 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
                 validateGrouping(1);
                 final GroupingKeyExpression group = (GroupingKeyExpression)index.getRootExpression();
                 if (group.getGroupedCount() != 1) {
-                    throw new KeyExpression.InvalidExpressionException(String.format("%s index needs grouped position", index.getType()),
+                    throw new KeyExpression.InvalidExpressionException("index type needs grouped position",
+                                                                       LogMessageKeys.INDEX_TYPE, index.getType(),
                                                                        LogMessageKeys.INDEX_NAME, index.getName(),
                                                                        LogMessageKeys.INDEX_KEY, index.getRootExpression());
                 }
@@ -88,7 +89,8 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
                     case SFIXED64:
                         break;
                     default:
-                        throw new KeyExpression.InvalidExpressionException(String.format("%s index only supports integer position key", index.getType()),
+                        throw new KeyExpression.InvalidExpressionException("index type only supports integer position key",
+                                LogMessageKeys.INDEX_TYPE, index.getType(),
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression(),
                                 "record_type", recordType.getName());

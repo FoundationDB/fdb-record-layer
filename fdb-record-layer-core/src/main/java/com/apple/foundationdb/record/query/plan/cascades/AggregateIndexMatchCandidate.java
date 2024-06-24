@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -360,7 +361,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
 
         if (!builder.isValid()) {
-            throw new RecordCoreException(String.format("could not generate a covering index scan operator for '%s'; Invalid mapping between index entries to partial record", index.getName()));
+            throw new RecordCoreException("could not generate a covering index scan operator for index; Invalid mapping between index entries to partial record").addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
         }
         return builder.build();
     }

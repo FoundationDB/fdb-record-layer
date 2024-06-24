@@ -2416,7 +2416,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public String toString() {
-            return String.format("%s(%d) %s", getType().name(), maxDistance, typelessString());
+            return getType().name() + "(" + maxDistance + ") " + typelessString();
         }
     }
 
@@ -2530,7 +2530,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public String toString() {
-            return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
+            return getType().name() + "(" + (strict ? "strictly" : "approximately") + ") " + typelessString();
         }
     }
 

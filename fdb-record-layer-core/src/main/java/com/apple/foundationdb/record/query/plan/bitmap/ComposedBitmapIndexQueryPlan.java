@@ -297,7 +297,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         @Override
         String toString(@Nullable List<?> sources) {
             if (sources == null) {
-                return String.format("[%d]", position);
+                return "[" + position + "]";
             } else {
                 return sources.get(position).toString();
             }

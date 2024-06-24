@@ -234,7 +234,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         final List<String> expected = Arrays.asList("Gauß");
         assertEquals(expected, actual);
         RecordQueryPlan plan = planQuery(query);
-        assertThat(plan, indexScan(allOf(indexName("collated_name"), bounds(hasTupleString(String.format("[EQUALS %s($name)]", collateFunctionName))))));
+        assertThat(plan, indexScan(allOf(indexName("collated_name"), bounds(hasTupleString("[EQUALS " + collateFunctionName + "($name)]")))));
     }
 
 }
