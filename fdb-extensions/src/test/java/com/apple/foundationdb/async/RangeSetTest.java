@@ -428,37 +428,73 @@ public class RangeSetTest {
         }
     }
 
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
     void concurrentlyReadAndFillInGaps() {
-        List<Range> ranges = IntStream.range(0, 10)
-                .mapToObj(i -> new Range(new byte[]{(byte) (2 * i + 1)}, new byte[]{(byte) (2 * i + 2)}))
-                .collect(Collectors.toList());
-        try (Transaction tr = db.createTransaction()) {
-            for (Range r : ranges) {
-                rs.insertRange(tr, r, true).join();
-            }
-            tr.commit().join();
-        }
-
-        int maxRangeByte = 2 * ranges.size() + 1;
-        try (MultipleTransactions multi = MultipleTransactions.create(db, maxRangeByte + 1)) {
-            // Insert the full range with the first transaction
-            assertTrue(rs.insertRange(multi.get(0), null, null, false).join());
-
-            // Check on a key in each previously inserted range
-            Set<Integer> conflicts = new HashSet<>();
-            for (int i = 0; i < maxRangeByte; i++) {
-                byte[] key = new byte[]{(byte) i, 0x00};
-                Transaction tr = multi.get(i + 1);
-                boolean inARange = i % 2 != 0;
-                assertEquals(inARange, rs.contains(tr, key).join(), () -> String.format("key %s was in a range", ByteArrayUtil.printable(key)));
-                if (!inARange) {
-                    // The check should conflict with the insert if (and only if) the key wasn't in a range
-                    conflicts.add(i + 1);
+        int progress = 0;
+        try {
+            progress++;
+            List<Range> ranges = IntStream.range(0, 10)
+                    .mapToObj(i -> new Range(new byte[]{(byte) (2 * i + 1)}, new byte[]{(byte) (2 * i + 2)}))
+                    .collect(Collectors.toList());
+            progress++;
+            try (Transaction tr = db.createTransaction()) {
+                progress++;
+                for (Range r : ranges) {
+                    progress++;
+                    rs.insertRange(tr, r, true).join();
+                    progress++;
                 }
+                progress++;
+                tr.commit().join();
+                progress++;
             }
+            progress++;
 
-            multi.commit(conflicts);
+            progress++;
+            int maxRangeByte = 2 * ranges.size() + 1;
+            progress++;
+            try (MultipleTransactions multi = MultipleTransactions.create(db, maxRangeByte + 1)) {
+                progress++;
+                // Insert the full range with the first transaction
+                progress++;
+                assertTrue(rs.insertRange(multi.get(0), null, null, false).join());
+                progress++;
+
+                progress++;
+                // Check on a key in each previously inserted range
+                progress++;
+                Set<Integer> conflicts = new HashSet<>();
+                progress++;
+                for (int i = 0; i < maxRangeByte; i++) {
+                    progress++;
+                    byte[] key = new byte[]{(byte) i, 0x00};
+                    progress++;
+                    Transaction tr = multi.get(i + 1);
+                    progress++;
+                    boolean inARange = i % 2 != 0;
+                    progress++;
+                    assertEquals(inARange, rs.contains(tr, key).join(), () -> String.format("key %s was in a range", ByteArrayUtil.printable(key)));
+                    progress++;
+                    if (!inARange) {
+                        progress++;
+                        // The check should conflict with the insert if (and only if) the key wasn't in a range
+                        progress++;
+                        conflicts.add(i + 1);
+                        progress++;
+                    }
+                    progress++;
+                }
+                progress++;
+
+                progress++;
+                multi.commit(conflicts);
+                progress++;
+            }
+            progress++;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed after " + progress, e);
         }
     }
 
