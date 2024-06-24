@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNullValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
@@ -40,6 +41,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A value that evaluates to empty.
@@ -78,13 +80,15 @@ public class NullValue extends AbstractValue implements LeafValue {
         return false;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+        final var superQueryPlanConstraintOptional = LeafValue.super.equalsWithoutChildren(other);
+        if (superQueryPlanConstraintOptional.isEmpty()) {
+            return Optional.empty();
         }
 
-        return resultType.equals(other.getResultType());
+        return resultType.equals(other.getResultType()) ? superQueryPlanConstraintOptional : Optional.empty();
     }
 
     @Override

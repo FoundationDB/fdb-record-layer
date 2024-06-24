@@ -92,6 +92,11 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     }
 
     @Nonnull
+    public QueryPlanConstraint compose(@Nonnull final QueryPlanConstraint otherQueryPlanConstraint) {
+        return compose(ImmutableList.of(this, otherQueryPlanConstraint));
+    }
+
+    @Nonnull
     @Override
     public PQueryPlanConstraint toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PQueryPlanConstraint.newBuilder().setPredicate(predicate.toQueryPredicateProto(serializationContext)).build();

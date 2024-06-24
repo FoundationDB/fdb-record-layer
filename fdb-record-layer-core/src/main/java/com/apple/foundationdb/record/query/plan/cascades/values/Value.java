@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
@@ -78,8 +80,11 @@ import java.util.stream.Stream;
 /**
  * A scalar value type.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
+    @Nonnull
+    Optional<QueryPlanConstraint> ALWAYS_EQUAL = Optional.of(QueryPlanConstraint.tautology());
 
     @Nonnull
     @Override
@@ -317,9 +322,28 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return false;
         }
 
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default Optional<QueryPlanConstraint> semanticEquals(@Nullable final Object other,
+                                                         @Nonnull final ValueEquivalence valueEquivalence) {
+        if (!(other instanceof Value)) {
+            return Optional.empty();
+        }
+
+        if (this == other) {
+            return alwaysEqual();
+        }
+
         final Value otherValue = (Value)other;
-        if (!equalsWithoutChildren(otherValue, aliasMap)) {
-            return false;
+        var constraintOptional = equalsWithoutChildren(otherValue);
+        if (constraintOptional.isEmpty()) {
+            //
+            // By the looks of it, otherValue is not equal to this value. However, maybe it's already in the
+            // valueEquivalence.
+            //
+            return valueEquivalence.equivalence(this, otherValue);
         }
 
         final Iterator<? extends Value> children = getChildren().iterator();
@@ -327,25 +351,34 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
         while (children.hasNext()) {
             if (!otherChildren.hasNext()) {
-                return false;
+                return Optional.empty();
             }
 
-            if (!children.next().semanticEquals(otherChildren.next(), aliasMap)) {
-                return false;
+            final var childConstraintOptional =
+                    children.next().semanticEquals(otherChildren.next(), valueEquivalence);
+            if (childConstraintOptional.isEmpty()) {
+                return Optional.empty();
             }
+            constraintOptional =
+                    constraintOptional.map(isEquivalent -> isEquivalent.compose(childConstraintOptional.get()));
         }
 
-        return !otherChildren.hasNext();
+        if (otherChildren.hasNext()) {
+            // otherValue has more children, it cannot be equivalent
+            return Optional.empty();
+        }
+
+        return constraintOptional;
     }
 
+    @Nonnull
     @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default boolean equalsWithoutChildren(@Nonnull final Value other,
-                                          @Nonnull final AliasMap equivalenceMap) {
+    default Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
         if (this == other) {
-            return true;
+            return Optional.empty();
         }
 
-        return other.getClass() == getClass();
+        return other.getClass() == getClass() ? alwaysEqual() : Optional.empty();
     }
 
     @Nonnull
@@ -384,6 +417,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .stream()
                 .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(alias, inputType))
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    static Optional<QueryPlanConstraint> alwaysEqual() {
+        return ALWAYS_EQUAL;
     }
 
     /**

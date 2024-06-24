@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath.PResolvedAc
 import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -176,15 +177,16 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!ValueWithChild.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+        final var superQueryPlanConstraint = ValueWithChild.super.equalsWithoutChildren(other);
+        if (superQueryPlanConstraint.isEmpty()) {
+            return Optional.empty();
         }
 
         final var that = (FieldValue)other;
-        return fieldPath.equals(that.fieldPath) &&
-                childValue.semanticEquals(that.childValue, equivalenceMap);
+        return fieldPath.equals(that.fieldPath) ? superQueryPlanConstraint : Optional.empty();
     }
 
     @Override

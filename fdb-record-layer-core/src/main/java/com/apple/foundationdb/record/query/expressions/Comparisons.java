@@ -1235,7 +1235,7 @@ public class Comparisons {
             // graph.
             //
             if (isCorrelation() && that.isCorrelation()) {
-                return aliasMap.containsMapping(getAlias(), that.getAlias());
+                return getAlias().equals(that.getAlias()) || aliasMap.containsMapping(getAlias(), that.getAlias());
             }
 
             if (!getParameter().equals(that.getParameter())) {

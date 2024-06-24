@@ -394,7 +394,8 @@ message PEmptyValue {
 }
 
 message PExistsValue {
-  optional PQuantifiedObjectValue child = 1;
+  optional PQuantifiedObjectValue child = 1; // deprecated
+  optional string alias = 2;
 }
 
 message PFieldValue {

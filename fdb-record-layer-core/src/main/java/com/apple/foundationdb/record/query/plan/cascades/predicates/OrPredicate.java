@@ -73,7 +73,7 @@ public class OrPredicate extends AndOrPredicate {
         super(serializationContext, Objects.requireNonNull(orPredicateProto.getSuper()));
     }
 
-    private OrPredicate(@Nonnull final List<QueryPredicate> operands, final boolean isAtomic) {
+    private OrPredicate(@Nonnull final List<? extends QueryPredicate> operands, final boolean isAtomic) {
         super(operands, isAtomic);
     }
 

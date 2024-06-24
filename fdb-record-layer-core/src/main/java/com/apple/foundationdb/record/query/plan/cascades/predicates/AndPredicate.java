@@ -67,7 +67,7 @@ public class AndPredicate extends AndOrPredicate {
         super(serializationContext, Objects.requireNonNull(andPredicateProto.getSuper()));
     }
 
-    private AndPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
+    private AndPredicate(@Nonnull final List<? extends QueryPredicate> children, final boolean isAtomic) {
         super(children, isAtomic);
     }
 
@@ -187,7 +187,12 @@ public class AndPredicate extends AndOrPredicate {
             return Iterables.getOnlyElement(conjuncts);
         }
 
-        return new AndPredicate(ImmutableList.copyOf(conjuncts), isAtomic);
+        final var filteredConjuncts =
+                conjuncts.stream()
+                        .filter(queryPredicate -> !queryPredicate.isTautology())
+                        .collect(ImmutableList.toImmutableList());
+
+        return new AndPredicate(filteredConjuncts, isAtomic);
     }
 
     @Nonnull

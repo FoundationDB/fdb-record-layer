@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PLiteralValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -46,6 +47,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A wrapper around a literal of the given type.
@@ -100,17 +102,20 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return false;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+        final var superQueryPlanConstraintOptional = LeafValue.super.equalsWithoutChildren(other);
+        if (superQueryPlanConstraintOptional.isEmpty()) {
+            return Optional.empty();
         }
 
         final LiteralValue<?> that = (LiteralValue<?>)other;
         if (value == null && that.value == null) {
-            return true;
+            return superQueryPlanConstraintOptional;
         }
-        return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value));
+        return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value))
+               ? superQueryPlanConstraintOptional : Optional.empty();
     }
 
     @Override

@@ -135,7 +135,8 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return aliasMap.containsMapping(existentialAlias, that.existentialAlias);
+        return existentialAlias.equals(that.existentialAlias) ||
+                aliasMap.containsMapping(existentialAlias, that.existentialAlias);
     }
 
     @Override

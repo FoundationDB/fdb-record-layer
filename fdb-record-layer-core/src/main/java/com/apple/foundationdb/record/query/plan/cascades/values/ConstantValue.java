@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -41,6 +42,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -98,14 +100,16 @@ public class ConstantValue extends AbstractValue implements LeafValue {
         return false;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+        final var superQueryPlanConstraintOptional = LeafValue.super.equalsWithoutChildren(other);
+        if (superQueryPlanConstraintOptional.isEmpty()) {
+            return Optional.empty();
         }
 
         final ConstantValue that = (ConstantValue)other;
-        return value.equals(that.value);
+        return value.equals(that.value) ? superQueryPlanConstraintOptional : Optional.empty();
     }
 
     @Override

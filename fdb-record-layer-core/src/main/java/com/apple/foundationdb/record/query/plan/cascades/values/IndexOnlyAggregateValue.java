@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PMaxEverLongValue;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PMinEverLongValue;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -51,6 +52,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Represents a compile-time aggregation value that must be backed by an aggregation index, and can not be evaluated
@@ -167,13 +169,16 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+        final var superQueryPlanConstraintOptional = super.equalsWithoutChildren(other);
+        if (superQueryPlanConstraintOptional.isEmpty()) {
+            return Optional.empty();
         }
 
-        return other.getClass() == getClass() && ((IndexOnlyAggregateValue)other).operator.equals(operator);
+        final var that = (IndexOnlyAggregateValue)other;
+        return operator.equals(that.operator) ? superQueryPlanConstraintOptional : Optional.empty();
     }
 
     @Nonnull

@@ -59,13 +59,13 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         this.children = childrenBuilder.build();
     }
 
-    protected AndOrPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
+    protected AndOrPredicate(@Nonnull final List<? extends QueryPredicate> children, final boolean isAtomic) {
         super(isAtomic);
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }
 
-        this.children = children;
+        this.children = ImmutableList.copyOf(children);
     }
 
     @Nonnull

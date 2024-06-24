@@ -73,11 +73,11 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private final EvaluationContext evaluationContext;
 
-    public CascadesRuleCall(@Nonnull PlanContext context,
-                            @Nonnull CascadesRule<?> rule,
-                            @Nonnull Reference root,
-                            @Nonnull Traversal traversal,
-                            @Nonnull PlannerBindings bindings,
+    public CascadesRuleCall(@Nonnull final PlanContext context,
+                            @Nonnull final CascadesRule<?> rule,
+                            @Nonnull final Reference root,
+                            @Nonnull final Traversal traversal,
+                            @Nonnull final PlannerBindings bindings,
                             @Nonnull final EvaluationContext evaluationContext) {
         this.context = context;
         this.rule = rule;

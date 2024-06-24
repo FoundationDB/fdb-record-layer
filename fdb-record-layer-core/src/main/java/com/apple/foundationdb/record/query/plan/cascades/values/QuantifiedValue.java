@@ -21,11 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -34,6 +35,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public interface QuantifiedValue extends LeafValue {
 
+    @Nonnull
     CorrelationIdentifier getAlias();
 
     @Nonnull
@@ -42,13 +44,15 @@ public interface QuantifiedValue extends LeafValue {
         return ImmutableSet.of(getAlias());
     }
 
+    @Nonnull
     @Override
-    default boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
+    default Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+        final var superQueryPlanConstraint = LeafValue.super.equalsWithoutChildren(other);
+        if (superQueryPlanConstraint.isEmpty()) {
+            return Optional.empty();
         }
 
         final QuantifiedValue that = (QuantifiedValue)other;
-        return equivalenceMap.containsMapping(getAlias(), that.getAlias());
+        return getAlias().equals(that.getAlias()) ? superQueryPlanConstraint : Optional.empty();
     }
 }
