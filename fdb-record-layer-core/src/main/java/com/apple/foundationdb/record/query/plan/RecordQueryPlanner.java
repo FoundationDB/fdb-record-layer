@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.OrderFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
@@ -63,6 +64,7 @@ import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
+import com.apple.foundationdb.record.query.expressions.OrderQueryKeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
@@ -2603,6 +2605,18 @@ public class RecordQueryPlanner implements QueryPlanner {
                 if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
                     if (addToComparisons(field.getComparison())) {
                         addedComparison(child, filterChild);
+                    }
+                }
+            } else if (child instanceof OrderFunctionKeyExpression) {
+                OrderFunctionKeyExpression indexOrderedField = (OrderFunctionKeyExpression)child;
+                if (indexOrderedField.getArguments() instanceof FieldKeyExpression) {
+                    FieldKeyExpression indexField = (FieldKeyExpression) indexOrderedField.getArguments();
+                    if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
+                        final OrderQueryKeyExpression orderedExpression = new OrderQueryKeyExpression(indexOrderedField);
+                        final QueryKeyExpressionWithComparison adjustedComparison = orderedExpression.adjustComparison(field.getComparison());
+                        if (adjustedComparison != null && addToComparisons(adjustedComparison.getComparison())) {
+                            addedComparison(child, filterChild);
+                        }
                     }
                 }
             }
