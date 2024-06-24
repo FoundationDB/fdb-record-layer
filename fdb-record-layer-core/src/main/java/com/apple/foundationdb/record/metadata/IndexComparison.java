@@ -246,7 +246,7 @@ public abstract class IndexComparison {
                     protoComparison = RecordMetaDataProto.ComparisonType.IS_NULL;
                     break;
                 default:
-                    throw new RecordCoreException("serialising comparison type is not supported").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparisonType);
+                    throw new RecordCoreException("serializing comparison type is not supported").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparisonType);
             }
             return RecordMetaDataProto.Comparison.newBuilder().setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
                             .setType(protoComparison)

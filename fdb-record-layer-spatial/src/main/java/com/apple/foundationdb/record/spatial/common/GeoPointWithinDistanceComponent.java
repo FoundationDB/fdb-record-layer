@@ -157,7 +157,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Override
     public String toString() {
-        return "(" + latitudeFieldName + "," + longitudeFieldName + " WITHIN " + distance + " OF (" + centerLatitude + "," + centerLongitude + ")";
+        return "(" + latitudeFieldName + "," + longitudeFieldName + ") WITHIN " + distance + " OF (" + centerLatitude + "," + centerLongitude + ")";
     }
 
     @Override

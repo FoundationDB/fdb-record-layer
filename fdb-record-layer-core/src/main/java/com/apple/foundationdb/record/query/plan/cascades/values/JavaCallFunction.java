@@ -73,7 +73,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
             final Constructor<?> constructor = clazz.getDeclaredConstructor();
             return (Value)((UdfFunction)constructor.newInstance()).encapsulate(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList()));
         } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException("could not instantiate call-site from '" + clazz.getName() + "'", e);
+            throw new RecordCoreException("could not instantiate call-site from '" + clazz.getName() + "'", e);
         }
     }
 }

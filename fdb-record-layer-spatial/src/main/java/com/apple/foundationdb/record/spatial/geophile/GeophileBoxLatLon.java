@@ -69,7 +69,7 @@ public class GeophileBoxLatLon {
     // This calculation can put us past min/max lon.
     private static double fixLon(double lon) {
         if (lon > GeophileSpatial.MAX_LON + CIRCLE || lon < GeophileSpatial.MIN_LON - CIRCLE) {
-            throw new RecordCoreArgumentException("longitude").addLogInfo("longitude", lon);
+            throw new RecordCoreArgumentException("Invalid longitude").addLogInfo("longitude", lon);
         }
         if (lon < GeophileSpatial.MIN_LON) {
             lon += CIRCLE;
@@ -82,7 +82,7 @@ public class GeophileBoxLatLon {
     // Fix lat by truncating at +/-90
     private static double fixLat(double lat) {
         if (lat > GeophileSpatial.MAX_LAT + CIRCLE || lat < GeophileSpatial.MIN_LAT - CIRCLE) {
-            throw new RecordCoreArgumentException("latitude").addLogInfo("latitude", lat);
+            throw new RecordCoreArgumentException("Invalid latitude").addLogInfo("latitude", lat);
         }
         if (lat > GeophileSpatial.MAX_LAT) {
             lat = GeophileSpatial.MAX_LAT;

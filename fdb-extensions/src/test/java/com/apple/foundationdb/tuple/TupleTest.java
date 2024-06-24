@@ -124,9 +124,12 @@ public class TupleTest {
             assertNotNull(String.valueOf(test.obj), test.encodedLoggable);
         }
 
+        // Construct a single large tuple of all the items
         final Tuple objects = Tuple.fromList(tests.stream()
                 .map(expectedTupleEncoding -> expectedTupleEncoding.obj)
                 .collect(Collectors.toList()));
+        // The expected encoding of concatenating all the items into a large tuple should be the same
+        // as concatenating the expected encodings
         String expected = tests.stream()
                 .map(expectedTupleEncoding -> expectedTupleEncoding.encodedLoggable)
                 .collect(Collectors.joining());

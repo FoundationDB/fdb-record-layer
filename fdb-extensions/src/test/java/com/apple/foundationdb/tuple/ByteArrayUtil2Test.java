@@ -76,6 +76,9 @@ public class ByteArrayUtil2Test {
 
     @Nonnull
     static Stream<Long> testRandomBytes() {
+        // Nothing particular about these seeds, except that though some of them create random bytes that are
+        // encoded identically by ByteArrayUtil.printable and ByteArrayUtil2.loggable, whereas others create
+        // byte arrays that are encoded differently
         return RandomizedTestUtils.randomSeeds(0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L);
     }
 

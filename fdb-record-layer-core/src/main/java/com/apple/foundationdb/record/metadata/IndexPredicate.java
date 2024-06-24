@@ -441,8 +441,8 @@ public abstract class IndexPredicate {
         }
 
         public ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto) {
-            Verify.verify(proto.getValueCount() > 0, "attempt to deserialize " + ValuePredicate.class.getSimpleName() +  " without value");
-            Verify.verify(proto.hasComparison(), "attempt to deserialize " + ValuePredicate.class.getSimpleName() + " without comparison");
+            Verify.verify(proto.getValueCount() > 0, "attempt to deserialize %s without value", ValuePredicate.class.getSimpleName());
+            Verify.verify(proto.hasComparison(), "attempt to deserialize %s without comparison", ValuePredicate.class.getSimpleName());
             this.fieldPath = ImmutableList.copyOf(proto.getValueList());
             this.comparison = IndexComparison.fromProto(proto.getComparison());
         }
