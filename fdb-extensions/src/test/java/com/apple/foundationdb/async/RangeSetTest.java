@@ -463,6 +463,7 @@ public class RangeSetTest {
     }
 
     // Test out a few of the wild and wacky things that can happen when there are insertions going concurrently.
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
     void concurrentWithInsert() {
         int progress = 0;
