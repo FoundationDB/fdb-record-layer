@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -101,6 +102,7 @@ public class MultipleTransactions implements AutoCloseable, Iterable<Transaction
 
     public static MultipleTransactions create(Database db, int n) {
         List<Transaction> transactions = new ArrayList<>(n);
+        long start = System.nanoTime();
         boolean returned = false;
         try {
             for (int i = 0; i < n; i++) {
@@ -114,6 +116,9 @@ public class MultipleTransactions implements AutoCloseable, Iterable<Transaction
                 tr.addWriteConflictKey(DEADC0DE);
             });
             MultipleTransactions multi = new MultipleTransactions(ImmutableList.copyOf(transactions));
+            if (System.nanoTime() > TimeUnit.SECONDS.toNanos(1)) {
+                throw new RuntimeException("Could not create " + n + " transactions in under 1 second");
+            }
             returned = true;
             return multi;
         } finally {
