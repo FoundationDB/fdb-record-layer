@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -163,23 +162,12 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
     protected void sortAndFilter(@Nullable String orderFunction, boolean withIndex, long... expected) throws Exception {
         final RecordMetaDataHook hook = withIndex ? indexHook(orderFunction) : noIndexHook();
         loadRecords(hook);
-        final QueryComponent strComparison;
-        if (orderFunction != null && withIndex) {
-            // Planner cannot do this equivalence yet.
-            if (orderFunction.contains("_desc_")) {
-                strComparison = Query.keyExpression(fieldOrderingKey(orderFunction)).lessThan("a");
-            } else {
-                strComparison = Query.keyExpression(fieldOrderingKey(orderFunction)).greaterThan("a");
-            }
-        } else {
-            strComparison = Query.field("str_value_indexed").greaterThan("a");
-        }
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(fullOrderingKey(orderFunction))
                 .setFilter(Query.and(
                         Query.field("num_value_2").equalsValue(101),
-                        strComparison))
+                        Query.field("str_value_indexed").greaterThan("a")))
                 .build();
         final List<Long> actual = queryRecords(query, hook, withIndex);
         assertEquals(Arrays.stream(expected).boxed().collect(Collectors.toList()), actual);
