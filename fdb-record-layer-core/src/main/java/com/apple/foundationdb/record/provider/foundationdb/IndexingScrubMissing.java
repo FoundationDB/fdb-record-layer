@@ -106,6 +106,7 @@ public class IndexingScrubMissing extends IndexingBase {
                         .build();
     }
 
+    @Override
     protected boolean shouldResetRecordScrubbingRange() {
         return scrubbingPolicy.isFullScan();
     }
