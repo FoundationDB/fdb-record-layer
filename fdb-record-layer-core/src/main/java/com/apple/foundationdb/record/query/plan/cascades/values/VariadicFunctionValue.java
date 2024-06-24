@@ -98,7 +98,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + children.stream().map(c -> c.explain(formatter)).collect(Collectors.joining(",")) + ")";
     }
 
     @Nonnull
@@ -132,7 +132,7 @@ public class VariadicFunctionValue extends AbstractValue {
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
     }
 
     @Override

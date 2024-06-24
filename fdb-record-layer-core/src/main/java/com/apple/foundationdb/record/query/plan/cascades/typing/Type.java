@@ -395,17 +395,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor, @Nonnull Descriptors.FieldDescriptor.Type protoType, @Nonnull TypeCode typeCode, boolean isNullable) {
         if (typeCode.isPrimitive()) {
-            final var primitiveType = primitiveType(typeCode, isNullable);
+            final var primitiveType = primitiveType(typeCode, false);
             return new Array(isNullable, primitiveType);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
-            final var enumType = Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
+            final var enumType = Enum.fromProtoValues(false, enumDescriptor.getValues());
             return new Array(isNullable, enumType);
         } else {
             if (isNullable) {
                 Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                 Objects.requireNonNull(wrappedDescriptor);
-                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
             } else {
                 // case 2: any arbitrary sub message we don't understand
                 return new Array(false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));

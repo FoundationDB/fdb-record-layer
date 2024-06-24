@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.protobuf.DynamicMessage;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -197,6 +199,23 @@ class TypeRepositoryTest {
         builder.addTypeIfNeeded(child);
         final TypeRepository actualSchemaAfter = builder.build();
         Assertions.assertEquals(actualSchemaAfter.getMessageTypes().size(), actualSchemaBefore.getMessageTypes().size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testArrayElementTypeIsNotNullable(boolean arrayNullable) {
+        final Type.Record record1 = Type.Record.fromFields(List.of(Type.Record.Field.of(new Type.Array(arrayNullable, Type.primitiveType(Type.TypeCode.DOUBLE, true)), Optional.of("array_field"))));
+        final Type.Record record2 = Type.Record.fromFields(List.of(Type.Record.Field.of(new Type.Array(arrayNullable, Type.primitiveType(Type.TypeCode.DOUBLE, false)), Optional.of("array_field"))));
+        final TypeRepository typeRepository = TypeRepository.newBuilder()
+                .addTypeIfNeeded(record1)
+                .addTypeIfNeeded(record2)
+                .build();
+        for (var rec: List.of(record1, record2)) {
+            final Type.Record deserialized = Type.Record.fromDescriptor(typeRepository.getMessageDescriptor(rec));
+            Assertions.assertTrue(deserialized.getElementTypes().get(0) instanceof Type.Array);
+            final Type elementType = ((Type.Array) deserialized.getElementTypes().get(0)).getElementType();
+            Assertions.assertFalse(elementType.isNullable());
+        }
     }
 
     @Test

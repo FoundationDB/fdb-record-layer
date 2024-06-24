@@ -127,6 +127,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
             grabLockExternally(partitioned, context, 0, 0);
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
             // This fails since the default directory is trying to take a second lock
             Assertions.assertThrows(FDBExceptions.FDBStoreLockTakenException.class, () ->
                     recordStore.updateRecord(updateDocument(partitioned, doc)));
@@ -146,6 +151,11 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
         try (final FDBRecordContext context = openContext()) {
             openStore(partitioned, context);
             grabLockExternally(partitioned, context, 2, 0);
+            context.commit();
+        }
+
+        try (final FDBRecordContext context = openContext()) {
+            openStore(partitioned, context);
             // Delete all just deletes the index, not through Lucene
             recordStore.deleteAllRecords();
             context.commit();

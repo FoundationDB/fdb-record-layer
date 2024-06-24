@@ -153,7 +153,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + child + ")";
     }
 
     @Override

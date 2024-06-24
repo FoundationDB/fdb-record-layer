@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -1179,11 +1180,23 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             if (isCorrelation()) {
-                final var aliasMap = translationMap.getAliasMapMaybe().orElseThrow(() -> new RecordCoreException("must have aliasMap"));
                 final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
-                final var translatedAlias = aliasMap.getTargetOrDefault(alias, alias);
+                final var quantifiedObjectValue = QuantifiedObjectValue.of(alias,
+                        com.apple.foundationdb.record.query.plan.cascades.typing.Type.any());
+
+                //
+                // Note that the following cast must work! If it does not we are in a bad spot and we should fail.
+                //
+                final var translatedQuantifiedObjectValue =
+                        (QuantifiedObjectValue)quantifiedObjectValue
+                                .translateCorrelations(translationMap);
+                if (quantifiedObjectValue == translatedQuantifiedObjectValue) {
+                    return this;
+                }
+                final var translatedAlias = translatedQuantifiedObjectValue.getAlias();
                 return new ParameterComparison(type,
                         Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
                         Bindings.Internal.CORRELATION,

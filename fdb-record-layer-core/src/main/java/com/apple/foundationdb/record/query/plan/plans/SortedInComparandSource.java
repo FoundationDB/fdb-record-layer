@@ -54,7 +54,7 @@ public class SortedInComparandSource extends InComparandSource {
         this.reverse = sortedInComparandSourceProto.getReverse();
     }
 
-    protected SortedInComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison, boolean reverse) {
+    public SortedInComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison, boolean reverse) {
         super(bindingName, comparison);
         this.reverse = reverse;
     }

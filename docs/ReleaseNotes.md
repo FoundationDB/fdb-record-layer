@@ -29,7 +29,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Merge partitions when they become too small [(Issue #2739)](https://github.com/FoundationDB/fdb-record-layer/issues/2739)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,26 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.511.0
+
+* **Bug fix** Fix flaky test - break loop into smaller commits [(Issue #2756)](https://github.com/FoundationDB/fdb-record-layer/issues/2756)
+* **Bug fix** FDBDirectoryLock won't fail if AgilityContext is flushed while closing [(Issue #2754)](https://github.com/FoundationDB/fdb-record-layer/issues/2754)
+* **Feature** Reproduce abandoned FileLock due to conflict issue [(Issue #2731)](https://github.com/FoundationDB/fdb-record-layer/issues/2731)
+
+### 3.4.510.0
+
+* **Bug fix** The `ArithmeticValue` and `NumericAggregationValue` classes now uses a fixed `Locale` with `toUpperCase` when encapsulating a specified function by name to avoid mismatches when running in the Turkish locale [(Issue #2750)](https://github.com/FoundationDB/fdb-record-layer/issues/2750)
+* **Bug fix** Inconsistent nullability status for Array's element type [(Issue #2732)](https://github.com/FoundationDB/fdb-record-layer/issues/2737)
+* **Feature** Make Lucene block cache size configurable [(Issue #2749)](https://github.com/FoundationDB/fdb-record-layer/issues/2749)
+* **Feature** Validate filelock on every transaction to reduce ttl [(Issue #2747)](https://github.com/FoundationDB/fdb-record-layer/issues/2747)
+
+### 3.4.504.0
+
+
+### 3.4.502.0
+
+* **Feature** In-join and in-union plans now support using `ConstantObjectValue`s as the basis of their `InSource` [(Issue #2717)](https://github.com/FoundationDB/fdb-record-layer/issues/2717)
 
 ### 3.4.501.0
 

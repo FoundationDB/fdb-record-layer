@@ -98,12 +98,21 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ExistsPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap) {
-        if (translationMap.containsSourceAlias(existentialAlias)) {
-            return new ExistsPredicate(translationMap.getTargetAliasOrDefault(existentialAlias, existentialAlias));
-        } else {
+        final var quantifiedObjectValue =
+                QuantifiedObjectValue.of(existentialAlias, Type.any());
+
+        //
+        // Note that the following cast must work! If it does not we are in a bad spot and we should fail.
+        //
+        final var translatedQuantifiedObjectValue =
+                (QuantifiedObjectValue)quantifiedObjectValue
+                        .translateCorrelations(translationMap);
+        if (quantifiedObjectValue == translatedQuantifiedObjectValue) {
             return this;
         }
+        return new ExistsPredicate(translatedQuantifiedObjectValue.getAlias());
     }
 
     @Nonnull
