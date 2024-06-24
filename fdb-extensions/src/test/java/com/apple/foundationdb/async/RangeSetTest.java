@@ -465,85 +465,159 @@ public class RangeSetTest {
     // Test out a few of the wild and wacky things that can happen when there are insertions going concurrently.
     @Test
     void concurrentWithInsert() {
-        final List<byte[]> keys = createKeys();
-        final List<Range> ranges = new ArrayList<>();
+        int progress = 0;
+        try {
+            progress++;
+            final List<byte[]> keys = createKeys();
+            progress++;
+            final List<Range> ranges = new ArrayList<>();
+            progress++;
 
-        // Two disjoint ranges -- both should succeed.
-        try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
-            Transaction tr1 = multi.get(0);
-            Transaction tr2 = multi.get(1);
+            progress++;
+            // Two disjoint ranges -- both should succeed.
+            progress++;
+            try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
+                progress++;
+                Transaction tr1 = multi.get(0);
+                progress++;
+                Transaction tr2 = multi.get(1);
+                progress++;
 
-            Range r1 = new Range(new byte[]{0x01}, new byte[]{0x02});
-            Range r2 = new Range(new byte[]{0x02}, new byte[]{0x03});
-            CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
-            CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
-            assertTrue(future1.join(), "Range 1 did not do insertion.");
-            assertTrue(future2.join(), "Range 2 did not do insertion.");
+                progress++;
+                Range r1 = new Range(new byte[] {0x01}, new byte[] {0x02});
+                progress++;
+                Range r2 = new Range(new byte[] {0x02}, new byte[] {0x03});
+                progress++;
+                CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
+                progress++;
+                CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
+                progress++;
+                assertTrue(future1.join(), "Range 1 did not do insertion.");
+                progress++;
+                assertTrue(future2.join(), "Range 2 did not do insertion.");
+                progress++;
 
-            multi.commit();
-            ranges.add(r1);
-            ranges.add(r2);
-        }
-
-        checkConsistent(ranges, keys);
-        checkIncreasing();
-
-        // Two non-disjoint ranges. The second should fail.
-        try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
-            Transaction tr1 = multi.get(0);
-            Transaction tr2 = multi.get(1);
-
-            Range r1 = new Range(new byte[]{0x03}, new byte[]{0x05});
-            Range r2 = new Range(new byte[]{0x04}, new byte[]{0x06});
-            CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
-            CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
-
-            assertTrue(future1.join(), "Range 1 did not do insertion");
-            assertTrue(future2.join(), "Range 2 did not do insertion");
-            multi.commit(Set.of(1));
-
-            ranges.add(r1);
-        }
-
-        checkConsistent(ranges, keys);
-        checkIncreasing();
-
-        // Read during write - the reads in the range should fail.
-        List<byte[]> specificKeys = Arrays.asList(
-                new byte[]{0x06, (byte)0xff},
-                new byte[]{0x07},
-                new byte[]{0x07, 0x00},
-                new byte[]{0x07, 0x10},
-                new byte[]{0x08},
-                new byte[]{0x08, 0x00},
-                new byte[]{0x08, 0x10},
-                new byte[]{0x09}
-        );
-        try (MultipleTransactions multi = MultipleTransactions.create(db, specificKeys.size() + 1)) {
-            Transaction tr1 = multi.get(0);
-            Range r1 = new Range(new byte[]{0x07}, new byte[]{0x08});
-            CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
-            List<CompletableFuture<Boolean>> futures = new ArrayList<>(specificKeys.size());
-            Set<Integer> conflicting = new HashSet<>();
-            for (int i = 0; i < specificKeys.size(); i++) {
-                Transaction tr = multi.get(i + 1);
-                byte[] key = specificKeys.get(i);
-                futures.add(rs.contains(tr, specificKeys.get(i)));
-                if (ByteArrayUtil.compareUnsigned(r1.begin, key) <= 0
-                        && ByteArrayUtil.compareUnsigned(key, r1.end) < 0) {
-                    conflicting.add(i + 1);
-                }
+                progress++;
+                multi.commit();
+                progress++;
+                ranges.add(r1);
+                progress++;
+                ranges.add(r2);
+                progress++;
             }
+            progress++;
 
-            assertTrue(future1.join(), "Range 1 did not do insertion");
-            futures.forEach(future -> assertFalse(future.join(), "Key should not be present"));
+            progress++;
+            checkConsistent(ranges, keys);
+            progress++;
+            checkIncreasing();
+            progress++;
 
-            multi.commit(conflicting);
-            ranges.add(r1);
+            progress++;
+            // Two non-disjoint ranges. The second should fail.
+            progress++;
+            try (MultipleTransactions multi = MultipleTransactions.create(db, 2)) {
+                progress++;
+                Transaction tr1 = multi.get(0);
+                progress++;
+                Transaction tr2 = multi.get(1);
+                progress++;
+
+                progress++;
+                Range r1 = new Range(new byte[] {0x03}, new byte[] {0x05});
+                progress++;
+                Range r2 = new Range(new byte[] {0x04}, new byte[] {0x06});
+                progress++;
+                CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
+                progress++;
+                CompletableFuture<Boolean> future2 = rs.insertRange(tr2, r2);
+                progress++;
+
+                progress++;
+                assertTrue(future1.join(), "Range 1 did not do insertion");
+                progress++;
+                assertTrue(future2.join(), "Range 2 did not do insertion");
+                progress++;
+                multi.commit(Set.of(1));
+                progress++;
+
+                progress++;
+                ranges.add(r1);
+                progress++;
+            }
+            progress++;
+
+            progress++;
+            checkConsistent(ranges, keys);
+            progress++;
+            checkIncreasing();
+            progress++;
+
+            progress++;
+            // Read during write - the reads in the range should fail.
+            progress++;
+            List<byte[]> specificKeys = Arrays.asList(
+                    new byte[] {0x06, (byte)0xff},
+                    new byte[] {0x07},
+                    new byte[] {0x07, 0x00},
+                    new byte[] {0x07, 0x10},
+                    new byte[] {0x08},
+                    new byte[] {0x08, 0x00},
+                    new byte[] {0x08, 0x10},
+                    new byte[] {0x09}
+            );
+            progress++;
+            try (MultipleTransactions multi = MultipleTransactions.create(db, specificKeys.size() + 1)) {
+                progress++;
+                Transaction tr1 = multi.get(0);
+                progress++;
+                Range r1 = new Range(new byte[] {0x07}, new byte[] {0x08});
+                progress++;
+                CompletableFuture<Boolean> future1 = rs.insertRange(tr1, r1);
+                progress++;
+                List<CompletableFuture<Boolean>> futures = new ArrayList<>(specificKeys.size());
+                progress++;
+                Set<Integer> conflicting = new HashSet<>();
+                progress++;
+                for (int i = 0; i < specificKeys.size(); i++) {
+                    progress++;
+                    Transaction tr = multi.get(i + 1);
+                    progress++;
+                    byte[] key = specificKeys.get(i);
+                    futures.add(rs.contains(tr, specificKeys.get(i)));
+                    progress++;
+                    if (ByteArrayUtil.compareUnsigned(r1.begin, key) <= 0
+                            && ByteArrayUtil.compareUnsigned(key, r1.end) < 0) {
+                        progress++;
+                        conflicting.add(i + 1);
+                        progress++;
+                    }
+                    progress++;
+                }
+                progress++;
+
+                progress++;
+                assertTrue(future1.join(), "Range 1 did not do insertion");
+                progress++;
+                futures.forEach(future -> assertFalse(future.join(), "Key should not be present"));
+                progress++;
+
+                progress++;
+                multi.commit(conflicting);
+                progress++;
+                ranges.add(r1);
+                progress++;
+            }
+            progress++;
+
+            progress++;
+            checkConsistent(ranges, keys);
+            progress++;
+            checkIncreasing();
+            progress++;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed after " + progress, e);
         }
-
-        checkConsistent(ranges, keys);
-        checkIncreasing();
     }
 
     @Test
