@@ -221,9 +221,15 @@ tasks.withType(Test).configureEach { task ->
         task.testFramework.options.excludeTags.add('Performance')
 
         if (task.name == 'test') {
-            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'false')
+            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'true')
             task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'same_thread')
-            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'same_thread')
+            // See LimitConcurrency, an extension for ensuring appropriate concurrency
+            task.systemProperty('junit.jupiter.execution.parallel.config.strategy', 'fixed')
+
+            task.systemProperty('junit.jupiter.execution.parallel.config.fixed.parallelism', 10)
+            task.systemProperty('junit.jupiter.execution.parallel.config.fixed.max-pool-size', 20)
+            task.systemProperty('junit.jupiter.execution.parallel.config.fixed.saturate', 'true')
         }
     }
 
