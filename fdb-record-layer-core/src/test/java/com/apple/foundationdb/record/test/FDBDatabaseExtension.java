@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,19 +57,21 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * tests that use this extension are free to modify what would otherwise be global state on the factory or database.
  * </p>
  */
-public class FDBDatabaseExtension implements AfterEachCallback {
+public class FDBDatabaseExtension implements BeforeEachCallback, AfterEachCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseExtension.class);
     public static final String BLOCKING_IN_ASYNC_PROPERTY = "com.apple.foundationdb.record.blockingInAsyncDetection";
     public static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
     public static final boolean TRACE = false;
     @Nullable
     private static volatile FDB fdb;
+    private final LimitConcurrencyExtension limitConcurrencyExtension;
     @Nullable
     private FDBDatabaseFactory databaseFactory;
     @Nullable
     private FDBDatabase db;
 
     public FDBDatabaseExtension() {
+        limitConcurrencyExtension = new LimitConcurrencyExtension();
     }
 
     @Nonnull
@@ -151,7 +154,13 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     }
 
     @Override
+    public void beforeEach(final ExtensionContext extensionContext) throws Exception {
+        limitConcurrencyExtension.beforeEach(extensionContext);
+    }
+
+    @Override
     public void afterEach(final ExtensionContext extensionContext) {
+        limitConcurrencyExtension.afterEach(extensionContext);
         if (db != null) {
             // Validate that the test closes all the transactions that it opens
             checkForOpenContexts();

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.test;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -47,7 +47,7 @@ import java.util.concurrent.Semaphore;
  *     </pre>
  * </p>
  */
-class LimitConcurrency implements AfterEachCallback, BeforeEachCallback {
+public class LimitConcurrencyExtension implements AfterEachCallback, BeforeEachCallback {
     /**
      * Number of tests to allow to run concurrently.
      * <p>
@@ -64,7 +64,7 @@ class LimitConcurrency implements AfterEachCallback, BeforeEachCallback {
      *     hosts, or perhaps we should run with concurrency at a different level.
      * </p>
      */
-    static Semaphore testConcurrency = new Semaphore(10);
+    static Semaphore testConcurrency = new Semaphore(Runtime.getRuntime().availableProcessors());
 
     @Override
     public void beforeEach(final ExtensionContext context) throws Exception {

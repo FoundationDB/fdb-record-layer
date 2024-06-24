@@ -108,7 +108,6 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -235,7 +234,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 @SuppressWarnings({"resource", "SameParameterValue"})
 @Tag(Tags.RequiresFDB)
 @Execution(ExecutionMode.CONCURRENT)
-@ExtendWith(LimitConcurrency.class)
 public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexTest.class);
