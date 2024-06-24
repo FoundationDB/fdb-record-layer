@@ -206,6 +206,7 @@ public interface AgilityContext {
         private long prevCommitCheckTime;
         private boolean closed = false;
         private Function<FDBRecordContext, CompletableFuture<Void>> commitCheck;
+        private Throwable lastException = null;
 
         protected Agile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
             this.callerContext = callerContext;
@@ -335,6 +336,7 @@ public interface AgilityContext {
                         LogMessageKeys.AGILITY_CONTEXT_WRITE_SIZE_BYTES, currentWriteSize
                 ).toString(), ex);
             }
+            lastException = ex;
         }
 
         @Override
@@ -409,7 +411,7 @@ public interface AgilityContext {
 
         private void ensureOpen() {
             if (closed) {
-                throw new RecordCoreStorageException("Agile context is already closed");
+                throw new RecordCoreStorageException("Agile context is already closed", lastException);
             }
         }
 
