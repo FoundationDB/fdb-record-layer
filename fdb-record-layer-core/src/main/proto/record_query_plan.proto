@@ -485,6 +485,9 @@ message PNumericAggregationValue {
       MAX_L = 14;
       MAX_F = 15;
       MAX_D = 16;
+
+      BITMAP_LL = 17;
+      BITMAP_II = 18;
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;

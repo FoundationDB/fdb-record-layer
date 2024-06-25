@@ -614,33 +614,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
      * The function- x type-specific numeric aggregator.
      */
     public enum PhysicalOperator {
-        /*
-        pair.key -> last aggregation result, initial = 0
-        pair.value -> input value to be aggregated
-        so final result = pair.key | (1 << pair.value)
-         */
-        BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.LONG,
-                a -> Pair.of(0L, Objects.requireNonNull(a)),
-                (s, v) -> {
-                    final Pair<?, ?> pair1 = (Pair<?, ?>)s;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)v;
-                    return Pair.of((long)(pair1.getKey()) | 1L << (long) (pair1.getValue()), pair2.getValue());
-                },
-                s -> {
-                    final Pair<?, ?> pair = (Pair<?, ?>)s;
-                    return (long)(pair.getKey()) | (1L << (long)(pair.getValue()));
-                }),
-        BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.INT,
-                a -> Pair.of(0, Objects.requireNonNull(a)),
-                (s, v) -> {
-                    final Pair<?, ?> pair1 = (Pair<?, ?>)s;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)v;
-                    return Pair.of((int)(pair1.getKey()) | 1 << (int)(pair1.getValue()), pair2.getValue());
-                },
-                s -> {
-                    final Pair<?, ?> pair = (Pair<?, ?>)s;
-                    return (int)(pair.getKey()) | (1 << (int)(pair.getValue()));
-                }),
         SUM_I(LogicalOperator.SUM, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.addExact((int)s, (int)v), identity()),
         SUM_L(LogicalOperator.SUM, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.addExact((long)s, (long)v), identity()),
         SUM_F(LogicalOperator.SUM, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> (float)s + (float)v, identity()),
@@ -699,8 +672,34 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_I(LogicalOperator.MAX, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.max((int)s, (int)v), identity()),
         MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.max((long)s, (long)v), identity()),
         MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.max((float)s, (float)v), identity()),
-        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity());
-
+        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
+        /*
+                pair.key -> last aggregation result, initial = 0
+                pair.value -> input value to be aggregated
+                so final result = pair.key | (1 << pair.value)
+                 */
+        BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.LONG,
+                  a -> Pair.of(0L, Objects.requireNonNull(a)),
+                (s, v) -> {
+            final Pair<?, ?> pair1 = (Pair<?, ?>)s;
+            final Pair<?, ?> pair2 = (Pair<?, ?>)v;
+            return Pair.of((long)(pair1.getKey()) | 1L << (long) (pair1.getValue()), pair2.getValue());
+        },
+        s -> {
+            final Pair<?, ?> pair = (Pair<?, ?>)s;
+            return (long)(pair.getKey()) | (1L << (long)(pair.getValue()));
+        }),
+        BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.INT,
+                  a -> Pair.of(0, Objects.requireNonNull(a)),
+                (s, v) -> {
+            final Pair<?, ?> pair1 = (Pair<?, ?>)s;
+            final Pair<?, ?> pair2 = (Pair<?, ?>)v;
+            return Pair.of((int)(pair1.getKey()) | 1 << (int)(pair1.getValue()), pair2.getValue());
+        },
+        s -> {
+            final Pair<?, ?> pair = (Pair<?, ?>)s;
+            return (int)(pair.getKey()) | (1 << (int)(pair.getValue()));
+        });
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
