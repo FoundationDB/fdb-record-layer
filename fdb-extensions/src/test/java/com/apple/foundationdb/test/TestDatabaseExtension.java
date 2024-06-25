@@ -1,5 +1,5 @@
 /*
- * FDBExtension.java
+ * TestDatabaseExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,7 +24,9 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
@@ -46,7 +48,7 @@ import java.util.Objects;
  * The user can then call {@link #getDatabase() dbExtension.getDatabase()} to get an actual FDB handle.
  * </p>
  */
-public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallback {
+public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback {
     private static final int MIN_API_VERSION = 630;
     private static final int MAX_API_VERSION = 710;
     private static final String API_VERSION_PROPERTY = "com.apple.foundationdb.apiVersion";
@@ -56,8 +58,10 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
     private static volatile FDB fdb;
 
     private Database db;
+    private final LimitConcurrencyExtension limitConcurrencyExtension;
 
     public TestDatabaseExtension() {
+        limitConcurrencyExtension = new LimitConcurrencyExtension();
     }
 
     public static int getAPIVersion() {
@@ -107,5 +111,15 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
             db.close();
             db = null;
         }
+    }
+
+    @Override
+    public void beforeEach(final ExtensionContext extensionContext) throws Exception {
+        limitConcurrencyExtension.beforeEach(extensionContext);
+    }
+
+    @Override
+    public void afterEach(final ExtensionContext extensionContext) {
+        limitConcurrencyExtension.afterEach(extensionContext);
     }
 }

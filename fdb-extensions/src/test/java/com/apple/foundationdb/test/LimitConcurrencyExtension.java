@@ -1,5 +1,5 @@
 /*
- * LimitConcurrency.java
+ * LimitConcurrencyExtension.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.test;
+package com.apple.foundationdb.test;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;

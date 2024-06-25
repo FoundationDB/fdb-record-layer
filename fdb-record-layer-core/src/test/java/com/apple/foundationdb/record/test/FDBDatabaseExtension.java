@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.BlockingInAsyncDetect
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
+import com.apple.foundationdb.test.LimitConcurrencyExtension;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
