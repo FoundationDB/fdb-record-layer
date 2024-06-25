@@ -35,7 +35,15 @@ import java.util.function.Supplier;
 /**
  * TODO.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public interface ValueEquivalence {
+    @Nonnull
+    Optional<QueryPlanConstraint> ALWAYS_EQUAL = Optional.of(QueryPlanConstraint.tautology());
+
+    static Optional<QueryPlanConstraint> alwaysEqual() {
+        return ALWAYS_EQUAL;
+    }
+
     @Nonnull
     Optional<QueryPlanConstraint> equivalence(@Nonnull final Value left,
                                               @Nonnull final Value right);
@@ -170,7 +178,7 @@ public interface ValueEquivalence {
             final var rightAlias = ((QuantifiedValue)right).getAlias();
 
             if (leftAlias.equals(rightAlias) || aliasMap.containsMapping(leftAlias, rightAlias)) {
-                return Value.alwaysEqual();
+                return alwaysEqual();
             }
 
             return Optional.empty();

@@ -94,7 +94,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         }
         final var andOrPredicate = andOrPredicateOptional.get();
 
-        if (aliasMap.definesOnlyIdentities() && getCorrelatedTo().containsAll(aliasMap.sources())) {
+        if (getCorrelatedTo().equals(otherPred.getCorrelatedTo())) {
             return getChildrenAsSet().equals(andOrPredicate.getChildrenAsSet());
         }
         return super.equalsForChildren(otherPred, aliasMap);

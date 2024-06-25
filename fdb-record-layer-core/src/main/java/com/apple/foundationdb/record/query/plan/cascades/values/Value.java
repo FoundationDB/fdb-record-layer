@@ -83,8 +83,6 @@ import java.util.stream.Stream;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
-    @Nonnull
-    Optional<QueryPlanConstraint> ALWAYS_EQUAL = Optional.of(QueryPlanConstraint.tautology());
 
     @Nonnull
     @Override
@@ -333,12 +331,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
 
         if (this == other) {
-            return alwaysEqual();
+            return ValueEquivalence.alwaysEqual();
         }
 
         final Value otherValue = (Value)other;
-        var constraintOptional = equalsWithoutChildren(otherValue);
-        if (constraintOptional.isEmpty()) {
+        var equalsWithoutChildren = equalsWithoutChildren(otherValue);
+        if (equalsWithoutChildren.isEmpty()) {
             //
             // By the looks of it, otherValue is not equal to this value. However, maybe it's already in the
             // valueEquivalence.
@@ -346,6 +344,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return valueEquivalence.equivalence(this, otherValue);
         }
 
+        var constraint = equalsWithoutChildren.get();
         final Iterator<? extends Value> children = getChildren().iterator();
         final Iterator<? extends Value> otherChildren = otherValue.getChildren().iterator();
 
@@ -359,8 +358,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             if (childConstraintOptional.isEmpty()) {
                 return Optional.empty();
             }
-            constraintOptional =
-                    constraintOptional.map(isEquivalent -> isEquivalent.compose(childConstraintOptional.get()));
+
+            constraint = constraint.compose(childConstraintOptional.get());
         }
 
         if (otherChildren.hasNext()) {
@@ -368,7 +367,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return Optional.empty();
         }
 
-        return constraintOptional;
+        return Optional.of(constraint);
     }
 
     @Nonnull
@@ -378,7 +377,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return Optional.empty();
         }
 
-        return other.getClass() == getClass() ? alwaysEqual() : Optional.empty();
+        return other.getClass() == getClass() ? ValueEquivalence.alwaysEqual() : Optional.empty();
     }
 
     @Nonnull
@@ -417,10 +416,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .stream()
                 .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(alias, inputType))
                 .collect(ImmutableList.toImmutableList());
-    }
-
-    static Optional<QueryPlanConstraint> alwaysEqual() {
-        return ALWAYS_EQUAL;
     }
 
     /**

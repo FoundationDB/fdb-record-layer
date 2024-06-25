@@ -202,7 +202,7 @@ public class MatchInfo {
             return Optional.empty();
         }
         final var allConstraints = ImmutableList.<QueryPlanConstraint>builder().addAll(constraints).addAll(childConstraints).build();
-        return Optional.of(QueryPlanConstraint.compose(allConstraints));
+        return Optional.of(QueryPlanConstraint.composeConstraints(allConstraints));
     }
 
     @Nonnull

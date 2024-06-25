@@ -179,8 +179,9 @@ public class PredicateMultiMap {
 
         @Nonnull
         public static PredicateMapping regularMappingWithoutCompensation(@Nonnull final QueryPredicate queryPredicate,
-                                                                         @Nonnull final QueryPredicate candidatePredicate) {
-            return regularMapping(queryPredicate, candidatePredicate, CompensatePredicateFunction.noCompensationNeeded(), Optional.empty(), Optional.empty(), Optional.empty());
+                                                                         @Nonnull final QueryPredicate candidatePredicate,
+                                                                         @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+            return regularMapping(queryPredicate, candidatePredicate, CompensatePredicateFunction.noCompensationNeeded(), Optional.empty(), Optional.of(queryPlanConstraint), Optional.empty());
         }
 
         @Nonnull

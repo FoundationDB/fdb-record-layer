@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -206,7 +207,7 @@ public class OrPredicate extends AndOrPredicate {
      */
     @Nonnull
     @Override
-    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
+    public Optional<PredicateMultiMap.PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence aliasMap,
                                                                                   @Nonnull final QueryPredicate candidatePredicate,
                                                                                   @Nonnull final EvaluationContext evaluationContext) {
         Optional<PredicateMultiMap.PredicateMapping> mappingsOptional = super.impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
@@ -252,12 +253,12 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Nonnull
-    private Optional<PredicateMultiMap.PredicateMapping> impliesWithValuesAndRanges(@Nonnull final AliasMap aliasMap,
+    private Optional<PredicateMultiMap.PredicateMapping> impliesWithValuesAndRanges(@Nonnull final ValueEquivalence valueEquivalence,
                                                                                     @Nonnull final QueryPredicate candidatePredicate,
                                                                                     @Nonnull final EvaluationContext evaluationContext,
                                                                                     @Nonnull final PredicateWithValueAndRanges leftValueWithRanges,
                                                                                     @Nonnull final PredicateWithValueAndRanges rightValueWithRanges) {
-        if (!leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), aliasMap)) {
+        if (!leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), valueEquivalence)) {
             return Optional.empty();
         }
 

@@ -93,7 +93,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
 
     @Nonnull
     public QueryPlanConstraint compose(@Nonnull final QueryPlanConstraint otherQueryPlanConstraint) {
-        return compose(ImmutableList.of(this, otherQueryPlanConstraint));
+        return composeConstraints(ImmutableList.of(this, otherQueryPlanConstraint));
     }
 
     @Nonnull
@@ -110,7 +110,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     }
 
     @Nonnull
-    public static QueryPlanConstraint compose(@Nonnull final Collection<QueryPlanConstraint> constraints) {
+    public static QueryPlanConstraint composeConstraints(@Nonnull final Collection<QueryPlanConstraint> constraints) {
         return new QueryPlanConstraint(AndPredicate.andOrTrue(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
     }
 
