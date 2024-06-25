@@ -228,8 +228,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             // Grab the value for this sortParameterID from the selectHaving result columns
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            if (!normalizedValues.contains(value)) {
-                normalizedValues.add(value);
+            if (normalizedValues.add(value)) {
                 builder.add(
                         MatchedOrderingPart.of(parameterId, value, comparisonRange,
                                 MatchedSortOrder.ASCENDING));

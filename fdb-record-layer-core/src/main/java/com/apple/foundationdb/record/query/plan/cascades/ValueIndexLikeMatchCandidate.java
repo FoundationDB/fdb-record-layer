@@ -95,8 +95,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var value =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            if (!normalizedValues.contains(value)) {
-                normalizedValues.add(value);
+            if (normalizedValues.add(value)) {
                 builder.add(
                         MatchedOrderingPart.of(parameterId, value, comparisonRange,
                                 MatchedSortOrder.ASCENDING));

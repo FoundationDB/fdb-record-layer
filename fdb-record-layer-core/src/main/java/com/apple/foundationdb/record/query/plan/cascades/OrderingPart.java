@@ -119,9 +119,9 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      * a fixed value (effectively a constant), however, a {@link RequestedSortOrder} does not support to request for
      * fixed values. Conversely, a {@link RequestedSortOrder} can indicate {@link RequestedSortOrder#ANY} which
      * indicates a sort order that is either ascending or descending (but not nothing). In an earlier iteration of this
-     * logic all sort orders where in one enum which led to problems as unexpected sort orders enum values were passed
+     * logic all sort orders were in one enum which led to problems as unexpected sort orders enum values were passed
      * to logic that was not able to digest it. Making it separate classes based on use case allows us to have the Java
-     * compiler to ensure that only meaningful sort orders are processed by the right logic.
+     * compiler ensure that only meaningful sort orders are processed by the right logic.
      */
     public interface SortOrder {
         /**

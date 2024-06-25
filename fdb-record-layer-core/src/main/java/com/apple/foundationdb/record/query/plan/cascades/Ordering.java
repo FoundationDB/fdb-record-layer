@@ -106,9 +106,9 @@ import java.util.function.Supplier;
  * Using a partially-ordered set, we can enumerate all traditional orderings by enumerating all topologically-sound
  * permutations of that partially-ordered set.
  * <br>
- * In addition to jst using a {@link PartiallyOrderedSet} of {@link Value}s, we also keep a multimap for the domain of
+ * In addition to just using a {@link PartiallyOrderedSet} of {@link Value}s, we also keep a multimap for the domain of
  * those {@link Value}s to {@link Binding}s. A {@link Binding} indicates if a {@link Value} is ascending, descending,
- * of if it is bound to one or multiple special {@link Value} via a {@link Comparison}.
+ * or if it is bound to one or multiple special {@link Value} via a {@link Comparison}.
  * <br>
  * Instances of this class are used to communicate properties of plans.
  */

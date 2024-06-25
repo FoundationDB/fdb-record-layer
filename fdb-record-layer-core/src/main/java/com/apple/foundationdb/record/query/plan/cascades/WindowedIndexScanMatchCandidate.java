@@ -271,8 +271,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            if (!normalizedValues.contains(normalizedValue)) {
-                normalizedValues.add(normalizedValue);
+            if (normalizedValues.add(normalizedValue)) {
                 if (parameterId.equals(scoreAlias)) {
                     //
                     // This is the score field of the index which is returned at this ordinal position.
