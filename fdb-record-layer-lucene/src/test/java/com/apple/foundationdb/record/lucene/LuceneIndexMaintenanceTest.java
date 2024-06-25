@@ -60,8 +60,8 @@ import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
-import com.google.common.base.Stopwatch;
 import org.apache.lucene.store.Lock;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -74,7 +74,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Comparator;
@@ -86,11 +85,8 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -105,6 +101,7 @@ import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PART
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -781,25 +778,14 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             index, repartitionCount, outerTextGenerator);
                 }).collect(Collectors.toList());
 
-        final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
-        try (final PrintWriter printWriter = new PrintWriter("/Users/sdugas/projects/fdb-record-layer/concurrent-store-test.csv")) {
-            printWriter.println("Timestamp:" + IntStream.range(0, storeCount).mapToObj(i -> String.format("%14d", i)).collect(Collectors.joining("|")));
-            printWriter.flush();
-            Stopwatch stopwatch = Stopwatch.createStarted();
-            final ScheduledFuture<?> scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(() -> {
-                printWriter.printf("%9d:%s%n", stopwatch.elapsed(TimeUnit.SECONDS), runners.stream().map(ConcurrentStoreTestRunner::currentState).collect(Collectors.joining("|")));
-                printWriter.flush();
-            }, 5, 5, TimeUnit.SECONDS);
-            final List<Map<Tuple, Map<Tuple, Tuple>>> allIds = AsyncUtil.getAll(runners.stream()
-                            .map(runner -> CompletableFuture.supplyAsync(runner, forkJoinPool))
-                            .collect(Collectors.toList()))
-                    .join();
-            scheduledFuture.cancel(false);
-            LOGGER.info(KeyValueLogMessage.of("Completed concurrentStoreTest successfully",
-                    "ids", allIds.stream()
-                            .map(storeIds -> storeIds.values().stream().mapToInt(Map::size).sum())
-                            .collect(Collectors.toList())));
-        }
+        final List<Map<Tuple, Map<Tuple, Tuple>>> allIds = AsyncUtil.getAll(runners.stream()
+                        .map(runner -> CompletableFuture.supplyAsync(runner, forkJoinPool))
+                        .collect(Collectors.toList()))
+                .join();
+        LOGGER.info(KeyValueLogMessage.of("Completed concurrentStoreTest successfully",
+                "ids", allIds.stream()
+                        .map(storeIds -> storeIds.values().stream().mapToInt(Map::size).sum())
+                        .collect(Collectors.toList())));
     }
 
     private class ConcurrentStoreTestRunner implements Supplier<Map<Tuple, Map<Tuple, Tuple>>> {
