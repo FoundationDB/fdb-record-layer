@@ -213,16 +213,12 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
-            System.out.println("InOpValue arguments:" + arguments + " arg0 type:" + res0);
-            // SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
             SemanticException.check(res1.isArray(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
             final var arrayElementType = Objects.requireNonNull(((Type.Array) res1).getElementType());
-            System.out.println("InOpValue arrayElementType:" + arrayElementType);
-            // (TODO): need to check if two record types are the same
             if (!arrayElementType.isUnresolved() && res0.getTypeCode() != arrayElementType.getTypeCode()) {
                 final var maximumType = Type.maximumType(arg0.getResultType(), arrayElementType);
                 // Incompatible types
@@ -235,7 +231,6 @@ public class InOpValue extends AbstractValue implements BooleanValue {
                     return new InOpValue((Value)arg0, PromoteValue.inject((Value)arg1, new Type.Array(maximumType)));
                 }
             }
-            System.out.println("InOpValue return:" + new InOpValue((Value)arg0, (Value)arg1));
             return new InOpValue((Value)arg0, (Value)arg1);
         }
     }

@@ -153,7 +153,6 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public Value getResultValue() {
-        System.out.println("collectionValue:" + collectionValue + " resultType:" + collectionValue.getResultType());
         Verify.verify(collectionValue.getResultType().isArray());
 
         return new QueriedValue(Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType()));

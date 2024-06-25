@@ -160,6 +160,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
+
                 final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
                 transformedPredicates.add(
                         new ValuePredicate(value,
