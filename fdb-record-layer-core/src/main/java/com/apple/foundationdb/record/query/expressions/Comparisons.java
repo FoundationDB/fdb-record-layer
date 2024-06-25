@@ -246,8 +246,61 @@ public class Comparisons {
         if (value == null || comparand == null) {
             return null;
         } else {
-            return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            if (value instanceof Message) {
+                if (!(comparand instanceof Message)) {
+                    return false;
+                }
+                return compareMessageEquals((Message)value, (Message)comparand);
+            } else {
+                return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            }
         }
+    }
+
+    // return true if m1 and m2 are equal, i.e. if for all field index i, m1.getFieldByIndex(i) = m2.getFieldByIndex(i), m1 and m2 are equal
+    // m1 and m2 must only have primitive types (not repeated, map, or message type fields)
+    private static boolean compareMessageEquals(@Nonnull Message m1, @Nonnull Message m2) {
+        // verify m1 and m2 only have 2 fields, no nested fields
+        Map<Descriptors.FieldDescriptor, Object> m1Fields = m1.getAllFields();
+        Map<Descriptors.FieldDescriptor, Object> m2Fields = m2.getAllFields();
+        if (m1Fields.size() != m2Fields.size()) {
+            return false;
+        }
+        // compare fieldDescriptors
+        Map<Integer, Descriptors.FieldDescriptor> m1IndexToFieldDescriptors = new HashMap<>();
+        for (Descriptors.FieldDescriptor f: m1Fields.keySet()) {
+            if (f.isRepeated() || f.isMapField() || f.getJavaType() == JavaType.MESSAGE) {
+                return false;
+            }
+            m1IndexToFieldDescriptors.put(f.getIndex(), f);
+        }
+        Map<Integer, Descriptors.FieldDescriptor> m2IndexToFieldDescriptors = new HashMap<>();
+        for (Descriptors.FieldDescriptor f: m2Fields.keySet()) {
+            if (f.isRepeated() || f.isMapField() || f.getJavaType() == JavaType.MESSAGE) {
+                return false;
+            }
+            m2IndexToFieldDescriptors.put(f.getIndex(), f);
+        }
+        for (Map.Entry<Integer, Descriptors.FieldDescriptor> f1: m1IndexToFieldDescriptors.entrySet()) {
+            // index in m1 doesn't exist in m2
+            if (m2IndexToFieldDescriptors.get(f1.getKey()) == null) {
+                return false;
+            }
+            Descriptors.FieldDescriptor f2 = m2IndexToFieldDescriptors.get(f1.getKey());
+            // if f1 or f2 is LONG, promote both objects to long and compare
+            if (f1.getValue().getJavaType() == JavaType.LONG || f2.getJavaType() == JavaType.LONG) {
+                long l1 = ((Number)m1Fields.get(f1.getValue())).longValue();
+                long l2 = ((Number)m2Fields.get(f2)).longValue();
+                if (l1 != l2) {
+                    return false;
+                }
+            } else {
+                if (!toClassWithRealEquals(m1Fields.get(f1.getValue())).equals(toClassWithRealEquals(m2Fields.get(f2)))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     @Nullable
