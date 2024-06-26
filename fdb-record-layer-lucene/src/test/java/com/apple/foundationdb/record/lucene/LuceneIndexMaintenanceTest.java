@@ -714,7 +714,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         Arguments.of(random.nextBoolean(),
                                 random.nextBoolean(),
                                 random.nextBoolean(),
-                                random.nextInt(500) + 1,
                                 random.nextInt(30) + 3,
                                 random.nextLong())));
     }
@@ -788,6 +787,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 "ids", allIds.stream()
                         .map(storeIds -> storeIds.values().stream().mapToInt(Map::size).sum())
                         .collect(Collectors.toList())));
+        for (final Map<Tuple, Map<Tuple, Tuple>> storeIds : allIds) {
+            assertThat("All of the stores should have generated a fair amount of documents",
+                    storeIds.values().stream().mapToInt(Map::size).sum(), Matchers.greaterThan(300));
+        }
     }
 
     private class ConcurrentStoreTestRunner implements Supplier<Map<Tuple, Map<Tuple, Tuple>>> {
