@@ -19,7 +19,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Make exceptions from LuceneIndexMaintainer more verbose [(Issue #2768)](https://github.com/FoundationDB/fdb-record-layer/issues/2768)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -29,9 +29,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Merge partitions when they become too small [(Issue #2739)](https://github.com/FoundationDB/fdb-record-layer/issues/2739)
+* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Include cause with AgilityContext already closed exception [(Issue #2774)](https://github.com/FoundationDB/fdb-record-layer/issues/2774)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,12 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.512.0
+
+* **Bug fix** Make exceptions from LuceneIndexMaintainer more verbose [(Issue #2768)](https://github.com/FoundationDB/fdb-record-layer/issues/2768)
+* **Feature** Merge partitions when they become too small [(Issue #2739)](https://github.com/FoundationDB/fdb-record-layer/issues/2739)
+* **Feature** Include cause with AgilityContext already closed exception [(Issue #2774)](https://github.com/FoundationDB/fdb-record-layer/issues/2774)
 
 ### 3.4.511.0
 
