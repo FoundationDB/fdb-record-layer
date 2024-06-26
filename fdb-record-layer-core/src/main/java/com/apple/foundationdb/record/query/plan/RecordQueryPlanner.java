@@ -105,6 +105,7 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -2613,8 +2614,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                     FieldKeyExpression indexField = (FieldKeyExpression) indexOrderedField.getArguments();
                     if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
                         final OrderQueryKeyExpression orderedExpression = new OrderQueryKeyExpression(indexOrderedField);
-                        final QueryKeyExpressionWithComparison adjustedComparison = orderedExpression.adjustComparison(field.getComparison());
-                        if (adjustedComparison != null && addToComparisons(adjustedComparison.getComparison())) {
+                        final Pair<Comparisons.Comparison, Comparisons.Comparison> adjustedComparisons = orderedExpression.adjustComparison(field.getComparison());
+                        if (adjustedComparisons != null && addToComparisons(adjustedComparisons.getLeft())) {
+                            if (adjustedComparisons.getRight() != null) {
+                                addToComparisons(adjustedComparisons.getRight());
+                            }
                             addedComparison(child, filterChild);
                         }
                     }

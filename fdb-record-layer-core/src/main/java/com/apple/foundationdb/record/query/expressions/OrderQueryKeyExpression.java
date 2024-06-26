@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.OrderFunctionKeyExpression;
+import com.apple.foundationdb.record.util.pair.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,10 +42,11 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
      * ordering key. In addition to encoding the comparand, the direction of the comparison may need to
      * be reversed if the ordering is (@code DESC).
      * @param comparison the comparison on the inner key expression
-     * @return a comparison component on this order key expression or {@code null} if not supported
+     * @return a comparison on this order key expression, plus a possible second comparison to exclude nulls,
+     * or {@code null} if not supported
      */
     @Nullable
-    public QueryKeyExpressionWithComparison adjustComparison(@Nonnull Comparisons.Comparison comparison) {
+    public Pair<Comparisons.Comparison, Comparisons.Comparison> adjustComparison(@Nonnull Comparisons.Comparison comparison) {
         final boolean inverted = ((OrderFunctionKeyExpression)keyExpression).getDirection().isInverted();
         Comparisons.Type type = comparison.getType();
         switch (type) {
@@ -72,17 +74,44 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
                 }
                 break;
             case IS_NULL:
+                return Pair.of(adjustedNullComparison(Comparisons.Type.EQUALS), null);
             case NOT_NULL:
-                type = type == Comparisons.Type.IS_NULL ? Comparisons.Type.EQUALS : Comparisons.Type.NOT_EQUALS;
-                return new QueryKeyExpressionWithComparison(keyExpression,
-                        new Comparisons.SimpleComparison(type, keyExpression.getComparandConversionFunction().apply(null)));
+                return Pair.of(adjustedNullComparison(Comparisons.Type.NOT_EQUALS), null);
             default:
                 return null;
         }
+        final QueryKeyExpressionWithComparison adjustedComponent;
         if (comparison instanceof Comparisons.ComparisonWithParameter) {
-            return parameterComparison(type, ((Comparisons.ComparisonWithParameter)comparison).getParameter());
+            adjustedComponent = parameterComparison(type, ((Comparisons.ComparisonWithParameter)comparison).getParameter());
         } else {
-            return simpleComparison(type, comparison.getComparand());
+            adjustedComponent = simpleComparison(type, comparison.getComparand());
         }
+        final Comparisons.Comparison adjustedComparison = adjustedComponent.getComparison();
+        Comparisons.Comparison nullComparison = null;
+        switch (type) {
+            case LESS_THAN:
+            case LESS_THAN_OR_EQUALS:
+                if (((OrderFunctionKeyExpression)keyExpression).getDirection().isNullsFirst()) {
+                    // nulls on less end
+                    nullComparison = adjustedNullComparison(Comparisons.Type.GREATER_THAN);
+                }
+                break;
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQUALS:
+                if (((OrderFunctionKeyExpression)keyExpression).getDirection().isNullsLast()) {
+                    // nulls on greater end
+                    nullComparison = adjustedNullComparison(Comparisons.Type.LESS_THAN);
+                }
+                break;
+            default:
+                break;
+        }
+        return Pair.of(adjustedComparison, nullComparison);
+    }
+
+    @Nonnull
+    private Comparisons.SimpleComparison adjustedNullComparison(@Nonnull Comparisons.Type type) {
+        // super.nullComparison doesn't deal with getComparandConversionFunction.
+        return new Comparisons.SimpleComparison(type, keyExpression.getComparandConversionFunction().apply(null));
     }
 }

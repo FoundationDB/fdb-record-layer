@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleOrdering;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,7 +43,7 @@ import java.util.function.Function;
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class OrderFunctionKeyExpression extends FunctionKeyExpression implements QueryableKeyExpression {
+public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression implements QueryableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Order-Function-Key-Expression");
 
     @Nonnull
@@ -75,7 +75,7 @@ public class OrderFunctionKeyExpression extends FunctionKeyExpression implements
     public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                     @Nullable Message message,
                                                                     @Nonnull Key.Evaluated arguments) {
-        return Collections.singletonList(Key.Evaluated.scalar(ByteString.copyFrom(TupleOrdering.pack(arguments.toTuple(), direction))));
+        return Collections.singletonList(Key.Evaluated.scalar(ZeroCopyByteString.wrap(TupleOrdering.pack(arguments.toTuple(), direction))));
     }
 
     @Override
@@ -99,7 +99,7 @@ public class OrderFunctionKeyExpression extends FunctionKeyExpression implements
     @Nullable
     @Override
     public Function<Object, Object> getComparandConversionFunction() {
-        return o -> ByteString.copyFrom(TupleOrdering.pack(Tuple.from(o), direction));
+        return o -> ZeroCopyByteString.wrap(TupleOrdering.pack(Tuple.from(o), direction));
     }
 
     @Override
@@ -110,5 +110,15 @@ public class OrderFunctionKeyExpression extends FunctionKeyExpression implements
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
         return super.baseQueryHash(hashKind, BASE_HASH, direction);
+    }
+
+    @Override
+    protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull Key.Evaluated result) {
+        return Collections.singletonList(Key.Evaluated.fromTuple(TupleOrdering.unpack(result.getObject(0, byte[].class), direction)));
+    }
+
+    @Override
+    public boolean isInjective() {
+        return true;
     }
 }
