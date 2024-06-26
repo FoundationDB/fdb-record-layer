@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -44,9 +45,35 @@ public interface ValueEquivalence {
         return ALWAYS_EQUAL;
     }
 
+
     @Nonnull
-    Optional<QueryPlanConstraint> equivalence(@Nonnull final Value left,
-                                              @Nonnull final Value right);
+    Optional<QueryPlanConstraint> equivalence(@Nonnull Value left,
+                                              @Nonnull Value right);
+
+    @Nonnull
+    Optional<QueryPlanConstraint> equivalence(@Nonnull CorrelationIdentifier left,
+                                              @Nonnull CorrelationIdentifier right);
+
+    @Nonnull
+    default <T extends UsesValueEquivalence<T>> Optional<QueryPlanConstraint> semanticEquals(@Nonnull final Set<T> left,
+                                                                                             @Nonnull final Set<T> right) {
+        if (left.size() != right.size()) {
+            return Optional.empty();
+        }
+
+        QueryPlanConstraint constraint = QueryPlanConstraint.tautology();
+        for (final T l : left) {
+            for (final T r : right) {
+                final var semanticEquals = l.semanticEquals(r, this);
+                if (semanticEquals.isPresent()) {
+                    constraint = constraint.compose(semanticEquals.get());
+                    break;
+                }
+            }
+        }
+
+        return Optional.of(constraint);
+    }
 
     default ValueEquivalence then(@Nonnull final ValueEquivalence thenEquivalence) {
         return new ThenEquivalence(this, thenEquivalence);
@@ -69,6 +96,16 @@ public interface ValueEquivalence {
         @Nonnull
         @Override
         public Optional<QueryPlanConstraint> equivalence(@Nonnull final Value left, @Nonnull final Value right) {
+            final var firstEquivalence = first.equivalence(left, right);
+            if (firstEquivalence.isPresent()) {
+                return firstEquivalence;
+            }
+            return then.equivalence(left, right);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<QueryPlanConstraint> equivalence(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
             final var firstEquivalence = first.equivalence(left, right);
             if (firstEquivalence.isPresent()) {
                 return firstEquivalence;
@@ -108,6 +145,12 @@ public interface ValueEquivalence {
                 return Optional.empty();
             }
             return Optional.of(Objects.requireNonNull(valueConstraintSupplierMap.get(left)).get());
+        }
+
+        @Nonnull
+        @Override
+        public Optional<QueryPlanConstraint> equivalence(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return Optional.empty();
         }
 
         /**
@@ -182,6 +225,12 @@ public interface ValueEquivalence {
             }
 
             return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Optional<QueryPlanConstraint> equivalence(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return aliasMap.containsMapping(left, right) ? ValueEquivalence.alwaysEqual() : Optional.empty();
         }
     }
 }

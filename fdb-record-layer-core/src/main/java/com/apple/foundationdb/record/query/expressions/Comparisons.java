@@ -53,9 +53,12 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryI
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -93,6 +96,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -742,7 +746,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, PlanSerializable {
+    public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -832,7 +836,15 @@ public class Comparisons {
 
         @Override
         default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
-            return this.equals(other);
+            return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("unused")
+        default Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other,
+                                                                  @Nonnull final ValueEquivalence valueEquivalence) {
+            return this.equals(other) ? ValueEquivalence.alwaysEqual() : Optional.empty();
         }
 
         @Override
@@ -1215,18 +1227,12 @@ public class Comparisons {
             return ImmutableSet.of(getAlias());
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || getClass() != other.getClass()) {
-                return false;
-            }
+        public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             ParameterComparison that = (ParameterComparison) other;
             if (type != that.type) {
-                return false;
+                return Optional.empty();
             }
 
             //
@@ -1235,14 +1241,19 @@ public class Comparisons {
             // graph.
             //
             if (isCorrelation() && that.isCorrelation()) {
-                return getAlias().equals(that.getAlias()) || aliasMap.containsMapping(getAlias(), that.getAlias());
+                if (getAlias().equals(that.getAlias())) {
+                    return ValueEquivalence.alwaysEqual();
+                }
+                // This case should happen rather infrequently
+                return valueEquivalence.equivalence(getAlias(), that.getAlias());
             }
 
             if (!getParameter().equals(that.getParameter())) {
-                return false;
+                return Optional.empty();
             }
             
-            return Objects.equals(relatedByEquality(), that.relatedByEquality());
+            return Objects.equals(relatedByEquality(), that.relatedByEquality())
+                   ? ValueEquivalence.alwaysEqual() : Optional.empty();
         }
 
         @Nullable
@@ -1506,21 +1517,15 @@ public class Comparisons {
             return getComparandValue();
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || getClass() != other.getClass()) {
-                return false;
-            }
+        public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             final var that = (ValueComparison) other;
             if (type != that.type) {
-                return false;
+                return Optional.empty();
             }
 
-            return comparandValue.semanticEquals(that.comparandValue, aliasMap);
+            return comparandValue.semanticEquals(that.comparandValue, valueEquivalence);
         }
 
         @Nullable
@@ -2604,17 +2609,11 @@ public class Comparisons {
             return inner.getCorrelatedTo();
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || getClass() != other.getClass()) {
-                return false;
-            }
-            MultiColumnComparison that = (MultiColumnComparison) other;
-            return this.inner.semanticEquals(that.inner, aliasMap);
+        public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+            MultiColumnComparison that = (MultiColumnComparison)other;
+            return this.inner.semanticEqualsTyped(that.inner, valueEquivalence);
         }
 
         @Override

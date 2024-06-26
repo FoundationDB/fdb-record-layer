@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -164,33 +163,28 @@ public class AndPredicate extends AndOrPredicate {
 
     public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
                                      @Nonnull QueryPredicate... operands) {
-        return of(toList(first, second, operands), false);
+        return and(toList(first, second, operands), false);
     }
 
     @Nonnull
     public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts) {
-        return of(conjuncts, false);
+        return and(conjuncts, false);
     }
 
     @Nonnull
-    public static QueryPredicate andOrTrue(@Nonnull final Collection<? extends QueryPredicate> conjuncts) {
-        if (conjuncts.isEmpty()) {
-            return ConstantPredicate.TRUE;
-        }
-        return of(conjuncts, false);
-    }
-
-    @Nonnull
-    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
-        Verify.verify(!conjuncts.isEmpty());
-        if (conjuncts.size() == 1) {
-            return Iterables.getOnlyElement(conjuncts);
-        }
-
+    public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
         final var filteredConjuncts =
                 conjuncts.stream()
                         .filter(queryPredicate -> !queryPredicate.isTautology())
                         .collect(ImmutableList.toImmutableList());
+
+        if (filteredConjuncts.isEmpty()) {
+            return ConstantPredicate.TRUE;
+        }
+
+        if (filteredConjuncts.size() == 1) {
+            return Iterables.getOnlyElement(filteredConjuncts);
+        }
 
         return new AndPredicate(filteredConjuncts, isAtomic);
     }

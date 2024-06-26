@@ -35,7 +35,9 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PDatabaseObjectDepende
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +49,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -129,15 +132,19 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                               @Nonnull final ValueEquivalence valueEquivalence) {
+        final var superEqualsWithoutChildren = super.equalsWithoutChildren(other, valueEquivalence);
+        if (superEqualsWithoutChildren.isEmpty()) {
+            return Optional.empty();
         }
 
         final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =
                 (DatabaseObjectDependenciesPredicate)other;
-        return usedIndexes.equals(otherDatabaseObjectDependenciesPredicate.usedIndexes);
+        return usedIndexes.equals(otherDatabaseObjectDependenciesPredicate.usedIndexes)
+               ? superEqualsWithoutChildren : Optional.empty();
     }
 
 
@@ -169,8 +176,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     }
 
     @Nonnull
-    public static <M extends Message> DatabaseObjectDependenciesPredicate fromPlan(@Nonnull final RecordMetaData recordMetaData,
-                                                                                   @Nonnull final RecordQueryPlan plan) {
+    public static DatabaseObjectDependenciesPredicate fromPlan(@Nonnull final RecordMetaData recordMetaData,
+                                                               @Nonnull final RecordQueryPlan plan) {
         final List<String> usedIndexesNamesList = Lists.newArrayList(plan.getUsedIndexes());
         // we have to do this to get a proper stable order
         Collections.sort(usedIndexesNamesList);

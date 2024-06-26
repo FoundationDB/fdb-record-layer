@@ -217,7 +217,7 @@ public abstract class IndexPredicate {
         @Nonnull
         @Override
         public QueryPredicate toPredicate(@Nonnull final Value value) {
-            return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.andOrTrue(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
+            return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.and(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
 
         @Override

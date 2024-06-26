@@ -35,7 +35,9 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PCompatibleTypeEvoluti
 import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldAccessTrieNode;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -58,6 +60,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -165,14 +168,18 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                               @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren = super.equalsWithoutChildren(other, valueEquivalence);
+        if (equalsWithoutChildren.isEmpty()) {
+            return Optional.empty();
         }
 
         final CompatibleTypeEvolutionPredicate otherCompatibleTypeEvolutionPredicate = (CompatibleTypeEvolutionPredicate)other;
-        return recordTypeNameFieldAccessMap.equals(otherCompatibleTypeEvolutionPredicate.recordTypeNameFieldAccessMap);
+        return recordTypeNameFieldAccessMap.equals(otherCompatibleTypeEvolutionPredicate.recordTypeNameFieldAccessMap)
+                ? equalsWithoutChildren : Optional.empty();
     }
 
     @Nonnull

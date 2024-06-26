@@ -196,7 +196,7 @@ public class MatchInfo {
         final var constraints = predicateMap.getMap()
                 .values()
                 .stream()
-                .flatMap(predicate -> predicate.getConstraint().stream())
+                .map(PredicateMultiMap.PredicateMapping::getConstraint)
                 .collect(Collectors.toUnmodifiableList());
         if (constraints.isEmpty() && childConstraints.isEmpty()) {
             return Optional.empty();

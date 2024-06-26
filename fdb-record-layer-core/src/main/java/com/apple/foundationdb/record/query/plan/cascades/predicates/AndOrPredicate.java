@@ -25,7 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PAndOrPredicate;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -36,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -86,18 +89,22 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
+    @Nonnull
     @Override
-    public boolean equalsForChildren(@Nonnull final QueryPredicate otherPred, @Nonnull final AliasMap aliasMap) {
+    public Optional<QueryPlanConstraint> equalsForChildren(@Nonnull final QueryPredicate otherPred,
+                                                           @Nonnull final ValueEquivalence valueEquivalence) {
         final var andOrPredicateOptional = otherPred.narrowMaybe(AndOrPredicate.class);
         if (andOrPredicateOptional.isEmpty()) {
-            return false;
+            return Optional.empty();
         }
         final var andOrPredicate = andOrPredicateOptional.get();
 
         if (getCorrelatedTo().equals(otherPred.getCorrelatedTo())) {
-            return getChildrenAsSet().equals(andOrPredicate.getChildrenAsSet());
+            return getChildrenAsSet().equals(andOrPredicate.getChildrenAsSet())
+                   ? ValueEquivalence.alwaysEqual()
+                   : Optional.empty();
         }
-        return super.equalsForChildren(otherPred, aliasMap);
+        return super.equalsForChildren(otherPred, valueEquivalence);
     }
 
     @Override

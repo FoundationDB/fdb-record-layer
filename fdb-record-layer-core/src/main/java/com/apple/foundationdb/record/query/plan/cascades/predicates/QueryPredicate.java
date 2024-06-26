@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.CompensatePredicateFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
@@ -69,7 +70,7 @@ import java.util.stream.StreamSupport;
  * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate>, PlanSerializable {
+public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, UsesValueEquivalence<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate>, PlanSerializable {
     @Nonnull
     @Override
     default QueryPredicate getThis() {
@@ -306,28 +307,17 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Optional<QueryPlanConstraint> semanticEquals(@Nullable final Object other,
-                                                         @Nonnull final ValueEquivalence valueEquivalence) {
-        if (other == null) {
-            return Optional.empty();
-        }
-
-        if (this == other) {
-            return ValueEquivalence.alwaysEqual();
-        }
-
-        if (this.getClass() != other.getClass()) {
-            return Optional.empty();
-        }
-
-        final QueryPredicate otherPred = (QueryPredicate)other;
-        final var equalsWithoutChildrenOptional = equalsWithoutChildren(otherPred, valueEquivalence);
+    @Override
+    @SuppressWarnings("OptionalIsPresent")
+    default Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final QueryPredicate other,
+                                                              @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildrenOptional =
+                equalsWithoutChildren(other, valueEquivalence);
         if (equalsWithoutChildrenOptional.isEmpty()) {
             return Optional.empty();
         }
 
-        return equalsForChildren(otherPred, valueEquivalence)
+        return equalsForChildren(other, valueEquivalence)
                 .map(equalsForChildren -> equalsWithoutChildrenOptional.get().compose(equalsForChildren));
     }
 

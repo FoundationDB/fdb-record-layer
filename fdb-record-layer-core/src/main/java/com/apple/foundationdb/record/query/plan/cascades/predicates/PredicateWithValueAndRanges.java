@@ -36,9 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.CompensatePredicateFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -170,19 +171,29 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * Performs algebraic equality between {@code this} and {@code other}, if {@code other} is also a {@link PredicateWithValueAndRanges}.
      *
      * @param other The other predicate
-     * @param aliasMap The alias equivalence map.
+     * @param valueEquivalence the value equivalence.
      * @return {@code true} if both predicates are equal, otherwise {@code false}.
      */
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!PredicateWithValue.super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
+    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren = PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence);
+        if (equalsWithoutChildren.isEmpty()) {
+            return Optional.empty();
         }
+        var constraint = equalsWithoutChildren.get();
+
         final PredicateWithValueAndRanges that = (PredicateWithValueAndRanges)other;
-        final var inverseEquivalenceMap = aliasMap.inverse();
-        return value.semanticEquals(that.value, aliasMap) &&
-               ranges.stream().allMatch(left -> that.ranges.stream().anyMatch(right -> left.semanticEquals(right, aliasMap))) &&
-               that.ranges.stream().allMatch(left -> ranges.stream().anyMatch(right -> left.semanticEquals(right, inverseEquivalenceMap)));
+        final var valueEquals = value.semanticEquals(that.value, valueEquivalence);
+        if (valueEquals.isEmpty()) {
+            return Optional.empty();
+        }
+        constraint = constraint.compose(valueEquals.get());
+        final var rangesEquals = valueEquivalence.semanticEquals(ranges, that.ranges);
+        if (rangesEquals.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(constraint.compose(rangesEquals.get()));
     }
 
     @Override
@@ -263,16 +274,17 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      *  range, if so, we have an implication and we proceed to create a mapping similar to the above logic.</li>
      * </ul>
      *
-     * @param aliasMap the current alias map
+     * @param valueEquivalence the current value equivalence
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
      *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
+    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
+    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
                                                                 @Nonnull final QueryPredicate candidatePredicate,
                                                                 @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate.isContradiction()) {
@@ -282,10 +294,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         if (candidatePredicate instanceof PredicateWithValueAndRanges) {
             final var candidate = (PredicateWithValueAndRanges)candidatePredicate;
 
+            final var valueEquals =
+                    getValue().semanticEquals(candidate.getValue(), valueEquivalence);
+
             // the value on which the candidate is defined must be the same as the _this_'s value.
-            if (!getValue().semanticEquals(candidate.getValue(), aliasMap)) {
+            if (valueEquals.isEmpty()) {
                 return Optional.empty();
             }
+            final var constraint = valueEquals.get();
 
             // candidate has no ranges (i.e. it is not filtered).
             if (candidate.getRanges().isEmpty()) {
@@ -296,7 +312,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.of(alias), Optional.empty(),
+                    }, Optional.of(alias), constraint,
                             Optional.empty()));  // TODO: provide a translated predicate value here.
                 } else {
                     return Optional.empty();
@@ -312,20 +328,28 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                             return Optional.empty();
                         }
                         return injectCompensationFunctionMaybe();
-                    }, Optional.of(alias), Optional.of(captureConstraint(candidate)),
+                    }, Optional.of(alias), constraint.compose(captureConstraint(candidate)),
                             Optional.empty()));  // TODO: provide a translated predicate value here.
                 } else {
-                    return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, (ignore, alsoIgnore) -> {
-                        // no need for compensation if range boundaries match between candidate constraint and query sargable
-                        if (candidateRanges.stream().allMatch(candidateRange -> getRanges().stream().anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
-                            return Optional.empty();
-                        }
-                        // check if ranges are semantically equal.
-                        if (getRanges().stream().allMatch(left -> candidate.getRanges().stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
-                            return Optional.empty();
-                        }
-                        return injectCompensationFunctionMaybe();
-                    }, Optional.empty(), Optional.of(captureConstraint(candidate)),
+                    return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate,
+                            (ignore, alsoIgnore) -> {
+                                // no need for compensation if range boundaries match between candidate constraint and query sargable
+                                if (candidateRanges.stream()
+                                        .allMatch(candidateRange -> getRanges().stream()
+                                                .anyMatch(range -> range.encloses(candidateRange, evaluationContext).coalesce()))) {
+                                    return Optional.empty();
+                                }
+
+                                //
+                                // Check if ranges are semantically equal. Note that the constraint is actually captured
+                                // outside of this lambda.
+                                //
+                                if (getRanges().stream().allMatch(left -> candidate.getRanges()
+                                        .stream().anyMatch(right -> left.semanticEquals(right, valueEquivalence).isPresent()))) {
+                                    return Optional.empty();
+                                }
+                                return injectCompensationFunctionMaybe();
+                            }, Optional.empty(), constraint.compose(captureConstraint(candidate)),
                             Optional.empty()));  // TODO: provide a translated predicate value here.
                 }
             }
@@ -341,14 +365,18 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         // parameterized by a mapping of this to the candidate predicate. Therefore, in order to match at all,
         // it must be semantically equivalent.
         //
-        if (semanticEquals(candidatePredicate, aliasMap)) {
-            // Note that we never have to reapply the predicate as both sides are always semantically
-            // equivalent.
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate, PredicateMultiMap.CompensatePredicateFunction.noCompensationNeeded(),
-                    Optional.empty()));  // TODO: provide a translated predicate value here.
+        final var semanticEquals = semanticEquals(candidatePredicate, valueEquivalence);
+        if (semanticEquals.isEmpty()) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        // Note that we never have to reapply the predicate as both sides are always semantically
+        // equivalent.
+        return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate,
+                CompensatePredicateFunction.noCompensationNeeded(),
+                Optional.empty(),
+                semanticEquals.get(),
+                Optional.empty()));  // TODO: provide a translated predicate value here.
     }
 
     @Nonnull
@@ -381,7 +409,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         for (final var range : ranges) {
             final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
             residuals.addAll(range.getComparisons().stream().map(c -> getValue().withComparison(c)).collect(ImmutableList.toImmutableList()));
-            dnfParts.add(AndPredicate.andOrTrue(residuals.build()));
+            dnfParts.add(AndPredicate.and(residuals.build()));
         }
         return OrPredicate.or(dnfParts.build());
     }
@@ -440,7 +468,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         }).flatMap(Optional::stream).collect(Collectors.toSet());
         final ImmutableList.Builder<QueryPredicate> conjunctions = ImmutableList.builder();
         for (final var queryRange : getRanges()) {
-            conjunctions.add(AndPredicate.andOrTrue(queryRange.getComparisons()
+            conjunctions.add(AndPredicate.and(queryRange.getComparisons()
                     .stream()
                     .filter(comparison -> comparison instanceof Comparisons.ValueComparison)
                     .map(valueComparison -> ((Comparisons.ValueComparison)valueComparison).getComparandValue())

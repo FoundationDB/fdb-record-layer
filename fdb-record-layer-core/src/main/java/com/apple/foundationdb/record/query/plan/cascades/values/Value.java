@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
@@ -82,7 +83,7 @@ import java.util.stream.Stream;
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
+public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
     @Override
@@ -323,30 +324,36 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Optional<QueryPlanConstraint> semanticEquals(@Nullable final Object other,
-                                                         @Nonnull final ValueEquivalence valueEquivalence) {
-        if (!(other instanceof Value)) {
-            return Optional.empty();
-        }
-
+    @Nonnull
+    @Override
+    default Optional<QueryPlanConstraint> semanticEquals(@Nullable final Object other, @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
             return ValueEquivalence.alwaysEqual();
         }
 
-        final Value otherValue = (Value)other;
-        var equalsWithoutChildren = equalsWithoutChildren(otherValue);
+        if (!(other instanceof Value)) {
+            return Optional.empty();
+        }
+
+        return semanticEqualsTyped((Value)other, valueEquivalence);
+    }
+
+    @Nonnull
+    @Override
+    default Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Value other,
+                                                              @Nonnull final ValueEquivalence valueEquivalence) {
+        var equalsWithoutChildren = equalsWithoutChildren(other);
         if (equalsWithoutChildren.isEmpty()) {
             //
             // By the looks of it, otherValue is not equal to this value. However, maybe it's already in the
             // valueEquivalence.
             //
-            return valueEquivalence.equivalence(this, otherValue);
+            return valueEquivalence.equivalence(this, other);
         }
 
         var constraint = equalsWithoutChildren.get();
         final Iterator<? extends Value> children = getChildren().iterator();
-        final Iterator<? extends Value> otherChildren = otherValue.getChildren().iterator();
+        final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
 
         while (children.hasNext()) {
             if (!otherChildren.hasNext()) {

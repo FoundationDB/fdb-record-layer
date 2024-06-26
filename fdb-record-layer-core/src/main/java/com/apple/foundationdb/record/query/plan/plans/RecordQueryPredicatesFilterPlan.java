@@ -80,14 +80,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
             predicatesBuilder.add(QueryPredicate.fromQueryPredicateProto(serializationContext, recordQueryPredicatesFilterPlanProto.getPredicates(i)));
         }
         this.predicates = predicatesBuilder.build();
-        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
+        this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
     public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
-        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
+        this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
     @Nonnull

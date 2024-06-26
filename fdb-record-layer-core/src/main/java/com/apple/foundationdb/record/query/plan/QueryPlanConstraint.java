@@ -111,7 +111,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
 
     @Nonnull
     public static QueryPlanConstraint composeConstraints(@Nonnull final Collection<QueryPlanConstraint> constraints) {
-        return new QueryPlanConstraint(AndPredicate.andOrTrue(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+        return new QueryPlanConstraint(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
     }
 
     @Nonnull
@@ -121,7 +121,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
 
     @Nonnull
     public static QueryPlanConstraint ofPredicates(@Nonnull final Collection<QueryPredicate> predicates) {
-        return new QueryPlanConstraint(AndPredicate.andOrTrue(predicates));
+        return new QueryPlanConstraint(AndPredicate.and(predicates));
     }
 
     @Nonnull
@@ -167,7 +167,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
         public QueryPlanConstraint getConstraint(@Nonnull final RecordQueryPlan plan) {
             visit(plan);
             final var constraints = builder.build();
-            return QueryPlanConstraint.ofPredicate(AndPredicate.andOrTrue(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+            return QueryPlanConstraint.ofPredicate(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
         }
     }
 }
