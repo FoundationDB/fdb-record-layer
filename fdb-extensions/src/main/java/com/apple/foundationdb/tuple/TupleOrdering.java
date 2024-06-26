@@ -72,6 +72,44 @@ public class TupleOrdering {
         public boolean isCounterflowNulls() {
             return counterflowNulls;
         }
+
+        /**
+         * Get whether values are ordered ascending.
+         * This is the opposite of {@link #isInverted()}, viewed from the name of the enum, as opposed to what encoding
+         * would need to do.
+         * @return {@code true} if greater values from first
+         */
+        public boolean isAscending() {
+            return !inverted;
+        }
+
+        /**
+         * Get whether values are ordered descending.
+         * This is the same as {@link #isInverted()}, viewed from the name of the enum, as opposed to what encoding
+         * would need to do.
+         * @return {@code true} if greater values from first
+         */
+        public boolean isDescending() {
+            return inverted;
+        }
+
+        /**
+         * Get whether null values come earlier.
+         * This corresponds to the second part of the enum name.
+         * @return {@code true} if nulls values come before non-null values
+         */
+        public boolean isNullsFirst() {
+            return inverted == counterflowNulls;
+        }
+
+        /**
+         * Get whether null values come later.
+         * This corresponds to the second part of the enum name.
+         * @return {@code true} if nulls values come after non-null values
+         */
+        public boolean isNullsLast() {
+            return inverted != counterflowNulls;
+        }
     }
 
     private TupleOrdering() {
@@ -150,7 +188,7 @@ public class TupleOrdering {
      * with additional bytes, which would mean appending an infinite number of {@code FF} bytes.
      * Instead, the inverted bytes are treated as a bit string and encoded 7 bits to a byte with a zero high bit, padded
      * with one bits, followed by a byte with a one high bit so that shorter is always greater.
-     * In the scheme here, the final byte has the number of padding bits in the low three bits.
+     * In the scheme here, the final byte has the number of padding bits in the next three bits.
      * This allows for encoding arbitrary length bit strings properly, while keeping the invariant that shorter strings
      * are greater, since they have more padding.
      * Since this encoding is, in fact, only currently used to encode an even number of bytes, it would also work to always
@@ -180,7 +218,7 @@ public class TupleOrdering {
         } else {
             final int npad = 7 - nbits;
             inverted[out++] = (byte)(((bits << npad) | ((1 << npad) - 1)) & 0x7F);
-            inverted[out++] = (byte)(0x80 | npad);
+            inverted[out++] = (byte)(0x80 | (npad << 4));
         }
         if (out != invertedLength) {
             throw new IllegalStateException("ordering invert did not encode to correct number of bytes");
@@ -194,7 +232,7 @@ public class TupleOrdering {
         if (invertedLength == 0 || (inverted[invertedLength - 1] & 0x80) == 0) {
             throw new IllegalArgumentException("inverted bytes not in expected format");
         }
-        final int uninvertedBitLength = ((invertedLength - 1) * 7) - (inverted[invertedLength - 1] & 0x07);
+        final int uninvertedBitLength = ((invertedLength - 1) * 7) - ((inverted[invertedLength - 1] & 0x70) >> 4);
         if ((uninvertedBitLength % 8) != 0) {
             throw new IllegalStateException("inverted length not even number of bytes");
         }

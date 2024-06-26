@@ -30,6 +30,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
@@ -62,7 +63,7 @@ class OrderFunctionKeyExpressionTest {
     @ParameterizedTest
     @EnumSource(TupleOrdering.Direction.class)
     void testOrdering(TupleOrdering.Direction direction) {
-        final KeyExpression expression = function(OrderFunctionKeyExpressionFactory.FUNCTION_NAME_PREFIX + direction.name().toLowerCase(Locale.ROOT), STR_FIELD);
+        final KeyExpression expression = orderExpression(direction);
         final TreeMap<Tuple, Object> ordered = new TreeMap<>();
         for (String value : STRINGS) {
             Key.Evaluated eval = Iterables.getOnlyElement(evaluate(expression, buildMessage(value)));
@@ -77,5 +78,23 @@ class OrderFunctionKeyExpressionTest {
             expected = Lists.reverse(expected);
         }
         assertEquals(expected, Lists.newArrayList(ordered.values()));
+    }
+
+    @ParameterizedTest
+    @EnumSource(TupleOrdering.Direction.class)
+    void testInversion(TupleOrdering.Direction direction) {
+        final FunctionKeyExpression expression = orderExpression(direction);
+        for (String value : STRINGS) {
+            Message message = buildMessage(value);
+            Key.Evaluated applied = Iterables.getOnlyElement(evaluate(expression, message));
+            Key.Evaluated inverted = Iterables.getOnlyElement(((InvertibleFunctionKeyExpression)expression).evaluateInverse(applied));
+            Key.Evaluated original = Iterables.getOnlyElement(evaluate(STR_FIELD, message));
+            assertEquals(original.toTupleAppropriateList(), inverted.toTupleAppropriateList());
+        }
+    }
+
+    @Nonnull
+    private static FunctionKeyExpression orderExpression(@Nonnull TupleOrdering.Direction direction) {
+        return function(OrderFunctionKeyExpressionFactory.FUNCTION_NAME_PREFIX + direction.name().toLowerCase(Locale.ROOT), STR_FIELD);
     }
 }

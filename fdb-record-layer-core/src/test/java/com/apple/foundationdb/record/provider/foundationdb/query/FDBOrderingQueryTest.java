@@ -25,17 +25,24 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -118,7 +125,20 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected void sortOnly(@Nullable String orderFunction, boolean withIndex, long... expected) throws Exception {
+    private static @Nonnull Stream<String> orderFunctionsStream() {
+        return Stream.of(null,
+                "order_asc_nulls_first", "order_asc_nulls_last", "order_desc_nulls_last", "order_desc_nulls_first");
+    }
+
+    public static Stream<Arguments> testSortOnly() {
+        return orderFunctionsStream()
+                .flatMap(orderFunction -> Stream.of(false, true)
+                        .map(withIndex -> Arguments.of(orderFunction, withIndex)));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testSortOnly(@Nullable String orderFunction, boolean withIndex) throws Exception {
         final RecordMetaDataHook hook = withIndex ? indexHook(orderFunction) : noIndexHook();
         loadRecords(hook);
         final RecordQuery query = RecordQuery.newBuilder()
@@ -126,71 +146,70 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
                 .setSort(fullOrderingKey(orderFunction))
                 .build();
         final List<Long> actual = queryRecords(query, hook, withIndex);
-        assertEquals(Arrays.stream(expected).boxed().collect(Collectors.toList()), actual);
+        final boolean reversed = orderFunction != null && orderFunction.contains("_desc_");
+        final boolean nullsFirst = orderFunction == null || orderFunction.contains("nulls_first");
+        List<Long> expected = new ArrayList<>(6);
+        if (nullsFirst != reversed) {
+            expected.add(2L);
+        }
+        expected.addAll(List.of(3L, 4L, 5L));
+        if (nullsFirst == reversed) {
+            expected.add(2L);
+        }
+        if (reversed) {
+            expected = Lists.reverse(expected);
+        }
+        expected.add(0, 1L);
+        expected.add(6L);
+        assertEquals(expected, actual);
     }
 
-    @Test
-    void testDefault() throws Exception {
-        sortOnly(null, true, 1, 2, 3, 4, 5, 6);
+    public static Stream<Arguments> testSortAndFilter() {
+        return orderFunctionsStream()
+                .flatMap(orderFunction -> Stream.of(Comparisons.Type.LESS_THAN,  Comparisons.Type.LESS_THAN_OR_EQUALS,
+                                Comparisons.Type.GREATER_THAN, Comparisons.Type.GREATER_THAN_OR_EQUALS)
+                        .flatMap(comparisonType -> Stream.of(false, true)
+                                .map(withIndex -> Arguments.of(orderFunction, comparisonType, withIndex))));
     }
 
-    @Test
-    void testAscNullsFirst() throws Exception {
-        sortOnly("order_asc_nulls_first", true, 1, 2, 3, 4, 5, 6);
-    }
-
-    @Test
-    void testAscNullsLast() throws Exception {
-        sortOnly("order_asc_nulls_last", true, 1, 3, 4, 5, 2, 6);
-    }
-
-    @Test
-    void testDescNullsFirst() throws Exception {
-        sortOnly("order_desc_nulls_first", true, 1, 2, 5, 4, 3, 6);
-    }
-
-    @Test
-    void testDescNullsLast() throws Exception {
-        sortOnly("order_desc_nulls_last", true, 1, 5, 4, 3, 2, 6);
-    }
-
-    @Test
-    void testDescWithoutIndex() throws Exception {
-        sortOnly("order_desc_nulls_last", false, 1, 5, 4, 3, 2, 6);
-    }
-
-    protected void sortAndFilter(@Nullable String orderFunction, boolean withIndex, long... expected) throws Exception {
+    @ParameterizedTest
+    @MethodSource
+    void testSortAndFilter(@Nullable String orderFunction, Comparisons.Type comparisonType, boolean withIndex) throws Exception {
         final RecordMetaDataHook hook = withIndex ? indexHook(orderFunction) : noIndexHook();
         loadRecords(hook);
+        QueryComponent comparison;
+        List<Long> expected;
+        final Field queryField = Query.field("str_value_indexed");
+        switch (comparisonType) {
+            case LESS_THAN:
+                comparison = queryField.lessThan("b");
+                expected = List.of(3L, 4L);
+                break;
+            case LESS_THAN_OR_EQUALS:
+                comparison = queryField.lessThanOrEquals("b");
+                expected = List.of(3L, 4L, 5L);
+                break;
+            case GREATER_THAN:
+                comparison = queryField.greaterThan("a");
+                expected = List.of(4L, 5L);
+                break;
+            case GREATER_THAN_OR_EQUALS:
+                comparison = queryField.greaterThanOrEquals("a");
+                expected = List.of(3L, 4L, 5L);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown comparison type: " + comparisonType);
+        }
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(fullOrderingKey(orderFunction))
-                .setFilter(Query.and(
-                        Query.field("num_value_2").equalsValue(101),
-                        Query.field("str_value_indexed").greaterThan("a")))
+                .setFilter(Query.and(Query.field("num_value_2").equalsValue(101), comparison))
                 .build();
         final List<Long> actual = queryRecords(query, hook, withIndex);
-        assertEquals(Arrays.stream(expected).boxed().collect(Collectors.toList()), actual);
-    }
-
-    @Test
-    void testFilteredDefault() throws Exception {
-        sortAndFilter(null, true, 4, 5);
-    }
-
-    @Test
-    void testFilteredAsc() throws Exception {
-        sortAndFilter("order_asc_nulls_first", true, 4, 5);
-    }
-
-    @Test
-    void testFilteredDesc() throws Exception {
-        sortAndFilter("order_desc_nulls_last", true, 5, 4);
-    }
-
-    @Test
-    void testFilteredDescWithoutIndex() throws Exception {
-        sortAndFilter("order_desc_nulls_last", false, 5, 4);
+        if (orderFunction != null && orderFunction.contains("_desc_")) {
+            expected = Lists.reverse(expected);
+        }
+        assertEquals(expected, actual);
     }
 
 }
