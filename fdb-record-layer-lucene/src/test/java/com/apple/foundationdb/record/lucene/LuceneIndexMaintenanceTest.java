@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.LoggableTimeoutException;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurrentTestBase;
@@ -851,6 +853,21 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
                 try {
                     explicitMergeIndex(index, contextProps, schemaSetup);
+                } catch (FDBExceptions.FDBStoreRetriableException e) {
+                    if (e.getCause() instanceof FDBException) {
+                        final FDBException fe = (FDBException)e.getCause();
+                        if (fe.getCode() == 1051) { // Batch GRV request rate limit exceeded
+                            LOGGER.info("Batch GRV exceeded at iteration " + currentLoop.get(), e);
+                            try {
+                                Thread.sleep(50);
+                                continue;
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                                throw new RuntimeException(ex);
+                            }
+                        }
+                    }
+                    throw new RuntimeException("Failed merge at iteration " + currentLoop.get(), e);
                 } catch (RuntimeException e) {
                     throw new RuntimeException("Failed merge at iteration " + currentLoop.get(), e);
                 }
