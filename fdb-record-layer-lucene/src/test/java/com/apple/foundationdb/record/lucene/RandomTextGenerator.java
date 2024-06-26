@@ -67,7 +67,6 @@ class RandomTextGenerator {
                         .append(baseWord);
             }
         }
-        System.out.println("X: " + builder);
         return builder.toString();
     }
 
