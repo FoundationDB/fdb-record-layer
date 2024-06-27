@@ -850,15 +850,15 @@ public class LucenePartitioner {
             for (int i = 0; i < partitionInfos.size(); i++) {
                 LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
 
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitionDocumentCount, partitionInfo));
-                }
-
                 LuceneRepartitionPlanner.RepartitioningContext repartitioningContext = repartitionPlanner.determineRepartitioningAction(groupingKey,
                         partitionInfos, i, repartitionDocumentCount);
 
                 if (repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NOT_REQUIRED &&
                         repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NO_CAPACITY_FOR_MERGE) {
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitioningContext.countToMove, partitionInfo));
+                    }
+
                     return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
                 }
             }
@@ -901,7 +901,8 @@ public class LucenePartitioner {
                 LuceneLogMessageKeys.INDEX_PARTITION, partitionInfo.getId(),
                 LuceneLogMessageKeys.TOTAL_COUNT, partitionInfo.getCount(),
                 LuceneLogMessageKeys.COUNT, repartitionDocumentCount,
-                LuceneLogMessageKeys.PARTITION_HIGH_WATERMARK, indexPartitionHighWatermark);
+                LuceneLogMessageKeys.PARTITION_HIGH_WATERMARK, indexPartitionHighWatermark,
+                LuceneLogMessageKeys.PARTITION_LOW_WATERMARK, indexPartitionLowWatermark);
     }
 
     /**
