@@ -1008,11 +1008,14 @@ public class LucenePartitioner {
             fetchedRecordsFuture = cursor.mapPipelined(indexEntry -> state.store.loadSyntheticRecord(indexEntry.getPrimaryKey()),
                     state.store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD)).asList();
         } else {
-            fetchedRecordsFuture = state.store.fetchIndexRecords(cursor, IndexOrphanBehavior.SKIP).map(FDBIndexedRecord::getStoredRecord).asList();
+            fetchedRecordsFuture = state.store.fetchIndexRecords(cursor, IndexOrphanBehavior.ERROR).map(FDBIndexedRecord::getStoredRecord).asList();
         }
 
         fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
         return fetchedRecordsFuture.thenCompose(records -> {
+            if (records.size() != repartitioningContext.countToMove) {
+                throw new RecordCoreException("Didn't get back what we wanted " + records.size() + " vs " + repartitioningContext.countToMove);
+            }
             if (records.size() == 0) {
                 throw new RecordCoreException("Unexpected error: 0 records fetched. repartitionContext {}", repartitioningContext);
             }

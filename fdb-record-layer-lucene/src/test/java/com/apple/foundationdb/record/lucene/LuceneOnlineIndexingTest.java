@@ -275,14 +275,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         // validate index is sane
         luceneIndexTestValidator.validate(
                 index,
-                Map.of(
-                        Tuple.from(1), Map.of(
-                                primaryKey_4, Tuple.from(startTime + 3_000),
-                                primaryKey_3, Tuple.from(startTime + 2_000),
-                                primaryKey_2, Tuple.from(startTime + 1_000),
-                                primaryKey_1, Tuple.from(startTime)
-                        )
-                ),
+                new LuceneIndexTestValidator.Documents(),
                 2,
                 "*:*");
 

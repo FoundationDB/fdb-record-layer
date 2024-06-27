@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import org.apache.lucene.document.Document;
@@ -52,6 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -87,14 +89,14 @@ public class LuceneIndexTestValidator {
      *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
      * </p>
      * @param index the index to validate
-     * @param expectedDocumentInformation a map from group to primaryKey to timestamp
+     * @param expected a map from group to primaryKey to timestamp
      * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
+    void validate(Index index, final Documents expected,
                   final int repartitionCount, final String universalSearch) throws IOException {
-        validate(index, expectedDocumentInformation, repartitionCount, universalSearch, false);
+        validate(index, expected, repartitionCount, universalSearch, false);
     }
 
     /**
@@ -105,14 +107,14 @@ public class LuceneIndexTestValidator {
      *     expected that `mergeIndex` had been run or not; right now it assumes it has been run.
      * </p>
      * @param index the index to validate
-     * @param expectedDocumentInformation a map from group to primaryKey to timestamp
+     * @param expected a map from group to primaryKey to timestamp
      * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @param allowDuplicatePrimaryKeys if {@code true} this will allow multiple entries in the primary key segment
      * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
      * @throws IOException if there is any issue interacting with lucene
      */
-    void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
+    void validate(Index index, final Documents expected,
                   final int repartitionCount, final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
         String partitionLowWaterMarkStr = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
@@ -123,20 +125,15 @@ public class LuceneIndexTestValidator {
         // rather than moving fewer than repartitionCount
         int maxPerPartition = partitionHighWatermark;
 
-        Map<Tuple, Map<Tuple, Tuple>> missingDocuments = new HashMap<>();
-        expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
-            missingDocuments.put(groupingKey, new HashMap<>(groupedIds));
-        });
-        for (final Map.Entry<Tuple, Map<Tuple, Tuple>> entry : expectedDocumentInformation.entrySet()) {
+        final Documents missingDocuments = new Documents(expected);
+        LOGGER.debug("XT: copying " + System.identityHashCode(expected ) + " -> " + System.identityHashCode(missingDocuments));
+        for (final Map.Entry<Tuple, Documents.Group> entry : expected.entrySet()) {
             final Tuple groupingKey = entry.getKey();
             LOGGER.debug(KeyValueLogMessage.of("Validating group",
                     "group", groupingKey,
                     "expectedCount", entry.getValue().size()));
 
-            final List<Tuple> records = entry.getValue().entrySet().stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey)
-                    .collect(Collectors.toList());
+            final List<Tuple> records = entry.getValue().sortedPrimaryKeys();
             List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
             partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
             final String allCounts = partitionInfos.stream()
@@ -174,19 +171,24 @@ public class LuceneIndexTestValidator {
                             "documentsSoFar", visitedCount,
                             "documentsInGroup", records.size(),
                             "partitionInfo.count", partitionInfo.getCount()));
-                    final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount, visitedCount + partitionInfo.getCount()));
-                    validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
-                            expectedPrimaryKeys,
-                            universalSearch);
+                    int partitionId = partitionInfo.getId();
+                    System.out.println(entry.getValue());
+                    final Pair<LuceneOptimizedIndexSearcher, TopDocs> docs = findAll(recordStore, groupingKey, index, universalSearch, partitionId);
+                    final LuceneOptimizedIndexSearcher searcher = docs.getLeft();
+                    final TopDocs newTopDocs = docs.getRight();
+                    assertEquals(partitionInfo.getCount(), newTopDocs.scoreDocs.length);
+
+                    final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount, Math.min(records.size(), visitedCount + partitionInfo.getCount())));
+                    validatePrimaryKeysFromResults(index, partitionId, groupingKey, expectedPrimaryKeys, newTopDocs, searcher);
+
                     visitedCount += partitionInfo.getCount();
                     validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                             expectedPrimaryKeys, allowDuplicatePrimaryKeys);
-                    expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+                    expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.removeDocument(groupingKey, primaryKey));
                 }
             }
         }
-        missingDocuments.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-        assertEquals(Map.of(), missingDocuments, "We should have found all documents in the index");
+        assertEquals(Set.of(), missingDocuments.entrySet(), "We should have found all documents in the index");
     }
 
     List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
@@ -220,8 +222,37 @@ public class LuceneIndexTestValidator {
         return Math.max(0, highWatermark - count);
     }
 
-    public static void validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
-                                               Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {
+    public static int validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
+                                              Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {
+        final Pair<LuceneOptimizedIndexSearcher, TopDocs> docs = findAll(recordStore, groupingKey, index, universalSearch, partitionId);
+        final LuceneOptimizedIndexSearcher searcher = docs.getLeft();
+        final TopDocs newTopDocs = docs.getRight();
+        assertEquals(expectedPrimaryKeys.size(), newTopDocs.scoreDocs.length);
+
+        validatePrimaryKeysFromResults(index, partitionId, groupingKey, expectedPrimaryKeys, newTopDocs, searcher);
+        return newTopDocs.scoreDocs.length;
+    }
+
+    private static void validatePrimaryKeysFromResults(final Index index, final int partitionId, final Tuple groupingKey, final Set<Tuple> expectedPrimaryKeys, final TopDocs newTopDocs, final LuceneOptimizedIndexSearcher searcher) {
+        Set<String> fields = Set.of(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+        Assertions.assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()), Arrays.stream(newTopDocs.scoreDocs)
+                        .map(scoreDoc -> {
+                            try {
+                                Document document = searcher.doc(scoreDoc.doc, fields);
+                                IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
+                                return Tuple.fromBytes(primaryKey.binaryValue().bytes);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        })
+                        .sorted()
+                        .collect(Collectors.toList()),
+                () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
+    }
+
+    private static Pair<LuceneOptimizedIndexSearcher, TopDocs> findAll(final FDBRecordStore recordStore,
+                                                                       final Tuple groupingKey, final Index index,
+                                                                       final String universalSearch, final int partitionId) throws IOException {
         LuceneScanQuery scanQuery;
         if (groupingKey.isEmpty()) {
             scanQuery = (LuceneScanQuery) LuceneIndexTestUtils.fullSortTextSearch(recordStore, index, universalSearch, null);
@@ -237,22 +268,7 @@ public class LuceneIndexTestValidator {
 
         assertNotNull(newTopDocs);
         assertNotNull(newTopDocs.scoreDocs);
-        assertEquals(expectedPrimaryKeys.size(), newTopDocs.scoreDocs.length);
-
-        Set<String> fields = Set.of(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
-        Assertions.assertEquals(expectedPrimaryKeys.stream().sorted().collect(Collectors.toList()), Arrays.stream(newTopDocs.scoreDocs)
-                        .map(scoreDoc -> {
-                            try {
-                                Document document = searcher.doc(scoreDoc.doc, fields);
-                                IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
-                                return Tuple.fromBytes(primaryKey.binaryValue().bytes);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        })
-                        .sorted()
-                        .collect(Collectors.toList()),
-                () -> index.getRootExpression() + " " + groupingKey + ":" + partitionId);
+        return Pair.of(searcher, newTopDocs);
     }
 
     public static IndexReader getIndexReader(final FDBRecordStore recordStore, final Index index,
@@ -316,6 +332,117 @@ public class LuceneIndexTestValidator {
             }
         } else {
             assertNull(primaryKeySegmentIndex, message);
+        }
+    }
+
+    /**
+     * Class for storing necessary metadata about documents for validation.
+     */
+    public static class Documents {
+        Map<Tuple, Group> groups = new HashMap<>();
+
+        public Documents() {
+
+        }
+
+        public Documents(Documents other) {
+            for (final Map.Entry<Tuple, Group> entry : other.groups.entrySet()) {
+                groups.put(entry.getKey(), new Group(entry.getValue()));
+            }
+        }
+
+        public void removeDocument(Tuple groupingKey, Tuple primaryKey) {
+            final Group group = groups.get(groupingKey);
+            LOGGER.info("XT: " + System.identityHashCode(this) + " Removing " + groupingKey + " " + primaryKey + " -> " + group);
+            group.removeDocument(primaryKey);
+            LOGGER.info("XT: " + System.identityHashCode(this) + " Removed  " + groupingKey + " " + primaryKey + " -> " + group);
+
+            if (group.documents.isEmpty()) {
+                groups.remove(groupingKey);
+            }
+
+        }
+
+        public void addDocument(Tuple groupingKey, Tuple primaryKey, long timestamp) {
+            groups.computeIfAbsent(groupingKey, key -> new Group()).addDocument(primaryKey, timestamp);
+
+            LOGGER.info("XT: " + System.identityHashCode(this) + " Adding   " + groupingKey + " " + primaryKey + ": " + timestamp);
+        }
+
+        public Set<Map.Entry<Tuple, Group>> entrySet() {
+            return groups.entrySet();
+        }
+
+        public void removeGroup(final Tuple groupingKey) {
+            groups.remove(groupingKey);
+        }
+
+        public Set<Tuple> groupingKeys() {
+            return groups.keySet();
+        }
+
+        public Tuple removeRandom(final Random random) {
+            final Map.Entry<Tuple, Group> entry = groups.entrySet().stream().skip(random.nextInt(groups.size())).findFirst().orElseThrow();
+            final Tuple primaryKey = entry.getValue().getRandom(random);
+            removeDocument(entry.getKey(), primaryKey);
+            return primaryKey;
+        }
+
+        public int smallestGroupSize(final boolean isGrouped) {
+            return groups.values().stream()
+                    .map(Group::size)
+                    .sorted(Comparator.reverseOrder())
+                    .limit(2).skip(isGrouped ? 1 : 0).findFirst()
+                    .orElse(0);
+        }
+
+        public int groupSize(final Tuple groupTuple) {
+            return groups.getOrDefault(groupTuple, new Group()).size();
+        }
+
+        /**
+         * Class for storing necessary metadata about documents for validation within a group.
+         */
+        public static class Group {
+            Map<Tuple, Tuple> documents = new HashMap<>();
+
+            public Group() {
+
+            }
+
+            public Group(final Group other) {
+                documents.putAll(other.documents);
+            }
+
+            public void addDocument(final Tuple primaryKey, final long timestamp) {
+                // allows updating the timestamp on a document
+                documents.put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
+            }
+
+            public void removeDocument(final Tuple primaryKey) {
+                assertNotNull(documents.remove(primaryKey));
+            }
+
+            public int size() {
+                return documents.size();
+            }
+
+            public List<Tuple> sortedPrimaryKeys() {
+                return documents.entrySet().stream()
+                        .sorted(Map.Entry.comparingByValue())
+                        .map(Map.Entry::getKey)
+                        .collect(Collectors.toList());
+            }
+
+            public Tuple getRandom(final Random random) {
+                return documents.keySet().stream().skip(random.nextInt(documents.size())).findFirst().orElseThrow();
+            }
+
+            @Override
+            public String toString() {
+                return documents.entrySet().stream().sorted(Comparator.comparing(Map.Entry::getValue))
+                        .map(e -> e.getKey().toString()).collect(Collectors.joining(", "));
+            }
         }
     }
 }

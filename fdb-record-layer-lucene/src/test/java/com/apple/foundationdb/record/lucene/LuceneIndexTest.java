@@ -745,9 +745,24 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
         }
+        for (int i = 0; i < transactionCount; i++) {
+            try (FDBRecordContext context = openContext(contextProps)) {
+                schemaSetup.accept(context);
+                recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                long start = Instant.now().toEpochMilli();
+                for (int j = 0; j < docsPerTransaction; j++) {
+                    id++;
+                    if (i % 2 == 0 && j % 2 == 0) {
+                        recordStore.saveRecord(createComplexDocument(id, ENGINEER_JOKE, docGroupFieldValue, start + id));
+                        allIds.add(id);
+                    }
+                }
+                commit(context);
+            }
+        }
 
         // we haven't done any merges yet, or repartitioning, so each transaction should be one new segment
-        assertEquals(Map.of(0, transactionCount),
+        assertEquals(Map.of(0, transactionCount + 50),
                 getSegmentCounts(index, groupingKey, contextProps, schemaSetup));
 
         timer.reset();
@@ -1841,7 +1856,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     schemaSetup.accept(context);
                     return recordStore;
                 });
-        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), new LuceneIndexTestValidator.Documents(), Integer.MAX_VALUE, luceneSearch, false);
 
         // next delete some docs
         try (FDBRecordContext context = openContext(contextProps)) {
@@ -1873,7 +1888,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         explicitMergeIndex(index, contextProps, schemaSetup);
 
         // validate that after merge, partitions have been adjusted as expected
-        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), new LuceneIndexTestValidator.Documents(), Integer.MAX_VALUE, luceneSearch, false);
     }
 
     static Stream<Arguments> simplePartitionConsolidationTest() {
@@ -1977,7 +1992,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     schemaSetup.accept(context);
                     return recordStore;
                 });
-        luceneIndexTestValidator.validate(Objects.requireNonNull(index), createdKeys, Integer.MAX_VALUE, luceneSearch, false);
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), new LuceneIndexTestValidator.Documents(), Integer.MAX_VALUE, luceneSearch, false);
     }
 
     @Test
