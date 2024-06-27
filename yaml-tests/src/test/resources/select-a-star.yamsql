@@ -24,7 +24,7 @@ schema_template:
     create table B(B1 bigint, B2 bigint, B3 S, primary key(B1))
     create index A_idx as select A1, A2, A3 FROM A order by A1, A2, A3
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO A
         VALUES (1, 10, 1),

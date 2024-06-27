@@ -21,7 +21,7 @@
 schema_template:
     create table lb(a bigint, b bytes, primary key(a))
 ---
-config:
+setup:
   steps:
     - query: insert into lb values (1, x'deadbeef'), (2, b64'yv4='), (3, null);
 ---

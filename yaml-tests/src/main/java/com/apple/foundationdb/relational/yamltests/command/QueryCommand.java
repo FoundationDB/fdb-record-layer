@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
+import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
@@ -37,9 +39,9 @@ import org.junit.jupiter.api.Assertions;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -62,51 +64,88 @@ public class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
 
     @Nonnull
-    private final List<QueryConfig> queryConfigs = new LinkedList<>();
+    private final List<QueryConfig> queryConfigs;
     @Nonnull
     private final QueryInterpreter queryInterpreter;
+    @Nonnull
+    private final AtomicReference<Throwable> maybeExecutionError = new AtomicReference<>();
 
-    QueryCommand(int lineNumber, @Nonnull List<?> region) {
-        super(lineNumber);
-        if (Debugger.getDebugger() != null) {
-            Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
-        }
-        final var queryCommand = Matchers.firstEntry(Matchers.first(region), "query command");
-        queryInterpreter = QueryInterpreter.parse(queryCommand);
-        final var queryConfigsWithValueList = region.stream().skip(1).collect(Collectors.toList());
-        for (var queryConfigWithValue : queryConfigsWithValueList) {
-            final var queryConfigAndValueEntry = Matchers.firstEntry(queryConfigWithValue, "query configuration and value");
-            queryConfigs.add(QueryConfig.parse(queryConfigAndValueEntry));
+    @Nullable
+    public Throwable getMaybeExecutionError() {
+        return maybeExecutionError.get();
+    }
+
+    @Nonnull
+    public static QueryCommand parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+        final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
+        final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
+        final var lineNumber = Matchers.notNull(linedObject, "query").getLineNumber();
+        try {
+            if (Debugger.getDebugger() != null) {
+                Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
+            }
+            final var queryString = Matchers.notNull(Matchers.string(queryCommand.getValue(), "query string"), "query string");
+            final var queryInterpreter = QueryInterpreter.withQueryString(lineNumber, queryString, executionContext);
+            final var queryConfigsWithValueList = Matchers.arrayList(object).stream().skip(1).collect(Collectors.toList());
+            final var configs = queryConfigsWithValueList.isEmpty() ?
+                    List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)) :
+                    queryConfigsWithValueList.stream().map(l -> QueryConfig.parse(l, executionContext)).collect(Collectors.toList());
+            return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext);
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️ Error parsing query command at line " + lineNumber, "query" , lineNumber);
         }
     }
 
-    public QueryCommand(int lineNumber, @Nonnull String singleExecutableCommand) {
-        super(lineNumber);
+    public static QueryCommand withQueryString(int lineNumber, @Nonnull String singleExecutableCommand,
+                                               @Nonnull final YamlExecutionContext executionContext) {
+        return new QueryCommand(lineNumber, QueryInterpreter.withQueryString(lineNumber, singleExecutableCommand, executionContext),
+                List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)), executionContext);
+    }
+
+    private QueryCommand(int lineNumber, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
+                         @Nonnull final YamlExecutionContext executionContext) {
+        super(lineNumber, executionContext);
         if (Debugger.getDebugger() != null) {
             Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
         }
-        queryInterpreter = new QueryInterpreter(lineNumber, singleExecutableCommand);
+        this.queryInterpreter = interpreter;
+        this.queryConfigs = configs;
+    }
+
+    public void execute(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
+        try {
+            if (!(connection instanceof EmbeddedRelationalConnection) && checkCache) {
+                logger.debug("⚠️ Not possible to check for cache hit with non-EmbeddedRelationalConnection!");
+            } else {
+                executeInternal(connection, checkCache, executor);
+            }
+        } catch (Exception e) {
+            if (maybeExecutionError.get() == null) {
+                maybeExecutionError.set(executionContext.wrapContext(e,
+                        () -> "‼️ Error executing query command at line " + getLineNumber(),
+                        String.format("query [%s] ", executor) , getLineNumber()));
+            }
+        }
     }
 
     @Override
-    public void invoke(@Nonnull final RelationalConnection connection,
-                       @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException {
-        invoke(connection, executionContext, false, null, false);
+    void executeInternal(@Nonnull final RelationalConnection connection) throws SQLException, RelationalException {
+        executeInternal(connection, false, instantiateExecutor(null, false));
     }
 
-    public void invoke(@Nonnull final RelationalConnection connection, @Nonnull YamlExecutionContext executionContext,
-                       boolean checkCache, @Nullable Random random, boolean runAsPreparedStatement) throws SQLException, RelationalException {
+    private void executeInternal(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
+            throws SQLException, RelationalException {
         enableCascadesDebugger();
         boolean queryHasRun = false;
         boolean queryIsRunning = false;
         Continuation continuation = null;
         var queryConfigsIterator = queryConfigs.listIterator();
-        var executor = queryInterpreter.getExecutor(random, runAsPreparedStatement);
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
             if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
-                executor.execute(connection, executionContext, queryConfig, null, checkCache);
+                executor.execute(connection, null, queryConfig, checkCache);
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 final var savedDebugger = Debugger.getDebugger();
@@ -115,7 +154,7 @@ public class QueryCommand extends Command {
                     // results
                     Debugger.setDebugger(new DebuggerWithSymbolTables());
                     Debugger.setup();
-                    executor.execute(connection, executionContext, queryConfig, null, checkCache);
+                    executor.execute(connection, null, queryConfig, checkCache);
                 } finally {
                     Debugger.setDebugger(savedDebugger);
                 }
@@ -131,8 +170,7 @@ public class QueryCommand extends Command {
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfig.getLineNumber(), queryConfig.getValueString()));
                 }
-                continuation = executor.execute(connection, executionContext, queryConfig, continuation, checkCache);
-
+                continuation = executor.execute(connection, continuation, queryConfig, checkCache);
                 if (continuation == null || continuation.atEnd() || !queryConfigsIterator.hasNext()) {
                     queryHasRun = true;
                     queryIsRunning = false;
@@ -141,10 +179,14 @@ public class QueryCommand extends Command {
                 }
             }
         }
-
         if (!queryHasRun) {
-            executor.execute(connection, executionContext, QueryConfig.parse(null), null, checkCache);
+            executor.execute(connection, null, QueryConfig.getNoCheckConfig(getLineNumber(), executionContext), checkCache);
         }
+    }
+
+    @Nonnull
+    public QueryExecutor instantiateExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
+        return queryInterpreter.getExecutor(random, runAsPreparedStatement);
     }
 
     static void reportTestFailure(@Nonnull String message) {

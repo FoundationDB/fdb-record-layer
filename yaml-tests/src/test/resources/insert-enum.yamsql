@@ -23,7 +23,7 @@ schema_template:
     CREATE TABLE "TableA" ("field1" "WHATEVER", "field2" BIGINT, PRIMARY KEY("field2") )
     WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true)
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO "TableA" VALUES ('OWNING', 42)
 ---

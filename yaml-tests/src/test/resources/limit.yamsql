@@ -21,7 +21,7 @@
 schema_template:
     create table ta(a bigint, b bigint, primary key(a))
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO TA
         VALUES (1, 2),

@@ -22,7 +22,7 @@ schema_template:
     create type as struct S(S1 bigint, S2 bigint)
     create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
 ---
-config:
+setup:
   steps:
     - query: insert into A values
         (1, 10, 10),
@@ -37,7 +37,7 @@ test_block:
                   { A1: 2, A2: 11, A3: 20 },
                   { A1: 3, A2: 12, A3: 30 } ]
 ---
-config:
+setup:
   steps:
     - query: update A set A2 = case when A1 = 1 then 4444 end
 ---
@@ -49,7 +49,7 @@ test_block:
                   { A1: 2, A2: !null x, A3: 20 },
                   { A1: 3, A2: !null x, A3: 30 } ]
 ---
-config:
+setup:
   steps:
     - query: update A set A2 = case when A2 is null then 8888 else 2222 end
 ---
@@ -61,7 +61,7 @@ test_block:
                   { A1: 2, A2: 8888, A3: 20 },
                   { A1: 3, A2: 8888, A3: 30 } ]
 ---
-config:
+setup:
   steps:
     - query: update A set A2 = case when case when A2 = 2222 then 8888 else 2222 end > 4000 then 4444 else 6666 end
 ---

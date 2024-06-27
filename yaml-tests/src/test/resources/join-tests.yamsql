@@ -25,7 +25,7 @@ schema_template:
     create table a(ida bigint, a1 bigint, a2 bigint, a3 bigint, primary key(ida))
     create table b(idb bigint, b1 bigint, b2 bigint, b3 bigint, primary key(idb))
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO EMP
         VALUES (1, 'Jack', 'Williams', 1),

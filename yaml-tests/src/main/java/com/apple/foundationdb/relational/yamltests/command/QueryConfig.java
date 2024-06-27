@@ -35,13 +35,14 @@ import com.github.difflib.text.DiffRow;
 import com.github.difflib.text.DiffRowGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
@@ -68,20 +69,24 @@ public abstract class QueryConfig {
 
     @Nullable private final Object value;
     private final int lineNumber;
+    @Nonnull
+    private final YamlExecutionContext executionContext;
     @Nullable private final String configName;
 
-    QueryConfig(@Nullable String configName, @Nullable Object value, int lineNumber) {
+    private QueryConfig(@Nullable String configName, @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         this.configName = configName;
         this.value = value;
         this.lineNumber = lineNumber;
+        this.executionContext = executionContext;
     }
 
     int getLineNumber() {
         return lineNumber;
     }
 
+    @Nonnull
     Object getVal() {
-        return value;
+        return Objects.requireNonNull(value);
     }
 
     @Nullable
@@ -103,14 +108,42 @@ public abstract class QueryConfig {
         return query;
     }
 
-    abstract void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException;
+    final void checkResult(@Nonnull Object actual, @Nonnull String queryDescription) {
+        try {
+            checkResultInternal(actual, queryDescription);
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️Failed to test config at line " + getLineNumber(),
+                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+        } catch (AssertionFailedError e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️Check result failed in config at line " + getLineNumber(),
+                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+        }
+    }
 
-    void checkError(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
+    final void checkError(@Nonnull SQLException actual, @Nonnull String queryDescription) {
+        try {
+            checkErrorInternal(actual, queryDescription);
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️Failed to test config at line " + getLineNumber(),
+                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+        } catch (AssertionFailedError e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️Check result failed in config at line " + getLineNumber(),
+                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+        }
+    }
+
+    abstract void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException;
+
+    void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
         final var diffMessage = String.format("‼️ statement failed with the following error at line %s:%n" +
                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
                 "%s%n" +
                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
-                lineNumber, e.getMessage());
+                getLineNumber(), e.getMessage());
         logger.error(diffMessage);
         throw e;
 
@@ -127,8 +160,9 @@ public abstract class QueryConfig {
         return currentQuery;
     }
 
-    private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName, @Nullable Object value, int lineNumber) {
-        return new QueryConfig(configName, value, lineNumber) {
+    private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
+                                                    @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(configName, value, lineNumber, executionContext) {
 
             @Override
             String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
@@ -136,7 +170,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
@@ -158,8 +192,9 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value, int lineNumber) {
-        return new QueryConfig(configName, value, lineNumber) {
+    private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String configName, @Nullable Object value,
+                                                     int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(configName, value, lineNumber, executionContext) {
 
             @Override
             String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
@@ -167,7 +202,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 resultSet.next();
@@ -214,8 +249,8 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckErrorConfig(@Nullable Object value, int lineNumber) {
-        return new QueryConfig(QUERY_CONFIG_ERROR, value, lineNumber) {
+    private static QueryConfig getCheckErrorConfig(@Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_ERROR, value, lineNumber, executionContext) {
 
             @Override
             String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
@@ -223,7 +258,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
                     Matchers.printRemaining((ErrorCapturingResultSet) actual, resultSetPrettyPrinter);
@@ -249,7 +284,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkError(@Nonnull SQLException e, @Nonnull String queryDescription) {
+            void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
                 if (!e.getSQLState().equals(getVal())) {
                     reportTestFailure(String.format("‼️ expecting '%s' error code, got '%s' instead at line %d!",
@@ -261,8 +296,8 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckCountConfig(@Nullable Object value, int lineNumber) {
-        return new QueryConfig(QUERY_CONFIG_COUNT, value, lineNumber) {
+    private static QueryConfig getCheckCountConfig(@Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_COUNT, value, lineNumber, executionContext) {
 
             @Override
             String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
@@ -270,7 +305,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) {
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
                     reportTestFailure(String.format("‼️ Expected count value %d, but got %d at line %d",
@@ -282,8 +317,8 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, int lineNumber) {
-        return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber) {
+    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber, executionContext) {
 
             @Override
             String decorateQuery(@Nonnull String query, @Nullable Continuation continuation) {
@@ -291,7 +326,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 resultSet.next();
@@ -304,10 +339,10 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getNoCheckConfig(@Nullable Object value, int lineNumber) {
-        return new QueryConfig(null, value, lineNumber) {
+    public static QueryConfig getNoCheckConfig(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(null, null, lineNumber, executionContext) {
             @Override
-            void checkResult(@Nonnull Object actual, @Nonnull String queryDescription, @Nonnull YamlExecutionContext executionContext) throws SQLException {
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 if (actual instanceof RelationalResultSet) {
                     final var resultSet = (RelationalResultSet) actual;
                     // slurp
@@ -321,32 +356,34 @@ public abstract class QueryConfig {
         };
     }
 
-    public static QueryConfig parse(@Nullable Map.Entry<?, ?> configEntry) {
-        if (configEntry == null) {
-            return getNoCheckConfig(null, -1);
+    public static QueryConfig parse(@Nonnull Object object, @Nonnull YamlExecutionContext executionContext) {
+        final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
+        final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
+        final var lineNumber = linedObject.getLineNumber();
+        try {
+            final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
+            final var value = Matchers.notNull(configEntry, "query configuration").getValue();
+            if (key.equals(QUERY_CONFIG_COUNT)) {
+                return getCheckCountConfig(value, lineNumber, executionContext);
+            } else if (key.equals(QUERY_CONFIG_ERROR)) {
+                return getCheckErrorConfig(value, lineNumber, executionContext);
+            } else if (key.equals(QUERY_CONFIG_EXPLAIN)) {
+                return getCheckExplainConfig(true, key, value, lineNumber, executionContext);
+            } else if (key.equals(QUERY_CONFIG_EXPLAIN_CONTAINS)) {
+                return getCheckExplainConfig(false, key, value, lineNumber, executionContext);
+            } else if (key.equals(QUERY_CONFIG_PLAN_HASH)) {
+                return getCheckPlanHashConfig(value, lineNumber, executionContext);
+            } else if (key.contains(QUERY_CONFIG_RESULT)) {
+                return getCheckResultConfig(true, key, value, lineNumber, executionContext);
+            } else if (key.equals(QUERY_CONFIG_UNORDERED_RESULT)) {
+                return getCheckResultConfig(false, key, value, lineNumber, executionContext);
+            } else {
+                Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+            }
+            // should not happen
+            return null;
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e, () -> "‼️ Error parsing the query config at line " + lineNumber, "config", lineNumber);
         }
-        final var linedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(configEntry, "query configuration").getKey();
-        final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "query configuration"), "query configuration");
-        final var value = Matchers.notNull(configEntry, "query configuration").getValue();
-        final var lineNumber = linedObject.getStartMark().getLine() + 1;
-        if (key.equals(QUERY_CONFIG_COUNT)) {
-            return getCheckCountConfig(value, lineNumber);
-        } else if (key.equals(QUERY_CONFIG_ERROR)) {
-            return getCheckErrorConfig(value, lineNumber);
-        } else if (key.equals(QUERY_CONFIG_EXPLAIN)) {
-            return getCheckExplainConfig(true, key, value, lineNumber);
-        } else if (key.equals(QUERY_CONFIG_EXPLAIN_CONTAINS)) {
-            return getCheckExplainConfig(false, key, value, lineNumber);
-        } else if (key.equals(QUERY_CONFIG_PLAN_HASH)) {
-            return getCheckPlanHashConfig(value, lineNumber);
-        } else if (key.contains(QUERY_CONFIG_RESULT)) {
-            return getCheckResultConfig(true, key, value, lineNumber);
-        } else if (key.equals(QUERY_CONFIG_UNORDERED_RESULT)) {
-            return getCheckResultConfig(false, key, value, lineNumber);
-        } else {
-            Assert.failUnchecked("‼️ '%s' is not a valid configuration");
-        }
-        // should not happen
-        return null;
     }
 }

@@ -18,7 +18,7 @@
 # limitations under the License.
 
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists temp
@@ -37,7 +37,7 @@ test_block:
       - query: drop database /frl/DB
       - error: "42F63"
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists temp
@@ -52,7 +52,7 @@ test_block:
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
       - result: [{1}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template temp1
@@ -65,7 +65,7 @@ test_block:
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP1'
       - result: [{0}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create schema template temp2 create table T1(a1 bigint, primary key(a1))
@@ -78,7 +78,7 @@ test_block:
       - query: select count(*) from "TEMPLATES" where template_name = 'TEMP2'
       - result: [{1}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
@@ -91,7 +91,7 @@ test_block:
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
       - result: [{1}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
@@ -104,7 +104,7 @@ test_block:
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
       - result: [{0}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
@@ -117,7 +117,7 @@ test_block:
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
       - result: [{1}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database if exists /frl/db
@@ -130,7 +130,7 @@ test_block:
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
       - result: [{0}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create database /frl/db
@@ -143,7 +143,7 @@ test_block:
       - query: select count(*) from "DATABASES" where database_id = '/FRL/DB'
       - result: [{1}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: create schema /frl/db/s1 with template temp2
@@ -156,7 +156,7 @@ test_block:
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
       - result: [{1}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
@@ -172,7 +172,7 @@ test_block:
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
       - result: [{0}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database if exists /frl/db
@@ -191,7 +191,7 @@ test_block:
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
       - result: [{2}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /frl/db
@@ -207,7 +207,7 @@ test_block:
       - query: select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
       - result: [{0}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template temp2

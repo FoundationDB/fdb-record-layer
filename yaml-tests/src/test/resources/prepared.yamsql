@@ -21,7 +21,7 @@
 schema_template:
     create table ta(a bigint, b double, c boolean, d integer, e integer array, f string, primary key(a))
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO TA
         VALUES (1, 2.01, true, 151, [3, 4, 5], 'captain america'),
@@ -62,12 +62,6 @@ test_block:
       - query: select * from ta where a in !! !in {!a {1, !r [1, 10]}} !!
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
     -
-      # with empty in-list
-      # note: empty in-list does not work with simple statement, however, they are allowed with prepared statement
-      # TODO (execute simple statement does not work with empty in-list)
-      - query: select * from ta where a in !! !in {[]} !! limit 1
-      - result: []
-    -
       # with parameter type Long
       - query: select * from ta where a < !! !l 3 !!
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
@@ -101,10 +95,22 @@ test_block:
       - result: [{1, 2.01, true, 151, [3, 4, 5], "captain america"}]
 ---
 test_block:
+  options:
+      # with empty in-list
+      # note: empty in-list does not work with simple statement, however, they are allowed with prepared statement
+      # TODO (execute simple statement does not work with empty in-list)
+    statement_type: prepared
+  tests:
+    -
+      - query: select * from ta where a in !! !in {[]} !! limit 1
+      - result: []
+
+---
+test_block:
   preset: single_repetition_ordered
   options:
     # insert statements do not take parameter
-    force_simple_statement: true
+    statement_type: simple
   tests:
     -
       - query: insert into ta values !! {21, 22.01, true, 2024, [23, 24, 25], 'someone'} !!

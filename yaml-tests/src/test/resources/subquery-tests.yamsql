@@ -27,7 +27,7 @@ schema_template:
     create index ib as select q from b
     create index ir as select sq.f from r, (select f from r.nr) sq;
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
     - query: INSERT INTO X VALUES (4, 10), (5, 20), (6, 30)

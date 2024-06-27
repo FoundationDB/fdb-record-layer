@@ -25,7 +25,7 @@ schema_template:
     create index grouped_version_index as select col1, "__ROW_VERSION" from t1 order by col1, "__ROW_VERSION"
     with options (store_row_versions=true)
 ---
-config:
+setup:
   steps:
     # Insert the odd rows first
     - query: INSERT INTO T1 VALUES

@@ -27,7 +27,7 @@ schema_template:
       create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))
       create index mv5 as select col2 from t2
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 1),
@@ -60,7 +60,7 @@ test_block:
       - explainContains: "AggregateIndexScan(Index(MV4 <,> BY_GROUP)"
       - result: [{1}, {1}]
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO T2
         VALUES (1, 10, 1, 11),

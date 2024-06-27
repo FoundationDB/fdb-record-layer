@@ -18,7 +18,7 @@
 # limitations under the License.
 
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists create_drop_create_template
@@ -39,7 +39,7 @@ test_block:
       - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);
       - count: 3
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /FRL/CREATE_DROP_CREATE_YAML
@@ -61,7 +61,7 @@ test_block:
       - query: insert into A values (1, 10, 1), (2, 10, 2), (3, 10, 3);
       - count: 3
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /FRL/CREATE_DROP_CREATE_YAML

@@ -30,27 +30,23 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * Block is a single region in the YAMSQL file that can either be a {@link ConfigBlock} or {@link TestBlock}.
+ * Block is a single region in the YAMSQL file that can either be a {@link SetupBlock} or {@link TestBlock}.
  * <ul>
- *      <li> {@link ConfigBlock}: It can be either a `setup` block or a `destruct` block. The motive of these block
- *          is to "setup" and "clean" the environment needed to run the `test-block`s. A Config block consist of a list
+ *      <li> {@link SetupBlock}: It can be either a `setup` block or a `destruct` block. The motive of these block
+ *          is to "setup" and "clean" the environment needed to run the `test-block`s. A Setup block consist of a list
  *          of commands.</li>
  *      <li> {@link TestBlock}: Defines a scope for a group of tests by setting the knobs that determines how those
  *          tests are run.</li>
  * </ul>
  * <p>
- * Each block needs to be associated with a `connectPath` which provides it with the address to the database to which
+ * Each block needs to be associated with a `connectionURI` which provides it with the address to the database to which
  * the block connects to for running its executables. The block does so through the
  * {@link com.apple.foundationdb.relational.yamltests.YamlRunner.YamlConnectionFactory}. A block is free to implement `how` and `when`
  * it wants to use the factory to create a connection and also manages the lifecycle of the established connection.
@@ -66,13 +62,14 @@ public abstract class Block {
     @Nonnull
     YamlExecutionContext executionContext;
     @Nonnull
-    protected final AtomicReference<RuntimeException> failureException = new AtomicReference<>(null);
-    URI connectPath;
+    private final URI connectionURI;
     @Nonnull
-    List<Consumer<RelationalConnection>> executables = new ArrayList<>();
+    final List<Consumer<RelationalConnection>> executables;
 
-    Block(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+    Block(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI, @Nonnull YamlExecutionContext executionContext) {
         this.lineNumber = lineNumber;
+        this.executables = executables;
+        this.connectionURI = connectionURI;
         this.executionContext = executionContext;
     }
 
@@ -86,28 +83,7 @@ public abstract class Block {
     public abstract void execute();
 
     protected final void executeExecutables(@Nonnull Collection<Consumer<RelationalConnection>> list) {
-        connectToDatabaseAndExecute(connection -> list.forEach(t -> {
-            if (failureException.get() != null) {
-                logger.trace("⚠️ Aborting test as one of the test has failed.");
-                return;
-            }
-            t.accept(connection);
-        }));
-    }
-
-    /**
-     * Sets the path of the database to which the block should connect to.
-     *
-     * @param connectObject the connection path.
-     */
-    void setConnectPath(@Nullable Object connectObject) {
-        if (connectObject == null) {
-            this.connectPath = URI.create(executionContext.getOnlyConnectionPath());
-        } else if (connectObject instanceof Integer) {
-            this.connectPath = URI.create(executionContext.getConnectionPath((Integer) connectObject));
-        } else {
-            this.connectPath = URI.create(Matchers.string(connectObject));
-        }
+        connectToDatabaseAndExecute(connection -> list.forEach(t -> t.accept(connection)));
     }
 
     /**
@@ -116,68 +92,43 @@ public abstract class Block {
      * @param consumer operations to be performed on the database using the established connection.
      */
     void connectToDatabaseAndExecute(Consumer<RelationalConnection> consumer) {
-        if (connectPath == null) {
-            Assert.failUnchecked("‼️ Cannot connect. Path is not provided");
-        }
-        logger.debug("🚠 Connecting to database: `" + connectPath + "`");
-        try (var connection = executionContext.getConnectionFactory().getNewConnection(connectPath)) {
-            logger.debug("✅ Connected to database: `" + connectPath + "`");
+        logger.debug("🚠 Connecting to database: `" + connectionURI + "`");
+        try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionURI)) {
+            logger.debug("✅ Connected to database: `" + connectionURI + "`");
             consumer.accept(connection);
         } catch (SQLException sqle) {
-            failureException.set(new RuntimeException(String.format("‼️ Error connecting to the database `%s` in block at line %d",
-                    connectPath, lineNumber), sqle));
+            throw executionContext.wrapContext(sqle,
+                    () -> String.format("‼️ Error connecting to the database `%s` in block at line %d", connectionURI, lineNumber),
+                    "connection [" + connectionURI + "]", getLineNumber());
         }
-    }
-
-    public static boolean isManualConfigBlock(@Nonnull Object document) {
-        final var blockObject = Matchers.map(document);
-        if (blockObject.size() != 1) {
-            return false;
-        }
-        final var entry = Matchers.firstEntry(blockObject, "config");
-        final var key = ((CustomYamlConstructor.LinedObject) entry.getKey()).getObject();
-        return blockObject.size() == 1 && key.equals(ConfigBlock.ManualConfigBlock.MANUAL_CONFIG);
-    }
-
-    public static boolean isTestBlock(@Nonnull Object document) {
-        final var blockObject = Matchers.map(document);
-        if (blockObject.size() != 1) {
-            return false;
-        }
-        final var entry = Matchers.firstEntry(blockObject, "config");
-        final var key = ((CustomYamlConstructor.LinedObject) entry.getKey()).getObject();
-        return blockObject.size() == 1 && key.equals(TestBlock.TEST_BLOCK);
-    }
-
-    public static boolean isDefineTemplateBlock(@Nonnull Object document) {
-        final var blockObject = Matchers.map(document);
-        if (blockObject.size() != 1) {
-            return false;
-        }
-        final var entry = Matchers.firstEntry(blockObject, "config");
-        final var key = ((CustomYamlConstructor.LinedObject) entry.getKey()).getObject();
-        return blockObject.size() == 1 && key.equals(ConfigBlock.SchemaTemplateBlock.DEFINE_TEMPLATE_BLOCK);
     }
 
     /**
-     * Looks at the block to determine if its one of the valid blocks. If it is, parses it to that one.
+     * Looks at the block to determine if its one of the valid blocks. If it is a valid one, parses it to that. This
+     * method dispatches the execution to the right block which takes care of reading from the block and initializing
+     * the correctly configured {@link Block} for execution.
      *
      * @param document a region in the file
      * @param executionContext information needed to carry out the execution
      */
     public static void parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
-        if (isManualConfigBlock(document)) {
-            new ConfigBlock.ManualConfigBlock(document, executionContext);
-        } else if (isTestBlock(document)) {
-            new TestBlock(document, executionContext);
-        } else if (isDefineTemplateBlock(document)) {
-            new ConfigBlock.SchemaTemplateBlock(document, executionContext);
-        } else {
-            throw new RuntimeException("Cannot recognize the type of block");
+        final var blockObject = Matchers.map(document, "block");
+        Assert.thatUnchecked(blockObject.size() == 1, "Illegal Format: A block is expected to be a map of size 1");
+        final var entry = Matchers.firstEntry(blockObject, "block key-value");
+        final var linedObject = CustomYamlConstructor.LinedObject.cast(entry.getKey(), () -> "Invalid block key-value pair: " + entry);
+        final var lineNumber = linedObject.getLineNumber();
+        switch (Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key")) {
+            case SetupBlock.SETUP_BLOCK:
+                SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
+                break;
+            case TestBlock.TEST_BLOCK:
+                TestBlock.parse(lineNumber, entry.getValue(), executionContext);
+                break;
+            case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
+                SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
+                break;
+            default:
+                throw new RuntimeException("Cannot recognize the type of block");
         }
-    }
-
-    public Optional<RuntimeException> getFailureExceptionIfPresent() {
-        return failureException.get() == null ? Optional.empty() : Optional.of(failureException.get());
     }
 }

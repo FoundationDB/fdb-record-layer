@@ -21,7 +21,7 @@
 schema_template:
     create table lb(a bigint, b boolean, primary key(a))
 ---
-config:
+setup:
   steps:
     - query: insert into lb values (1, true), (2, false), (3, null);
 ---

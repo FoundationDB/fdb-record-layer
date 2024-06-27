@@ -18,7 +18,7 @@
 # limitations under the License.
 
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists disabled_index_tests_proto_template
@@ -50,7 +50,7 @@ test_block:
       - query: select tombstone from t3 where tombstone is not null
       - explainContains: "Scan(<,>)"
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /FRL/DISABLED_PROTO_YAML

@@ -67,10 +67,24 @@ public class Matchers {
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
     @Nonnull
     public static Map<?, ?> map(@Nonnull final Object obj) {
+        return map(obj, obj.toString());
+    }
+
+    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "should never happen, fail throws")
+    @Nonnull
+    public static Map<?, ?> map(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof Map<?, ?>) {
             return (Map<?, ?>) obj;
         }
-        fail(String.format("Expecting %s to be of type %s", obj, Map.class.getSimpleName()));
+        fail(String.format("Expecting %s to be of type %s", desc, Map.class.getSimpleName()));
+        return null;
+    }
+
+    public static Map.Entry<?, ?> mapEntry(@Nonnull final Object obj, @Nonnull final String desc) {
+        if (obj instanceof Map.Entry<?, ?>) {
+            return (Map.Entry<?, ?>) obj;
+        }
+        fail(String.format("Expecting %s to be of type %s", desc, Map.Entry.class.getSimpleName()));
         return null;
     }
 

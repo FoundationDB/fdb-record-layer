@@ -18,7 +18,7 @@
 # limitations under the License.
 
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists standard_tests_proto_template
@@ -28,7 +28,7 @@ config:
     - query: create schema /FRL/STANDARD_PROTO_YAML/test with template STANDARD_TESTS_PROTO_TEMPLATE
     - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/STANDARD_PROTO_YAML\", \"template_name\": \"STANDARD_TESTS_PROTO_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"
 ---
-config:
+setup:
   connect: "jdbc:embed:/FRL/STANDARD_PROTO_YAML?schema=TEST"
   steps:
     - query: INSERT INTO T1
@@ -62,7 +62,7 @@ test_block:
       - query: select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;
       - result: [{ID: !l 11, !l 20, !l 11}, {ID: !l 12, !l 20, !l 12}, {ID: !l 13, !l 20, !l 13}]
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template standard_tests_proto_template

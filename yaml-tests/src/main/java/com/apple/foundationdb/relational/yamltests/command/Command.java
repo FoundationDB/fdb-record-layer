@@ -41,7 +41,6 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class Command {
@@ -53,77 +52,98 @@ public abstract class Command {
     private static final Logger logger = LogManager.getLogger(Command.class);
 
     private final int lineNumber;
+    @Nonnull
+    final YamlExecutionContext executionContext;
 
-    Command(int lineNumber) {
+    Command(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         this.lineNumber = lineNumber;
+        this.executionContext = executionContext;
     }
 
     public int getLineNumber() {
         return lineNumber;
     }
 
-    public static Command parse(@Nonnull List<?> region) {
-        final var command = Matchers.firstEntry(region.get(0), "command");
-        final var linedObject = (CustomYamlConstructor.LinedObject) Matchers.notNull(command, "command").getKey();
-        final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "command"), "command");
-        final var value = Matchers.notNull(command, "query configuration").getValue();
-        final var lineNumber = linedObject.getStartMark().getLine() + 1;
-
-        if (COMMAND_LOAD_SCHEMA_TEMPLATE.equals(key)) {
-            return new Command(lineNumber) {
-                @Override
-                public void invoke(@Nonnull RelationalConnection connection,
-                                   @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException {
-                    logger.debug("⏳ Loading template '{}'", value);
-                    // current connection should be __SYS/catalog
-                    // save schema template
-                    StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
-                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                            .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
-                            .setRlConfig(RecordLayerConfig.getDefault())
-                            .setStoreCatalog(backingCatalog)
-                            .build();
-                    ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
-                    try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
-                        metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto((String) value), Options.NONE).execute(transaction);
-                        connection.commit();
-                    }
-                }
-            };
-        } else if (COMMAND_SET_SCHEMA_STATE.equals(key)) {
-            return new Command(lineNumber) {
-                @Override
-                public void invoke(@Nonnull RelationalConnection connection,
-                                   @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException {
-                    logger.debug("⏳ Setting schema state '{}'", value);
-                    StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
-                    SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson((String) value);
-                    RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
-                            .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
-                            .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
-                            .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
-                            .build();
-                    RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
-                            .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
-                            .setRlConfig(rlConfig)
-                            .setStoreCatalog(backingCatalog)
-                            .build();
-
-                    ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
-                    try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
-                        metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
-                        connection.commit();
-                    }
-                }
-            };
-        } else if (COMMAND_QUERY.equals(key)) {
-            return new QueryCommand(lineNumber, region);
-        } else {
-            Assert.failUnchecked(String.format("‼️ could not find command '%s'", key));
-            return null;
+    @Nonnull
+    public static Command parse(@Nonnull Object object, @Nonnull final YamlExecutionContext executionContext) {
+        final var command = Matchers.notNull(Matchers.firstEntry(Matchers.arrayList(object, "command").get(0), "command"), "command");
+        final var linedObject = CustomYamlConstructor.LinedObject.cast(command.getKey(), () -> "Invalid command key-value pair: " + command);
+        final var lineNumber = linedObject.getLineNumber();
+        try {
+            final var key = Matchers.notNull(Matchers.string(linedObject.getObject(), "command"), "command");
+            final var value = Matchers.notNull(command, "query configuration").getValue();
+            switch (key) {
+                case COMMAND_LOAD_SCHEMA_TEMPLATE:
+                    return getLoadSchemaTemplateCommand(lineNumber, executionContext, (String) value);
+                case COMMAND_SET_SCHEMA_STATE:
+                    return getSetSchemaStateCommand(lineNumber, executionContext, (String) value);
+                case COMMAND_QUERY:
+                    return QueryCommand.parse(object, executionContext);
+                default:
+                    Assert.failUnchecked(String.format("Could not find command '%s'", key));
+                    return null;
+            }
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e, () -> "‼️ Error parsing command at line " + lineNumber, "command", lineNumber);
         }
     }
 
-    public abstract void invoke(@Nonnull final RelationalConnection connection,
-                                @Nonnull YamlExecutionContext executionContext) throws SQLException, RelationalException;
+    public final void execute(@Nonnull final RelationalConnection connection) {
+        try {
+            executeInternal(connection);
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e, () -> "‼️ Error executing command at line " + getLineNumber(), "command", getLineNumber());
+        }
+    }
+
+    abstract void executeInternal(@Nonnull final RelationalConnection connection) throws SQLException, RelationalException;
+
+    private static Command getLoadSchemaTemplateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+        return new Command(lineNumber, executionContext) {
+            @Override
+            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+                logger.debug("⏳ Loading template '{}'", value);
+                // current connection should be __SYS/catalog
+                // save schema template
+                StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
+                RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                        .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
+                        .setRlConfig(RecordLayerConfig.getDefault())
+                        .setStoreCatalog(backingCatalog)
+                        .build();
+                ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
+                try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
+                    metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(transaction);
+                    connection.commit();
+                }
+            }
+        };
+    }
+
+    private static Command getSetSchemaStateCommand(int lineNumber, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+        return new Command(lineNumber, executionContext) {
+            @Override
+            public void executeInternal(@Nonnull RelationalConnection connection) throws SQLException, RelationalException {
+                logger.debug("⏳ Setting schema state '{}'", value);
+                StoreCatalog backingCatalog = ((EmbeddedRelationalConnection) connection).getBackingCatalog();
+                SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
+                RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
+                        .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
+                        .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
+                        .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
+                        .build();
+                RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
+                        .setBaseKeySpace(RelationalKeyspaceProvider.getKeySpace())
+                        .setRlConfig(rlConfig)
+                        .setStoreCatalog(backingCatalog)
+                        .build();
+
+                ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
+                try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
+                    metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
+                    connection.commit();
+                }
+            }
+        };
+    }
 }

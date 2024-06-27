@@ -22,7 +22,7 @@ schema_template:
     create type as struct ts(sa bigint, sb bigint)
     create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO TA
         VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),

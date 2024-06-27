@@ -28,12 +28,9 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
-import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,6 +47,7 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
 /**
  * {@link QueryExecutor} executes a query and verifies its results (or error) against a {@link QueryConfig}.
  */
+@SuppressWarnings({"PMD.GuardLogStatement"})
 public class QueryExecutor {
     private static final Logger logger = LogManager.getLogger(QueryExecutor.class);
 
@@ -73,36 +71,35 @@ public class QueryExecutor {
         this.parameters = parameters;
     }
 
-    public Continuation execute(@Nonnull RelationalConnection connection, @Nonnull YamlExecutionContext executionContext,
-                                @Nonnull QueryConfig config, @Nullable Continuation continuation, boolean checkCache)
-            throws RelationalException, SQLException {
+    public Continuation execute(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
+                                @Nonnull QueryConfig config, boolean checkCache) throws RelationalException, SQLException {
         Continuation continuationAfter = ContinuationImpl.END;
         final var currentQuery = config.decorateQuery(query, continuation);
         try {
             if (parameters == null) {
-                logger.debug("⏳ Executing query '{}'", printQuery());
+                logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.createStatement()) {
                     final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache);
-                    config.checkResult(queryResult, printQuery(), executionContext);
+                    config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
                     }
                 }
             } else {
-                logger.debug("⏳ Executing query '{}'", printQuery());
+                logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.prepareStatement(currentQuery)) {
                     setParametersInPreparedStatement(s, connection);
                     final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, null, checkCache);
-                    config.checkResult(queryResult, printQuery(), executionContext);
+                    config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
                         continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
                     }
                 }
             }
+            logger.debug("👍 Finished executing query '{}'", this.toString());
         } catch (SQLException sqle) {
             config.checkError(sqle, query);
         }
-        logger.debug("👍 Finished executing query '{}'", printQuery());
         return continuationAfter;
     }
 
@@ -112,7 +109,6 @@ public class QueryExecutor {
         if (!checkCache) {
             return executeQuery(s, queryString);
         }
-        Assumptions.assumeTrue(connection instanceof EmbeddedRelationalConnection, "Not possible to check for cache hit!");
         final var embeddedRelationalConnection = (EmbeddedRelationalConnection) connection;
         final var preValue = embeddedRelationalConnection.getMetricCollector() != null &&
                 embeddedRelationalConnection.getMetricCollector().hasCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT) ?
@@ -140,8 +136,9 @@ public class QueryExecutor {
         }
     }
 
+    @Override
     @Nonnull
-    private String printQuery() {
+    public String toString() {
         if (parameters == null) {
             return query;
         } else {
@@ -150,7 +147,7 @@ public class QueryExecutor {
             for (var parameter : Objects.requireNonNull(parameters)) {
                 paramList.add(String.format("%d -> %s", counter++, parameter.getString()));
             }
-            return query + " with parameters " + String.join(", ", paramList);
+            return query + " with parameters (" + String.join(", ", paramList) + ")";
         }
     }
 }

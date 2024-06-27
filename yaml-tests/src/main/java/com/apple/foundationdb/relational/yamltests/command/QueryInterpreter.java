@@ -22,14 +22,13 @@ package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
-import com.apple.foundationdb.relational.yamltests.Matchers;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.InListParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.ListParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.PrimitiveParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.TupleParameter;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.UnboundParameter;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -44,7 +43,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -81,6 +79,8 @@ public final class QueryInterpreter {
     @Nonnull
     private final String query;
     private final int lineNumber;
+    @Nonnull
+    private final YamlExecutionContext executionContext;
     /**
      * {@link List} of the snippet text and interpreted parameter injection. Note that the parameter can be a
      * hierarchy of other parameters and some of which might be {@link UnboundParameter}s. The {@link UnboundParameter}
@@ -195,16 +195,11 @@ public final class QueryInterpreter {
         }
     }
 
-    private QueryInterpreter(@Nonnull Map.Entry<?, ?> queryCommand) {
-        this(((CustomYamlConstructor.LinedObject) Matchers.notNull(queryCommand, "query configuration").getKey())
-                .getStartMark().getLine() + 1,
-                Matchers.string(Matchers.notNull(queryCommand, "query configuration").getValue()));
-    }
-
-    QueryInterpreter(int lineNumber, @Nonnull String query) {
+    private QueryInterpreter(int lineNumber, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
         this.query = query;
         this.lineNumber = lineNumber;
         this.injections = getInjections(query);
+        this.executionContext = executionContext;
     }
 
     private List<Pair<String, Parameter>> getInjections(@Nonnull String query) {
@@ -217,24 +212,15 @@ public final class QueryInterpreter {
                 break;
             }
             int end = query.indexOf("!!", start + 2);
-            Assert.thatUnchecked(end != -1, "Illegal format: Parameter injection not formed correctly");
+            Assert.thatUnchecked(end != -1, "Illegal format: Parameter injection not formed correctly in query " + query);
             cursor = end + 2;
             lst.add(Pair.of(query.substring(start, end + 2), INTERPRETER.load(query.substring(start + 2, end))));
         }
         return lst;
     }
 
-    /**
-     * Parses the "query" key of the {@link QueryCommand} and decides how to execute the query.
-     *
-     * @param queryCommand is a key-value pair, where key is expected to a {@link com.apple.foundationdb.relational.yamltests.CustomYamlConstructor.LinedObject}
-     *                     and the value is a {@link String} that defines the query with zero or more parameter
-     *                     injection snippets.
-     * @return {@link QueryInterpreter} object
-     */
-    @Nonnull
-    public static QueryInterpreter parse(@Nonnull Map.Entry<?, ?> queryCommand) {
-        return new QueryInterpreter(queryCommand);
+    public static QueryInterpreter withQueryString(int lineNumber, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+        return new QueryInterpreter(lineNumber, query, executionContext);
     }
 
     /**
@@ -250,17 +236,21 @@ public final class QueryInterpreter {
      */
     @Nonnull
     public QueryExecutor getExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
-        if (random == null) {
-            // we do not allow prepared statements if the Random generator is not there
-            Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
-            return new QueryExecutor(query, lineNumber);
-        } else {
-            var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
-            if (runAsPreparedStatement) {
-                return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()));
+        try {
+            if (random == null) {
+                // we do not allow prepared statements if the Random generator is not there
+                Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
+                return new QueryExecutor(query, lineNumber);
             } else {
-                return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber);
+                var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
+                if (runAsPreparedStatement) {
+                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), lineNumber, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()));
+                } else {
+                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), lineNumber);
+                }
             }
+        } catch (Exception e) {
+            throw executionContext.wrapContext(e, () -> String.format("‼️ Error initializing query executor for query %s at line %d", query, lineNumber), "query", lineNumber);
         }
     }
 

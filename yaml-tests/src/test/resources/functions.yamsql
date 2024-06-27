@@ -25,7 +25,7 @@ schema_template:
     create type as struct U(T1 integer, A string, B double)
     create table C(c1 bigint, st U, primary key(c1))
 ---
-config:
+setup:
   steps:
     # TODO a5 integer array add support
     # TODO a7 float add insert support

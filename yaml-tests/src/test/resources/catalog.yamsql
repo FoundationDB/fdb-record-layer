@@ -18,7 +18,7 @@
 # limitations under the License.
 
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop schema template if exists test_template_1;
@@ -103,7 +103,7 @@ test_block:
       - query: select database_id, schema_name from schemas where template_name = 'TEST_TEMPLATE_1' and template_version < 1;
       - result: []
 ---
-config:
+setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
     - query: drop database /FRL/TEST_DB_2;

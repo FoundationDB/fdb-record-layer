@@ -33,16 +33,19 @@ import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
 
     private static final Logger logger = LogManager.getLogger(YamlRunner.class);
 
+    @Nonnull final String resourcePath;
     @Nullable
     private final List<String> editedFileStream;
     private boolean isDirty;
@@ -51,10 +54,20 @@ public final class YamlExecutionContext {
     @Nonnull
     private final List<Block> blocks = new ArrayList<>();
     private final List<Block> finalizeBlocks = new ArrayList<>();
-    private final List<String> connectionPaths = new ArrayList<>();
+    private final List<String> connectionURIs = new ArrayList<>();
+
+    public static class YamlExecutionError extends RuntimeException {
+
+        private static final long serialVersionUID = 10L;
+
+        YamlExecutionError(String msg, Throwable throwable) {
+            super(msg, throwable);
+        }
+    }
 
     YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlRunner.YamlConnectionFactory factory, boolean correctExplain) throws RelationalException {
         this.connectionFactory = factory;
+        this.resourcePath = resourcePath;
         this.editedFileStream = correctExplain ? loadFileToMemory(resourcePath) : null;
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
@@ -131,26 +144,41 @@ public final class YamlExecutionContext {
         this.finalizeBlocks.add(block);
     }
 
-    public void registerConnectionPath(@Nonnull String path) {
-        this.connectionPaths.add(path);
+    public void registerConnectionURI(@Nonnull String stringURI) {
+        this.connectionURIs.add(stringURI);
     }
 
-    @Nonnull
-    public String getOnlyConnectionPath() {
-        Assert.thatUnchecked(!connectionPaths.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested single connection path, but none present");
-        Assert.thatUnchecked(connectionPaths.size() == 1, ErrorCode.INTERNAL_ERROR,
-                () -> "Requested single connection path, but multiple paths are available to choose from: " + String.join(", ", connectionPaths));
-        return connectionPaths.get(0);
-    }
-
-    @Nonnull
-    public String getConnectionPath(int idx) {
-        if (idx == 0) {
-            return "jdbc:embed:/__SYS?schema=CATALOG";
+    /**
+     * Infers the URI of the database to which a block should connect to.
+     *
+     * A block can define the connection in multiple ways:
+     * 1. no explicit definition: connect to the only registered connection URI.
+     *    A URI can be registered by defining a "schema_template" block before that, which sets up the database and schema for a provided schema template.
+     * 2. Parameter 0: connects to the system tables (catalog).
+     * 3. Parameter One-based Number: connects to the registered connection URI, number denotes the sequence of definition.
+     * 4. Parameter String: connects to the defined String
+     *
+     * @param connectObject can be {@code null}, an {@link Integer} value or a {@link String}.
+     *
+     * @return a valid connection URI
+     */
+    public URI inferConnectionURI(@Nullable Object connectObject) {
+        if (connectObject == null) {
+            Assert.thatUnchecked(!connectionURIs.isEmpty(), ErrorCode.INTERNAL_ERROR, () -> "Requested a default connection URI, but none present");
+            Assert.thatUnchecked(connectionURIs.size() == 1, ErrorCode.INTERNAL_ERROR,
+                    () -> "Requested a default connection URI, but multiple available to choose from: " + String.join(", ", connectionURIs));
+            return URI.create(connectionURIs.get(0));
+        } else if (connectObject instanceof Integer) {
+            final int idx = (Integer) (connectObject);
+            if (idx == 0) {
+                return URI.create("jdbc:embed:/__SYS?schema=CATALOG");
+            }
+            Assert.thatUnchecked(idx <= connectionURIs.size(), ErrorCode.INTERNAL_ERROR,
+                    () -> String.format("Requested connection URI at index %d, but only have %d available connection URIs.", idx, connectionURIs.size()));
+            return URI.create(connectionURIs.get(idx - 1));
+        } else {
+            return URI.create(Matchers.string(connectObject));
         }
-        Assert.thatUnchecked(idx <= connectionPaths.size(), ErrorCode.INTERNAL_ERROR,
-                () -> String.format("Requested connection path at index %d, but only have %d available connection paths.", idx, connectionPaths.size()));
-        return connectionPaths.get(idx - 1);
     }
 
     @Nonnull
@@ -161,6 +189,43 @@ public final class YamlExecutionContext {
     @Nonnull
     public List<Block> getFinalizeBlocks() {
         return finalizeBlocks;
+    }
+
+    /**
+     * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
+     * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
+     * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
+     *
+     * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
+     * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
+     * incrementally at appropriate places in code:
+     *
+     * query_config: lineNumber of the expected result
+     * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
+     * test_block: lineNumber of test_block, seed used for randomization, execution properties
+     *
+     * @param e the throwable that needs to be wrapped
+     * @param msg additional context
+     * @param identifier The name of the element type to which the context is associated to.
+     * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
+     *
+     * @return wrapped {@link YamlExecutionError}
+     */
+    @Nonnull
+    public YamlExecutionError wrapContext(@Nullable Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+        if (e instanceof YamlExecutionError) {
+            final var oldStackTrace = e.getStackTrace();
+            final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
+            System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
+            newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber);
+            e.setStackTrace(newStackTrace);
+            return (YamlExecutionError) e;
+        } else {
+            // wrap
+            final var wrapper = new YamlExecutionError(msg.get(), e);
+            wrapper.setStackTrace(new StackTraceElement[]{ new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber) });
+            return wrapper;
+        }
     }
 
     @Nonnull

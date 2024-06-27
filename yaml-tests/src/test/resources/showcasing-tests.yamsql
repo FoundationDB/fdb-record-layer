@@ -21,7 +21,7 @@
 #
 # The file is split into "documents" wherein each document is describes a block. A type of block exhibits a unique
 # functional behavior. At the top-level, there are 2 types of blocks:
-#   - config_block: These blocks are used to control the environment needed to run the test blocks. For instance, they
+#   - setup_block: These blocks are used to control the environment needed to run the test blocks. For instance, they
 #       are used to "setup", "populate" and "destruct" the databases and tables. A file can have multiple of these to
 #       `tweak` the environment as needed by the testing block.
 #   - test_block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
@@ -32,8 +32,8 @@
 #       blocks, each creating a database and schema with a different name scheme. Consequently, cleaning up of multiple
 #       of these blocks happens after all the blocks in the file has been executed, in the order of their definition.
 #       That is, 1st `schema_template` gets cleaned first, then second, then third and so on.
-#   - config: This block gives more flexibility to the tester to setup the tests. Compared to `schema_template`, which are
-#       opaque as to how and where schemas are created, `config` config block gives the tester the option to execute
+#   - setup: This block gives more flexibility to the tester to setup the tests. Compared to `schema_template`, which are
+#       opaque as to how and where schemas are created, `setup` setup block gives the tester the option to execute
 #       whatever statements they want in whichever location.
 ---
 schema_template:
@@ -41,11 +41,11 @@ schema_template:
     create table t2(col1 bigint, primary key(col1))
     create table t3(col1 bigint, col2 string, primary key(col1))
 ---
-# Even after the table is setup using the `schema_template` block, we need the `config` block to fill up the data in the table.
-config:
+# Even after the table is setup using the `schema_template` block, we need the `setup` block to fill up the data in the table.
+setup:
   # `connect` tells the block which database to connect to execute the statements. The locations created by `schema_template`
   # are random and hence the tester do not know them. These are available via 1-based indexes in connect. For instance,
-  # the above template definition has table at position 1. `config` creations are not indexed and those locations can be
+  # the above template definition has table at position 1. `setup` creations are not indexed and those locations can be
   # accessed through providing fully-qualified URI String to `connect`.
   #
   # `connect` is default and defaults to 1. Value 0 has a special meaning and depicts connection to the catalog.
@@ -101,8 +101,8 @@ test_block:
       - result: [{30, 40}]
       - result: [{50, 60}]
 ---
-# Another config block to "change" the testing environment. But doing it configly this time.
-config:
+# Another setup block to "change" the testing environment. But doing it manually this time.
+setup:
   # connecting to the catalog.
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
   steps:
@@ -118,8 +118,8 @@ config:
     - query: create database /FRL/YOUSSEF
     - query: create schema /FRL/YOUSSEF/test_nested with template test_template_nested
 ---
-config:
-  # connecting to the configly created location.
+setup:
+  # connecting to the manually created location.
   connect: "jdbc:embed:/FRL/YOUSSEF?schema=TEST_NESTED"
   steps:
     - query: insert into t1 values (100, (( 200, 'L3_1' ), 'L2_1')), (101, ((300, 'L3_2'), 'L2_2'))
@@ -157,8 +157,8 @@ test_block:
       - query: select * from t1
       - result: [{!l 100, { {!l 200, 'L3_1'}, 'L2_1' } },  { !ignore _, { {!l 300, 'L3_2'}, 'L2_2' } }]
 ---
-# Cleaning up configly created location
-config:
+# Cleaning up manually created location
+setup:
   connect: 0
   steps:
     - query: drop schema template test_template_nested

@@ -32,7 +32,7 @@ schema_template:
     create index vi1 as select col1 from t1
     create index mv7 as select min_ever(col3) from t2
 ---
-config:
+setup:
   steps:
     - query: INSERT INTO T1
         VALUES (1, 10, 1),

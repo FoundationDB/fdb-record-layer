@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.block.ConfigBlock;
+import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
@@ -29,13 +30,14 @@ import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.yaml.snakeyaml.error.Mark;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class CustomYamlConstructor extends SafeConstructor {
 
@@ -51,9 +53,9 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!not_null"), new ConstructNotNull());
 
         //blocks
-        requireLineNumber.add(ConfigBlock.ManualConfigBlock.MANUAL_CONFIG);
+        requireLineNumber.add(SetupBlock.SETUP_BLOCK);
+        requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
-        requireLineNumber.add(ConfigBlock.SchemaTemplateBlock.DEFINE_TEMPLATE_BLOCK);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
         requireLineNumber.add(Command.COMMAND_SET_SCHEMA_STATE);
@@ -72,7 +74,7 @@ public class CustomYamlConstructor extends SafeConstructor {
     protected Object constructObject(Node node) {
         if (node instanceof ScalarNode) {
             if (requireLineNumber.stream().anyMatch(key -> key.equals(((ScalarNode) node).getValue()))) {
-                return new LinedObject(super.constructObject(node), node.getStartMark());
+                return new LinedObject(super.constructObject(node), node.getStartMark().getLine() + 1);
             } else {
                 return super.constructObject(node);
             }
@@ -83,21 +85,26 @@ public class CustomYamlConstructor extends SafeConstructor {
     public static final class LinedObject {
         private final Object object;
 
-        private final Mark startMark;
+        private final int lineNumber;
 
-        private LinedObject(final Object object, final Mark startMark) {
+        private LinedObject(final Object object, final int lineNumber) {
             this.object = object;
-            this.startMark = startMark;
+            this.lineNumber = lineNumber;
         }
 
+        @Nonnull
         public Object getObject() {
             return object;
         }
 
-        public Mark getStartMark() {
-            return startMark;
+        public int getLineNumber() {
+            return lineNumber;
         }
 
+        public static LinedObject cast(@Nonnull Object obj, @Nonnull Supplier<String> msg) {
+            Assert.thatUnchecked(obj instanceof LinedObject, ErrorCode.INTERNAL_ERROR, msg);
+            return (LinedObject) obj;
+        }
     }
 
     private static class ConstructIgnore extends AbstractConstruct {

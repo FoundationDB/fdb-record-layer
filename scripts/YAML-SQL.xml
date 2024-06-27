@@ -52,8 +52,8 @@
     single_repetition_randomized;single_repetition_parallelized;multi_repetition_ordered;multi_repetition_randomized;
     multi_repetition_parallelized" />
     <keywords4 keywords="connect:;query:;load schema template:;set schema state:;result:;unorderedresult:;explain:;
-    explaincontains:;count:;error:;planhash:;config:;schema_template:;test_block:;options:;tests:;mode:;repetition:;seed:;
-    check_cache:;connection_lifecycle:;steps:;preset:;force_simple_statement:;!r;!in;!a;" />
+    explaincontains:;count:;error:;planhash:;setup:;schema_template:;test_block:;options:;tests:;mode:;repetition:;seed:;
+    check_cache:;connection_lifecycle:;steps:;preset:;statement_type:;!r;!in;!a;" />
   </highlighting>
   <extensionMap>
     <mapping ext="yamsql" />
