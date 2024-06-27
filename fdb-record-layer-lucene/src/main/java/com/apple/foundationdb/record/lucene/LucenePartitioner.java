@@ -948,7 +948,7 @@ public class LucenePartitioner {
                 comparisons,
                 new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false),
                 new Sort(new SortField(partitionFieldNameInLucene, SortField.Type.LONG, newest),
-                        new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, false)),
+                        new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, newest)),
                 null,
                 null,
                 null);
@@ -1013,6 +1013,14 @@ public class LucenePartitioner {
                 newBoundaryPartitionKey = toPartitionKey(records.get(records.size() - 1));
                 records.remove(records.size() - 1);
             }
+
+            if (records.size() == 0) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("no records to move, partition {}", partitionInfo);
+                }
+                return CompletableFuture.completedFuture(0);
+            }
+
             // reset partition info
             state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
             LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
