@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.TrieNode;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -172,6 +173,34 @@ public class MessageHelpers {
             throw new Query.InvalidExpressionException("Missing field (#ord=" + fieldOrdinal + ")");
         }
         return message.getDescriptorForType().getFields().get(fieldOrdinal);
+    }
+
+    public static boolean compareMessageEquals(@Nonnull MessageOrBuilder m1, @Nonnull MessageOrBuilder m2) {
+        if (m1.getDescriptorForType().getFields().size() != m2.getDescriptorForType().getFields().size()) {
+            return false;
+        }
+        // compare FieldDescriptors one by one
+        for (int i = 1; i <= m1.getDescriptorForType().getFields().size(); i++) {
+            Descriptors.FieldDescriptor f1 = findFieldDescriptorOnMessage(m1, i);
+            Descriptors.FieldDescriptor f2 = findFieldDescriptorOnMessage(m2, i);
+            if (f1.isRepeated() || f1.isMapField() || f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE
+                    || f2.isRepeated() || f2.isMapField() || f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+                return false;
+            }
+            if (f1.getJavaType() == f2.getJavaType()) {
+                if (!m1.getField(f1).equals(m2.getField(f2))) {
+                    return false;
+                }
+            } else if ((f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT)
+            || (f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG)) {
+                if (((Number)(m1.getField(f1))).longValue() != ((Number)(m2.getField(f2))).longValue()) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Nullable

@@ -198,6 +198,41 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that an IN without an index is implemented as a filter on a scan, as opposed to a loop of a filter on a scan.
+     */
+    @DualPlannerTest
+    void testTupleInQueryNoIndex() throws Exception {
+        complexQuerySetup(NO_HOOK);
+        final QueryComponent filter = Query.field("num_value_2").in(asList(0, 2));
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(filter)
+                .build();
+
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [0, 2]
+        RecordQueryPlan plan = planQuery(query);
+
+        if (planner instanceof RecordQueryPlanner) {
+            assertMatchesExactly(plan,
+                    filterPlan(descendantPlans(scanPlan().where(scanComparisons(unbounded()))))
+                            .where(queryComponents(exactly(equalsObject(filter)))));
+
+            assertEquals(-1139367278, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1691932867, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            assertMatchesExactly(plan,
+                    predicatesFilterPlan(descendantPlans(scanPlan().where(scanComparisons(unbounded()))))
+                            .where(predicates(valuePredicate(fieldValueWithFieldNames("num_value_2"), new Comparisons.ListComparison(Comparisons.Type.IN, ImmutableList.of(0, 2))))));
+
+            assertEquals(738091077, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-2062922437, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+        assertEquals(67, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
+                rec -> assertThat(rec.getNumValue2(), anyOf(is(0), is(2))),
+                context -> assertDiscardedAtMost(33, context)));
+    }
+
+    /**
      * Verify that an IN (with parameter) without an index is implemented as a filter on a scan.
      */
     @DualPlannerTest
