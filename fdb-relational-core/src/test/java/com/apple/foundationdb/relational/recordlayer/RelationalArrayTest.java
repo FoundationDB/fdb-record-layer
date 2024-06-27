@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
+
 import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -75,7 +76,7 @@ public class RelationalArrayTest {
             "string_null string array, string_not_null string array not null, " +
             "bytes_null bytes array, bytes_not_null bytes array not null, " +
             "structure_null structure array, structure_not_null structure array not null, " +
-//            "enumeration_null enumeration array, enumeration_not_null enumeration array not null, " +
+            // "enumeration_null enumeration array, enumeration_not_null enumeration array not null, " +
             "primary key(pk))";
 
     public void insertQuery(@Nonnull String q) throws RelationalException, SQLException {
@@ -142,7 +143,7 @@ public class RelationalArrayTest {
                 Arguments.of(8, 9, List.of(11.0f, 22.0f), Types.FLOAT),
                 Arguments.of(10, 11, List.of(11.0, 22.0), Types.DOUBLE),
                 Arguments.of(12, 13, List.of("11", "22"), Types.VARCHAR),
-                Arguments.of(14, 15, List.of(new byte[] {49}, new byte[] {50}), Types.BINARY),
+                Arguments.of(14, 15, List.of(new byte[]{49}, new byte[]{50}), Types.BINARY),
                 Arguments.of(16, 17, List.of(new ImmutableRowStruct(new ArrayRow(11, "11"), metadata), new ImmutableRowStruct(new ArrayRow(22, "22"), metadata)), Types.STRUCT)
         );
     }

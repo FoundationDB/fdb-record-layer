@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
+
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -56,8 +57,8 @@ public class RowArray implements RelationalArray {
 
     private static List<Row> createIterableRows(@Nonnull List<?> elements) {
         int i = 1;
-        final var rows = new ArrayList<Row>();
-        for (var element: elements) {
+        final List<Row> rows = new ArrayList<>();
+        for (var element : elements) {
             rows.add(new ArrayRow(i++, element));
         }
         return rows;

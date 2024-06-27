@@ -46,7 +46,7 @@ import java.util.UUID;
  */
 public class ConfigBlock extends Block {
 
-    private ConfigBlock(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+    protected ConfigBlock(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executionContext);
     }
 
@@ -68,7 +68,7 @@ public class ConfigBlock extends Block {
             final var configMap = Matchers.map(Matchers.firstEntry(document, "config").getValue());
             setConnectPath(configMap.getOrDefault(BLOCK_CONNECT, null));
             final var steps = getSteps(configMap.getOrDefault(MANUAL_CONFIG_BLOCK_STEPS, null));
-            for (final var step: steps) {
+            for (final var step : steps) {
                 Assert.thatUnchecked(Matchers.map(step).size() == 1, "Illegal Format: A configuration step should be a single command");
                 final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step)));
                 executables.add(connection -> {

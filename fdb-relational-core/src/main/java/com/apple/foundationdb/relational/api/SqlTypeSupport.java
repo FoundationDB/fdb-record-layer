@@ -194,8 +194,8 @@ public final class SqlTypeSupport {
             ArrayMetaData arrayMetadata;
             if (elementType.isPrimitive()) {
                 arrayMetadata = RelationalArrayMetaData.ofPrimitive(
-                                SqlTypeSupport.recordTypeToSqlType(elementType.getTypeCode()),
-                                elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
+                        SqlTypeSupport.recordTypeToSqlType(elementType.getTypeCode()),
+                        elementType.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls);
             } else if (elementType instanceof Type.Record) {
                 //get a StructMetaData recursively
                 Type.Record structType = (Type.Record) elementType;

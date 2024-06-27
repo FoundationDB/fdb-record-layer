@@ -28,8 +28,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.Matchers;
-
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;

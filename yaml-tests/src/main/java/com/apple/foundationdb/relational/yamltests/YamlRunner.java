@@ -84,14 +84,14 @@ public final class YamlRunner {
         }
 
         final var testBlocks = new ArrayList<TestBlock>();
-        for (var block: executionContext.getBlocks()) {
+        for (var block : executionContext.getBlocks()) {
             logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
             block.execute();
             if (block instanceof TestBlock) {
                 testBlocks.add((TestBlock) block);
             }
         }
-        for (var block: executionContext.getFinalizeBlocks()) {
+        for (var block : executionContext.getFinalizeBlocks()) {
             logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
             block.execute();
         }

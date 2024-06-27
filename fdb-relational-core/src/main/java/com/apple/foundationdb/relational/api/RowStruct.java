@@ -228,7 +228,7 @@ public abstract class RowStruct implements RelationalStruct {
             final var coll = (Collection<?>) obj;
             final var arrayMetaData = metaData.getArrayMetaData(oneBasedPosition);
             final var elements = new ArrayList<>();
-            for (final var t: coll) {
+            for (final var t : coll) {
                 if (t instanceof Message) {
                     elements.add(new MessageTuple((Message) t));
                 } else {
@@ -246,7 +246,7 @@ public abstract class RowStruct implements RelationalStruct {
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
             final var elements = new ArrayList<>();
             final var coll = (Collection<?>) message.getField(fieldDescriptor);
-            for (final var t: coll) {
+            for (final var t : coll) {
                 if (t instanceof Message) {
                     elements.add(new MessageTuple((Message) t));
                 } else {

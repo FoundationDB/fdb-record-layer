@@ -197,7 +197,7 @@ public final class QueryInterpreter {
 
     private QueryInterpreter(@Nonnull Map.Entry<?, ?> queryCommand) {
         this(((CustomYamlConstructor.LinedObject) Matchers.notNull(queryCommand, "query configuration").getKey())
-                        .getStartMark().getLine() + 1,
+                .getStartMark().getLine() + 1,
                 Matchers.string(Matchers.notNull(queryCommand, "query configuration").getValue()));
     }
 
