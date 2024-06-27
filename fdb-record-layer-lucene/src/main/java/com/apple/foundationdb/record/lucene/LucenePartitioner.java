@@ -948,7 +948,7 @@ public class LucenePartitioner {
                 comparisons,
                 new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false),
                 new Sort(new SortField(partitionFieldNameInLucene, SortField.Type.LONG, newest),
-                        new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, false)),
+                        new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING, newest)),
                 null,
                 null,
                 null);
@@ -978,6 +978,13 @@ public class LucenePartitioner {
      */
     @Nonnull
     private CompletableFuture<Integer> moveDocsFromPartition(@Nonnull final LuceneRepartitionPlanner.RepartitioningContext repartitioningContext) {
+        // sanity check
+        if (repartitioningContext.countToMove <= 0) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("moveDocsFromPartition called with invalid countToMove {}", repartitioningContext.countToMove);
+            }
+            return CompletableFuture.completedFuture(0);
+        }
         Collection<RecordType> recordTypes = state.store.getRecordMetaData().recordTypesForIndex(state.index);
         if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
             // don't support mix of synthetic/regular
@@ -1006,6 +1013,9 @@ public class LucenePartitioner {
 
         fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
         return fetchedRecordsFuture.thenCompose(records -> {
+            if (records.size() == 0) {
+                throw new RecordCoreException("Unexpected error: 0 records fetched. repartitionContext {}", repartitioningContext);
+            }
             Tuple newBoundaryPartitionKey = null;
             // if there would be records left in the partition, and more than 1 records to remove
             if (!repartitioningContext.emptyingPartition && repartitioningContext.newBoundaryRecordPresent) {
@@ -1013,6 +1023,14 @@ public class LucenePartitioner {
                 newBoundaryPartitionKey = toPartitionKey(records.get(records.size() - 1));
                 records.remove(records.size() - 1);
             }
+
+            if (records.size() == 0) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("no records to move, partition {}", partitionInfo);
+                }
+                return CompletableFuture.completedFuture(0);
+            }
+
             // reset partition info
             state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
             LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);

@@ -114,7 +114,7 @@ public class LuceneRepartitionPlanner {
             // this many docs would flip the partition from being above the high watermark to being below
             // the low watermark
             if (currentPartitionCount - repartitioningContext.countToMove < indexPartitionLowWatermark) {
-                repartitioningContext.countToMove = (indexPartitionHighWatermark - indexPartitionLowWatermark) / 2;
+                repartitioningContext.countToMove = Math.max(1, ((indexPartitionHighWatermark - indexPartitionLowWatermark) / 2));
             }
             repartitioningContext.newBoundaryRecordPresent = true;
             repartitioningContext.action = RepartitioningAction.OVERFLOW;
@@ -179,6 +179,21 @@ public class LuceneRepartitionPlanner {
             this.olderPartition = olderPartition;
             this.newerPartition = newerPartition;
             this.action = RepartitioningAction.NOT_REQUIRED;
+        }
+
+        @Override
+        public String toString() {
+            return "RepartitioningContext{" +
+                    "groupingKey=" + groupingKey +
+                    ", sourcePartition=" + sourcePartition +
+                    ", olderPartition=" + olderPartition +
+                    ", newerPartition=" + newerPartition +
+                    ", emptyingPartition=" + emptyingPartition +
+                    ", countToMove=" + countToMove +
+                    ", maxPartitionId=" + maxPartitionId +
+                    ", newBoundaryRecordPresent=" + newBoundaryRecordPresent +
+                    ", action=" + action +
+                    '}';
         }
     }
 }
