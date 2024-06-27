@@ -277,4 +277,12 @@ class TypeTest {
         Type.AnyRecord r1 = new Type.AnyRecord(false);
         Assertions.assertEquals(r1, Type.AnyRecord.fromProto(serializationContext, r1.toProto(serializationContext)));
     }
+
+    @Test
+    void testAnyArraySerialization() {
+        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                PlanHashable.CURRENT_FOR_CONTINUATION);
+        Type.AnyArray r1 = new Type.AnyArray(false);
+        Assertions.assertEquals(r1, Type.AnyArray.fromProto(serializationContext, r1.toProto(serializationContext)));
+    }
 }
