@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -42,7 +42,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -114,14 +113,13 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                               @Nonnull final ValueEquivalence valueEquivalence) {
-        final var superEqualsWithoutChildren = LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence);
-        if (superEqualsWithoutChildren.isEmpty()) {
-            return Optional.empty();
-        }
-        final ConstantPredicate that = (ConstantPredicate)other;
-        return Objects.equals(value, that.value) ? superEqualsWithoutChildren : Optional.empty();
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> {
+                    final ConstantPredicate that = (ConstantPredicate)other;
+                    return Objects.equals(value, that.value);
+                });
     }
 
     @Override

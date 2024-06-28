@@ -35,8 +35,8 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PDatabaseObjectDepende
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.auto.service.AutoService;
@@ -49,7 +49,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -134,17 +133,14 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                               @Nonnull final ValueEquivalence valueEquivalence) {
-        final var superEqualsWithoutChildren = super.equalsWithoutChildren(other, valueEquivalence);
-        if (superEqualsWithoutChildren.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =
-                (DatabaseObjectDependenciesPredicate)other;
-        return usedIndexes.equals(otherDatabaseObjectDependenciesPredicate.usedIndexes)
-               ? superEqualsWithoutChildren : Optional.empty();
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> {
+                    final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =
+                            (DatabaseObjectDependenciesPredicate)other;
+                    return usedIndexes.equals(otherDatabaseObjectDependenciesPredicate.usedIndexes);
+                });
     }
 
 

@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PThrowsValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
@@ -41,7 +41,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * A value that throws an exception if it gets executed.
@@ -73,15 +72,11 @@ public class ThrowsValue extends AbstractValue implements LeafValue {
         throw new RecordCoreException("evaluation of throws()");
     }
 
+    @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
-        final var superQueryPlanConstraint = super.equalsWithoutChildren(other);
-        if (superQueryPlanConstraint.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final var that = (ThrowsValue)other;
-        return resultType.equals(that.resultType) ? superQueryPlanConstraint : Optional.empty();
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> resultType.equals(((ThrowsValue)other).resultType));
     }
 
     @Override

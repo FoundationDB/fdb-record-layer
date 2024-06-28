@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -33,56 +36,95 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-/**
- * TODO.
- */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public interface ValueEquivalence {
-    @Nonnull
-    Optional<QueryPlanConstraint> ALWAYS_EQUAL = Optional.of(QueryPlanConstraint.tautology());
+import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.falseValue;
+import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.trueWithConstraint;
 
-    static Optional<QueryPlanConstraint> alwaysEqual() {
-        return ALWAYS_EQUAL;
+/**
+ * An interface (together with a set of specific final classes) that captures axiomatic (defined) equivalence between
+ * {@link Value}s. Implementors of this interface are passed in to calls to
+ * {@link UsesValueEquivalence#semanticEquals(Object, ValueEquivalence)} and related methods to signal that there are
+ * additional equalities that these methods need to consider. These equalities are axiomatic, i.e. they are assumed
+ * to be true when e.g. semantic equality for e.g. two {@link Value}s is computed.
+ * <br>
+ * Example:
+ * <pre>
+ * {@code
+ * semanticEquals(qov($i).a, qov($i).a) under no value equivalence --> true
+ * semanticEquals(qov($i).a, qov($j).a) under no value equivalence --> false
+ * semanticEquals(qov($i).a, qov($j).a) under alias equivalence ($i <-> $j) --> true
+ * semanticEquals(qov($i).a.c, qov($j).b.c) under value equivalence (qov($i).a <-> qov($j).b) --> true
+ * }
+ * </pre>
+ * <br>
+ * Note that we do not enforce {@code a R a} (reflexivity) nor {@code a R b => b R a} (symmetry). While reflexivity is
+ * naturally enforced in the absence of a defined equality, symmetry needs to be added (and enforced) by the client
+ * of this class if necessary.
+ */
+public abstract class ValueEquivalence {
+    @Nonnull
+    private final Supplier<Optional<ValueEquivalence>> inverseOptionalSupplier;
+
+    protected ValueEquivalence() {
+        this.inverseOptionalSupplier = Suppliers.memoize(this::computeInverseMaybe);
     }
 
+    @Nonnull
+    public abstract BooleanWithConstraint isDefinedEqual(@Nonnull Value left,
+                                                         @Nonnull Value right);
 
     @Nonnull
-    Optional<QueryPlanConstraint> equivalence(@Nonnull Value left,
-                                              @Nonnull Value right);
+    public abstract BooleanWithConstraint isDefinedEqual(@Nonnull CorrelationIdentifier left,
+                                                         @Nonnull CorrelationIdentifier right);
+
+    /**
+     * Method that returns the inverse of this value equivalence. Note that the inverse may not exist due to
+     * ambiguous left sides that are equal to one right side. This does not happen currently, but it is possible
+     * it may happen in the future, thus the inverse may or may not be defined.
+     * @return the inverse if it exists, {@code Optional.empty()} otherwise.
+     */
+    @Nonnull
+    public Optional<ValueEquivalence> inverseMaybe() {
+        return inverseOptionalSupplier.get();
+    }
 
     @Nonnull
-    Optional<QueryPlanConstraint> equivalence(@Nonnull CorrelationIdentifier left,
-                                              @Nonnull CorrelationIdentifier right);
+    protected abstract Optional<ValueEquivalence> computeInverseMaybe();
 
     @Nonnull
-    default <T extends UsesValueEquivalence<T>> Optional<QueryPlanConstraint> semanticEquals(@Nonnull final Set<T> left,
-                                                                                             @Nonnull final Set<T> right) {
+    public <T extends UsesValueEquivalence<T>> BooleanWithConstraint semanticEquals(@Nonnull final Set<T> left,
+                                                                                    @Nonnull final Set<T> right) {
         if (left.size() != right.size()) {
-            return Optional.empty();
+            return falseValue();
         }
 
-        QueryPlanConstraint constraint = QueryPlanConstraint.tautology();
+        var constraint = BooleanWithConstraint.alwaysTrue();
         for (final T l : left) {
+            var found = false;
             for (final T r : right) {
                 final var semanticEquals = l.semanticEquals(r, this);
-                if (semanticEquals.isPresent()) {
-                    constraint = constraint.compose(semanticEquals.get());
+                if (semanticEquals.isTrue()) {
+                    found = true;
+                    constraint = constraint.composeWithOther(semanticEquals);
                     break;
                 }
             }
+            if (!found) {
+                return falseValue();
+            }
         }
 
-        return Optional.of(constraint);
+        return constraint;
     }
 
-    default ValueEquivalence then(@Nonnull final ValueEquivalence thenEquivalence) {
+    @Nonnull
+    public ValueEquivalence then(@Nonnull final ValueEquivalence thenEquivalence) {
         return new ThenEquivalence(this, thenEquivalence);
     }
 
     /**
      * Helper equivalence to compose to equivalences.
      */
-    class ThenEquivalence implements ValueEquivalence {
+    public static final class ThenEquivalence extends ValueEquivalence {
         @Nonnull
         private final ValueEquivalence first;
         @Nonnull
@@ -95,39 +137,49 @@ public interface ValueEquivalence {
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> equivalence(@Nonnull final Value left, @Nonnull final Value right) {
-            final var firstEquivalence = first.equivalence(left, right);
-            if (firstEquivalence.isPresent()) {
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+            final var firstEquivalence = first.isDefinedEqual(left, right);
+            if (firstEquivalence.isTrue()) {
                 return firstEquivalence;
             }
-            return then.equivalence(left, right);
+            return then.isDefinedEqual(left, right);
         }
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> equivalence(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
-            final var firstEquivalence = first.equivalence(left, right);
-            if (firstEquivalence.isPresent()) {
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            final var firstEquivalence = first.isDefinedEqual(left, right);
+            if (firstEquivalence.isTrue()) {
                 return firstEquivalence;
             }
-            return then.equivalence(left, right);
+            return then.isDefinedEqual(left, right);
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<ValueEquivalence> computeInverseMaybe() {
+            return first.inverseMaybe()
+                    .flatMap(inverseFirst -> {
+                        final var inverseThenOptional = then.inverseMaybe();
+                        if (inverseThenOptional.isEmpty()) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(new ThenEquivalence(inverseFirst, inverseThenOptional.get()));
+                    });
         }
     }
 
     @Nonnull
-    static ValueMap.Builder valueMapBuilder() {
+    public static ValueMap.Builder valueMapBuilder() {
         return new ValueMap.Builder();
     }
 
     /**
-     * Value equivalence based on a map of values. Note that we do not enforce {@code a R a} (reflexivity),
-     * nor {@code a R b => b R a} (symmetry). While reflexivity is naturally enforced even when the corresponding
-     * pairs are not in the equivalence map, symmetry needs to be added (and enforced) by the client of this class
+     * Value equivalence based on a map of values.
      */
-    class ValueMap implements ValueEquivalence {
+    public static final class ValueMap extends ValueEquivalence {
         @Nonnull
         private final Map<Value, Value> valueEquivalenceMap;
-
         @Nonnull
         private final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap;
 
@@ -139,18 +191,35 @@ public interface ValueEquivalence {
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> equivalence(@Nonnull final Value left, @Nonnull final Value right) {
+        @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false-positive
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             final var rightFromMap = valueEquivalenceMap.get(left);
             if (rightFromMap == null || !rightFromMap.equals(right)) {
-                return Optional.empty();
+                return falseValue();
             }
-            return Optional.of(Objects.requireNonNull(valueConstraintSupplierMap.get(left)).get());
+            return trueWithConstraint(Objects.requireNonNull(Objects.requireNonNull(valueConstraintSupplierMap.get(left)).get()));
         }
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> equivalence(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
-            return Optional.empty();
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return falseValue();
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<ValueEquivalence> computeInverseMaybe() {
+            final var inverseValueEquivalenceMap =
+                    new LinkedHashMap<Value, Value>();
+            final var inverseValueConstraintSupplierMap =
+                    new LinkedHashMap<Value, Supplier<QueryPlanConstraint>>();
+            for (Map.Entry<Value, Value> entry : valueEquivalenceMap.entrySet()) {
+                if (inverseValueEquivalenceMap.put(entry.getValue(), entry.getKey()) != null) {
+                    return Optional.empty();
+                }
+                inverseValueConstraintSupplierMap.put(entry.getValue(), valueConstraintSupplierMap.get(entry.getKey()));
+            }
+            return Optional.of(new ValueMap(inverseValueEquivalenceMap, inverseValueConstraintSupplierMap));
         }
 
         /**
@@ -175,8 +244,12 @@ public interface ValueEquivalence {
             @Nonnull
             public Builder add(@Nonnull final Value left, @Nonnull final Value right,
                                @Nonnull final Supplier<QueryPlanConstraint> planConstraintSupplier) {
-                valueEquivalenceMap.put(left, right);
-                valueConstraintSupplierMap.put(left, planConstraintSupplier);
+                if (valueEquivalenceMap.put(left, right) != null) {
+                    throw new RecordCoreException("duplicate mapping");
+                }
+                if (valueConstraintSupplierMap.put(left, planConstraintSupplier) != null) {
+                    throw new RecordCoreException("duplicate constraint mapping");
+                }
                 return this;
             }
 
@@ -188,14 +261,14 @@ public interface ValueEquivalence {
     }
 
     @Nonnull
-    static AliasMapBackedValueEquivalence fromAliasMap(@Nonnull final AliasMap aliasMap) {
+    public static ValueEquivalence fromAliasMap(@Nonnull final AliasMap aliasMap) {
         return new AliasMapBackedValueEquivalence(aliasMap);
     }
 
     /**
      * Equivalence that is being backed by an {@link AliasMap}.
      */
-    class AliasMapBackedValueEquivalence implements ValueEquivalence {
+    public static final class AliasMapBackedValueEquivalence extends ValueEquivalence {
         @Nonnull
         private final AliasMap aliasMap;
 
@@ -205,32 +278,38 @@ public interface ValueEquivalence {
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> equivalence(@Nonnull final Value left, @Nonnull final Value right) {
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             //
             // If any of the participants is not a quantified value, left is not equal to right.
             //
             if (!(left instanceof QuantifiedValue) || !(right instanceof QuantifiedValue)) {
-                return Optional.empty();
+                return falseValue();
             }
 
             if (left.getClass() != right.getClass()) {
-                return Optional.empty();
+                return falseValue();
             }
 
             final var leftAlias = ((QuantifiedValue)left).getAlias();
             final var rightAlias = ((QuantifiedValue)right).getAlias();
 
             if (leftAlias.equals(rightAlias) || aliasMap.containsMapping(leftAlias, rightAlias)) {
-                return alwaysEqual();
+                return BooleanWithConstraint.alwaysTrue();
             }
 
-            return Optional.empty();
+            return falseValue();
         }
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> equivalence(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
-            return aliasMap.containsMapping(left, right) ? ValueEquivalence.alwaysEqual() : Optional.empty();
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return aliasMap.containsMapping(left, right) ? BooleanWithConstraint.alwaysTrue() : falseValue();
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<ValueEquivalence> computeInverseMaybe() {
+            return Optional.of(new AliasMapBackedValueEquivalence(aliasMap.inverse()));
         }
     }
 }

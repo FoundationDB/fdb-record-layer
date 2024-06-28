@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PWindowedValue;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
@@ -38,7 +38,6 @@ import com.google.common.collect.Iterators;
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -153,14 +152,9 @@ public abstract class WindowedValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
-        final var superQueryPlanConstraintOptional = super.equalsWithoutChildren(other);
-        if (superQueryPlanConstraintOptional.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final var otherWindowedValue = (WindowedValue)other;
-        return getName().equals(otherWindowedValue.getName()) ? superQueryPlanConstraintOptional : Optional.empty();
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> getName().equals(((WindowedValue)other).getName()));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

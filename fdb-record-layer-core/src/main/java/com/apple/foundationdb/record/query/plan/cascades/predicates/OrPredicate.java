@@ -235,7 +235,8 @@ public class OrPredicate extends AndOrPredicate {
                     .flatMap(predicate -> {
                         if (predicate instanceof PredicateWithValue) {
                             final var queryValue = ((ValuePredicate)predicate).getValue();
-                            return queryValue.semanticEquals(candidateValue, valueEquivalence).stream();
+                            return queryValue.semanticEquals(candidateValue, valueEquivalence)
+                                    .mapToOptional(Function.identity()).stream();
                         }
                         return Stream.empty();
                     })
@@ -265,7 +266,7 @@ public class OrPredicate extends AndOrPredicate {
                                                                   @Nonnull final PredicateWithValueAndRanges rightValueWithRanges) {
         final var semanticEqualsLeftRight =
                 leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), valueEquivalence);
-        if (semanticEqualsLeftRight.isEmpty()) {
+        if (semanticEqualsLeftRight.isFalse()) {
             return Optional.empty();
         }
 
@@ -306,7 +307,7 @@ public class OrPredicate extends AndOrPredicate {
                     Optional.empty()));  // TODO: provide a translated predicate value here.
         } else {
             return Optional.of(PredicateMapping.regularMappingWithoutCompensation(this,
-                    candidatePredicate, semanticEqualsLeftRight.get()));
+                    candidatePredicate, semanticEqualsLeftRight.getConstraint()));
         }
     }
 

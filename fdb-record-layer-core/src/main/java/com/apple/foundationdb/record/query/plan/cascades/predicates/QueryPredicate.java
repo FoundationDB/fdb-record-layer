@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -179,10 +179,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
-        final var semanticEqualsOptional = this.semanticEquals(candidatePredicate, valueEquivalence);
-        return semanticEqualsOptional
-                .map(queryPlanConstraint -> PredicateMapping.regularMappingWithoutCompensation(this,
-                        candidatePredicate, queryPlanConstraint));
+        final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
+        return semanticEquals
+                .mapToOptional(queryPlanConstraint ->
+                        PredicateMapping.regularMappingWithoutCompensation(this,
+                                candidatePredicate, queryPlanConstraint));
     }
 
     /**
@@ -303,63 +304,61 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             return false;
         }
 
-        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
     @Nonnull
     @Override
-    @SuppressWarnings("OptionalIsPresent")
-    default Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final QueryPredicate other,
-                                                              @Nonnull final ValueEquivalence valueEquivalence) {
-        final var equalsWithoutChildrenOptional =
+    default BooleanWithConstraint semanticEqualsTyped(@Nonnull final QueryPredicate other,
+                                                      @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren =
                 equalsWithoutChildren(other, valueEquivalence);
-        if (equalsWithoutChildrenOptional.isEmpty()) {
-            return Optional.empty();
+        if (equalsWithoutChildren.isFalse()) {
+            return BooleanWithConstraint.falseValue();
         }
 
-        return equalsForChildren(other, valueEquivalence)
-                .map(equalsForChildren -> equalsWithoutChildrenOptional.get().compose(equalsForChildren));
+        return equalsWithoutChildren.composeWithOther(equalsForChildren(other, valueEquivalence));
     }
 
     @Nonnull
-    default Optional<QueryPlanConstraint> equalsForChildren(@Nonnull final QueryPredicate otherPred,
-                                                            @Nonnull final ValueEquivalence valueEquivalence) {
+    default BooleanWithConstraint equalsForChildren(@Nonnull final QueryPredicate otherPred,
+                                                    @Nonnull final ValueEquivalence valueEquivalence) {
         final Iterator<? extends QueryPredicate> preds = getChildren().iterator();
         final Iterator<? extends QueryPredicate> otherPreds = otherPred.getChildren().iterator();
 
-        QueryPlanConstraint constraint = QueryPlanConstraint.tautology();
+        var constraint = BooleanWithConstraint.alwaysTrue();
         while (preds.hasNext()) {
             if (!otherPreds.hasNext()) {
-                return Optional.empty();
+                return BooleanWithConstraint.falseValue();
             }
 
             final var semanticEqualsOptional =
                     preds.next().semanticEquals(otherPreds.next(), valueEquivalence);
-            if (semanticEqualsOptional.isEmpty()) {
-                return Optional.empty();
+            if (semanticEqualsOptional.isFalse()) {
+                return BooleanWithConstraint.falseValue();
             }
-            constraint = constraint.compose(semanticEqualsOptional.get());
+            constraint = constraint.composeWithOther(semanticEqualsOptional);
         }
 
         if (otherPreds.hasNext()) {
-            return Optional.empty();
+            return BooleanWithConstraint.falseValue();
         }
-        return Optional.of(constraint);
+        return constraint;
     }
 
     @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
     @Nonnull
-    default Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                                @Nonnull final ValueEquivalence valueEquivalence) {
+    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                        @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return ValueEquivalence.alwaysEqual();
+            return BooleanWithConstraint.alwaysTrue();
         }
 
         if (other.getClass() != getClass()) {
-            return Optional.empty();
+            return BooleanWithConstraint.falseValue();
         }
 
-        return other.isAtomic() == isAtomic() ? ValueEquivalence.alwaysEqual() : Optional.empty();
+        return other.isAtomic() == isAtomic() ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
     }
 
     boolean isAtomic();

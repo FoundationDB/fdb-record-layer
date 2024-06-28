@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -46,7 +46,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
@@ -163,28 +162,18 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return Objects.hash(value.semanticHashCode(), comparison.semanticHashCode());
     }
 
-    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
-        final var equalsWithoutChildren = PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence);
-        if (equalsWithoutChildren.isEmpty()) {
-            return Optional.empty();
-        }
-        final ValuePredicate that = (ValuePredicate)other;
-
-        final var valueEquals = value.semanticEquals(that.value, valueEquivalence);
-        if (valueEquals.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final var comparisonEquals =
-                comparison.semanticEquals(that.comparison, valueEquivalence);
-        if (comparisonEquals.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(equalsWithoutChildren.get().compose(valueEquals.get()).compose(comparisonEquals.get()));
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+        return PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence)
+                .compose(ignored -> {
+                    final ValuePredicate that = (ValuePredicate)other;
+                    return value.semanticEquals(that.value, valueEquivalence);
+                })
+                .compose(ignored -> {
+                    final ValuePredicate that = (ValuePredicate)other;
+                    return comparison.semanticEquals(that.comparison, valueEquivalence);
+                });
     }
 
     @Override

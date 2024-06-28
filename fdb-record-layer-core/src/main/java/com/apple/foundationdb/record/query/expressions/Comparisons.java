@@ -53,8 +53,8 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryI
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
@@ -96,7 +96,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -207,7 +206,7 @@ public class Comparisons {
         }
     }
 
-    @SuppressWarnings("rawtypes")
+    @Nullable
     public static Object toClassWithRealEquals(@Nullable Object obj) {
         if (obj == null) {
             return null;
@@ -836,15 +835,15 @@ public class Comparisons {
 
         @Override
         default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
-            return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
+            return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
         }
 
         @Nonnull
         @Override
         @SuppressWarnings("unused")
-        default Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other,
-                                                                  @Nonnull final ValueEquivalence valueEquivalence) {
-            return this.equals(other) ? ValueEquivalence.alwaysEqual() : Optional.empty();
+        default BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other,
+                                                          @Nonnull final ValueEquivalence valueEquivalence) {
+            return this.equals(other) ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
         }
 
         @Override
@@ -1229,10 +1228,10 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             ParameterComparison that = (ParameterComparison) other;
             if (type != that.type) {
-                return Optional.empty();
+                return BooleanWithConstraint.falseValue();
             }
 
             //
@@ -1242,18 +1241,18 @@ public class Comparisons {
             //
             if (isCorrelation() && that.isCorrelation()) {
                 if (getAlias().equals(that.getAlias())) {
-                    return ValueEquivalence.alwaysEqual();
+                    return BooleanWithConstraint.alwaysTrue();
                 }
                 // This case should happen rather infrequently
-                return valueEquivalence.equivalence(getAlias(), that.getAlias());
+                return valueEquivalence.isDefinedEqual(getAlias(), that.getAlias());
             }
 
             if (!getParameter().equals(that.getParameter())) {
-                return Optional.empty();
+                return BooleanWithConstraint.falseValue();
             }
             
             return Objects.equals(relatedByEquality(), that.relatedByEquality())
-                   ? ValueEquivalence.alwaysEqual() : Optional.empty();
+                   ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
         }
 
         @Nullable
@@ -1519,10 +1518,10 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             final var that = (ValueComparison) other;
             if (type != that.type) {
-                return Optional.empty();
+                return BooleanWithConstraint.falseValue();
             }
 
             return comparandValue.semanticEquals(that.comparandValue, valueEquivalence);
@@ -2611,9 +2610,9 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             MultiColumnComparison that = (MultiColumnComparison)other;
-            return this.inner.semanticEqualsTyped(that.inner, valueEquivalence);
+            return this.inner.semanticEquals(that.inner, valueEquivalence);
         }
 
         @Override

@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisito
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
@@ -321,73 +322,96 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             return false;
         }
 
-        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
+    /**
+     * Overriding method of {@link UsesValueEquivalence#semanticEquals(Object, ValueEquivalence)} that attempts to
+     * assert equivalence of {@code this} and {@code other} using the {@link ValueEquivalence} that was passed in.
+     * @param other the other object to compare this object to
+     * @param valueEquivalence the value equivalence
+     * @return a boolean monad {@link BooleanWithConstraint} that is either effectively {@code false} or {@code true}
+     *         under the assumption that a contained query plan constraint is satisfied
+     */
     @Nonnull
     @Override
-    default Optional<QueryPlanConstraint> semanticEquals(@Nullable final Object other, @Nonnull final ValueEquivalence valueEquivalence) {
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default BooleanWithConstraint semanticEquals(@Nullable final Object other,
+                                                 @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return ValueEquivalence.alwaysEqual();
+            return BooleanWithConstraint.alwaysTrue();
         }
 
         if (!(other instanceof Value)) {
-            return Optional.empty();
+            return BooleanWithConstraint.falseValue();
         }
 
-        return semanticEqualsTyped((Value)other, valueEquivalence);
-    }
+        final var thisOther = semanticEqualsTyped((Value)other, valueEquivalence);
 
-    @Nonnull
-    @Override
-    default Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final Value other,
-                                                              @Nonnull final ValueEquivalence valueEquivalence) {
-        var equalsWithoutChildren = equalsWithoutChildren(other);
-        if (equalsWithoutChildren.isEmpty()) {
+        Debugger.sanityCheck(() -> {
+            final var inverseValueEquivalenceMaybe = valueEquivalence.inverseMaybe();
+            Verify.verify(inverseValueEquivalenceMaybe.isPresent());
+            final var otherThis =
+                    ((Value)other).semanticEqualsTyped(this, inverseValueEquivalenceMaybe.get());
+            Verify.verify(thisOther.isTrue() == otherThis.isTrue());
+        });
+
+        if (thisOther.isFalse()) {
             //
             // By the looks of it, otherValue is not equal to this value. However, maybe it's already in the
             // valueEquivalence.
             //
-            return valueEquivalence.equivalence(this, other);
+            return valueEquivalence.isDefinedEqual(this, (Value)other);
         }
 
-        var constraint = equalsWithoutChildren.get();
+        return thisOther;
+    }
+
+    @Nonnull
+    @Override
+    default BooleanWithConstraint semanticEqualsTyped(@Nonnull final Value other,
+                                                      @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren = equalsWithoutChildren(other);
+        if (equalsWithoutChildren.isFalse()) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        var constraint = equalsWithoutChildren;
         final Iterator<? extends Value> children = getChildren().iterator();
         final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
 
         while (children.hasNext()) {
             if (!otherChildren.hasNext()) {
-                return Optional.empty();
+                return BooleanWithConstraint.falseValue();
             }
 
-            final var childConstraintOptional =
+            final var isChildEquals =
                     children.next().semanticEquals(otherChildren.next(), valueEquivalence);
-            if (childConstraintOptional.isEmpty()) {
-                return Optional.empty();
+            if (isChildEquals.isFalse()) {
+                return BooleanWithConstraint.falseValue();
             }
 
-            constraint = constraint.compose(childConstraintOptional.get());
+            constraint = constraint.composeWithOther(isChildEquals);
         }
 
         if (otherChildren.hasNext()) {
             // otherValue has more children, it cannot be equivalent
-            return Optional.empty();
+            return BooleanWithConstraint.falseValue();
         }
 
-        return Optional.of(constraint);
+        return constraint;
     }
 
     @Nonnull
     @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
+    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
         if (this == other) {
-            return Optional.empty();
+            return BooleanWithConstraint.alwaysTrue();
         }
 
-        return other.getClass() == getClass() ? ValueEquivalence.alwaysEqual() : Optional.empty();
+        return other.getClass() == getClass() ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
     }
 
-    @Nonnull
     default boolean canResultInType(@Nonnull final Type type) {
         return false;
     }

@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -46,13 +45,8 @@ public interface QuantifiedValue extends LeafValue {
 
     @Nonnull
     @Override
-    default Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
-        final var superQueryPlanConstraint = LeafValue.super.equalsWithoutChildren(other);
-        if (superQueryPlanConstraint.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final QuantifiedValue that = (QuantifiedValue)other;
-        return getAlias().equals(that.getAlias()) ? superQueryPlanConstraint : Optional.empty();
+    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> getAlias().equals(((QuantifiedValue)other).getAlias()));
     }
 }

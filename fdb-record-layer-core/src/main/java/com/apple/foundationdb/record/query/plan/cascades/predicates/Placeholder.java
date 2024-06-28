@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -104,14 +103,10 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
 
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                               @Nonnull final ValueEquivalence valueEquivalence) {
-        final var equalsWithoutChildren =
-                super.equalsWithoutChildren(other, valueEquivalence);
-        if (equalsWithoutChildren.isEmpty()) {
-            return Optional.empty();
-        }
-        return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias) ? equalsWithoutChildren : Optional.empty();
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias));
     }
 
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")

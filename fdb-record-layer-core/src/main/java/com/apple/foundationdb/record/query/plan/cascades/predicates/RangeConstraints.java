@@ -30,9 +30,9 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PRangeConstraints;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexComparison;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -362,6 +362,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (other == null) {
             return false;
@@ -375,46 +376,35 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             return false;
         }
 
-        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isPresent();
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
-    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull final RangeConstraints other,
-                                                             @Nonnull final ValueEquivalence valueEquivalence) {
+    public BooleanWithConstraint semanticEqualsTyped(@Nonnull final RangeConstraints other,
+                                                     @Nonnull final ValueEquivalence valueEquivalence) {
         if (deferredRanges.size() != other.deferredRanges.size()) {
-            return Optional.empty();
+            return BooleanWithConstraint.falseValue();
         }
 
         var deferredRangesEquals =
                 valueEquivalence.semanticEquals(deferredRanges, other.deferredRanges);
-        if (deferredRangesEquals.isEmpty()) {
-            return Optional.empty();
+        if (deferredRangesEquals.isFalse()) {
+            return BooleanWithConstraint.falseValue();
         }
-
-        var constraint = deferredRangesEquals.get();
 
         if (evaluableRange == null && other.evaluableRange == null) {
-            return Optional.of(constraint);
+            return deferredRangesEquals;
         }
 
-        if (evaluableRange == null || other.evaluableRange == null) {
-            return Optional.empty();
-        }
-
-        if (evaluableRange.compilableComparisons.size() != other.evaluableRange.compilableComparisons.size()) {
-            return Optional.empty();
-        }
-
-        final var evaluableRangesEquals =
-                valueEquivalence.semanticEquals(evaluableRange.compilableComparisons,
-                        other.evaluableRange.compilableComparisons);
-        if (evaluableRangesEquals.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(constraint.compose(evaluableRangesEquals.get()));
+        return deferredRangesEquals
+                .compose(ignored -> {
+                    if (evaluableRange != null && other.evaluableRange != null) {
+                        return valueEquivalence.semanticEquals(evaluableRange.compilableComparisons,
+                                other.evaluableRange.compilableComparisons);
+                    }
+                    return BooleanWithConstraint.falseValue();
+                });
     }
 
     @Override

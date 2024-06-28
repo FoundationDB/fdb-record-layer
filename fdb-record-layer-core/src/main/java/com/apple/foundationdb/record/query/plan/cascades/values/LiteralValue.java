@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PLiteralValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -47,7 +47,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * A wrapper around a literal of the given type.
@@ -104,18 +103,15 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final Value other) {
-        final var superQueryPlanConstraintOptional = LeafValue.super.equalsWithoutChildren(other);
-        if (superQueryPlanConstraintOptional.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final LiteralValue<?> that = (LiteralValue<?>)other;
-        if (value == null && that.value == null) {
-            return superQueryPlanConstraintOptional;
-        }
-        return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value))
-               ? superQueryPlanConstraintOptional : Optional.empty();
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> {
+                    final LiteralValue<?> that = (LiteralValue<?>)other;
+                    if (value == null && that.value == null) {
+                        return true;
+                    }
+                    return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value));
+                });
     }
 
     @Override

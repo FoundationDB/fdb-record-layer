@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PExistsPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
@@ -41,9 +41,9 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
@@ -131,26 +131,18 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
-    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Optional<QueryPlanConstraint> equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
-        final var superEqualsWithoutChildren =
-                LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence);
-        if (superEqualsWithoutChildren.isEmpty()) {
-            return Optional.empty();
-        }
-        final ExistsPredicate that = (ExistsPredicate)other;
-        if (existentialAlias.equals(that.existentialAlias)) {
-            return Optional.empty();
-        }
-
-        final var aliasEquals =
-                valueEquivalence.equivalence(existentialAlias, that.existentialAlias);
-        if (aliasEquals.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(superEqualsWithoutChildren.get().compose(aliasEquals.get()));
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence)
+                .compose(ignored ->  {
+                    final ExistsPredicate that = (ExistsPredicate)other;
+                    if (existentialAlias.equals(that.existentialAlias)) {
+                        return BooleanWithConstraint.alwaysTrue();
+                    }
+                    return valueEquivalence.isDefinedEqual(existentialAlias, that.existentialAlias);
+                });
     }
 
     @Override
@@ -188,13 +180,14 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             return Optional.empty();
         } else if (candidatePredicate instanceof ExistsPredicate) {
             final ExistsPredicate candidateExistsPredicate = (ExistsPredicate)candidatePredicate;
-            final var aliasEquals = valueEquivalence.equivalence(existentialAlias, candidateExistsPredicate.getExistentialAlias());
-            if (aliasEquals.isEmpty()) {
+            final var aliasEquals =
+                    valueEquivalence.isDefinedEqual(existentialAlias, candidateExistsPredicate.getExistentialAlias());
+            if (aliasEquals.isFalse()) {
                 return Optional.empty();
             }
             return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate,
                     this::injectCompensationFunctionMaybe, Optional.empty(),
-                    aliasEquals.get(), Optional.empty()));  // TODO: provide a translated predicate value here.
+                    aliasEquals.getConstraint(), Optional.empty()));  // TODO: provide a translated predicate value here.
         } else if (candidatePredicate.isTautology()) {
             return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate,
                     this::injectCompensationFunctionMaybe, Optional.empty()));  // TODO: provide a translated predicate value here.

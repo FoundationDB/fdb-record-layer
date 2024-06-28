@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Optional;
 
 /**
  * Tag interface to provide a common base for all classes implementing a semantic equals using a
@@ -33,22 +33,63 @@ import java.util.Optional;
  */
 public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
 
-    @SuppressWarnings("unchecked")
+    /**
+     * Method to determine the semantic equality under a given {@link ValueEquivalence}. A value equivalence can
+     * define axiomatic equalities between e.g. aliases or
+     * {@link com.apple.foundationdb.record.query.plan.cascades.values.Value} trees. The outcome of this method is either
+     * {@code false} or {@code true} under the assumption that a verifiable
+     * {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint} is satisfied before the plan is executed
+     * and/or re-executed.
+     * <br>
+     * Note that this method must be reflexive ({@code a R a}), and it must be strongly symmetric using a slightly
+     * altered notion of symmetry:
+     * <pre>
+     * {@code
+     * this.semanticEquals(other, valueEquivalence) iff other.semanticEquals(this, valueEquivalence.inverse())
+     * }
+     * Note that the client can use a symmetric value equivalence in which case the inverse of the value equivalence is
+     * identical to the value equivalence itself and we arrive back at {code aRb iff bRa}.
+     * </pre>
+     * @param other the other object to compare this object to
+     * @param valueEquivalence the value equivalence
+     * @return a boolean monad {@link BooleanWithConstraint} that is either effectively {@code false} or {@code true}
+     *         under the assumption that a contained query plan constraint is satisfied
+     */
     @Nonnull
-    default Optional<QueryPlanConstraint> semanticEquals(@Nullable final Object other, @Nonnull final ValueEquivalence valueEquivalence) {
+    @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
+    default BooleanWithConstraint semanticEquals(@Nullable final Object other,
+                                                 @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return ValueEquivalence.alwaysEqual();
+            return BooleanWithConstraint.alwaysTrue();
         }
 
         final var thisClass = this.getClass();
         if (other == null || thisClass != other.getClass()) {
-            return Optional.empty();
+            return BooleanWithConstraint.falseValue();
         }
 
         // This cast is safe!
-        return semanticEqualsTyped((T)thisClass.cast(other), valueEquivalence);
+        final var thisOther = semanticEqualsTyped((T)other, valueEquivalence);
+
+        Debugger.sanityCheck(() -> {
+            final var inverseValueEquivalenceMaybe = valueEquivalence.inverseMaybe();
+            Verify.verify(inverseValueEquivalenceMaybe.isPresent());
+            final var otherThis =
+                    ((T)other).semanticEqualsTyped((T)this, inverseValueEquivalenceMaybe.get());
+            Verify.verify(thisOther.isTrue() == otherThis.isTrue());
+        });
+
+        return thisOther;
     }
 
+    /**
+     * Method that is overridden by implementors. The difference to {@link #semanticEquals(Object, ValueEquivalence)}
+     * is that this method is typed to {@code T}, {@code other} is not {@code null}, and {@code other} is of the same
+     * class as {@code this}.
+     * @param other other object of type {@code T}
+     * @param valueEquivalence a value equivalence
+     * @return a {@link BooleanWithConstraint}
+     */
     @Nonnull
-    Optional<QueryPlanConstraint> semanticEqualsTyped(@Nonnull T other, @Nonnull final ValueEquivalence valueEquivalence);
+    BooleanWithConstraint semanticEqualsTyped(@Nonnull T other, @Nonnull ValueEquivalence valueEquivalence);
 }
