@@ -70,7 +70,7 @@ public class SetupBlock extends Block {
 
         public static final String MANUAL_SETUP_BLOCK_STEPS = "steps";
 
-        public static void parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static SetupBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 final var setupMap = Matchers.map(document, "setup");
                 final var stepsObject = setupMap.getOrDefault(MANUAL_SETUP_BLOCK_STEPS, null);
@@ -83,7 +83,7 @@ public class SetupBlock extends Block {
                     final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), executionContext));
                     executables.add(resolvedCommand::execute);
                 }
-                new ManualSetupBlock(lineNumber, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
+                return new ManualSetupBlock(lineNumber, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
                         executionContext);
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the setup block at " + lineNumber, SETUP_BLOCK, lineNumber);
@@ -93,7 +93,6 @@ public class SetupBlock extends Block {
         private ManualSetupBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI,
                                  @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, connectionURI, executionContext);
-            executionContext.registerBlock(this);
         }
     }
 
@@ -102,7 +101,7 @@ public class SetupBlock extends Block {
         static final String DOMAIN = "/FRL";
         public static final String SCHEMA_TEMPLATE_BLOCK = "schema_template";
 
-        public static void parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static SetupBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
             try {
                 final var identifier = "YAML_" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "").substring(0, 16);
                 final var schemaTemplateName = identifier + "_TEMPLATE";
@@ -119,9 +118,10 @@ public class SetupBlock extends Block {
                     final var resolvedCommand = QueryCommand.withQueryString(lineNumber, step, executionContext);
                     executables.add(resolvedCommand::execute);
                 }
-                DestructTemplateBlock.withDatabaseAndSchema(lineNumber, executionContext, schemaTemplateName, databasePath);
+                executionContext.registerFinalizeBlock(
+                        DestructTemplateBlock.withDatabaseAndSchema(lineNumber, executionContext, schemaTemplateName, databasePath));
                 executionContext.registerConnectionURI("jdbc:embed:" + databasePath + "?schema=" + schemaName);
-                new SchemaTemplateBlock(lineNumber, executables, executionContext);
+                return new SchemaTemplateBlock(lineNumber, executables, executionContext);
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the schema_template block at " + lineNumber, SCHEMA_TEMPLATE_BLOCK, lineNumber);
             }
@@ -129,13 +129,12 @@ public class SetupBlock extends Block {
 
         private SchemaTemplateBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, executionContext.inferConnectionURI(0), executionContext);
-            executionContext.registerBlock(this);
         }
     }
 
     private static class DestructTemplateBlock extends SetupBlock {
 
-        public static void withDatabaseAndSchema(int lineNumber, @Nonnull YamlExecutionContext executionContext,
+        public static DestructTemplateBlock withDatabaseAndSchema(int lineNumber, @Nonnull YamlExecutionContext executionContext,
                                                  @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
@@ -146,15 +145,14 @@ public class SetupBlock extends Block {
                     final var resolvedCommand = QueryCommand.withQueryString(lineNumber, step, executionContext);
                     executables.add(resolvedCommand::execute);
                 }
-                new DestructTemplateBlock(lineNumber, executables, executionContext);
+                return new DestructTemplateBlock(lineNumber, executables, executionContext);
             } catch (Exception e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error creating the destruct_template block for schema_template block at " + lineNumber, SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK, lineNumber);
             }
         }
 
-        DestructTemplateBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+        private DestructTemplateBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
             super(lineNumber, executables, executionContext.inferConnectionURI(0), executionContext);
-            executionContext.registerFinalizeBlock(this);
         }
     }
 }

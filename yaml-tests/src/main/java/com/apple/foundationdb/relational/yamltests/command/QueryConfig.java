@@ -229,7 +229,7 @@ public abstract class QueryConfig {
                         if (!executionContext.correctExplain(getLineNumber() - 1, actualPlan)) {
                             reportTestFailure("‼️ Cannot correct explain plan at line " + getLineNumber());
                         } else {
-                            logger.debug("⭐️ Successfully replaced plan at line " + getLineNumber());
+                            logger.debug("⭐️ Successfully replaced plan at line {}", getLineNumber());
                         }
                     } else {
                         final var diffMessage = String.format("‼️ plan mismatch at line %d:%n" +

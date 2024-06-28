@@ -92,9 +92,9 @@ public abstract class Block {
      * @param consumer operations to be performed on the database using the established connection.
      */
     void connectToDatabaseAndExecute(Consumer<RelationalConnection> consumer) {
-        logger.debug("🚠 Connecting to database: `" + connectionURI + "`");
+        logger.debug("🚠 Connecting to database: `{}`", connectionURI);
         try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionURI)) {
-            logger.debug("✅ Connected to database: `" + connectionURI + "`");
+            logger.debug("✅ Connected to database: `{}`", connection);
             consumer.accept(connection);
         } catch (SQLException sqle) {
             throw executionContext.wrapContext(sqle,
@@ -111,7 +111,7 @@ public abstract class Block {
      * @param document a region in the file
      * @param executionContext information needed to carry out the execution
      */
-    public static void parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    public static Block parse(@Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
         final var blockObject = Matchers.map(document, "block");
         Assert.thatUnchecked(blockObject.size() == 1, "Illegal Format: A block is expected to be a map of size 1");
         final var entry = Matchers.firstEntry(blockObject, "block key-value");
@@ -119,14 +119,11 @@ public abstract class Block {
         final var lineNumber = linedObject.getLineNumber();
         switch (Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key")) {
             case SetupBlock.SETUP_BLOCK:
-                SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
-                break;
+                return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
             case TestBlock.TEST_BLOCK:
-                TestBlock.parse(lineNumber, entry.getValue(), executionContext);
-                break;
+                return TestBlock.parse(lineNumber, entry.getValue(), executionContext);
             case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
-                SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
-                break;
+                return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
             default:
                 throw new RuntimeException("Cannot recognize the type of block");
         }

@@ -52,7 +52,6 @@ public final class YamlExecutionContext {
     @Nonnull
     private final YamlRunner.YamlConnectionFactory connectionFactory;
     @Nonnull
-    private final List<Block> blocks = new ArrayList<>();
     private final List<Block> finalizeBlocks = new ArrayList<>();
     private final List<String> connectionURIs = new ArrayList<>();
 
@@ -136,10 +135,6 @@ public final class YamlExecutionContext {
         return editedFileStream;
     }
 
-    public void registerBlock(@Nonnull Block block) {
-        this.blocks.add(block);
-    }
-
     public void registerFinalizeBlock(@Nonnull Block block) {
         this.finalizeBlocks.add(block);
     }
@@ -179,11 +174,6 @@ public final class YamlExecutionContext {
         } else {
             return URI.create(Matchers.string(connectObject));
         }
-    }
-
-    @Nonnull
-    public List<Block> getBlocks() {
-        return blocks;
     }
 
     @Nonnull

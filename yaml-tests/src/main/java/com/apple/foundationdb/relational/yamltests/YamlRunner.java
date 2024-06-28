@@ -79,20 +79,19 @@ public final class YamlRunner {
         DumperOptions dumperOptions = new DumperOptions();
         final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
-        try (var inputStream = getInputStream(resourcePath)) {
-            yaml.loadAll(inputStream).forEach(doc -> Block.parse(doc, executionContext));
-        }
-
         final var testBlocks = new ArrayList<TestBlock>();
-        for (var block : executionContext.getBlocks()) {
-            logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
-            block.execute();
-            if (block instanceof TestBlock) {
-                testBlocks.add((TestBlock) block);
+        try (var inputStream = getInputStream(resourcePath)) {
+            for (var doc: yaml.loadAll(inputStream)) {
+                final var block = Block.parse(doc, executionContext);
+                logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
+                block.execute();
+                if (block instanceof TestBlock) {
+                    testBlocks.add((TestBlock) block);
+                }
             }
         }
         for (var block : executionContext.getFinalizeBlocks()) {
-            logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
+            logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
             block.execute();
         }
 

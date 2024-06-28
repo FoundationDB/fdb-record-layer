@@ -300,7 +300,7 @@ public class TestBlock extends Block {
         }
     }
 
-    public static void parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+    public static TestBlock parse(int lineNumber, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
         try {
             final var testsMap = Matchers.map(document, "test_block");
             final var options = new TestBlockOptions();
@@ -338,7 +338,7 @@ public class TestBlock extends Block {
                 Collections.shuffle(executableTestsWithCacheCheck, randomGenerator);
             }
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
-            new TestBlock(lineNumber, queryCommands, executables, executableTestsWithCacheCheck,
+            return new TestBlock(lineNumber, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);
         } catch (Exception e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the test block at " + lineNumber, TEST_BLOCK, lineNumber);
@@ -352,7 +352,6 @@ public class TestBlock extends Block {
         this.queryCommands = queryCommands;
         this.options = options;
         this.executableTestsWithCacheCheck = executableTestsWithCacheCheck;
-        executionContext.registerBlock(this);
     }
 
     @Override
@@ -376,6 +375,8 @@ public class TestBlock extends Block {
                     () -> String.format("‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
                     String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
         }
+        executables.clear();
+        executableTestsWithCacheCheck.clear();
     }
 
     @Nonnull
