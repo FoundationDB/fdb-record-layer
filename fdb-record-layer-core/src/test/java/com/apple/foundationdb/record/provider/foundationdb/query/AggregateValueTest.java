@@ -35,7 +35,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue.ofScalar;
@@ -102,12 +104,13 @@ class AggregateValueTest {
 
     @Test
     void testBitMap() {
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longs, true), 126L); // 1111110
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsWithNulls, true), 118L); // 1110110
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), pairsForBitMap(longsOnlyNull, true), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(ints, false), 126); // 1111110
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(intsWithNulls, false), 118); // 1110110
-        accumulateAndAssert(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), pairsForBitMap(intsOnlyNull, false), (Object)null);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), new Object[]{0L, 1L, 2L, 0L}, Arrays.asList(0L, 1L, 2L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longs, Arrays.asList(longs)); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longsWithNulls, List.of(1L, 2L, 4L, 5L, 6L)); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longsOnlyNull, null);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), ints, Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L)); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), intsWithNulls, Arrays.asList(1L, 2L, 4L, 5L, 6L)); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), intsOnlyNull, null);
     }
 
     @Test
@@ -188,18 +191,6 @@ class AggregateValueTest {
                 .toArray();
     }
 
-    private Object[] pairsForBitMap(Object[] objects, boolean isLong) {
-        if (isLong) {
-            return Arrays.stream(objects)
-                    .map(object -> object == null ? null : Pair.of(0L, object))
-                    .toArray();
-        } else {
-            return Arrays.stream(objects)
-                    .map(object -> object == null ? null : Pair.of(0, object))
-                    .toArray();
-        }
-    }
-
     @Test
     void testTupleSumCount() {
         final var tuples =
@@ -222,6 +213,29 @@ class AggregateValueTest {
             Assertions.assertEquals(21, sum);
             Assertions.assertEquals(6L, count);
         });
+    }
+
+    @Nullable
+    public static List<Long> collectOnBits(@Nullable byte[] bitmap) {
+        if (bitmap == null) {
+            return null;
+        }
+        int start = 0;
+        List<Long> result = new ArrayList<>();
+        for (int i = 0; i < bitmap.length; i++) {
+            if (bitmap[i] != 0) {
+                for (int j = 0; j < 8; j++) {
+                    if ((bitmap[i] & (1 << j)) != 0) {
+                        result.add(start + i * 8L + j);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private void accumulateAndAssertByteArray(final AggregateValue aggregateValue, final Object[] items, @Nullable final Object expected) {
+        accumulateAndAssert(aggregateValue, items, actual -> Assertions.assertEquals(expected, collectOnBits((byte[])actual)));
     }
 
     private void accumulateAndAssert(final AggregateValue aggregateValue, final Object[] items, @Nullable final Object expected) {

@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
@@ -276,11 +275,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             }
             switch (fieldDescriptor.getType()) {
                 case INT32:
-                    if (value.getClass().isArray()) {
-                        value = fromByteArray((byte[])value);
-                    } else {
-                        value = ((Long)value).intValue();
-                    }
+                    value = ((Long)value).intValue();
                     break;
                 case BYTES:
                     value = ZeroCopyByteString.wrap((byte[])value);
@@ -296,15 +291,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             }
             recordBuilder.setField(fieldDescriptor, value);
             return true;
-        }
-
-        private static int fromByteArray(byte[] bytes) {
-            Preconditions.checkArgument(bytes.length >= 4, "array too small: %s < %s", bytes.length, 4);
-            return fromBytes(bytes[3], bytes[2], bytes[1], bytes[0]);
-        }
-
-        private static int fromBytes(byte b1, byte b2, byte b3, byte b4) {
-            return b1 << 24 | (b2 & 255) << 16 | (b3 & 255) << 8 | b4 & 255;
         }
 
         @Override

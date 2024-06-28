@@ -58,6 +58,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -278,20 +279,20 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 )).where(aggregations(recordConstructorValue(exactly(bitmapAggregationValue(anyValue()))))
                                 .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
 
-        final Map<String, Integer> expectedResult = new HashMap<>();
-        expectedResult.put("1", 10);
-        expectedResult.put("2", 2);
-        expectedResult.put("3", 2);
-        expectedResult.put("4", 6);
-        expectedResult.put("5", 4);
-        expectedResult.put("6", 4);
-        expectedResult.put("7", 12);
-        expectedResult.put("8", 8);
-        expectedResult.put("9", 8);
-        expectedResult.put("10", 1);
-        expectedResult.put("11", 1);
+        final Map<String, List<Long>> expectedResult = new HashMap<>();
+        expectedResult.put("1", List.of(2L, 8L));
+        expectedResult.put("2", List.of(2L));
+        expectedResult.put("3", List.of(2L));
+        expectedResult.put("4", List.of(2L, 4L));
+        expectedResult.put("5", List.of(4L));
+        expectedResult.put("6", List.of(4L));
+        expectedResult.put("7", List.of(4L, 8L));
+        expectedResult.put("8", List.of(8L));
+        expectedResult.put("9", List.of(8L));
+        expectedResult.put("10", List.of(1L));
+        expectedResult.put("11", List.of(1L));
 
-        final Map<String, Integer> bitMapGroupByStrValue = new HashMap<>();
+        final Map<String, List<Long>> bitMapGroupByStrValue = new HashMap<>();
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -300,8 +301,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final Message queriedMessage = queryResult.getMessage();
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
                     String strValue = (String) queriedMessage.getField(recDescriptor.findFieldByName("str_value_indexed"));
-                    int value = (int) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"));
-                    bitMapGroupByStrValue.put(strValue, value);
+                    byte[] value = ((ByteString) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"))).toByteArray();
+                    bitMapGroupByStrValue.put(strValue, AggregateValueTest.collectOnBits(value));
                 }).join();
             }
         }
@@ -320,23 +321,23 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
 
-        final Map<Pair<String, Integer>, Integer> expectedResult = new HashMap<>();
-        expectedResult.put(Pair.of("1", 0), 2); // 1
-        expectedResult.put(Pair.of("1", 4), 8); // 7
-        expectedResult.put(Pair.of("2", 0), 2); // 1
-        expectedResult.put(Pair.of("3", 0), 2); // 1
-        expectedResult.put(Pair.of("4", 0), 4); // 2
-        expectedResult.put(Pair.of("4", 4), 2); // 5
-        expectedResult.put(Pair.of("5", 0), 4); // 2
-        expectedResult.put(Pair.of("6", 0), 4); // 2
-        expectedResult.put(Pair.of("7", 0), 8); // 3
-        expectedResult.put(Pair.of("7", 4), 4); // 6
-        expectedResult.put(Pair.of("8", 0), 8); // 3
-        expectedResult.put(Pair.of("9", 0), 8); // 3
-        expectedResult.put(Pair.of("10", 4), 1); // 4
-        expectedResult.put(Pair.of("11", 4), 1); // 4
+        final Map<Pair<String, Integer>, List<Long>> expectedResult = new HashMap<>();
+        expectedResult.put(Pair.of("1", 0), List.of(2L)); // 1
+        expectedResult.put(Pair.of("1", 4), List.of(8L)); // 7
+        expectedResult.put(Pair.of("2", 0), List.of(2L)); // 1
+        expectedResult.put(Pair.of("3", 0), List.of(2L)); // 1
+        expectedResult.put(Pair.of("4", 0), List.of(4L)); // 2
+        expectedResult.put(Pair.of("4", 4), List.of(2L)); // 5
+        expectedResult.put(Pair.of("5", 0), List.of(4L)); // 2
+        expectedResult.put(Pair.of("6", 0), List.of(4L)); // 2
+        expectedResult.put(Pair.of("7", 0), List.of(8L)); // 3
+        expectedResult.put(Pair.of("7", 4), List.of(4L)); // 6
+        expectedResult.put(Pair.of("8", 0), List.of(8L)); // 3
+        expectedResult.put(Pair.of("9", 0), List.of(8L)); // 3
+        expectedResult.put(Pair.of("10", 4), List.of(1L)); // 4
+        expectedResult.put(Pair.of("11", 4), List.of(1L)); // 4
 
-        final Map<Pair<String, Integer>, Integer> bitMapGroupByStrValue = new HashMap<>();
+        final Map<Pair<String, Integer>, List<Long>> bitMapGroupByStrValue = new HashMap<>();
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -346,8 +347,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
                     String strValue = (String) queriedMessage.getField(recDescriptor.findFieldByName("str_value_indexed"));
                     Integer bitBucketValue = (int) queriedMessage.getField(recDescriptor.findFieldByName("bit_bucket_num_value2"));
-                    int value = (int) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"));
-                    bitMapGroupByStrValue.put(Pair.of(strValue, bitBucketValue), value);
+                    byte[] value = ((ByteString) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"))).toByteArray();
+                    bitMapGroupByStrValue.put(Pair.of(strValue, bitBucketValue), AggregateValueTest.collectOnBits(value));
                 }).join();
             }
         }
@@ -410,7 +411,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             FieldValue num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
             List<Typed> aggregatedFieldRef = List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue)));
             final Value bitMapValue = (Value) new NumericAggregationValue.BitMapFn().encapsulate(aggregatedFieldRef);
-            final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("bitmap_field")), bitMapValue);
+            final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES), Optional.of("bitmap_field")), bitMapValue);
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
             // 2.2. construct grouping columns expression.

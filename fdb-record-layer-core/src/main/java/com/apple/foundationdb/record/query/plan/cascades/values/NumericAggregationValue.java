@@ -57,6 +57,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -678,28 +679,31 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         pair.value -> input value to be aggregated
         so final result = pair.key | (1 << pair.value)
         */
-        BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.LONG,
-                  a -> Pair.of(0L, Objects.requireNonNull(a)),
-                (s, v) -> {
-                    final Pair<?, ?> pair1 = (Pair<?, ?>)s;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)v;
-                    return Pair.of((long)(pair1.getKey()) | 1L << (long) (pair1.getValue()), pair2.getValue());
-                },
+        BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.BYTES,
                 s -> {
-                    final Pair<?, ?> pair = (Pair<?, ?>)s;
-                    return (long)(pair.getKey()) | (1L << (long)(pair.getValue()));
-                }),
-        BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.INT,
-                  a -> Pair.of(0, Objects.requireNonNull(a)),
-                (s, v) -> {
-                    final Pair<?, ?> pair1 = (Pair<?, ?>)s;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)v;
-                    return Pair.of((int)(pair1.getKey()) | 1 << (int)(pair1.getValue()), pair2.getValue());
+                    BitSet bs = new BitSet();
+                    bs.set(((Long)s).intValue());
+                    return bs.toLongArray()[0];
                 },
+                (s, v) -> {
+                    // convert s (long to bitset), set v, then convert it back to long
+                    BitSet bs = BitSet.valueOf(new long[] {(long)s});
+                    bs.set(((Long)v).intValue());
+                    return bs.toLongArray()[0];
+                },
+                s -> BitSet.valueOf(new long[]{(long)s}).toByteArray()),
+        BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.BYTES,
                 s -> {
-                    final Pair<?, ?> pair = (Pair<?, ?>)s;
-                    return (int)(pair.getKey()) | (1 << (int)(pair.getValue()));
-                });
+                    BitSet bs = new BitSet();
+                    bs.set(((Number)s).intValue());
+                    return bs.toLongArray()[0];
+                },
+                (s, v) -> {
+                    BitSet bs = BitSet.valueOf(new long[] {(long)s});
+                    bs.set(((Number)v).intValue());
+                    return bs.toLongArray()[0];
+                },
+                s -> BitSet.valueOf(new long[]{(long)s}).toByteArray());
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
@@ -830,7 +834,11 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Override
         public void accumulate(@Nullable final Object currentObject) {
-            this.state = physicalOperator.evalPartialToPartial(state, currentObject);
+            if (state == null) {
+                this.state = physicalOperator.evalInitialToPartial(currentObject);
+            } else {
+                this.state = physicalOperator.evalPartialToPartial(state, currentObject);
+            }
         }
 
         @Nullable

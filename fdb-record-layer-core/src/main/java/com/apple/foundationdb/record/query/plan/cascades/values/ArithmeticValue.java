@@ -414,7 +414,7 @@ public class ArithmeticValue extends AbstractValue {
         MOD_DF(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.FLOAT, TypeCode.DOUBLE, (l, r) -> (double)l % (float)r),
         MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r),
 
-        BITBUCKET_L(LogicalOperator.BIT_BUCKET, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (long)r), (long)r)),
+        BITBUCKET_L(LogicalOperator.BIT_BUCKET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
         BITBUCKET_I(LogicalOperator.BIT_BUCKET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
         ;
 
