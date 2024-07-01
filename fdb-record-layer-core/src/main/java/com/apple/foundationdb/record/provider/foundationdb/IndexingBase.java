@@ -677,7 +677,7 @@ public abstract class IndexingBase {
 
     private void validateTimeLimit(long toWait) {
         final long timeLimitMilliseconds = common.config.getTimeLimitMilliseconds();
-        if (timeLimitMilliseconds == OnlineIndexer.Config.UNLIMITED_TIME) {
+        if (timeLimitMilliseconds == OnlineIndexOperationConfig.UNLIMITED_TIME) {
             return;
         }
         final long now = System.currentTimeMillis() + toWait; // adding the time we are about to wait

@@ -59,8 +59,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
                         @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                         @Nonnull Index index,
                         @Nonnull Collection<RecordType> recordTypes,
-                        @Nonnull UnaryOperator<OnlineIndexer.Config> configLoader,
-                        @Nonnull OnlineIndexer.Config config,
+                        @Nonnull UnaryOperator<OnlineIndexOperationConfig> configLoader,
+                        @Nonnull OnlineIndexOperationConfig config,
                         long leaseLengthMillis,
                         boolean trackProgress,
                         @Nonnull OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
@@ -366,7 +366,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          */
         public OnlineIndexScrubber build() {
             validate();
-            OnlineIndexer.Config conf = getConfig();
+            OnlineIndexOperationConfig conf = getConfig();
             if (scrubbingPolicyBuilder != null) {
                 scrubbingPolicy = scrubbingPolicyBuilder.build();
             }

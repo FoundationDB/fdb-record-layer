@@ -49,9 +49,9 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     @Nullable
     private FDBRecordStore.Builder recordStoreBuilder;
     @Nullable
-    private UnaryOperator<OnlineIndexer.Config> configLoader = null;
+    private UnaryOperator<OnlineIndexOperationConfig> configLoader = null;
     @Nonnull
-    private final OnlineIndexer.Config.Builder configBuilder = OnlineIndexer.Config.newBuilder();
+    private final OnlineIndexOperationConfig.Builder configBuilder = OnlineIndexOperationConfig.newBuilder();
     // Maybe the performance impact of this is low enough to be always enabled?
     private boolean trackProgress = true;
 
@@ -149,7 +149,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @return the function
      */
     @Nullable
-    public UnaryOperator<OnlineIndexer.Config> getConfigLoader() {
+    public UnaryOperator<OnlineIndexOperationConfig> getConfigLoader() {
         return configLoader;
     }
 
@@ -164,7 +164,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @return this builder
      */
     @Nonnull
-    public B setConfigLoader(@Nonnull UnaryOperator<OnlineIndexer.Config> configLoader) {
+    public B setConfigLoader(@Nonnull UnaryOperator<OnlineIndexOperationConfig> configLoader) {
         this.configLoader = configLoader;
         return self();
     }
@@ -180,7 +180,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the maximum number of records to process in one transaction.
      *
-     * The default limit is {@value OnlineIndexer#DEFAULT_LIMIT}.
+     * The default limit is {@link OnlineIndexOperationConfig#DEFAULT_LIMIT} = {@value OnlineIndexOperationConfig#DEFAULT_LIMIT}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
      * @param limit the maximum number of records to process in one transaction
@@ -219,7 +219,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Set the approximate maximum transaction write size. Note that the actual size might be up to one record
      * bigger than this value - transactions started as part of the index build will be committed after
      * they exceed this size, and a new transaction will be started. A non-positive value implies unlimited.
-     * the default limit is {@value OnlineIndexer#DEFAULT_WRITE_LIMIT_BYTES}.
+     * the default limit is {@link OnlineIndexOperationConfig#DEFAULT_WRITE_LIMIT_BYTES} = {@value OnlineIndexOperationConfig#DEFAULT_WRITE_LIMIT_BYTES}.
      * @param max the desired max write size
      * @return this builder
      */
@@ -244,7 +244,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
      * codes, such as {@code transaction_too_large}.
      *
-     * The default number of retries is {@value OnlineIndexer#DEFAULT_MAX_RETRIES}.
+     * The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES} = {@value OnlineIndexOperationConfig#DEFAULT_MAX_RETRIES}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
      * @param maxRetries the maximum number of times to retry a single range rebuild
@@ -267,7 +267,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the maximum number of records to process in a single second.
      *
-     * The default number of retries is {@value OnlineIndexer#DEFAULT_RECORDS_PER_SECOND}.
+     * The default number of retries is {@link OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexOperationConfig#DEFAULT_RECORDS_PER_SECOND}.
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
      * @param recordsPerSecond the maximum number of records to process in a single second.
@@ -439,7 +439,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the number of successful range builds before re-increasing the number of records to process in a single
      * transaction. The number of records to process in a single transaction will never go above {@link #getLimit()}.
-     * By default, this is {@link OnlineIndexer#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+     * By default, this is {@link OnlineIndexOperationConfig#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
      * <p>
      * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
      * and the values set by this method will be overwritten if the supplier is set.
@@ -456,7 +456,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Get the number of successful range builds before re-increasing the number of records to process in a single
      * transaction.
-     * By default this is {@link OnlineIndexer#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
+     * By default this is {@link OnlineIndexOperationConfig#DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
      * @return the number of successful range builds before increasing the number of records processed in a single
      * transaction
      * @see #getLimit()
@@ -706,7 +706,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     @Nonnull
-    protected OnlineIndexer.Config getConfig() {
+    protected OnlineIndexOperationConfig getConfig() {
         return configBuilder.build();
     }
 
