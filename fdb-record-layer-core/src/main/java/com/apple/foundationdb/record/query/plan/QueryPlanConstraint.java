@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -92,6 +91,15 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
 
     @Nonnull
     public QueryPlanConstraint compose(@Nonnull final QueryPlanConstraint otherQueryPlanConstraint) {
+        if (this == TAUTOLOGY && otherQueryPlanConstraint == TAUTOLOGY) {
+            return tautology();
+        }
+        if (this == TAUTOLOGY) {
+            return otherQueryPlanConstraint;
+        }
+        if (otherQueryPlanConstraint == TAUTOLOGY) {
+            return this;
+        }
         return composeConstraints(ImmutableList.of(this, otherQueryPlanConstraint));
     }
 
@@ -130,43 +138,31 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
 
     @Nonnull
     public static QueryPlanConstraint collectConstraints(@Nonnull final RecordQueryPlan plan) {
-        final var collector = new QueryPlanConstraintsCollector();
-        return collector.getConstraint(plan);
+        final var collector = new QueryPlanConstraintsVisitor();
+        return collector.visit(plan);
     }
 
     /**
      * Visits a plan and collects all the {@link QueryPlanConstraint}s from it.
      */
-    @SpotBugsSuppressWarnings({"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION", "NP_METHOD_RETURN_RELAXING_ANNOTATION"})
-    static class QueryPlanConstraintsCollector implements RecordQueryPlanVisitorWithDefaults<Void> {
-
-        @Nonnull
-        private final ImmutableList.Builder<QueryPlanConstraint> builder = ImmutableList.builder();
-
+    private static class QueryPlanConstraintsVisitor implements RecordQueryPlanVisitorWithDefaults<QueryPlanConstraint> {
         @Nonnull
         @Override
-        public Void visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan element) {
-            visitDefault(element.getIndexPlan());
-            return null;
+        public QueryPlanConstraint visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan element) {
+            return visitDefault(element.getIndexPlan());
         }
 
         @Nonnull
         @Override
-        public Void visitDefault(@Nonnull final RecordQueryPlan element) {
+        public QueryPlanConstraint visitDefault(@Nonnull final RecordQueryPlan element) {
+            QueryPlanConstraint constraint = QueryPlanConstraint.tautology();
             if (element instanceof RecordQueryPlanWithConstraint) {
-                builder.add(((RecordQueryPlanWithConstraint)element).getConstraint());
+                constraint = constraint.compose(((RecordQueryPlanWithConstraint)element).getConstraint());
             }
             for (final var child : element.getChildren()) {
-                visit(child);
+                constraint = constraint.compose(visit(child));
             }
-            return null;
-        }
-
-        @Nonnull
-        public QueryPlanConstraint getConstraint(@Nonnull final RecordQueryPlan plan) {
-            visit(plan);
-            final var constraints = builder.build();
-            return QueryPlanConstraint.ofPredicate(AndPredicate.and(constraints.stream().map(QueryPlanConstraint::getPredicate).collect(Collectors.toList())));
+            return constraint;
         }
     }
 }
