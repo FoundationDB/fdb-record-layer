@@ -483,6 +483,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                 .collect(ImmutableList.toImmutableList());
 
         final var correlatedToDifference = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
+        // TODO This seems highly suspicious -- I think this should rather be the unions of all correlatedTos that needs
+        //      to be retained.
         correlatedTos.forEach(correlatedToDifference::retainAll);
 
         final var equivalenceMap = aliasMap.toBuilder()
