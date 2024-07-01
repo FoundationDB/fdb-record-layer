@@ -61,8 +61,8 @@ public class IndexingCommon {
     private final boolean trackProgress;
     private final long leaseLengthMillis;
 
-    @Nonnull public OnlineIndexer.Config config; // this item may be modified on the fly
-    @Nullable private final Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader;
+    @Nonnull public OnlineIndexOperationConfig config; // this item may be modified on the fly
+    @Nullable private final Function<OnlineIndexOperationConfig, OnlineIndexOperationConfig> configLoader;
     private int configLoaderInvocationCount = 0;
 
     @Nonnull private Collection<RecordType> allRecordTypes;
@@ -94,8 +94,8 @@ public class IndexingCommon {
                    @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                    @Nonnull List<Index> targetIndexes,
                    @Nullable Collection<RecordType> allRecordTypes,
-                   @Nullable UnaryOperator<OnlineIndexer.Config> configLoader,
-                   @Nonnull OnlineIndexer.Config config,
+                   @Nullable UnaryOperator<OnlineIndexOperationConfig> configLoader,
+                   @Nonnull OnlineIndexOperationConfig config,
                    boolean trackProgress,
                    boolean useSynchronizedSession,
                    long leaseLengthMillis) {

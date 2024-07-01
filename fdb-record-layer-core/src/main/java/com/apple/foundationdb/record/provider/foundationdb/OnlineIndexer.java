@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -36,14 +35,12 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +58,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -104,42 +100,13 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore
 @API(API.Status.UNSTABLE)
 public class OnlineIndexer implements AutoCloseable {
     /**
-     * Default number of records to attempt to run in a single transaction.
-     */
-    public static final int DEFAULT_LIMIT = 100;
-    /**
-     * Default transaction write size limit. Note that the actual write might be "a little" bigger.
-     */
-    public static final int DEFAULT_WRITE_LIMIT_BYTES = 900_000;
-    /**
-     * Default limit to the number of records to attempt in a single second.
-     */
-    public static final int DEFAULT_RECORDS_PER_SECOND = 10_000;
-    /**
-     * Default number of times to retry a single range rebuild.
-     */
-    public static final int DEFAULT_MAX_RETRIES = 100;
-    /**
-     * Default interval to be logging successful progress in millis when building across transactions.
-     * {@code -1} means it will not log.
-     */
-    public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
-    /**
      * Default length between last access and lease's end time in milliseconds.
      */
     public static final long DEFAULT_LEASE_LENGTH_MILLIS = 10_000;
-    public static final long DEFAULT_TRANSACTION_TIME_LIMIT = 4_000;
     /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
-
-    /**
-     * If {@link OnlineIndexer.Builder#getIncreaseLimitAfter()} is this value, the limit will not go back up, no matter how many
-     * successes there are.
-     * This is the default value.
-     */
-    public static final int DO_NOT_RE_INCREASE_LIMIT = -1;
 
     public static final int INDEXING_ATTEMPTS_RECURSION_LIMIT = 5; // Safety net - our algorithm should never reach this depth
 
@@ -158,7 +125,8 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                   @Nonnull List<Index> targetIndexes,
                   @Nullable Collection<RecordType> recordTypes,
-                  @Nullable UnaryOperator<Config> configLoader, @Nonnull Config config,
+                  @Nullable UnaryOperator<OnlineIndexOperationConfig> configLoader,
+                  @Nonnull OnlineIndexOperationConfig config,
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
@@ -400,7 +368,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     @VisibleForTesting
-    Config getConfig() {
+    OnlineIndexOperationConfig getConfig() {
         return common.config;
     }
 
@@ -865,290 +833,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * A holder for the mutable configuration parameters needed to rebuild an online index. These parameters are
-     * designed to be safe to be updated while a build is running.
-     */
-    @API(API.Status.UNSTABLE)
-    public static class Config {
-        private final int maxLimit;
-        private final int initialLimit;
-        private final int maxWriteLimitBytes;
-        private final int maxRetries;
-        private final int recordsPerSecond;
-        private final long progressLogIntervalMillis;
-        private final int increaseLimitAfter;
-        private final long timeLimitMilliseconds;
-        private final long transactionTimeLimitMilliseconds;
-        public static final long UNLIMITED_TIME = 0;
-
-        Config(int maxLimit, int initialLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
-                   int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeLimitMilliseconds) {
-            this.maxLimit = maxLimit;
-            this.initialLimit = initialLimit;
-            this.maxRetries = maxRetries;
-            this.recordsPerSecond = recordsPerSecond;
-            this.progressLogIntervalMillis = progressLogIntervalMillis;
-            this.increaseLimitAfter = increaseLimitAfter;
-            this.maxWriteLimitBytes = maxWriteLimitBytes;
-            this.timeLimitMilliseconds = timeLimitMilliseconds;
-            this.transactionTimeLimitMilliseconds = transactionTimeLimitMilliseconds;
-        }
-
-        /**
-         * Get the maximum number of records to process in one transaction.
-         * @return the maximum number of records to process in one transaction
-         */
-        public int getMaxLimit() {
-            return maxLimit;
-        }
-
-        /**
-         * Get the initial number of records to process in one transaction.
-         * @return the initial number of records to process in one transaction
-         */
-        public int getInitialLimit() {
-            return initialLimit > 0 ? Math.min(initialLimit, maxLimit) : maxLimit;
-        }
-
-        /**
-         * Get the maximum number of times to retry a single range rebuild.
-         * @return the maximum number of times to retry a single range rebuild
-         */
-        public int getMaxRetries() {
-            return maxRetries;
-        }
-
-        /**
-         * Get the maximum number of records to process in a single second.
-         * @return the maximum number of records to process in a single second
-         */
-        public int getRecordsPerSecond() {
-            return recordsPerSecond;
-        }
-
-        /**
-         * Get the minimum time between successful progress logs when building across transactions.
-         * Negative will not log at all, 0 will log after every commit.
-         * @return the minimum time between successful progress logs in milliseconds
-         */
-        public long getProgressLogIntervalMillis() {
-            return progressLogIntervalMillis;
-        }
-
-        /**
-         * Get the number of successful range builds before re-increasing the number of records to process in a single
-         * transaction.
-         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-         * @return the number of successful range builds before increasing the number of records processed in a single
-         * transaction
-         */
-        public int getIncreaseLimitAfter() {
-            return increaseLimitAfter;
-        }
-
-        /**
-         * Stop scanning if the write size (bytes) becomes bigger that this value.
-         * @return max write quota for a single transaction
-         */
-        public long getMaxWriteLimitBytes() {
-            return maxWriteLimitBytes;
-        }
-
-        /**
-         * Exit with exception if this limit is exceeded (checked after each non-final transaction).
-         * @return time limit in millisecond
-         */
-        public long getTimeLimitMilliseconds() {
-            return timeLimitMilliseconds;
-        }
-
-        /**
-         * Get the time quota for a single transaction.
-         * @return the time quota for a single transaction
-         */
-        public long getTransactionTimeLimitMilliseconds() {
-            return transactionTimeLimitMilliseconds;
-        }
-
-        @Nonnull
-        public static Builder newBuilder() {
-            return new Builder();
-        }
-
-        /**
-         * To create a builder for the given config.
-         * @return a {@link Config.Builder}
-         */
-        @Nonnull
-        public Builder toBuilder() {
-            return Config.newBuilder()
-                    .setMaxLimit(this.maxLimit)
-                    .setInitialLimit(this.initialLimit)
-                    .setWriteLimitBytes(this.maxWriteLimitBytes)
-                    .setIncreaseLimitAfter(this.increaseLimitAfter)
-                    .setProgressLogIntervalMillis(this.progressLogIntervalMillis)
-                    .setRecordsPerSecond(this.recordsPerSecond)
-                    .setMaxRetries(this.maxRetries)
-                    .setTimeLimitMilliseconds(timeLimitMilliseconds)
-                    .setTransactionTimeLimitMilliseconds(this.transactionTimeLimitMilliseconds);
-        }
-
-        /**
-         * A builder for {@link Config}. These are the mutable configuration parameters used while building indexes and are
-         * designed to be safe to be updated while a build is running.
-         */
-        @API(API.Status.UNSTABLE)
-        public static class Builder {
-            private int maxLimit = DEFAULT_LIMIT;
-            private int initialLimit = 0;
-            private int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
-            private int maxRetries = DEFAULT_MAX_RETRIES;
-            private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
-            private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
-            private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
-            private long timeLimitMilliseconds = UNLIMITED_TIME;
-            private long transactionTimeLimitMilliseconds = DEFAULT_TRANSACTION_TIME_LIMIT;
-
-            protected Builder() {
-
-            }
-
-            /**
-             * Set the maximum number of records to process in one transaction.
-             * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
-             * @param limit the maximum number of records to process in one transaction
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setMaxLimit(int limit) {
-                this.maxLimit = limit;
-                return this;
-            }
-
-            /**
-             * Set the initial number of records to process in one transaction. This can be useful to avoid
-             * starting the indexing with the maximum limit (set by {@link #setMaxLimit(int)}), which may cause timeouts.
-             * The default initial limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
-             * @param limit the initial number of records to process in one transaction
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setInitialLimit(int limit) {
-                this.initialLimit = limit;
-                return this;
-            }
-
-            /**
-             * Set the maximum transaction size in a single transaction.
-             * The default limit is {@link #DEFAULT_WRITE_LIMIT_BYTES} = {@value #DEFAULT_WRITE_LIMIT_BYTES}.
-             * @param limit the approximate maximum write size in one transaction
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setWriteLimitBytes(int limit) {
-                this.maxWriteLimitBytes = limit;
-                return this;
-            }
-
-            /**
-             * Set the maximum number of times to retry a single range rebuild.
-             *
-             * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
-             * @param maxRetries the maximum number of times to retry a single range rebuild
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setMaxRetries(int maxRetries) {
-                this.maxRetries = maxRetries;
-                return this;
-            }
-
-            /**
-             * Set the maximum number of records to process in a single second.
-             *
-             * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
-             * @param recordsPerSecond the maximum number of records to process in a single second
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setRecordsPerSecond(int recordsPerSecond) {
-                this.recordsPerSecond = recordsPerSecond;
-                return this;
-            }
-
-
-            /**
-             * Set the minimum time between successful progress logs when building across transactions.
-             * Negative will not log at all, 0 will log after every commit.
-             *
-             * @param progressLogIntervalMillis the number of milliseconds to wait between successful logs
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setProgressLogIntervalMillis(long progressLogIntervalMillis) {
-                this.progressLogIntervalMillis = progressLogIntervalMillis;
-                return this;
-            }
-
-            /**
-             * Set the number of successful range builds before re-increasing the number of records to process in a single
-             * transaction. The number of records to process in a single transaction will never go above {@link #getMaxLimit()}.
-             * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-             * @param increaseLimitAfter the number of successful range builds before increasing the number of records
-             * processed in a single transaction
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
-                this.increaseLimitAfter = increaseLimitAfter;
-                return this;
-            }
-
-            /**
-             * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a
-             * non-final transaction.
-             * @param timeLimitMilliseconds the time limit in milliseconds
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setTimeLimitMilliseconds(long timeLimitMilliseconds) {
-                if (timeLimitMilliseconds < 0) {
-                    timeLimitMilliseconds = UNLIMITED_TIME;
-                }
-                this.timeLimitMilliseconds = timeLimitMilliseconds;
-                return this;
-            }
-
-            /**
-             * Set the time limit for a single transaction. If this limit is exceeded, the indexer will commit the
-             * transaction and start a new one. This can be useful to avoid timeouts while scanning many records
-             * in each transaction.
-             * A non-positive value implies unlimited.
-             * Note that this limit, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
-             * a good idea.
-             * The default value is 4,000 (4 seconds), matches fdb's default 5 seconds transaction limit.
-             * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
-             * @return this builder
-             */
-            @Nonnull
-            public Builder setTransactionTimeLimitMilliseconds(long timeLimitMilliseconds) {
-                this.transactionTimeLimitMilliseconds = timeLimitMilliseconds;
-                return this;
-            }
-
-            /**
-             * Build a {@link Config}.
-             * @return a new Config object needed by {@link OnlineIndexer}
-             */
-            @Nonnull
-            public Config build() {
-                return new Config(maxLimit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
-                        maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds);
-            }
-        }
-    }
-
-    /**
      * Builder for {@link OnlineIndexer}.
      *
      * <pre><code>
@@ -1161,11 +845,7 @@ public class OnlineIndexer implements AutoCloseable {
      *
      */
     @API(API.Status.UNSTABLE)
-    public static class Builder {
-        @Nullable
-        private FDBDatabaseRunner runner;
-        @Nullable
-        private FDBRecordStore.Builder recordStoreBuilder;
+    public static class Builder extends OnlineIndexOperationBaseBuilder<Builder> {
         @Nonnull
         private List<Index> targetIndexes = new ArrayList<>();
         @Nullable
@@ -1173,100 +853,15 @@ public class OnlineIndexer implements AutoCloseable {
 
         private IndexingPolicy indexingPolicy = null;
         private IndexingPolicy.Builder indexingPolicyBuilder = null;
-        @Nullable
-        private UnaryOperator<Config> configLoader = null;
-        private int limit = DEFAULT_LIMIT;
-        private int initialLimit = 0;
-        private int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
-        private int maxRetries = DEFAULT_MAX_RETRIES;
-        private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
-        private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
-        // Maybe the performance impact of this is low enough to be always enabled?
-        private boolean trackProgress = true;
-        private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         private IndexStatePrecondition indexStatePrecondition = null;
         private boolean useSynchronizedSession = true;
         private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
-        private long timeLimitMilliseconds = 0;
-        private long transactionTimeLimitMilliseconds = DEFAULT_TRANSACTION_TIME_LIMIT;
 
         protected Builder() {
         }
 
-        /**
-         * Get the runner that will be used to call into the database.
-         * @return the runner that connects to the target database
-         */
-        @Nullable
-        public FDBDatabaseRunner getRunner() {
-            return runner;
-        }
-
-        /**
-         * Set the runner that will be used to call into the database.
-         *
-         * Normally the runner is gotten from {@link #setDatabase} or {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
-         * @param runner the runner that connects to the target database
-         * @return this builder
-         */
-        public Builder setRunner(@Nullable FDBDatabaseRunner runner) {
-            this.runner = runner;
-            return this;
-        }
-
-        private void setRunnerDefaults() {
-            setPriority(FDBTransactionPriority.BATCH);
-        }
-
-        /**
-         * Set the database in which to run the indexing.
-         *
-         * Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
-         * @param database the target database
-         * @return this builder
-         */
-        public Builder setDatabase(@Nonnull FDBDatabase database) {
-            this.runner = database.newRunner();
-            setRunnerDefaults();
-            return this;
-        }
-
-        /**
-         * Get the record store builder that will be used to open record store instances for indexing.
-         * @return the record store builder
-         */
-        @Nullable
-        @SuppressWarnings("squid:S1452")
-        public FDBRecordStore.Builder getRecordStoreBuilder() {
-            return recordStoreBuilder;
-        }
-
-        /**
-         * Set the record store builder that will be used to open record store instances for indexing.
-         * @param recordStoreBuilder the record store builder
-         * @return this builder
-         * @see #setRecordStore
-         */
-        public Builder setRecordStoreBuilder(@Nonnull FDBRecordStore.Builder recordStoreBuilder) {
-            this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
-            if (runner == null && recordStoreBuilder.getContext() != null) {
-                runner = recordStoreBuilder.getContext().newRunner();
-                setRunnerDefaults();
-            }
-            return this;
-        }
-
-        /**
-         * Set the record store that will be used as a template to open record store instances for indexing.
-         * @param recordStore the target record store
-         * @return this builder
-         */
-        public Builder setRecordStore(@Nonnull FDBRecordStore recordStore) {
-            recordStoreBuilder = recordStore.asBuilder().setContext(null);
-            if (runner == null) {
-                runner = recordStore.getRecordContext().newRunner();
-                setRunnerDefaults();
-            }
+        @Override
+        Builder self() {
             return this;
         }
 
@@ -1371,534 +966,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Get the function used by the online indexer to load the config parameters on fly.
-         * @return the function
-         */
-        @Nullable
-        public Function<Config, Config> getConfigLoader() {
-            return configLoader;
-        }
-
-        /**
-         * Set the function used by the online indexer to load the mutable configuration parameters on fly.
-         *
-         * <p>
-         * The loader is given the current configuration as input at the beginning of each transaction and
-         * should produce the configuration to use in the next transaction.
-         * </p>
-         * @param configLoader the function
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setConfigLoader(@Nonnull UnaryOperator<Config> configLoader) {
-            this.configLoader = configLoader;
-            return this;
-        }
-
-        /**
-         * Get the maximum number of records to process in one transaction.
-         * @return the maximum number of records to process in one transaction
-         */
-        public int getLimit() {
-            return limit;
-        }
-
-        /**
-         * Set the maximum number of records to process in one transaction.
-         *
-         * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
-         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
-         * and the values set by this method will be overwritten if the supplier is set.
-         * @param limit the maximum number of records to process in one transaction
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setLimit(int limit) {
-            this.limit = limit;
-            return this;
-        }
-
-        /**
-         * Set the initial number of records to process in one transaction. This can be useful to avoid
-         * starting the indexing with the max limit (set by {@link #setLimit(int)}), which may cause timeouts.
-         * a non-positive value (default) or a value that is bigger than the max limit will initial the limit at the max limit.
-         * @param limit the initial number of records to process in one transaction
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setInitialLimit(int limit) {
-            this.initialLimit = limit;
-            return this;
-        }
-
-        /**
-         * Get the approximate maximum transaction write size. Note that the actual write size might be up to one
-         * record bigger than this value - transactions started as part of the index build will be committed after
-         * they exceed this size, and a new transaction will be started.
-         * @return the max write size
-         */
-        public int getMaxWriteLimitBytes() {
-            return maxWriteLimitBytes;
-        }
-
-        /**
-         * Set the approximate maximum transaction write size. Note that the actual size might be up to one record
-         * bigger than this value - transactions started as part of the index build will be committed after
-         * they exceed this size, and a new transaction will be started. A non-positive value implies unlimited.
-         * the default limit is {@link #DEFAULT_WRITE_LIMIT_BYTES} = {@value #DEFAULT_WRITE_LIMIT_BYTES}.
-         * @param max the desired max write size
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setMaxWriteLimitBytes(int max) {
-            this.maxWriteLimitBytes = max;
-            return this;
-        }
-
-        /**
-         * Get the maximum number of times to retry a single range rebuild.
-         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and it will also retry for other error
-         * codes, such as {@code transaction_too_large}.
-         * @return the maximum number of times to retry a single range rebuild
-         */
-        public int getMaxRetries() {
-            return maxRetries;
-        }
-
-        /**
-         * Set the maximum number of times to retry a single range rebuild.
-         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
-         * codes, such as {@code transaction_too_large}.
-         *
-         * The default number of retries is {@link #DEFAULT_MAX_RETRIES} = {@value #DEFAULT_MAX_RETRIES}.
-         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
-         * and the values set by this method will be overwritten if the supplier is set.
-         * @param maxRetries the maximum number of times to retry a single range rebuild
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setMaxRetries(int maxRetries) {
-            this.maxRetries = maxRetries;
-            return this;
-        }
-
-        /**
-         * Get the maximum number of records to process in a single second.
-         * @return the maximum number of records to process in a single second
-         */
-        public int getRecordsPerSecond() {
-            return recordsPerSecond;
-        }
-
-        /**
-         * Set the maximum number of records to process in a single second.
-         *
-         * The default number of retries is {@link #DEFAULT_RECORDS_PER_SECOND} = {@value #DEFAULT_RECORDS_PER_SECOND}.
-         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
-         * and the values set by this method will be overwritten if the supplier is set.
-         * @param recordsPerSecond the maximum number of records to process in a single second.
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setRecordsPerSecond(int recordsPerSecond) {
-            this.recordsPerSecond = recordsPerSecond;
-            return this;
-        }
-
-        /**
-         * Get the timer used in {@link #buildIndex}.
-         * @return the timer or <code>null</code> if none is set
-         */
-        @Nullable
-        public FDBStoreTimer getTimer() {
-            if (runner == null) {
-                throw new MetaDataException("timer is only known after runner has been set");
-            }
-            return runner.getTimer();
-        }
-
-        /**
-         * Set the timer used in {@link #buildIndex}.
-         * @param timer timer to use
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setTimer(@Nullable FDBStoreTimer timer) {
-            if (runner == null) {
-                throw new MetaDataException("timer can only be set after runner has been set");
-            }
-            runner.setTimer(timer);
-            return this;
-        }
-
-        /**
-         * Get the logging context used in {@link #buildIndex}.
-         * @return the logging context of <code>null</code> if none is set
-         */
-        @Nullable
-        public Map<String, String> getMdcContext() {
-            if (runner == null) {
-                throw new MetaDataException("logging context is only known after runner has been set");
-            }
-            return runner.getMdcContext();
-        }
-
-        /**
-         * Set the logging context used in {@link #buildIndex}.
-         * @param mdcContext the logging context to set while running
-         * @return this builder
-         * @see FDBDatabase#openContext(Map,FDBStoreTimer)
-         */
-        @Nonnull
-        public Builder setMdcContext(@Nullable Map<String, String> mdcContext) {
-            if (runner == null) {
-                throw new MetaDataException("logging context can only be set after runner has been set");
-            }
-            runner.setMdcContext(mdcContext);
-            return this;
-        }
-
-        /**
-         * Get the acceptable staleness bounds for transactions used by this build. By default, this
-         * is set to {@code null}, which indicates that the transaction should not used any cached version
-         * at all.
-         * @return the acceptable staleness bounds for transactions used by this build
-         * @see FDBRecordContext#getWeakReadSemantics()
-         */
-        @Nullable
-        public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
-            if (runner == null) {
-                throw new MetaDataException("weak read semantics is only known after runner has been set");
-            }
-            return runner.getWeakReadSemantics();
-        }
-
-        /**
-         * Set the acceptable staleness bounds for transactions used by this build. For index builds, essentially
-         * all operations will read and write data in the same transaction, so it is safe to set this value
-         * to use potentially stale read versions, though that can potentially result in more transaction conflicts.
-         * For performance reasons, it is generally advised that this only be provided an acceptable staleness bound
-         * that might use a cached commit if the database tracks the latest commit version in addition to the read
-         * version. This is to ensure that the online indexer see its own commits, and it should not be required
-         * for correctness, but the online indexer may perform additional work if this is not set.
-         *
-         * @param weakReadSemantics the acceptable staleness bounds for transactions used by this build
-         * @return this builder
-         * @see FDBRecordContext#getWeakReadSemantics()
-         * @see FDBDatabase#setTrackLastSeenVersion(boolean)
-         */
-        @Nonnull
-        public Builder setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
-            if (runner == null) {
-                throw new MetaDataException("weak read semantics can only be set after runner has been set");
-            }
-            runner.setWeakReadSemantics(weakReadSemantics);
-            return this;
-        }
-
-        /**
-         * Get the priority of transactions used for this index build. By default, this will be
-         * {@link FDBTransactionPriority#BATCH}.
-         * @return the priority of transactions used for this index build
-         * @see FDBRecordContext#getPriority()
-         */
-        @Nonnull
-        public FDBTransactionPriority getPriority() {
-            if (runner == null) {
-                throw new MetaDataException("transaction priority is only known after runner has been set");
-            }
-            return runner.getPriority();
-        }
-
-        /**
-         * Set the priority of transactions used for this index build. In general, index builds should run
-         * using the {@link FDBTransactionPriority#BATCH BATCH} priority level as their work is generally
-         * discretionary and not time sensitive. However, in certain circumstances, it may be
-         * necessary to run at the higher {@link FDBTransactionPriority#DEFAULT DEFAULT} priority level.
-         * For example, if a missing index is causing some queries to perform additional, unnecessary work that
-         * is overwhelming the database, it may be necessary to build the index at {@code DEFAULT} priority
-         * in order to lessen the load induced by those queries on the cluster.
-         *
-         * @param priority the priority of transactions used for this index build
-         * @return this builder
-         * @see FDBRecordContext#getPriority()
-         */
-        @Nonnull
-        public Builder setPriority(@Nonnull FDBTransactionPriority priority) {
-            if (runner == null) {
-                throw new MetaDataException("transaction priority can only be set after runner has been set");
-            }
-            runner.setPriority(priority);
-            return this;
-        }
-
-        /**
-         * Get the maximum number of transaction retry attempts.
-         * This is the number of times that it will retry a given transaction that throws
-         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
-         * @return the maximum number of attempts
-         * @see FDBDatabaseRunner#getMaxAttempts
-         */
-        public int getMaxAttempts() {
-            if (runner == null) {
-                throw new MetaDataException("maximum attempts is only known after runner has been set");
-            }
-            return runner.getMaxAttempts();
-        }
-
-        /**
-         * Set the maximum number of transaction retry attempts.
-         * This is the number of times that it will retry a given transaction that throws
-         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
-         * @param maxAttempts the maximum number of attempts
-         * @return this builder
-         * @see FDBDatabaseRunner#setMaxAttempts
-         */
-        public Builder setMaxAttempts(int maxAttempts) {
-            if (runner == null) {
-                throw new MetaDataException("maximum attempts can only be set after runner has been set");
-            }
-            runner.setMaxAttempts(maxAttempts);
-            return this;
-        }
-
-        /**
-         * Set the number of successful range builds before re-increasing the number of records to process in a single
-         * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
-         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-         * <p>
-         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
-         * and the values set by this method will be overwritten if the supplier is set.
-         * </p>
-         * @param increaseLimitAfter the number of successful range builds before increasing the number of records
-         * processed in a single transaction
-         * @return this builder
-         */
-        public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
-            this.increaseLimitAfter = increaseLimitAfter;
-            return this;
-        }
-
-        /**
-         * Get the number of successful range builds before re-increasing the number of records to process in a single
-         * transaction.
-         * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
-         * @return the number of successful range builds before increasing the number of records processed in a single
-         * transaction
-         * @see #limit
-         */
-        public int getIncreaseLimitAfter() {
-            return increaseLimitAfter;
-        }
-
-        /**
-         * Get the maximum delay between transaction retry attempts.
-         * @return the maximum delay
-         * @see FDBDatabaseRunner#getMaxDelayMillis
-         */
-        public long getMaxDelayMillis() {
-            if (runner == null) {
-                throw new MetaDataException("maximum delay is only known after runner has been set");
-            }
-            return runner.getMaxDelayMillis();
-        }
-
-        /**
-         * Set the maximum delay between transaction retry attempts.
-         * @param maxDelayMillis the maximum delay
-         * @return this builder
-         * @see FDBDatabaseRunner#setMaxDelayMillis
-         */
-        public Builder setMaxDelayMillis(long maxDelayMillis) {
-            if (runner == null) {
-                throw new MetaDataException("maximum delay can only be set after runner has been set");
-            }
-            runner.setMaxDelayMillis(maxDelayMillis);
-            return this;
-        }
-
-        /**
-         * Get the initial delay between transaction retry attempts.
-         * @return the initial delay
-         * @see FDBDatabaseRunner#getInitialDelayMillis
-         */
-        public long getInitialDelayMillis() {
-            if (runner == null) {
-                throw new MetaDataException("initial delay is only known after runner has been set");
-            }
-            return runner.getInitialDelayMillis();
-        }
-
-        /**
-         * Set the initial delay between transaction retry attempts.
-         * @param initialDelayMillis the initial delay
-         * @return this builder
-         * @see FDBDatabaseRunner#setInitialDelayMillis
-         */
-        public Builder setInitialDelayMillis(long initialDelayMillis) {
-            if (runner == null) {
-                throw new MetaDataException("initial delay can only be set after runner has been set");
-            }
-            runner.setInitialDelayMillis(initialDelayMillis);
-            return this;
-        }
-
-        /**
-         * Get the minimum time between successful progress logs when building across transactions.
-         * Negative will not log at all, 0 will log after every commit.
-         * @return the minimum time between successful progress logs in milliseconds
-         * @see #setProgressLogIntervalMillis(long) for more information on the format of the log
-         */
-        public long getProgressLogIntervalMillis() {
-            return progressLogIntervalMillis;
-        }
-
-        /**
-         * Set the minimum time between successful progress logs when building across transactions.
-         * Negative will not log at all, 0 will log after every commit.
-         * This log will contain the following information:
-         * <ul>
-         *     <li>startTuple - the first primaryKey scanned as part of this range</li>
-         *     <li>endTuple - the desired primaryKey that is the end of this range</li>
-         *     <li>realEnd - the tuple that was successfully scanned to (always before endTuple)</li>
-         *     <li>recordsScanned - the number of records successfully scanned and processed
-         *     <p>
-         *         This is the count of records scanned as part of successful transactions used by the
-         *         multi-transaction methods (e.g. {@link #buildIndexAsync()} or
-         *         {@link #buildRange(Key.Evaluated, Key.Evaluated)}). The transactional methods (i.e., the methods that
-         *         take a store) do not count towards this value. Since only successful transactions are included,
-         *         transactions that get {@code commit_unknown_result} will not get counted towards this value,
-         *         so this may be short by the number of records scanned in those transactions if they actually
-         *         succeeded. In contrast, the timer count:
-         *         {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, includes all records scanned,
-         *         regardless of whether the associated transaction was successful or not.
-         *     </p></li>
-         * </ul>
-         *
-         * <p>
-         * Note {@link #setConfigLoader(UnaryOperator)} is the recommended way of loading online index builder's parameters
-         * and the values set by this method will be overwritten if the supplier is set.
-         * </p>
-         *
-         * @param millis the number of milliseconds to wait between successful logs
-         * @return this builder
-         */
-        public Builder setProgressLogIntervalMillis(long millis) {
-            progressLogIntervalMillis = millis;
-            return this;
-        }
-
-        /**
-         * Set whether or not to track the index build progress by updating the number of records successfully scanned
-         * and processed. The progress is persisted in {@link #indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
-         * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
-         * <p>
-         * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
-         * </p>
-         * @param trackProgress track progress if true, otherwise false
-         * @return this builder
-         */
-        public Builder setTrackProgress(boolean trackProgress) {
-            this.trackProgress = trackProgress;
-            return this;
-        }
-
-        /**
-         * Set the {@link IndexMaintenanceFilter} to use while building the index.
-         *
-         * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
-         * @param indexMaintenanceFilter the index filter to use
-         * @return this builder
-         */
-        public Builder setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
-            if (recordStoreBuilder == null) {
-                throw new MetaDataException("index filter can only be set after record store builder has been set");
-            }
-            recordStoreBuilder.setIndexMaintenanceFilter(indexMaintenanceFilter);
-            return this;
-        }
-
-        /**
-         * Set the {@link RecordSerializer} to use while building the index.
-         *
-         * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
-         * @param serializer the serializer to use
-         * @return this builder
-         */
-        public Builder setSerializer(@Nonnull RecordSerializer<Message> serializer) {
-            if (recordStoreBuilder == null) {
-                throw new MetaDataException("serializer can only be set after record store builder has been set");
-            }
-            recordStoreBuilder.setSerializer(serializer);
-            return this;
-        }
-
-        /**
-         * Set the store format version to use while building the index.
-         *
-         * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
-         * @param formatVersion the format version to use
-         * @return this builder
-         */
-        public Builder setFormatVersion(int formatVersion) {
-            if (recordStoreBuilder == null) {
-                throw new MetaDataException("format version can only be set after record store builder has been set");
-            }
-            recordStoreBuilder.setFormatVersion(formatVersion);
-            return this;
-        }
-
-        @Nonnull
-        private RecordMetaData getRecordMetaData() {
-            if (recordStoreBuilder == null) {
-                throw new MetaDataException("record store must be set");
-            }
-            if (recordStoreBuilder.getMetaDataProvider() == null) {
-                throw new MetaDataException("record store builder must include metadata");
-            }
-            return recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
-        }
-
-        /**
-         * Set the meta-data to use when indexing.
-         * @param metaDataProvider meta-data to use
-         * @return this builder
-         */
-        public Builder setMetaData(@Nonnull RecordMetaDataProvider metaDataProvider) {
-            if (recordStoreBuilder == null) {
-                recordStoreBuilder = FDBRecordStore.newBuilder();
-            }
-            recordStoreBuilder.setMetaDataProvider(metaDataProvider);
-            return this;
-        }
-
-        /**
-         * Set the subspace of the record store in which to build the index.
-         * @param subspaceProvider subspace to use
-         * @return this builder
-         */
-        public Builder setSubspaceProvider(@Nonnull SubspaceProvider subspaceProvider) {
-            if (recordStoreBuilder == null) {
-                recordStoreBuilder = FDBRecordStore.newBuilder();
-            }
-            recordStoreBuilder.setSubspaceProvider(subspaceProvider);
-            return this;
-        }
-
-        /**
-         * Set the subspace of the record store in which to build the index.
-         * @param subspace subspace to use
-         * @return this builder
-         */
-        public Builder setSubspace(@Nonnull Subspace subspace) {
-            if (recordStoreBuilder == null) {
-                recordStoreBuilder = FDBRecordStore.newBuilder();
-            }
-            recordStoreBuilder.setSubspace(subspace);
-            return this;
-        }
-
-        /**
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
@@ -1959,35 +1026,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a non-final
-         * transaction.
-         * @param timeLimitMilliseconds the time limit in milliseconds
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setTimeLimitMilliseconds(long timeLimitMilliseconds) {
-            this.timeLimitMilliseconds = timeLimitMilliseconds;
-            return this;
-        }
-
-        /**
-         * Set the time limit for a single transaction. If this limit is exceeded, the indexer will commit the
-         * transaction and start a new one. This can be useful to avoid timeouts while scanning many records
-         * in each transaction.
-         * A non-positive value implies unlimited.
-         * Note that this limit, if reached, will be exceeded by an Order(1) overhead time. Keeping some margins might be
-         * a good idea.
-         * The default value is 4,000 (4 seconds), matches fdb's default 5 seconds transaction limit.
-         * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
-         * @return this builder
-         */
-        @Nonnull
-        public Builder setTransactionTimeLimitMilliseconds(long timeLimitMilliseconds) {
-            this.transactionTimeLimitMilliseconds = timeLimitMilliseconds;
-            return this;
-        }
-
-        /**
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
@@ -2024,11 +1062,10 @@ public class OnlineIndexer implements AutoCloseable {
         public OnlineIndexer build() {
             determineIndexingPolicy();
             validate();
-            Config conf = new Config(limit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
-                    maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds);
-            return new OnlineIndexer(runner, recordStoreBuilder, targetIndexes, recordTypes,
-                    configLoader, conf,
-                    useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
+            OnlineIndexOperationConfig conf = getConfig();
+            return new OnlineIndexer(getRunner(), getRecordStoreBuilder(), targetIndexes, recordTypes,
+                    getConfigLoader(), conf,
+                    useSynchronizedSession, leaseLengthMillis, isTrackProgress(), indexingPolicy);
         }
 
         private void determineIndexingPolicy() {
@@ -2101,17 +1138,6 @@ public class OnlineIndexer implements AutoCloseable {
             }
         }
 
-        private void validateLimits() {
-            checkPositive(maxRetries, "maximum retries");
-            checkPositive(limit, "record limit");
-            checkPositive(recordsPerSecond, "records per second value");
-        }
-
-        private static void checkPositive(int value, String desc) {
-            if (value <= 0) {
-                throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
-            }
-        }
     }
 
     /**
