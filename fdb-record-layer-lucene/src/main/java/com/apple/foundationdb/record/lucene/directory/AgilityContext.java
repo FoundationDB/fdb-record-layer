@@ -318,7 +318,6 @@ public interface AgilityContext {
                         currentWriteSize = 0;
 
                         lock.unlock(stamp);
-                        logSelf("Released write lock " + lock);
                         committingNow = false;
                     }
                 }
