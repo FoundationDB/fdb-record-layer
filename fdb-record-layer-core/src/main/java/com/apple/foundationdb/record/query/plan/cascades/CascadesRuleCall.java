@@ -73,11 +73,11 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private final EvaluationContext evaluationContext;
 
-    public CascadesRuleCall(@Nonnull PlanContext context,
-                            @Nonnull CascadesRule<?> rule,
-                            @Nonnull Reference root,
-                            @Nonnull Traversal traversal,
-                            @Nonnull PlannerBindings bindings,
+    public CascadesRuleCall(@Nonnull final PlanContext context,
+                            @Nonnull final CascadesRule<?> rule,
+                            @Nonnull final Reference root,
+                            @Nonnull final Traversal traversal,
+                            @Nonnull final PlannerBindings bindings,
                             @Nonnull final EvaluationContext evaluationContext) {
         this.context = context;
         this.rule = rule;
@@ -351,7 +351,15 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
 
-            if (expressionSet.size() == 1) {
+            //
+            // Note that we cannot ever reuse a reference containing just plans unless we can somehow prove
+            // that the reference cannot subsequently be pruned. Currently, we cannot prove that.
+            // TODO Check if we can reuse a reference if at least one expression is not a plan as that reference
+            //      is only pruned at the very last OptimizeGroup of the root. I will leave the disabled code here
+            //      for now. https://github.com/FoundationDB/fdb-record-layer/issues/2766
+            //
+            //noinspection PointlessBooleanExpression
+            if (false && expressionSet.size() == 1) {
                 final Optional<Reference> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
                 if (memoizedRefMaybe.isPresent()) {
                     Debugger.withDebugger(debugger ->

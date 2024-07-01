@@ -45,7 +45,7 @@ public class FilterMatcher extends PlanMatcherWithChild {
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         final QueryPredicate predicate;
         if (plan instanceof RecordQueryPredicatesFilterPlan) {
-            predicate = AndPredicate.andOrTrue(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
+            predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
         } else {
             return false;
         }

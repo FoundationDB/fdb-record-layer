@@ -110,7 +110,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             if (ordering.getOrderingSet()
                     .getSet()
                     .stream()
-                    .allMatch(keyPart -> sortValuesSet.contains(keyPart.getValue()) || equalityBoundKeys.contains(keyPart.getValue()))) {
+                    .allMatch(value -> sortValuesSet.contains(value) || equalityBoundKeys.contains(value))) {
                 final var strictlySortedInnerPlans =
                         innerPlanPartition.getPlans()
                                 .stream()
@@ -124,7 +124,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
-                    // Also a unique index if have gone through declared fields.
+                    // Also a unique index if we have gone through declared fields.
                     strictlyOrderedIfUnique(innerPlan, sortValues.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
@@ -137,7 +137,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         call.yieldExpression(resultExpressions);
     }
 
-    private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int nkeys) {
+    private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int numKeys) {
         if (orderedPlan instanceof RecordQueryCoveringIndexPlan) {
             orderedPlan = ((RecordQueryCoveringIndexPlan)orderedPlan).getIndexPlan();
         }
@@ -146,7 +146,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             final var matchCandidateOptional = indexPlan.getMatchCandidateMaybe();
             if (matchCandidateOptional.isPresent()) {
                 final var matchCandidate = matchCandidateOptional.get();
-                return matchCandidate.isUnique() && nkeys >= matchCandidate.getColumnSize();
+                return matchCandidate.isUnique() && numKeys >= matchCandidate.getColumnSize();
             }
         }
         return false;

@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PMinEverLongValue;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -166,14 +167,11 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         return semanticHashCode();
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-
-        return other.getClass() == getClass() && ((IndexOnlyAggregateValue)other).operator.equals(operator);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> operator.equals(((IndexOnlyAggregateValue)other).operator));
     }
 
     @Nonnull

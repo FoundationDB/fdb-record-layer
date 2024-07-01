@@ -37,16 +37,31 @@ import java.util.function.Function;
 @SuppressWarnings("java:S1452")
 public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> {
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchValueRule = new MatchValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchOrCompensateQuantifiedObjectValueRule = new MatchOrCompensateQuantifiedObjectValueRule();
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchOrCompensateFieldValueRule = new MatchOrCompensateFieldValueRule();
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> compensateRecordConstructorRule = new CompensateRecordConstructorRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchConstantValueRule = new MatchConstantValueRule();
 
     protected static final Set<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_RULES =
             ImmutableSet.of(matchValueRule,
+                    // matchOrCompensateQuantifiedObjectValueRule,
                     matchOrCompensateFieldValueRule,
-                    compensateRecordConstructorRule);
+                    compensateRecordConstructorRule,
+                    matchConstantValueRule);
 
-    protected static final SetMultimap<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_DEPENDS_ON =
-            ImmutableSetMultimap.of();
+    protected static final SetMultimap<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_DEPENDS_ON;
+
+    static {
+        final var dependsOnBuilder =
+                ImmutableSetMultimap.<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>>builder();
+
+        PULL_UP_RULES.forEach(rule -> {
+            if (rule != matchConstantValueRule) {
+                dependsOnBuilder.put(matchConstantValueRule, rule);
+            }
+        });
+        PULL_UP_DEPENDS_ON = dependsOnBuilder.build();
+    }
 
     public PullUpValueRuleSet() {
         super(PULL_UP_RULES, PULL_UP_DEPENDS_ON);

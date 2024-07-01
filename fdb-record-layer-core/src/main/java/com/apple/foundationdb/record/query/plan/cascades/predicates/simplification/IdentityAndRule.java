@@ -78,7 +78,7 @@ public class IdentityAndRule extends QueryPredicateComputationRule<EvaluationCon
             }
         }
         final var resultTerms = resultTermsBuilder.build();
-        final var simplifiedPredicate = AndPredicate.andOrTrue(resultTerms);
+        final var simplifiedPredicate = AndPredicate.and(resultTerms);
         call.yieldPredicate(simplifiedPredicate, ImmutableList.of());
     }
 }

@@ -80,7 +80,7 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
                     .forEach(resultPredicatesBuilder::add);
         }
 
-        return AndPredicate.andOrTrue(resultPredicatesBuilder.build());
+        return AndPredicate.and(resultPredicatesBuilder.build());
     }
 
     @Nonnull

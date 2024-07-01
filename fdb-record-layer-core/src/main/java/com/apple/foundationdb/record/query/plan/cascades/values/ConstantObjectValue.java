@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -104,15 +105,11 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         return semanticHashCode();
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-
-        final var otherConstantObjectValue = (ConstantObjectValue)other;
-        return constantId.equals(otherConstantObjectValue.constantId);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> constantId.equals(((ConstantObjectValue)other).constantId));
     }
 
     @Override

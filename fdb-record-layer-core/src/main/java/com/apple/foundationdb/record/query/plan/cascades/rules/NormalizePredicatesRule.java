@@ -70,7 +70,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
         final Collection<? extends Quantifier> quantifiers = bindings.get(innerQuantifiersMatcher);
 
         // create one big conjuncted predicate
-        final QueryPredicate conjunctedPredicate = AndPredicate.andOrTrue(predicates);
+        final QueryPredicate conjunctedPredicate = AndPredicate.and(predicates);
 
         final BooleanPredicateNormalizer cnfNormalizer = BooleanPredicateNormalizer.forConfiguration(
                 BooleanPredicateNormalizer.Mode.CNF,

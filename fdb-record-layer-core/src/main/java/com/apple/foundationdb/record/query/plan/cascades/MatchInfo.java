@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.google.common.base.Equivalence;
@@ -196,13 +197,13 @@ public class MatchInfo {
         final var constraints = predicateMap.getMap()
                 .values()
                 .stream()
-                .flatMap(predicate -> predicate.getConstraint().stream())
+                .map(PredicateMultiMap.PredicateMapping::getConstraint)
                 .collect(Collectors.toUnmodifiableList());
         if (constraints.isEmpty() && childConstraints.isEmpty()) {
             return Optional.empty();
         }
         final var allConstraints = ImmutableList.<QueryPlanConstraint>builder().addAll(constraints).addAll(childConstraints).build();
-        return Optional.of(QueryPlanConstraint.compose(allConstraints));
+        return Optional.of(QueryPlanConstraint.composeConstraints(allConstraints));
     }
 
     @Nonnull

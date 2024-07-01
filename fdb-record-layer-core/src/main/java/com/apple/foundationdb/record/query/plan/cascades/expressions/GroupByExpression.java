@@ -29,7 +29,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -289,7 +290,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         Verify.verify(groupingValueType.isRecord());
 
         return new RequestedOrdering(
-                ImmutableList.of(OrderingPart.of(groupingValue)), //TODO this should be deconstructed
+                ImmutableList.of(new RequestedOrderingPart(groupingValue, RequestedSortOrder.ASCENDING)), //TODO this should be deconstructed
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
     }
 
