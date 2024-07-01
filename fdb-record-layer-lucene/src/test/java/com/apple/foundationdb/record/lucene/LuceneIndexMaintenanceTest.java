@@ -74,7 +74,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -87,8 +86,6 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -706,6 +703,44 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .validate(index, insertedDocs, Integer.MAX_VALUE, "text:about", false);
     }
 
+
+    /**
+     * a test FDBDirectory class that returns a {@link Lock} that is not valid.
+     */
+    static class InvalidLockTestFDBDirectory extends FDBDirectory {
+        private final int percentFailure;
+
+        public InvalidLockTestFDBDirectory(@Nonnull Subspace subspace,
+                                           @Nonnull FDBRecordContext context,
+                                           @Nullable Map<String, String> indexOptions,
+                                           final int percentFailure) {
+            super(subspace, context, indexOptions);
+            this.percentFailure = percentFailure;
+        }
+
+        @Override
+        @Nonnull
+        public Lock obtainLock(@Nonnull final String lockName) throws IOException {
+            final Lock lock = super.obtainLock(lockName);
+            return new Lock() {
+                @Override
+                public void close() throws IOException {
+                    lock.close();
+                }
+
+                @Override
+                public void ensureValid() throws IOException {
+                    // 0 <= 0-99 < 100
+                    if (ThreadLocalRandom.current().nextInt(100) < percentFailure) {
+                        throw new IOException("invalid lock");
+                    } else {
+                        lock.ensureValid();
+                    }
+                }
+            };
+        }
+    }
+
     static Stream<Arguments> concurrentStoreTest() {
         return Stream.concat(
                 Stream.of(
@@ -725,7 +760,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                              boolean isSynthetic,
                              boolean primaryKeySegmentIndexEnabled,
                              int storeCount,
-                             long seed) throws FileNotFoundException {
+                             long seed) {
         // create a soft timeout of 5 minutes because the randomness can cause values that may not appear to be something
         // that should take long to take 30+ minutes.... But we're probably getting pretty good coverage if it is just
         // running in a loop for 5 minutes even if it doesn't hit the requested loop count
@@ -734,22 +769,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(1000),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
-        LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
-                "isGrouped", isGrouped,
-                "isSynthetic", isSynthetic,
-                "options", options,
-                "seed", seed));
-        dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(storeCount, pool -> {
-            final ForkJoinWorkerThread forkJoinWorkerThread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
-            forkJoinWorkerThread.setName("cte-" + forkJoinWorkerThread.getName());
-            return forkJoinWorkerThread;
-        }, null, false));
-        dbExtension.getDatabaseFactory().setNetworkExecutor(new ForkJoinPool(storeCount, pool -> {
-            final ForkJoinWorkerThread forkJoinWorkerThread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
-            forkJoinWorkerThread.setName("ctn-" + forkJoinWorkerThread.getName());
-            return forkJoinWorkerThread;
-        }, null, false));
-        dbExtension.getDatabaseFactory().clear();
 
         final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
         final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
@@ -765,11 +784,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_DOCUMENTS_TO_MOVE_DURING_REPARTITIONING, random.nextInt(1000) + repartitionCount)
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)random.nextInt(10) + 2) // it must be at least 2.0
                 .build();
-        final ForkJoinPool forkJoinPool = new ForkJoinPool(storeCount, pool -> {
-            final ForkJoinWorkerThread forkJoinWorkerThread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
-            forkJoinWorkerThread.setName("ct--" + forkJoinWorkerThread.getName());
-            return forkJoinWorkerThread;
-        }, null, false);
 
         final List<ConcurrentStoreTestRunner> runners = IntStream.range(0, storeCount)
                 .mapToObj(i -> {
@@ -780,7 +794,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 }).collect(Collectors.toList());
 
         final List<Map<Tuple, Map<Tuple, Tuple>>> allIds = AsyncUtil.getAll(runners.stream()
-                        .map(runner -> CompletableFuture.supplyAsync(runner, forkJoinPool))
+                        .map(CompletableFuture::supplyAsync)
                         .collect(Collectors.toList()))
                 .join();
         LOGGER.info(KeyValueLogMessage.of("Completed concurrentStoreTest successfully",
@@ -881,47 +895,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 }
             }
             return ids;
-        }
-
-        public String currentState() {
-            return String.format("%4d:%4d:%4d", currentLoop.get(), transactionCounter.get(), documentCount.get());
-        }
-    }
-
-    /**
-     * a test FDBDirectory class that returns a {@link Lock} that is not valid.
-     */
-    static class InvalidLockTestFDBDirectory extends FDBDirectory {
-        private final int percentFailure;
-
-        public InvalidLockTestFDBDirectory(@Nonnull Subspace subspace,
-                                           @Nonnull FDBRecordContext context,
-                                           @Nullable Map<String, String> indexOptions,
-                                           final int percentFailure) {
-            super(subspace, context, indexOptions);
-            this.percentFailure = percentFailure;
-        }
-
-        @Override
-        @Nonnull
-        public Lock obtainLock(@Nonnull final String lockName) throws IOException {
-            final Lock lock = super.obtainLock(lockName);
-            return new Lock() {
-                @Override
-                public void close() throws IOException {
-                    lock.close();
-                }
-
-                @Override
-                public void ensureValid() throws IOException {
-                    // 0 <= 0-99 < 100
-                    if (ThreadLocalRandom.current().nextInt(100) < percentFailure) {
-                        throw new IOException("invalid lock");
-                    } else {
-                        lock.ensureValid();
-                    }
-                }
-            };
         }
     }
 
