@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison.PBindingKind;
+import com.apple.foundationdb.record.planprotos.PParameterComparison.PBindingKind;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;

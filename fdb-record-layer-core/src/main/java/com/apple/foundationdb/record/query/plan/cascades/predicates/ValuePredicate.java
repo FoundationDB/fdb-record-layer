@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PValuePredicate;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
+import com.apple.foundationdb.record.planprotos.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -198,8 +198,8 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

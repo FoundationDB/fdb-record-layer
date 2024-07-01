@@ -19,12 +19,13 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record;
+package com.apple.foundationdb.record.planprotos;
 import "google/protobuf/descriptor.proto";
 import "record_metadata.proto";
 import "record_query_plan.proto";
 
 option java_outer_classname = "LuceneRecordQueryPlanProto";
+option java_multiple_files = true;
 
 message PLuceneIndexQueryPlan {
   optional PRecordQueryIndexPlan super = 1;

@@ -22,12 +22,12 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -106,8 +106,8 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUnionOnKeyExpressionPlan(toProto(serializationContext)).build();
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder().setUnionOnKeyExpressionPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull

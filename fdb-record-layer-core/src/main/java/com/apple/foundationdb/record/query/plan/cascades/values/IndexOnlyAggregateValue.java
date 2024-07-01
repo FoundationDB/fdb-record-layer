@@ -28,12 +28,12 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue.PPhysicalOperator;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PMaxEverLongValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PMinEverLongValue;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.planprotos.PIndexOnlyAggregateValue;
+import com.apple.foundationdb.record.planprotos.PIndexOnlyAggregateValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PMaxEverLongValue;
+import com.apple.foundationdb.record.planprotos.PMinEverLongValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
@@ -240,8 +240,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setMinEverLongValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setMinEverLongValue(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -320,8 +320,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setMaxEverLongValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setMaxEverLongValue(toProto(serializationContext)).build();
         }
 
         @Nonnull

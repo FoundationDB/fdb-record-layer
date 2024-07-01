@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordConstructorValue;
+import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -367,9 +367,9 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
-        return RecordQueryPlanProto.PValue.newBuilder().setRecordConstructorValue(specificValueProto).build();
+        return PValue.newBuilder().setRecordConstructorValue(specificValueProto).build();
     }
 
     @Nonnull

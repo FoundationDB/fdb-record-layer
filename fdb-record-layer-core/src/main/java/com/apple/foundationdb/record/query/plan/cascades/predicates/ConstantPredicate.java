@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantPredicate;
+import com.apple.foundationdb.record.planprotos.PConstantPredicate;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
@@ -166,8 +166,8 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setConstantPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setConstantPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

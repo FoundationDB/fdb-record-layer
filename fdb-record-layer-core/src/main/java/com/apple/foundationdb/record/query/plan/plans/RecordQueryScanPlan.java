@@ -29,10 +29,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryScanPlan;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryScanPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -54,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -440,13 +440,13 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setScanPlan(toProto(serializationContext)).build();
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder().setScanPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static RecordQueryScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final RecordQueryPlanProto.PRecordQueryScanPlan recordQueryScanPlanProto) {
+                                                @Nonnull final PRecordQueryScanPlan recordQueryScanPlanProto) {
         Verify.verify(recordQueryScanPlanProto.hasReverse());
         Verify.verify(recordQueryScanPlanProto.hasStrictlySorted());
         Verify.verify(recordQueryScanPlanProto.hasHasRecordTypes());

@@ -27,15 +27,14 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryUpdatePlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryUpdatePlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -45,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.C
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -203,13 +203,13 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setUpdatePlan(toProto(serializationContext)).build();
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder().setUpdatePlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final RecordQueryPlanProto.PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+                                                  @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
         return new RecordQueryUpdatePlan(serializationContext, recordQueryUpdatePlanProto);
     }
 

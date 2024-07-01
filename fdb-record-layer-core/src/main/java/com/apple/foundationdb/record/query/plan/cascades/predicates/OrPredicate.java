@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.POrPredicate;
+import com.apple.foundationdb.record.planprotos.POrPredicate;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -352,8 +352,8 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setOrPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setOrPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

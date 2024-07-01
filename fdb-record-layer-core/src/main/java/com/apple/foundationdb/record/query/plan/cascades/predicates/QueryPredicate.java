@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
@@ -390,11 +390,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
+    PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static QueryPredicate fromQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final RecordQueryPlanProto.PQueryPredicate queryPredicateProto) {
+                                                  @Nonnull final PQueryPredicate queryPredicateProto) {
         return (QueryPredicate)PlanSerialization.dispatchFromProtoContainer(serializationContext, queryPredicateProto);
     }
 

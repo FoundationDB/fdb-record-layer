@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -430,11 +430,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
-    RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
+    PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final RecordQueryPlanProto.PValue valueProto) {
+                                @Nonnull final PValue valueProto) {
         return (Value)PlanSerialization.dispatchFromProtoContainer(serializationContext, valueProto);
     }
 

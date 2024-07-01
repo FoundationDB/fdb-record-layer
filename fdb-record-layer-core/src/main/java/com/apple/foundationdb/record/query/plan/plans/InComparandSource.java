@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInComparandSource;
+import com.apple.foundationdb.record.planprotos.PInComparandSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.auto.service.AutoService;
@@ -154,8 +154,8 @@ public class InComparandSource extends InSource {
 
     @Nonnull
     @Override
-    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PInSource.newBuilder().setInComparandSource(toInComparandSourceProto(serializationContext)).build();
+    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInSource.newBuilder().setInComparandSource(toInComparandSourceProto(serializationContext)).build();
     }
 
     @Nonnull

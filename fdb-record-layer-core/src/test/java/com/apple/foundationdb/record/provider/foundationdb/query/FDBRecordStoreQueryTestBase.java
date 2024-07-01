@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
@@ -45,6 +44,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -105,8 +105,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase {
     protected void setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
-                                          BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord)
-            throws Exception {
+                                          BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord) {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
 
@@ -643,11 +642,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     protected static RecordQueryPlan verifySerialization(@Nonnull final RecordQueryPlan plan) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        final RecordQueryPlanProto.PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
+        final PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
         final byte[] serializedPlan = planProto.toByteArray();
-        final RecordQueryPlanProto.PRecordQueryPlan parsedPlanProto;
+        final PRecordQueryPlan parsedPlanProto;
         try {
-            parsedPlanProto = RecordQueryPlanProto.PRecordQueryPlan.parseFrom(serializedPlan);
+            parsedPlanProto = PRecordQueryPlan.parseFrom(serializedPlan);
         } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
         }

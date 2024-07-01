@@ -23,7 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PPredicateWithValueAndRanges;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -133,13 +134,13 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PPredicateWithValueAndRanges toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PPredicateWithValueAndRanges toProto(@Nonnull final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("call unsupported");
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("call unsupported");
     }
 }

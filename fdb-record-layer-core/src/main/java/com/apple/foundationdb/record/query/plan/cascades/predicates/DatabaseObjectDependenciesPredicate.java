@@ -29,11 +29,11 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PDatabaseObjectDependenciesPredicate;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PDatabaseObjectDependenciesPredicate.PUsedIndex;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredicate;
+import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredicate.PUsedIndex;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
@@ -156,8 +156,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setDatabaseObjectDependenciesPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setDatabaseObjectDependenciesPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull
