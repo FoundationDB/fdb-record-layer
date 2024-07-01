@@ -28,14 +28,14 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PFieldCopier;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PMessageCopier;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PTupleSource;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopier;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldCopier;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PMessageCopier;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PTupleSource;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
@@ -141,7 +141,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         return new IndexKeyValueToPartialRecord(copiersBuilder.build(), indexKeyValueToPartialRecordProto.getIsRequired());
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nullable
     public static Object getForOrdinalPath(@Nonnull Tuple tuple, @Nonnull final ImmutableIntArray ordinalPath) {
         Object value = tuple;
@@ -158,7 +157,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         return value;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     public static boolean existsSubTupleForOrdinalPath(@Nonnull Tuple tuple, @Nonnull final ImmutableIntArray ordinalPath) {
         Object value = tuple;
         for (int i = 0; i < ordinalPath.length(); i ++) {
@@ -521,7 +519,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             return fields.containsKey(field) || nestedBuilders.containsKey(field);
         }
 
-        @SuppressWarnings("UnstableApiUsage")
         public Builder addField(@Nonnull final String field, @Nonnull final TupleSource source,
                                 @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
                                 @Nonnull final ImmutableIntArray ordinalPath) {

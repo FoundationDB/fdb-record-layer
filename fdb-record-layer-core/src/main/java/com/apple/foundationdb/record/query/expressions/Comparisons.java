@@ -32,21 +32,21 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PComparison.PComparisonType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInvertedFunctionComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PListComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PMultiColumnComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNullComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.POpaqueEqualityComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PSimpleComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PValueComparison;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.planprotos.PComparison;
+import com.apple.foundationdb.record.planprotos.PComparison.PComparisonType;
+import com.apple.foundationdb.record.planprotos.PInvertedFunctionComparison;
+import com.apple.foundationdb.record.planprotos.PListComparison;
+import com.apple.foundationdb.record.planprotos.PMultiColumnComparison;
+import com.apple.foundationdb.record.planprotos.PNullComparison;
+import com.apple.foundationdb.record.planprotos.POpaqueEqualityComparison;
+import com.apple.foundationdb.record.planprotos.PParameterComparison;
+import com.apple.foundationdb.record.planprotos.PSimpleComparison;
+import com.apple.foundationdb.record.planprotos.PValueComparison;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
@@ -859,11 +859,11 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
+        PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static Comparison fromComparisonProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final RecordQueryPlanProto.PComparison comparisonProto) {
+                                              @Nonnull final PComparison comparisonProto) {
             return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
         }
     }
@@ -1042,8 +1042,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1370,8 +1370,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1607,8 +1607,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1833,8 +1833,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1979,8 +1979,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2089,8 +2089,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2336,7 +2336,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of comparison of this kind is not supported");
         }
     }
@@ -2682,8 +2682,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2881,8 +2881,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull

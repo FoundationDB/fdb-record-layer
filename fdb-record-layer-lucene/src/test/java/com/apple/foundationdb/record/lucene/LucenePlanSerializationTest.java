@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PPlanReference;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -62,10 +62,10 @@ public class LucenePlanSerializationTest {
                         null,
                         COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_STORED_FIELDS);
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
-        final RecordQueryPlanProto.PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
+        final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
-        final RecordQueryPlanProto.PPlanReference parsedProto =
-                RecordQueryPlanProto.PPlanReference.parseFrom(bytes);
+        final PPlanReference parsedProto =
+                PPlanReference.parseFrom(bytes);
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof LuceneIndexQueryPlan);

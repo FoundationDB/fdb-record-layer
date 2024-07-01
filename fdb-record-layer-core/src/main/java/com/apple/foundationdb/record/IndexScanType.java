@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexScanType;
+import com.apple.foundationdb.record.planprotos.PIndexScanType;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;

@@ -29,11 +29,11 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCompatibleTypeEvolutionPredicate;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCompatibleTypeEvolutionPredicate.PRecordTypeNameFieldAccessPair;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldAccessTrieNode;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.planprotos.PCompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.planprotos.PCompatibleTypeEvolutionPredicate.PRecordTypeNameFieldAccessPair;
+import com.apple.foundationdb.record.planprotos.PFieldAccessTrieNode;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
@@ -194,8 +194,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setCompatibleTypeEvolutionPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setCompatibleTypeEvolutionPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

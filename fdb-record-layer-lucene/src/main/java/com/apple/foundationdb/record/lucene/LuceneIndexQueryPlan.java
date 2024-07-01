@@ -21,13 +21,13 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneIndexQueryPlan;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.planprotos.PLuceneIndexQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
@@ -274,8 +274,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder()
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder()
                 .setAdditionalPlans(PlanSerialization.protoObjectToAny(serializationContext,
                         toLuceneIndexPlanProto(serializationContext)))
                 .build();

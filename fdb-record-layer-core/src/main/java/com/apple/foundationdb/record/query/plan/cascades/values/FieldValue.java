@@ -29,10 +29,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath.PResolvedAccessor;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldValue;
+import com.apple.foundationdb.record.planprotos.PFieldPath;
+import com.apple.foundationdb.record.planprotos.PFieldPath.PResolvedAccessor;
+import com.apple.foundationdb.record.planprotos.PFieldValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -247,8 +247,8 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setFieldValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

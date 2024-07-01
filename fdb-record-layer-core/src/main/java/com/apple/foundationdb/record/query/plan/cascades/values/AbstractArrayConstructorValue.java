@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PAbstractArrayConstructorValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PLightArrayConstructorValue;
+import com.apple.foundationdb.record.planprotos.PAbstractArrayConstructorValue;
+import com.apple.foundationdb.record.planprotos.PLightArrayConstructorValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -238,8 +238,8 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setLightArrayConstructorValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setLightArrayConstructorValue(toProto(serializationContext)).build();
         }
 
         @Nonnull

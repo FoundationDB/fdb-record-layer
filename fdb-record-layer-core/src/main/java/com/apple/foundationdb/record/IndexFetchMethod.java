@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexFetchMethod;
+import com.apple.foundationdb.record.planprotos.PIndexFetchMethod;
 
 import javax.annotation.Nonnull;
 
