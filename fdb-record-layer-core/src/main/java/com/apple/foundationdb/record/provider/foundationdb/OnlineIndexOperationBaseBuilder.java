@@ -43,7 +43,7 @@ import java.util.function.UnaryOperator;
  *
  * @param <B> concrete type of this builder
  */
-public abstract class OnlineIndexBaseBuilder<B extends OnlineIndexBaseBuilder<B>> {
+public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOperationBaseBuilder<B>> {
     @Nullable
     private FDBDatabaseRunner runner;
     @Nullable
@@ -56,7 +56,7 @@ public abstract class OnlineIndexBaseBuilder<B extends OnlineIndexBaseBuilder<B>
     private boolean trackProgress = true;
 
 
-    protected OnlineIndexBaseBuilder() {
+    protected OnlineIndexOperationBaseBuilder() {
     }
 
     /**

@@ -1241,7 +1241,7 @@ public class OnlineIndexer implements AutoCloseable {
      *
      */
     @API(API.Status.UNSTABLE)
-    public static class Builder extends OnlineIndexBaseBuilder<Builder> {
+    public static class Builder extends OnlineIndexOperationBaseBuilder<Builder> {
         @Nonnull
         private List<Index> targetIndexes = new ArrayList<>();
         @Nullable
