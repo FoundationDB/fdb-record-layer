@@ -1013,8 +1013,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     Collections.emptyList(),
                     null,
                     config,
-                    false, false, 0
-                    );
+                    false);
 
             final IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
             assertEquals(4, booker.getRecordsLimit());
@@ -1087,8 +1086,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     Collections.emptyList(),
                     null,
                     config,
-                    false, false, 0
-            );
+                    false);
 
             final IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
             assertEquals(100, booker.getRecordsLimit());
@@ -1124,8 +1122,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     Collections.emptyList(),
                     null,
                     config,
-                    false, false, 0
-            );
+                    false);
 
             final IndexingThrottle.Booker booker = new IndexingThrottle.Booker(common);
             postTransaction(booker, 1, 1000, true); // set last failure count to 1000

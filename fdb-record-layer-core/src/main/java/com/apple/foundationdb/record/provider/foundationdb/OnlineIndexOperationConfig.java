@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 
 import javax.annotation.Nonnull;
 
@@ -51,6 +52,14 @@ public class OnlineIndexOperationConfig {
      * {@code -1} means it will not log.
      */
     public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
+    /**
+     * Default synchronized session lease time in milliseconds. This allows a lock expiration, if the online operation stops unexpectedly.
+     */
+    public static final long DEFAULT_LEASE_LENGTH_MILLIS = 10_000;
+
+    /**
+     * If/When the index operation exceeds this transaction time, it would attempt commiting and continuing the iteration in the following transactions.
+     */
     public static final long DEFAULT_TRANSACTION_TIME_LIMIT = 4_000;
     /**
      * If {@link OnlineIndexer.Builder#getIncreaseLimitAfter()} is this value, the limit will not go back up, no matter how many
@@ -68,10 +77,14 @@ public class OnlineIndexOperationConfig {
     private final int increaseLimitAfter;
     private final long timeLimitMilliseconds;
     private final long transactionTimeLimitMilliseconds;
+    private final boolean useSynchronizedSession;
+    private final long leaseLengthMillis;
+
     public static final long UNLIMITED_TIME = 0;
 
     OnlineIndexOperationConfig(int maxLimit, int initialLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
-                               int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeLimitMilliseconds) {
+                               int maxWriteLimitBytes, long timeLimitMilliseconds, long transactionTimeLimitMilliseconds,
+                               boolean useSynchronizedSession, long leaseLengthMillis) {
         this.maxLimit = maxLimit;
         this.initialLimit = initialLimit;
         this.maxRetries = maxRetries;
@@ -81,6 +94,8 @@ public class OnlineIndexOperationConfig {
         this.maxWriteLimitBytes = maxWriteLimitBytes;
         this.timeLimitMilliseconds = timeLimitMilliseconds;
         this.transactionTimeLimitMilliseconds = transactionTimeLimitMilliseconds;
+        this.useSynchronizedSession = useSynchronizedSession;
+        this.leaseLengthMillis = leaseLengthMillis;
     }
 
     /**
@@ -173,6 +188,14 @@ public class OnlineIndexOperationConfig {
         return new Builder();
     }
 
+    public boolean shouldUseSynchronizedSession() {
+        return useSynchronizedSession;
+    }
+
+    public long getLeaseLengthMillis() {
+        return leaseLengthMillis;
+    }
+
     /**
      * To create a builder for the given config.
      *
@@ -189,7 +212,9 @@ public class OnlineIndexOperationConfig {
                 .setRecordsPerSecond(this.recordsPerSecond)
                 .setMaxRetries(this.maxRetries)
                 .setTimeLimitMilliseconds(timeLimitMilliseconds)
-                .setTransactionTimeLimitMilliseconds(this.transactionTimeLimitMilliseconds);
+                .setTransactionTimeLimitMilliseconds(this.transactionTimeLimitMilliseconds)
+                .setUseSynchronizedSession(useSynchronizedSession)
+                .setLeaseLengthMillis(leaseLengthMillis);
     }
 
     /**
@@ -208,6 +233,8 @@ public class OnlineIndexOperationConfig {
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         private long timeLimitMilliseconds = UNLIMITED_TIME;
         private long transactionTimeLimitMilliseconds = DEFAULT_TRANSACTION_TIME_LIMIT;
+        private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
+        private boolean useSynchronizedSession = true;
 
         protected Builder() {
 
@@ -458,6 +485,32 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
+         * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
+         * the multiple transactions operation in a resource efficient way.
+         * Normally this should be {@code true}.
+         *
+         * @see SynchronizedSessionRunner
+         * @param useSynchronizedSession use synchronize session if true, otherwise false
+         * @return this builder
+         */
+        public Builder setUseSynchronizedSession(boolean useSynchronizedSession) {
+            this.useSynchronizedSession = useSynchronizedSession;
+            return this;
+        }
+
+        /**
+         * Set the lease length in milliseconds if the synchronized session is used. By default this is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
+         * @see #setUseSynchronizedSession(boolean)
+         * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
+         * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+         * @return this builder
+         */
+        public Builder setLeaseLengthMillis(long leaseLengthMillis) {
+            this.leaseLengthMillis = leaseLengthMillis;
+            return this;
+        }
+
+        /**
          * Build a {@link OnlineIndexOperationConfig}.
          *
          * @return a new Config object needed by {@link OnlineIndexer}
@@ -465,7 +518,8 @@ public class OnlineIndexOperationConfig {
         @Nonnull
         public OnlineIndexOperationConfig build() {
             return new OnlineIndexOperationConfig(maxLimit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
-                    maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds);
+                    maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds,
+                    useSynchronizedSession, leaseLengthMillis);
         }
     }
 }

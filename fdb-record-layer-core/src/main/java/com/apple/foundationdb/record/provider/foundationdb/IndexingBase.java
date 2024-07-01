@@ -207,7 +207,7 @@ public abstract class IndexingBase {
             buildIndexAsyncFuture = runner
                     .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
                             common.indexLogMessageKeyValues("IndexingBase::indexBuildLockSubspace"))
-                    .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, common.getLeaseLengthMillis()))
+                    .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, common.config.getLeaseLengthMillis()))
                     .thenCompose(synchronizedRunner -> {
                         message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
                         return runWithSynchronizedRunnerAndEndSession(synchronizedRunner,

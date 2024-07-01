@@ -61,7 +61,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
                         @Nonnull Collection<RecordType> recordTypes,
                         @Nonnull UnaryOperator<OnlineIndexOperationConfig> configLoader,
                         @Nonnull OnlineIndexOperationConfig config,
-                        long leaseLengthMillis,
                         boolean trackProgress,
                         @Nonnull OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
 
@@ -69,9 +68,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         this.scrubbingPolicy = scrubbingPolicy;
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 Collections.singletonList(index), recordTypes, configLoader, config,
-                trackProgress,
-                true, // always use synchronized session
-                leaseLengthMillis);
+                trackProgress);
     }
 
     @Override
@@ -96,7 +93,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
     @Nonnull
     CompletableFuture<Void> scrubIndexAsync(ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(
-                getScrubber(type, count).buildIndexAsync(false, common.shouldUseSynchronizedSession()),
+                getScrubber(type, count).buildIndexAsync(false, common.config.shouldUseSynchronizedSession()),
                 (ignore, ex) -> {
                     if (ex != null) {
                         throw FDBExceptions.wrapException(ex);
@@ -276,9 +273,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
         ScrubbingPolicy scrubbingPolicy = null;
         ScrubbingPolicy.Builder scrubbingPolicyBuilder = null;
 
-
-        private long leaseLengthMillis = OnlineIndexer.DEFAULT_LEASE_LENGTH_MILLIS;
-
         protected Builder() {
             setLimit(2000);
         }
@@ -323,17 +317,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
             return this;
         }
 
-
-        /**
-         * Set the lease length in milliseconds if the synchronized session is used. By default this is 10_000.
-         * @param leaseLengthMillis length between last access and lease's end time in milliseconds
-         * @return this builder
-         */
-        public Builder setLeaseLengthMillis(long leaseLengthMillis) {
-            this.leaseLengthMillis = leaseLengthMillis;
-            return this;
-        }
-
         /**
          * Add a {@link ScrubbingPolicy} policy.
          * A scrubbing job will validate (and fix, if applicable) index entries of readable indexes. It is designed to support an ongoing
@@ -374,9 +357,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 scrubbingPolicy = ScrubbingPolicy.DEFAULT;
             }
             return new OnlineIndexScrubber(getRunner(), getRecordStoreBuilder(), index, recordTypes,
-                    getConfigLoader(), conf,
-                    leaseLengthMillis, isTrackProgress(),
-                    scrubbingPolicy);
+                    getConfigLoader(), conf, isTrackProgress(), scrubbingPolicy);
         }
 
         protected void validate() {
