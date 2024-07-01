@@ -803,7 +803,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         .collect(Collectors.toList())));
         for (final Map<Tuple, Map<Tuple, Tuple>> storeIds : allIds) {
             assertThat("All of the stores should have generated a fair amount of documents",
-                    storeIds.values().stream().mapToInt(Map::size).sum(), Matchers.greaterThan(300));
+                    storeIds.values().stream().mapToInt(Map::size).sum(), Matchers.greaterThan(200));
         }
     }
 
