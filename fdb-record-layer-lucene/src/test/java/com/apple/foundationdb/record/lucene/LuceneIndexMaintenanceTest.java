@@ -851,12 +851,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             currentLoop.set(0);
             while (System.nanoTime() < endTime) {
                 currentLoop.incrementAndGet();
-                LOGGER.info(KeyValueLogMessage.of("ManyDocument loop",
-                        "iteration", currentLoop.get(),
-                        "groupCount", ids.size(),
-                        "docCount", ids.values().stream().mapToInt(Map::size).sum(),
-                        "docMinPerGroup", ids.values().stream().mapToInt(Map::size).min(),
-                        "docMaxPerGroup", ids.values().stream().mapToInt(Map::size).max()));
                 try {
                     transactionCounter.set(0);
                     generateDocuments(isGrouped, isSynthetic, 1, random,
