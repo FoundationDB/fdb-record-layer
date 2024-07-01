@@ -26,6 +26,7 @@ import java.util.Random;
 
 /**
  * Utility class for generating a bunch of random text.
+ * In the future, it would be reasonable for this to use actual words and not randomly generated ones.
  */
 class RandomTextGenerator {
 
@@ -42,6 +43,11 @@ class RandomTextGenerator {
         this.words = generateRandomWords(random, 10_000);
     }
 
+    /**
+     * Create a new version with the same words, but a different seed to pick the words.
+     * @param random A new random used for picking words
+     * @return a new {@code RandomTextGenerator}
+     */
     public RandomTextGenerator withNewRandom(Random random) {
         return new RandomTextGenerator(random, words);
     }
