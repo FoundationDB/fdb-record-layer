@@ -195,7 +195,7 @@ class BooleanPredicateNormalizerTest {
             }
             conjuncts.add(or(disjuncts));
         }
-        final QueryPredicate cnf = and(conjuncts);
+        final QueryPredicate cnf = AndPredicate.and(conjuncts);
 
         final BooleanPredicateNormalizer normalizer = BooleanPredicateNormalizer.getDefaultInstanceForDnf();
         assertNotEquals(cnf, normalizer.normalizeAndSimplify(cnf, true).orElse(cnf));
@@ -212,7 +212,7 @@ class BooleanPredicateNormalizerTest {
 
     @Test
     void bigNonCnf() {
-        final QueryPredicate cnf = and(
+        final QueryPredicate cnf = AndPredicate.and(
                 IntStream.rangeClosed(1, 9).boxed().map(i ->
                         or(IntStream.rangeClosed(1, 9).boxed()
                                 .map(j -> and(
@@ -244,7 +244,7 @@ class BooleanPredicateNormalizerTest {
             }
             conjuncts.add(or(disjuncts));
         }
-        final QueryPredicate cnf = and(conjuncts);
+        final QueryPredicate cnf = AndPredicate.and(conjuncts);
         final BooleanPredicateNormalizer normalizer = BooleanPredicateNormalizer.getDefaultInstanceForDnf();
         assertEquals(4611686018427387904L, normalizer.getNormalizedSize(cnf));
         assertThrows(BooleanPredicateNormalizer.NormalFormTooLargeException.class, () -> normalizer.normalizeAndSimplify(cnf, true));

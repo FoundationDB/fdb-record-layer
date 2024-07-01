@@ -59,6 +59,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
         this.baseAlias = baseAlias;
     }
 
+    @Nonnull
     @Override
     public CorrelationIdentifier getAlias() {
         return baseAlias;

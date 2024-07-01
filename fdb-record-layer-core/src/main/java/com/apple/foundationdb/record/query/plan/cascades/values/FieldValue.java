@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -176,15 +177,11 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!ValueWithChild.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final var that = (FieldValue)other;
-        return fieldPath.equals(that.fieldPath) &&
-                childValue.semanticEquals(that.childValue, equivalenceMap);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return ValueWithChild.super.equalsWithoutChildren(other)
+                .filter(ignored -> fieldPath.equals(((FieldValue)other).getFieldPath()));
     }
 
     @Override

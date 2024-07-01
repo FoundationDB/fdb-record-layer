@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSet;
@@ -99,13 +101,12 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return parameterAlias;
     }
 
-
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-        return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias));
     }
 
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")

@@ -111,17 +111,6 @@ public class FirstOrDefaultValue extends AbstractValue {
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final var that = (FirstOrDefaultValue)other;
-        return childValue.semanticEquals(that.childValue, equivalenceMap) &&
-                onEmptyResultValue.semanticEquals(that.onEmptyResultValue, equivalenceMap);
-    }
-
-    @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }

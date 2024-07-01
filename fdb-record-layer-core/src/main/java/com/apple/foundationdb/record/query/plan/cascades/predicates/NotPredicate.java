@@ -151,7 +151,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
         return Optional.of(translationMap -> {
             final var childPredicates = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
-            return LinkedIdentitySet.of(not(AndPredicate.andOrTrue(childPredicates)));
+            return LinkedIdentitySet.of(not(AndPredicate.and(childPredicates)));
         });
     }
 

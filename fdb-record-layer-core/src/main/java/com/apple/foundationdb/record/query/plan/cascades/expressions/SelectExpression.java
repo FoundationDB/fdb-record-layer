@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Expan
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -421,6 +422,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
 
+        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap);
+
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
             final var predicateCorrelatedTo =
@@ -458,7 +461,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
 
             final Iterable<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(bindingAliasMap, candidateSelectExpression.getPredicates(), evaluationContext);
+                    predicate.findImpliedMappings(bindingValueEquivalence, candidateSelectExpression.getPredicates(),
+                            evaluationContext);
 
             predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
@@ -549,14 +553,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
-                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.andOrTrue(getPredicates())),
+                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.and(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValue + " WHERE " + AndPredicate.andOrTrue(getPredicates());
+        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
     }
 
     /**
