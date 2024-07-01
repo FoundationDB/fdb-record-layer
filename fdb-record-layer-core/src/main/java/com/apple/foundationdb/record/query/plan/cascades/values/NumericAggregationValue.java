@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
+import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PBitMap;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMax;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMin;
 import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PPhysicalOperator;
@@ -56,6 +57,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -205,6 +207,75 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             mapBuilder.put(Pair.of(operator.getLogicalOperator(), operator.getArgType()), operator);
         }
         return mapBuilder.build();
+    }
+
+    /**
+     * BitMap aggregation {@code Value}.
+     */
+    public static class BitMap extends NumericAggregationValue implements StreamableAggregateValue, IndexableAggregateValue {
+        public BitMap(@Nonnull final PhysicalOperator operator, @Nonnull final Value child) {
+            super(operator, child);
+        }
+
+        protected BitMap(@Nonnull final PlanSerializationContext serializationContext,
+                      @Nonnull final PBitMap bitMapProto) {
+            super(serializationContext, Objects.requireNonNull(bitMapProto.getSuper()));
+        }
+
+        @Nonnull
+        @Override
+        public String getIndexTypeName() {
+            return IndexTypes.BITMAP_VALUE;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
+                                                  @Nonnull final List<? extends Typed> arguments) {
+            return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitMap::new);
+        }
+
+        @Nonnull
+        @Override
+        public ValueWithChild withNewChild(@Nonnull final Value newChild) {
+            return new BitMap(operator, newChild);
+        }
+
+        @Nonnull
+        @Override
+        public PBitMap toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PBitMap.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueBitmap(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static BitMap fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBitMap bitMapProto) {
+            return new BitMap(serializationContext, bitMapProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PBitMap, BitMap> {
+            @Nonnull
+            @Override
+            public Class<PBitMap> getProtoMessageClass() {
+                return PBitMap.class;
+            }
+
+            @Nonnull
+            @Override
+            public BitMap fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                 @Nonnull final PBitMap bitMapProto) {
+                return BitMap.fromProto(serializationContext, bitMapProto);
+            }
+        }
     }
 
     /**
@@ -489,6 +560,17 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     }
 
     /**
+     * The {@code bitmap} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitMapFn extends BuiltInFunction<AggregateValue> {
+        public BitMapFn() {
+            super("BITMAP",
+                    ImmutableList.of(new Type.Any()), BitMap::encapsulate);
+        }
+    }
+
+    /**
      * The {@code avg} function.
      */
     @AutoService(BuiltInFunction.class)
@@ -525,7 +607,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         SUM,
         AVG,
         MIN,
-        MAX
+        MAX,
+        BITMAP
     }
 
     /**
@@ -590,8 +673,37 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_I(LogicalOperator.MAX, TypeCode.INT, TypeCode.INT, Objects::requireNonNull, (s, v) -> Math.max((int)s, (int)v), identity()),
         MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.max((long)s, (long)v), identity()),
         MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.max((float)s, (float)v), identity()),
-        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity());
-
+        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
+        /*
+        pair.key -> last aggregation result, initial = 0
+        pair.value -> input value to be aggregated
+        so final result = pair.key | (1 << pair.value)
+        */
+        BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.BYTES,
+                s -> {
+                    BitSet bs = new BitSet();
+                    bs.set(((Long)s).intValue());
+                    return bs.toLongArray()[0];
+                },
+                (s, v) -> {
+                    // convert s (long to bitset), set v, then convert it back to long
+                    BitSet bs = BitSet.valueOf(new long[] {(long)s});
+                    bs.set(((Long)v).intValue());
+                    return bs.toLongArray()[0];
+                },
+                s -> BitSet.valueOf(new long[]{(long)s}).toByteArray()),
+        BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.BYTES,
+                s -> {
+                    BitSet bs = new BitSet();
+                    bs.set(((Number)s).intValue());
+                    return bs.toLongArray()[0];
+                },
+                (s, v) -> {
+                    BitSet bs = BitSet.valueOf(new long[] {(long)s});
+                    bs.set(((Number)v).intValue());
+                    return bs.toLongArray()[0];
+                },
+                s -> BitSet.valueOf(new long[]{(long)s}).toByteArray());
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
@@ -722,7 +834,11 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Override
         public void accumulate(@Nullable final Object currentObject) {
-            this.state = physicalOperator.evalPartialToPartial(state, currentObject);
+            if (state == null) {
+                this.state = physicalOperator.evalInitialToPartial(currentObject);
+            } else {
+                this.state = physicalOperator.evalPartialToPartial(state, currentObject);
+            }
         }
 
         @Nullable

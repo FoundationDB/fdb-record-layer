@@ -137,7 +137,7 @@ public class ArithmeticValue extends AbstractValue {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
@@ -208,7 +208,6 @@ public class ArithmeticValue extends AbstractValue {
         final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.ROOT)).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
-
         final PhysicalOperator physicalOperator =
                 getOperatorMap().get(Triple.of(logicalOperator, type0.getTypeCode(), type1.getTypeCode()));
 
@@ -232,7 +231,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class AddFn extends BuiltInFunction<Value> {
         public AddFn() {
             super("add",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -243,7 +242,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class SubFn extends BuiltInFunction<Value> {
         public SubFn() {
             super("sub",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -254,7 +253,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class MulFn extends BuiltInFunction<Value> {
         public MulFn() {
             super("mul",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -265,7 +264,7 @@ public class ArithmeticValue extends AbstractValue {
     public static class DivFn extends BuiltInFunction<Value> {
         public DivFn() {
             super("div",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -276,7 +275,18 @@ public class ArithmeticValue extends AbstractValue {
     public static class ModFn extends BuiltInFunction<Value> {
         public ModFn() {
             super("mod",
-                    ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulateInternal);
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The bitwise {@code and} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitBucketFn extends BuiltInFunction<Value> {
+        public BitBucketFn() {
+            super("bit_bucket",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
         }
     }
 
@@ -288,7 +298,9 @@ public class ArithmeticValue extends AbstractValue {
         SUB("-"),
         MUL("*"),
         DIV("/"),
-        MOD("%");
+        MOD("%"),
+        BIT_BUCKET("bit_bucket")
+        ;
 
         @Nonnull
         private final String infixNotation;
@@ -400,7 +412,11 @@ public class ArithmeticValue extends AbstractValue {
         MOD_DI(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.INT, TypeCode.DOUBLE, (l, r) -> (double)l % (int)r),
         MOD_DL(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.LONG, TypeCode.DOUBLE, (l, r) -> (double)l % (long)r),
         MOD_DF(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.FLOAT, TypeCode.DOUBLE, (l, r) -> (double)l % (float)r),
-        MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r);
+        MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r),
+
+        BITBUCKET_L(LogicalOperator.BIT_BUCKET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
+        BITBUCKET_I(LogicalOperator.BIT_BUCKET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
+        ;
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
