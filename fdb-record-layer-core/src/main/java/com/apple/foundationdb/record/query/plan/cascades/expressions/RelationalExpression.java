@@ -164,7 +164,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                             query.isSortReverse(),
                             quantifier)));
         } else {
-            quantifier = Quantifier.forEach(Reference.of(new LogicalSortExpression(ImmutableList.of(), false, quantifier)));
+            quantifier = Quantifier.forEach(Reference.of(LogicalSortExpression.unsorted(quantifier)));
         }
 
         if (query.getRequiredResults() != null) {
