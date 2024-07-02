@@ -107,6 +107,12 @@ public class IndexingScrubMissing extends IndexingBase {
     }
 
     @Override
+    protected boolean shouldResetRecordScrubbingRange() {
+        return scrubbingPolicy.isFullScan();
+    }
+
+
+    @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context ->
                         context.getReadVersionAsync()

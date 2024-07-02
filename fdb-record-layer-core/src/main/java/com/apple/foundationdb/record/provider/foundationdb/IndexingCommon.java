@@ -67,6 +67,7 @@ public class IndexingCommon {
 
     @Nonnull private Collection<RecordType> allRecordTypes;
     @Nonnull private final List<IndexContext> targetIndexContexts;
+    private int enforcedDelayMilliseconds = 0;
     /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
@@ -304,5 +305,19 @@ public class IndexingCommon {
         if (synchronizedSessionRunner != null) {
             synchronizedSessionRunner.close();
         }
+    }
+
+    public void enforceThrottleDelayMilliseconds(int delay, int estimatedTimeSpentMillis) {
+        if (useSynchronizedSession && delay > (leaseLengthMillis - estimatedTimeSpentMillis)) {
+            // Prefer disobeying the delay over loosing the sync lock
+            delay = (int) (leaseLengthMillis - estimatedTimeSpentMillis);
+        }
+        enforcedDelayMilliseconds = delay;
+    }
+
+    public int getResetEnforcedDelayMilliseconds() {
+        final int delay = enforcedDelayMilliseconds;
+        enforcedDelayMilliseconds = 0;
+        return delay;
     }
 }

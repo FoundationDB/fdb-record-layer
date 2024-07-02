@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +75,10 @@ public class IndexingScrubDangling extends IndexingBase {
     private long scanCounter = 0;
     private int logWarningCounter;
 
+    // Used for throttling max deletes per seconds
+    private int deleteCountUnrecorded = 0;
+    private long deleteCountRecordTime = 0;
+
     public IndexingScrubDangling(@Nonnull final IndexingCommon common,
                                  @Nonnull final OnlineIndexer.IndexingPolicy policy,
                                  @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
@@ -82,6 +87,9 @@ public class IndexingScrubDangling extends IndexingBase {
         this.scrubbingPolicy = scrubbingPolicy;
         this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
         this.danglingCount = danglingCount;
+        if (scrubbingPolicy.getMaxDeletesPerSecond() > 0) {
+            deleteCountRecordTime = System.currentTimeMillis();
+        }
     }
 
     @Override
@@ -105,6 +113,11 @@ public class IndexingScrubDangling extends IndexingBase {
                 IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                         .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR)
                         .build();
+    }
+
+    @Override
+    protected boolean shouldResetIndexScrubbingRange() {
+        return scrubbingPolicy.isFullScan();
     }
 
     @Override
@@ -180,6 +193,7 @@ public class IndexingScrubDangling extends IndexingBase {
                                         return false;
                                     }
                                 }
+                                handleMaxDeletesPerSecond();
                                 return notAllRangesExhausted(cont, rangeEnd);
                             }));
         });
@@ -237,7 +251,28 @@ public class IndexingScrubDangling extends IndexingBase {
                 store.addRecordReadConflict(primaryKey);
             }
             store.getContext().ensureActive().clear(keyBytes);
+            deleteCountUnrecorded ++;
         }
+    }
+
+    private void handleMaxDeletesPerSecond() {
+        final int maxDeletesPerSecond = scrubbingPolicy.getMaxDeletesPerSecond();
+        if (maxDeletesPerSecond > 0) {
+            long now = System.currentTimeMillis();
+            final int interval = (int)(now - deleteCountRecordTime);
+            common.enforceThrottleDelayMilliseconds(getEnforcedDelayMillis(interval, maxDeletesPerSecond, deleteCountUnrecorded), interval);
+            deleteCountRecordTime = now;
+            deleteCountUnrecorded = 0;
+        }
+    }
+
+    @VisibleForTesting
+    static int getEnforcedDelayMillis(int intervalMillis, int maxPerSecond, int count) {
+        // Normalize by working in 1k units over milliseconds
+        // Note - if the count is zero (nothing deleted), which is the normal case, the throttle may add its own delay (which is the right thing to do).
+        count *= 1000;
+        final int desired = Math.max(intervalMillis, 1) * maxPerSecond;
+        return Math.max(0, (count - desired) / maxPerSecond);
     }
 
     @Override
