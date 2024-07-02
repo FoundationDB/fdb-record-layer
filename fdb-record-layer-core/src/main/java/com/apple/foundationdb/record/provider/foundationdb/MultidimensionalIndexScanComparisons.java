@@ -267,7 +267,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
-        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(o, AliasMap.emptyMap());
     }
 
     @Override

@@ -116,7 +116,7 @@ public class MaxMatchMap {
         final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
                 candidateResultValue.pullUp(mapping.values(),
-                        AliasMap.identitiesFor(candidateResultValue.getCorrelatedTo()),
+                        AliasMap.emptyMap(),
                         ImmutableSet.of(), candidateCorrelation);
         //
         // We now have the right side pulled up, specifically we have a map from each candidate value below,
