@@ -73,7 +73,7 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
                                       Collator.getInstance(ULocale.forLocale(Locale.ROOT)) :
                                       Collator.getInstance(new ULocale(locale));
             collator.setStrength(strength);
-            return new TextCollatorICU(collator);
+            return new TextCollatorICU(collator.freeze());
         });
     }
 
