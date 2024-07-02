@@ -299,7 +299,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     .build()
                     .buildSelect();
             Quantifier selectQun = Quantifier.forEach(Reference.of(select));
-            return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, selectQun));
+            return Reference.of(LogicalSortExpression.unsorted(selectQun));
         });
 
         assertMatchesExactly(plan, inJoinPlan(

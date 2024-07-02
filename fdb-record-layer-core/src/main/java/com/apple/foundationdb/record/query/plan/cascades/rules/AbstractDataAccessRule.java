@@ -457,10 +457,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     if (requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
                         final var matchedSortOrder = orderingPart.getSortOrder();
 
-                        if ((matchedSortOrder == OrderingPart.MatchedSortOrder.ASCENDING &&
-                                     (requestedSortOrder == OrderingPart.RequestedSortOrder.ASCENDING)) ||
-                                (matchedSortOrder == OrderingPart.MatchedSortOrder.DESCENDING &&
-                                         (requestedSortOrder == OrderingPart.RequestedSortOrder.DESCENDING))) {
+                        // TODO: Will matchedSortOrder have counterflow nulls?
+
+                        if (matchedSortOrder.isReverse() == requestedSortOrder.isReverse()) {
                             scanDirectionForPart = ScanDirection.FORWARD;
                         } else {
                             scanDirectionForPart = ScanDirection.REVERSE;
