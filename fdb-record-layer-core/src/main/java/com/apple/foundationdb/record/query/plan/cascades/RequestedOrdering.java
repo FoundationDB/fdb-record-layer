@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.google.common.base.Suppliers;
@@ -214,11 +215,10 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public static RequestedOrdering fromSortValues(@Nonnull final List<? extends Value> values,
-                                                   final boolean isReverse,
+    public static RequestedOrdering fromSortValues(@Nonnull final List<? extends LogicalSortValue> values,
                                                    @Nonnull final Distinctness distinctness) {
         return new RequestedOrdering(values.stream().map(value ->
-                        new RequestedOrderingPart(value, RequestedSortOrder.fromIsReverse(isReverse)))
+                        new RequestedOrderingPart(value.getValue(), RequestedSortOrder.fromIsReverse(value.isDescending())))
                 .collect(ImmutableList.toImmutableList()), distinctness);
     }
 

@@ -2051,6 +2051,6 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     public Reference unsorted(@Nonnull Quantifier qun) {
-        return Reference.of(new LogicalSortExpression(List.of(), false, qun));
+        return Reference.of(LogicalSortExpression.unsorted(qun));
     }
 }

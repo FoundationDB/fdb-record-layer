@@ -76,7 +76,7 @@ public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSo
 
             final ImmutableList.Builder<RequestedOrderingPart> keyPartBuilder = ImmutableList.builder();
             for (final var sortValue : sortValues) {
-                keyPartBuilder.add(new RequestedOrderingPart(sortValue.rebase(translationMap), OrderingPart.RequestedSortOrder.fromIsReverse(logicalSortExpression.isReverse())));
+                keyPartBuilder.add(new RequestedOrderingPart(sortValue.getValue().rebase(translationMap), OrderingPart.RequestedSortOrder.fromIsReverse(sortValue.isDescending())));
             }
 
             final var orderings =
