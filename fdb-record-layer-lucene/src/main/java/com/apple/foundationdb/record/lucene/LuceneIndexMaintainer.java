@@ -276,6 +276,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 insertField(field, document);
             }
         }
+        LOG.info("XT: L-writing   to " + groupingKey + " - " + primaryKey);
         newWriter.addDocument(document);
         state.context.record(LuceneEvents.Events.LUCENE_ADD_DOCUMENT, System.nanoTime() - startTime);
     }
@@ -541,8 +542,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return partitioner.tryGetPartitionInfo(record, groupingKey).thenApply(partitionInfo -> {
             if (partitionInfo != null) {
                 try {
+                    LOG.info("XT: L-deleting from " + groupingKey + " - " + record.getPrimaryKey());
                     int countDeleted = deleteDocument(groupingKey, partitionInfo.getId(), record.getPrimaryKey());
                     if (countDeleted > 0) {
+                        LOG.info("XT: L-deleted  from " + groupingKey + " - " + record.getPrimaryKey());
                         partitioner.decrementCountAndSave(groupingKey, partitionInfo, countDeleted);
                     }
                     return countDeleted;

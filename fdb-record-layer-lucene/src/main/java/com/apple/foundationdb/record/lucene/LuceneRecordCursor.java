@@ -518,6 +518,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (newTopDocs.scoreDocs.length != 0) {
             searchAfter = newTopDocs.scoreDocs[newTopDocs.scoreDocs.length - 1];
         }
+        LOGGER.info("Found documents " + newTopDocs.scoreDocs.length + " in partition " + groupingKey + ": " + partitionId);
         if (timer != null) {
             timer.recordSinceNanoTime(LuceneEvents.Events.LUCENE_INDEX_SCAN, startTime);
             timer.increment(LuceneEvents.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, newTopDocs.scoreDocs.length);
