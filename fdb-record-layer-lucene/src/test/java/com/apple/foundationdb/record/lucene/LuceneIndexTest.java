@@ -1841,7 +1841,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     schemaSetup.accept(context);
                     return recordStore;
                 });
-        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), luceneSearch, false);
 
         // next delete some docs
         try (FDBRecordContext context = openContext(contextProps)) {
@@ -1873,7 +1873,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         explicitMergeIndex(index, contextProps, schemaSetup);
 
         // validate that after merge, partitions have been adjusted as expected
-        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), luceneSearch, false);
     }
 
     static Stream<Arguments> simplePartitionConsolidationTest() {
@@ -1977,7 +1977,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     schemaSetup.accept(context);
                     return recordStore;
                 });
-        luceneIndexTestValidator.validate(Objects.requireNonNull(index), createdKeys, Integer.MAX_VALUE, luceneSearch, false);
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), createdKeys, luceneSearch, false);
     }
 
     @Test

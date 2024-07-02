@@ -283,7 +283,6 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                                 primaryKey_1, Tuple.from(startTime)
                         )
                 ),
-                2,
                 "*:*");
 
         // validate that the records that were updated actually got updated

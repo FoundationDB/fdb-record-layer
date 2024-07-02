@@ -88,13 +88,12 @@ public class LuceneIndexTestValidator {
      * </p>
      * @param index the index to validate
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
-     * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
     void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
-                  final int repartitionCount, final String universalSearch) throws IOException {
-        validate(index, expectedDocumentInformation, repartitionCount, universalSearch, false);
+                  final String universalSearch) throws IOException {
+        validate(index, expectedDocumentInformation, universalSearch, false);
     }
 
     /**
@@ -106,22 +105,18 @@ public class LuceneIndexTestValidator {
      * </p>
      * @param index the index to validate
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
-     * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @param allowDuplicatePrimaryKeys if {@code true} this will allow multiple entries in the primary key segment
      * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
      * @throws IOException if there is any issue interacting with lucene
      */
     void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
-                  final int repartitionCount, final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
+                  final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
         String partitionLowWaterMarkStr = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
         final int partitionLowWatermark = partitionLowWaterMarkStr == null ?
                                           Math.max(LucenePartitioner.DEFAULT_PARTITION_LOW_WATERMARK, 1) :
                                           Integer.parseInt(partitionLowWaterMarkStr);
-        // If there is less than repartitionCount of free space in the older partition, we'll create a new partition
-        // rather than moving fewer than repartitionCount
-        int maxPerPartition = partitionHighWatermark;
 
         Map<Tuple, Map<Tuple, Tuple>> missingDocuments = new HashMap<>();
         expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
