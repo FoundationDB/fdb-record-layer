@@ -27,7 +27,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** OnlineIndexer / OnlineIndexScrubber: move the sync session lease length to Config [(Issue #2794)](https://github.com/FoundationDB/fdb-record-layer/issues/2794)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.516.0
+
+* **Feature** OnlineIndexer / OnlineIndexScrubber: move the sync session lease length to Config [(Issue #2794)](https://github.com/FoundationDB/fdb-record-layer/issues/2794)
 
 ### 3.4.515.0
 
