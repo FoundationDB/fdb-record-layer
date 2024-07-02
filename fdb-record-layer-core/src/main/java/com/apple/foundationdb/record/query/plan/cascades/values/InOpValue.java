@@ -213,7 +213,6 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
-            SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
