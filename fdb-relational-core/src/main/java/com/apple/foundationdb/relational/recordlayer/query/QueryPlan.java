@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -77,7 +77,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -322,7 +321,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        private RecordQueryPlanProto.PRecordQueryPlan computePlanProto(@Nonnull final PlanHashMode currentPlanHashMode) {
+        private PRecordQueryPlan computePlanProto(@Nonnull final PlanHashMode currentPlanHashMode) {
             final PlanSerializationContext serializationContext =
                     new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
             return recordQueryPlan.toRecordQueryPlanProto(serializationContext);
@@ -541,7 +540,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 planTypes.forEach(builder::addTypeIfNeeded);
                 optimizedPlan = Optional.of(
                         new PhysicalQueryPlan(planResult.getPlan(), builder.build(),
-                                QueryPlanConstraint.compose(List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)), getConstraint())),
+                                QueryPlanConstraint.composeConstraints(
+                                        List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)),
+                                                getConstraint())),
                                 context, query, currentPlanHashMode));
                 return optimizedPlan.get();
             });

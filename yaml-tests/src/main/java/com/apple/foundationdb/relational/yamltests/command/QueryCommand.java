@@ -152,7 +152,7 @@ public class QueryCommand extends Command {
                 try {
                     // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                     // results
-                    Debugger.setDebugger(new DebuggerWithSymbolTables());
+                    Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
                     Debugger.setup();
                     executor.execute(connection, null, queryConfig, checkCache);
                 } finally {
@@ -211,7 +211,7 @@ public class QueryCommand extends Command {
      */
     private static void enableCascadesDebugger() {
         if (Debugger.getDebugger() == null && Environment.isDebug()) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
+            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
         }
         Debugger.setup();
     }

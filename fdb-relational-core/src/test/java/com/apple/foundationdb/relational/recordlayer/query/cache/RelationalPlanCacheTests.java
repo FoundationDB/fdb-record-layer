@@ -268,7 +268,7 @@ public class RelationalPlanCacheTests {
 
     @Nonnull
     private static QueryPlanConstraint cons(@Nonnull final QueryPlanConstraint... constraints) {
-        return QueryPlanConstraint.compose(Arrays.asList(constraints));
+        return QueryPlanConstraint.composeConstraints(Arrays.asList(constraints));
     }
 
     private static void shouldBe(@Nonnull final RelationalPlanCache cache, @Nonnull final Map<Tuple, Map<PhysicalPlanEquivalence, String>> expectedLayout) {
@@ -313,7 +313,7 @@ public class RelationalPlanCacheTests {
 
     @Nonnull
     private PhysicalPlanEquivalence ppe(@Nonnull final QueryPlanConstraint... constraints) {
-        return PhysicalPlanEquivalence.of(QueryPlanConstraint.compose(Arrays.asList(constraints)));
+        return PhysicalPlanEquivalence.of(QueryPlanConstraint.composeConstraints(Arrays.asList(constraints)));
     }
 
     private BitSet planQuery(@Nonnull final RelationalPlanCache cache,

@@ -119,7 +119,7 @@ public final class Utils {
      */
     public static void enableCascadesDebugger() {
         if (Debugger.getDebugger() == null && Environment.isDebug()) {
-            Debugger.setDebugger(new DebuggerWithSymbolTables());
+            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
         }
         Debugger.setup();
     }

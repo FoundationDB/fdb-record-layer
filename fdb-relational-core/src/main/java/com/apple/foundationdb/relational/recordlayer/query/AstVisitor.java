@@ -880,7 +880,7 @@ public class AstVisitor extends RelationalParserBaseVisitor<Object> {
         Assert.notNullUnchecked(nestedSubquery);
         final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.of(nestedSubquery));
         scopes.getCurrentScope().addQuantifier(existsQuantifier);
-        return new ExistsValue(existsQuantifier.getFlowedObjectValue());
+        return new ExistsValue(existsQuantifier.getAlias());
     }
 
     @Override // not supported yet

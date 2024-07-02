@@ -56,15 +56,11 @@ test_block:
       - unorderedResult: [ { 1 }, { 2 } ]
 ---
 test_block:
-  options:
-    check_cache: false
   tests:
     -
-      # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)
       - query: select x'' from lb where a = 1
       - result: [ {x''} ]
     -
-      # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)
       - query: select x'0ff1ce' from lb where a = 1
       - result: [ {x'0ff1ce'}]
 ...

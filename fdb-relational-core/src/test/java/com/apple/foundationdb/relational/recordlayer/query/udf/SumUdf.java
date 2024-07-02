@@ -21,12 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query.udf;
 
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.UdfFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.UdfValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
@@ -56,7 +55,7 @@ public final class SumUdf extends UdfFunction {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext planSerializationContext) {
+        public PValue toValueProto(@Nonnull final PlanSerializationContext planSerializationContext) {
             throw new UnsupportedOperationException("plan serialization is not supported");
         }
 

@@ -41,7 +41,7 @@ message ContinuationProto {
 }
 
 message TypedQueryArgument {
-  optional com.apple.foundationdb.record.PType type = 1;
+  optional com.apple.foundationdb.record.planprotos.PType type = 1;
   optional int32 literals_table_index = 2; // index of the corresponding entry in the literals table for the statement
   optional int32 token_index = 3; // index of the token in the statement
   optional int32 unnamed_parameter_index = 4; // parameter index for parameters encoded as ?
@@ -63,7 +63,7 @@ message LiteralObject {
   }
 
   // if none of these are set, we consider the object to be NULL
-  optional com.apple.foundationdb.record.PComparableObject scalar_object = 1;
+  optional com.apple.foundationdb.record.planprotos.PComparableObject scalar_object = 1;
   optional Array array_object = 2;
   optional bytes record_object = 3;
 }
@@ -71,12 +71,12 @@ message LiteralObject {
 message CompiledStatement {
   optional string plan_serialization_mode = 1; // same as plan hash mode for the time being
   // the serialized plan
-  optional com.apple.foundationdb.record.PRecordQueryPlan plan = 2;
+  optional com.apple.foundationdb.record.planprotos.PRecordQueryPlan plan = 2;
   // extracted literals
   repeated TypedQueryArgument extracted_literals = 3;
   // query arguments - depending on context, the actual arguments may not be known, thus only type and inline
   // information is known and can be used.
   repeated TypedQueryArgument arguments = 4;
   // query plan constraints
-  optional com.apple.foundationdb.record.PQueryPlanConstraint plan_constraint = 5;
+  optional com.apple.foundationdb.record.planprotos.PQueryPlanConstraint plan_constraint = 5;
 }

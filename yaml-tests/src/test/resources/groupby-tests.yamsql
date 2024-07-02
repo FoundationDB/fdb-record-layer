@@ -146,10 +146,9 @@ test_block:
     -
       - query: select x.col1 + x.col1 from (select col1, col2 from t1) as x group by x.col1;
       - result: [{!l 20}, {!l 40}]
-#    -
-#      # TODO (GroupBy query giving inconsistent results when reusing plan from the cache)
-#      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
-#      - result: [{!l 10}]
+    -
+      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
+      - result: [{!l 10}]
     -
       - query: select COUNT(*) from T1;
       - result: [{!l 13}]

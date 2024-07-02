@@ -133,7 +133,6 @@ test_block:
   preset: single_repetition_ordered
   tests:
     -
-      # Complications with retrieving from cache owing to TODO (Preserve the lexical positions of the bindings)
       - query: select coalesce(st, (5, 'e', 5.0)) from C where c1 = 4
       - unorderedResult: [
           {{ _0: 5, _1: 'e', _2: 5.0}}]
