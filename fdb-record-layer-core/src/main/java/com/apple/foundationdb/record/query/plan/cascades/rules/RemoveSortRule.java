@@ -23,13 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortValue;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -77,37 +79,36 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var sortExpression = call.get(root);
-        final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
+        final LogicalSortExpression sortExpression = call.get(root);
+        final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
-        final var sortValues = sortExpression.getSortValues();
-        if (sortValues.isEmpty()) {
+        final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
+        if (requestedOrdering.isPreserve()) {
             call.yieldExpression(innerPlanPartition.getPlans());
             return;
         }
 
-        final var sortValuesSet = sortValues.stream().map(LogicalSortValue::getValue).collect(Collectors.toSet());
+        final List<OrderingPart.RequestedOrderingPart> requestedOrderingParts = requestedOrdering.getOrderingParts();
+        final Set<Value> sortValuesSet = requestedOrderingParts.stream().map(OrderingPart::getValue).collect(Collectors.toSet());
 
-        final var ordering = innerPlanPartition.getAttributeValue(ORDERING);
+        final Ordering ordering = innerPlanPartition.getAttributeValue(ORDERING);
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundValues();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
-        for (final var sortValue : sortValues) {
-            if (equalityBoundKeys.contains(sortValue.getValue())) {
+        for (final OrderingPart.RequestedOrderingPart requestedPart : requestedOrderingParts) {
+            if (equalityBoundKeys.contains(requestedPart.getValue())) {
                 equalityBoundUnsorted --;
             }
         }
 
         final boolean isSatisfyingOrdering =
-                ordering.satisfies(
-                        RequestedOrdering.fromSortValues(sortValues, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
+                ordering.satisfies(requestedOrdering.withDistinctness(RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS));
 
         if (!isSatisfyingOrdering) {
             return;
         }
 
-        final var isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
-
+        final boolean isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
         if (isDistinct) {
             if (ordering.getOrderingSet()
                     .getSet()
@@ -127,7 +128,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
                     // Also a unique index if we have gone through declared fields.
-                    strictlyOrderedIfUnique(innerPlan, sortValues.size() + equalityBoundUnsorted);
+                    strictlyOrderedIfUnique(innerPlan, requestedOrderingParts.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
                 resultExpressions.add(innerPlan.strictlySorted(call));
