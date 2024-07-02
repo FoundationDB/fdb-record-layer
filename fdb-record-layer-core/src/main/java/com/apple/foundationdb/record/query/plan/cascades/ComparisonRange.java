@@ -424,7 +424,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object o) {
-        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(o, AliasMap.emptyMap());
     }
 
     @Override

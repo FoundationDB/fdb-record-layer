@@ -109,7 +109,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
-        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(o, AliasMap.emptyMap());
     }
 
     @Nonnull

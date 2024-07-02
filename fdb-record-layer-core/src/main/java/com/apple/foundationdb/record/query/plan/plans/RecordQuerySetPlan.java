@@ -92,7 +92,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                 }
                 if (previousPushedValue == null) {
                     previousPushedValue = pushedValueOptional.get();
-                    equivalencesMap = AliasMap.identitiesFor(previousPushedValue.getCorrelatedTo());
+                    equivalencesMap = AliasMap.emptyMap();
                 } else {
                     if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
                         return Optional.empty();
@@ -120,7 +120,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
         final CorrelationIdentifier targetAlias = Quantifier.uniqueID();
 
         for (final Value value : values) {
-            final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(targetAlias));
+            final AliasMap equivalencesMap = AliasMap.emptyMap();
             @Nullable Value previousPushedValue = null;
 
             for (int i = 0; i < dependentFunctions.size(); i++) {

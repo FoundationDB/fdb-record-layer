@@ -776,7 +776,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
         public List<Value> simplifyLocalValues() {
             final var simplifiedLocalValuesBuilder = ImmutableList.<Value>builder();
             for (final var localValue : getLocalValues()) {
-                final var aliasMap = AliasMap.identitiesFor(localValue.getCorrelatedTo());
+                final var aliasMap = AliasMap.emptyMap();
                 simplifiedLocalValuesBuilder.add(localValue.simplify(aliasMap, ImmutableSet.of()));
             }
             return simplifiedLocalValuesBuilder.build();

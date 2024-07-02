@@ -239,7 +239,7 @@ public class GraphExpansion {
             for (final QueryPredicate queryPredicate : getPredicates()) {
                 if (queryPredicate instanceof Placeholder) {
                     final var localPlaceHolder = (Placeholder)queryPredicate;
-                    final var identities = AliasMap.identitiesFor(localPlaceHolder.getCorrelatedTo());
+                    final var identities = AliasMap.emptyMap();
                     final var iterator = localPlaceHolderPairs.iterator();
                     int foundAtOrdinal = -1;
                     while (iterator.hasNext()) {

@@ -81,7 +81,7 @@ public class IndexPredicateExpansion {
                 if (key.isEmpty()) {
                     key = Optional.of(valuePredicate.getValue());
                 } else {
-                    if (!key.get().semanticEquals(valuePredicate.getValue(), AliasMap.identitiesFor(key.get().getCorrelatedTo()))) {
+                    if (!key.get().semanticEquals(valuePredicate.getValue(), AliasMap.emptyMap())) {
                         return false;
                     }
                 }
