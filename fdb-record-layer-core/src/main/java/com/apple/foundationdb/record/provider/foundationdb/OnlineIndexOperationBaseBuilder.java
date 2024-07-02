@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.protobuf.Message;
 
@@ -704,6 +705,33 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
         configBuilder.setTransactionTimeLimitMilliseconds(timeLimitMilliseconds);
         return self();
     }
+
+    /**
+     * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
+     * the multiple transactions operations in a resource efficient way.
+     * Normally this should be {@code true}.
+     *
+     * @see SynchronizedSessionRunner
+     * @param useSynchronizedSession use synchronize session if true, otherwise false
+     * @return this builder
+     */
+    public B setUseSynchronizedSession(boolean useSynchronizedSession) {
+        configBuilder.setUseSynchronizedSession(useSynchronizedSession);
+        return self();
+    }
+
+    /**
+     * Set the lease length in milliseconds if the synchronized session is used. The default value is {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS}.
+     * @see #setUseSynchronizedSession(boolean)
+     * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
+     * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+     * @return this builder
+     */
+    public B setLeaseLengthMillis(long leaseLengthMillis) {
+        configBuilder.setLeaseLengthMillis(leaseLengthMillis);
+        return self();
+    }
+
 
     @Nonnull
     protected OnlineIndexOperationConfig getConfig() {

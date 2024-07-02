@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
@@ -100,10 +99,6 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore
 @API(API.Status.UNSTABLE)
 public class OnlineIndexer implements AutoCloseable {
     /**
-     * Default length between last access and lease's end time in milliseconds.
-     */
-    public static final long DEFAULT_LEASE_LENGTH_MILLIS = 10_000;
-    /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
     public static final int UNLIMITED = Integer.MAX_VALUE;
@@ -127,8 +122,6 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nullable Collection<RecordType> recordTypes,
                   @Nullable UnaryOperator<OnlineIndexOperationConfig> configLoader,
                   @Nonnull OnlineIndexOperationConfig config,
-                  boolean useSynchronizedSession,
-                  long leaseLengthMillis,
                   boolean trackProgress,
                   @Nonnull IndexingPolicy indexingPolicy) {
         this.runner = runner;
@@ -137,9 +130,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 targetIndexes, recordTypes, configLoader, config,
-                trackProgress,
-                useSynchronizedSession,
-                leaseLengthMillis);
+                trackProgress);
     }
 
     @Nonnull
@@ -681,7 +672,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.shouldUseSynchronizedSession();
+        boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.config.shouldUseSynchronizedSession();
         return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable, useSyncLock));
     }
 
@@ -720,7 +711,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     private CompletableFuture<Void> buildIndexAsyncSingleTarget() {
         // Testing only - enforce the old by-records indexer
-        return indexingLauncher(() -> getIndexerByRecordsOrThrow().buildIndexAsync(true, common.shouldUseSynchronizedSession()));
+        return indexingLauncher(() -> getIndexerByRecordsOrThrow().buildIndexAsync(true, common.config.shouldUseSynchronizedSession()));
     }
 
     @VisibleForTesting
@@ -854,8 +845,6 @@ public class OnlineIndexer implements AutoCloseable {
         private IndexingPolicy indexingPolicy = null;
         private IndexingPolicy.Builder indexingPolicyBuilder = null;
         private IndexStatePrecondition indexStatePrecondition = null;
-        private boolean useSynchronizedSession = true;
-        private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
 
         protected Builder() {
         }
@@ -996,36 +985,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Set whether or not to use a synchronized session when using {@link #buildIndexAsync()} (or its variations) to build
-         * the index across multiple transactions. Synchronized sessions help build index in a resource efficient way.
-         * Normally this should be {@code true}.
-         * <p>
-         * One may consider setting it to {@code false} and {@link #setUseSynchronizedSession(boolean)} to
-         * {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY}, which makes the indexer follow the
-         * same behavior as before version 2.8.90.0. But it is not recommended.
-         * </p>
-         * @see SynchronizedSessionRunner
-         * @param useSynchronizedSession use synchronize session if true, otherwise false
-         * @return this builder
-         */
-        public Builder setUseSynchronizedSession(boolean useSynchronizedSession) {
-            this.useSynchronizedSession = useSynchronizedSession;
-            return this;
-        }
-
-        /**
-         * Set the lease length in milliseconds if the synchronized session is used. By default this is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
-         * @see #setUseSynchronizedSession(boolean)
-         * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
-         * @param leaseLengthMillis length between last access and lease's end time in milliseconds
-         * @return this builder
-         */
-        public Builder setLeaseLengthMillis(long leaseLengthMillis) {
-            this.leaseLengthMillis = leaseLengthMillis;
-            return this;
-        }
-
-        /**
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
@@ -1064,8 +1023,7 @@ public class OnlineIndexer implements AutoCloseable {
             validate();
             OnlineIndexOperationConfig conf = getConfig();
             return new OnlineIndexer(getRunner(), getRecordStoreBuilder(), targetIndexes, recordTypes,
-                    getConfigLoader(), conf,
-                    useSynchronizedSession, leaseLengthMillis, isTrackProgress(), indexingPolicy);
+                    getConfigLoader(), conf, isTrackProgress(), indexingPolicy);
         }
 
         private void determineIndexingPolicy() {
