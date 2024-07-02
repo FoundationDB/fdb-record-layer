@@ -84,7 +84,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     @SuppressWarnings({"squid:S1206", "EqualsWhichDoesntCheckParameterClass"})
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
