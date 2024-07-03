@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -67,6 +66,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
         this(buildOrdering(sortValues, reverse), inner);
     }
 
+    @Nonnull
     private static RequestedOrdering buildOrdering(@Nonnull List<Value> sortValues, boolean reverse) {
         final OrderingPart.RequestedSortOrder order = OrderingPart.RequestedSortOrder.fromIsReverse(reverse);
         final RequestedOrdering.Distinctness distinctness = RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS;
@@ -117,22 +117,6 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
-    }
-
-    @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (!RelationalExpressionWithChildren.super.semanticEquals(other, aliasMap)) {
-            return false;
-        }
-        LogicalSortExpression otherSort = (LogicalSortExpression)other;
-        // TODO: need semanticEquals on the Values?
-        return this.ordering.equals(otherSort.ordering);
-    }
-
-    @Override
-    public int semanticHashCode() {
-        // TODO: need ordering.semanticHashCode?
-        return RelationalExpressionWithChildren.super.semanticHashCode() + ordering.hashCode();
     }
 
     @Override
