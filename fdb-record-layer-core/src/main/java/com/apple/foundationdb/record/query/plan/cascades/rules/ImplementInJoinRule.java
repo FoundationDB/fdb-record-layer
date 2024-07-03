@@ -94,9 +94,11 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
+        System.out.println("get into ImplementInJOinRUle");
 
         final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
+            System.out.println("get into ImplementInJOinRUle A");
             return;
         }
 
@@ -104,11 +106,13 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         
         final var selectExpression = bindings.get(root);
         if (!selectExpression.getPredicates().isEmpty()) {
+            System.out.println("get into ImplementInJOinRUle B predicates:" + selectExpression.getPredicates());
             return;
         }
 
         final var explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
         if (explodeQuantifiers.isEmpty()) {
+            System.out.println("get into ImplementInJOinRUle C");
             return;
         }
 
@@ -119,6 +123,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                         explodeQuantifiers,
                         explodeAliases);
         if (innerQuantifierOptional.isEmpty()) {
+            System.out.println("get into ImplementInJOinRUle D explodeAliases:" + explodeAliases);
             return;
         }
         final var innerQuantifier = innerQuantifierOptional.get();
@@ -126,6 +131,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         final var resultValue = selectExpression.getResultValue();
         if (!(resultValue instanceof QuantifiedObjectValue) ||
                 !((QuantifiedObjectValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
+            System.out.println("get into ImplementInJOinRUle E");
             return;
         }
 
@@ -152,11 +158,13 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 for (final InSource inSource : reverseSources) {
                     final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference.reference()));
                     newInnerPlanReference = call.memoizePlansBuilder(inJoinPlan);
+                    System.out.println("inJoinPlan created");
                 }
 
                 call.yieldExpression(newInnerPlanReference.members());
             }
         }
+        System.out.println("get into ImplementInJOinRUle F");
     }
 
     @Nonnull

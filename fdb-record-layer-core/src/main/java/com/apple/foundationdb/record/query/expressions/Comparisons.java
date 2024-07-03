@@ -221,6 +221,8 @@ public class Comparisons {
             return obj;
         } else if (obj instanceof List) {
             return obj;
+        } else if (obj instanceof Message) {
+            return obj;
         } else {
             throw new RecordCoreException("Tried to compare non-comparable object " + obj.getClass());
         }
@@ -330,7 +332,9 @@ public class Comparisons {
             boolean hasNull = false;
             value = toClassWithRealEquals(value);
             for (Object comparandItem : (List<?>) comparand) {
-                if (value.equals(toClassWithRealEquals(comparandItem))) {
+                if (value instanceof Message && comparandItem instanceof Message && MessageHelpers.compareMessageEquals((Message) value, (Message) comparandItem)) {
+                    return true;
+                } else if (value.equals(toClassWithRealEquals(comparandItem))) {
                     return true;
                 }
                 hasNull |= comparandItem == null;
@@ -1490,6 +1494,7 @@ public class Comparisons {
             if (context == null) {
                 throw EvaluationContextRequiredException.instance();
             }
+            System.out.println("ValueComparison getCOmparand comparandValue:" + comparandValue + " getClass:" + comparandValue.getClass());
             return comparandValue.eval(store, context);
         }
 

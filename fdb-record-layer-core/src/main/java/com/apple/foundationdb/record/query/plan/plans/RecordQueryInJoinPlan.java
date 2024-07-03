@@ -116,7 +116,9 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                             return getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), bindingValue),
                                     innerContinuation, executeProperties.clearSkipAndLimit());
                         },
-                        outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
+                        outerObject -> {
+                    System.out.println("outerObject:" + outerObject + " class:" + outerObject.getClass());
+                    return Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack();},
                         continuation,
                         store.getPipelineSize(PipelineOperation.IN_JOIN))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
@@ -249,6 +251,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     protected List<Object> getValues(EvaluationContext context) {
+        System.out.println("InJoinPlan getValues inSource:" + inSource + " class:" + inSource.getClass());
         return inSource.getValues(context);
     }
 

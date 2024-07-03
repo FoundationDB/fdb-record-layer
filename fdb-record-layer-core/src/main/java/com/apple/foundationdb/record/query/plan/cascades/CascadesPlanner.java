@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -377,6 +378,7 @@ public class CascadesPlanner implements QueryPlanner {
     private void planPartial(@Nonnull Supplier<Reference> referenceSupplier,
                              @Nonnull Function<Reference, PlanContext> contextCreatorFunction,
                              @Nonnull final EvaluationContext evaluationContext) {
+        System.out.println("planPartial is called");
         currentRoot = referenceSupplier.get();
         final var context = contextCreatorFunction.apply(currentRoot);
 
@@ -402,6 +404,7 @@ public class CascadesPlanner implements QueryPlanner {
 
                 Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                 try {
+                    System.out.println("nextTask class:" + nextTask.getClass());
                     nextTask.execute();
                 } finally {
                     Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
@@ -508,6 +511,12 @@ public class CascadesPlanner implements QueryPlanner {
             } else {
                 RelationalExpression bestMember = null;
                 for (RelationalExpression member : group.getMembers()) {
+                    if (member instanceof RecordQueryInJoinPlan || bestMember instanceof RecordQueryInJoinPlan) {
+                        member.show(false);
+                        bestMember.show(false);
+                        System.out.println("member class:" + member.getClass() + " bestMember class:" + bestMember.getClass());
+                        System.out.println("compare result:" + new CascadesCostModel(configuration).compare(member, bestMember));
+                    }
                     if (bestMember == null || new CascadesCostModel(configuration).compare(member, bestMember) < 0) {
                         if (bestMember != null) {
                             // best member is being pruned

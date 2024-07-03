@@ -161,11 +161,13 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             }
             if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
                 // the operands are swapped inside this if branch
+                System.out.println("get here A, leftChild:" + leftChild + " rightChild:" + rightChild);
                 return promoteOperandsAndCreatePredicate(leftChildCorrelatedTo.isEmpty() ? typeRepository : null,
                         rightChild,
                         leftChild,
                         swapBinaryComparisonOperator(comparisonType));
             } else {
+                System.out.println("get here B, leftChild:" + leftChild + " rightChild:" + rightChild);
                 return promoteOperandsAndCreatePredicate(rightChildCorrelatedTo.isEmpty() ? typeRepository : null,
                         leftChild,
                         rightChild,
@@ -185,8 +187,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         final var maxtype = Verify.verifyNotNull(Type.maximumType(leftChild.getResultType(), rightChild.getResultType()));
 
         // inject is idempotent AND does not modify the Value if its result is already max type
+        System.out.println("before promote left:" + leftChild + " right:" + rightChild);
         leftChild = PromoteValue.inject(leftChild, maxtype);
         rightChild = PromoteValue.inject(rightChild, maxtype);
+        System.out.println("after promote left:" + leftChild + " right:" + rightChild);
 
         if (typeRepository != null) {
             final Object comparand = rightChild.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));

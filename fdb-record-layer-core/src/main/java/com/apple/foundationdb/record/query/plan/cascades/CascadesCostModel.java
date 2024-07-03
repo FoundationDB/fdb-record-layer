@@ -77,6 +77,9 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
     @Override
     public int compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
+        if (a instanceof RecordQueryInJoinPlan) {
+            return -1;
+        }
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }
@@ -117,10 +120,16 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
                 }
             }
         }
+        System.out.println("get here -Z");
 
         int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
                 NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
         if (unsatisfiedFilterCompare != 0) {
+            if (a instanceof RecordQueryInJoinPlan || b instanceof RecordQueryInJoinPlan) {
+                System.out.println("get here A, a:" + NormalizedResidualPredicateProperty.countNormalizedConjuncts(a) + " b:" + NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
+                System.out.println("A magicPredicate:" + NormalizedResidualPredicateProperty.evaluate(a) + " B magicPredicate:" + NormalizedResidualPredicateProperty.evaluate(b));
+                return -1;
+            }
             return unsatisfiedFilterCompare;
         }
 
@@ -140,6 +149,9 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         int countDataAccessesCompare =
                 Integer.compare(numDataAccessA, numDataAccessB);
         if (countDataAccessesCompare != 0) {
+            if (a instanceof RecordQueryInJoinPlan || b instanceof RecordQueryInJoinPlan) {
+                System.out.println("get here B");
+            }
             return countDataAccessesCompare;
         }
 
@@ -148,6 +160,9 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         final OptionalInt inPlanVsOtherOptional =
                 flipFlop(() -> compareInOperator(a, b), () -> compareInOperator(b, a));
         if (inPlanVsOtherOptional.isPresent() && inPlanVsOtherOptional.getAsInt() != 0) {
+            if (a instanceof RecordQueryInJoinPlan || b instanceof RecordQueryInJoinPlan) {
+                System.out.println("get here C");
+            }
             return inPlanVsOtherOptional.getAsInt();
         }
 

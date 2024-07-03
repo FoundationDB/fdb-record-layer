@@ -54,6 +54,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -124,7 +125,11 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                     wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
                     childResult = wrapperBuilder.build();
                 }
-                resultMessageBuilder.setField(fieldDescriptor, childResult);
+                if (false) {
+                    resultMessageBuilder.setField(fieldDescriptor, ((Number) childResult).longValue());
+                } else {
+                    resultMessageBuilder.setField(fieldDescriptor, childResult);
+                }
             } else {
                 Verify.verify(fieldType.isNullable());
             }

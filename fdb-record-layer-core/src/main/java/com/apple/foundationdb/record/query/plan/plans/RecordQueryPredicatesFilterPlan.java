@@ -52,9 +52,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.units.qual.A;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -87,6 +89,9 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
+        List<QueryPredicate> x = new ArrayList<>();
+        predicates.forEach(x::add);
+        System.out.println("RecordQueryPredicatesFilterPlan is created with:" + x);
         this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
@@ -110,6 +115,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
         final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
+        System.out.println("PredicateFilterPlan evalFilter predicate:" + conjunctedPredicate);
         return conjunctedPredicate.eval(store, nestedContext);
     }
 

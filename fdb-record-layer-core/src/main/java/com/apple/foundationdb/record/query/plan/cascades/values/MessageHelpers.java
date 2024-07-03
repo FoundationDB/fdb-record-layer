@@ -191,12 +191,17 @@ public class MessageHelpers {
                 if (!m1.getField(f1).equals(m2.getField(f2))) {
                     return false;
                 }
-            } else if ((f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT)
+            }
+            /*
+            else if ((f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT)
             || (f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG)) {
                 if (((Number)(m1.getField(f1))).longValue() != ((Number)(m2.getField(f2))).longValue()) {
                     return false;
                 }
-            } else {
+            }
+
+             */
+            else {
                 return false;
             }
         }

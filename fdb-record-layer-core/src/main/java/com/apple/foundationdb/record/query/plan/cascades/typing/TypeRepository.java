@@ -144,6 +144,14 @@ public class TypeRepository {
      */
     @Nullable
     public DynamicMessage.Builder newMessageBuilder(@Nonnull final Type type) {
+        int n = ((Type.Record) type).getFields().size();
+        for (Type t: typeToNameMap.keySet()) {
+            int a = ((Type.Record) t).getFields().size();
+            if (a == n) {
+                return newMessageBuilder(typeToNameMap.get(t));
+            }
+        }
+
         final String msgTypeName = Preconditions.checkNotNull(typeToNameMap.get(type));
         Objects.requireNonNull(msgTypeName);
         return newMessageBuilder(msgTypeName);

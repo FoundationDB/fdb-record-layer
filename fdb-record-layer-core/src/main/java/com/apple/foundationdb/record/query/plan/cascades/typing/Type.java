@@ -1942,9 +1942,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             final var otherType = (Record)obj;
-            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+            boolean result = (getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) ||
-                    (Objects.requireNonNull(fields).equals(otherType.fields)));
+                    (Objects.requireNonNull(fields).equals(otherType.fields))));
+            if (!result) {
+                System.out.println("Record fields isNullable:" + " this:" + isNullable + " other:" + otherType.isNullable);
+                for (int i = 0; i < fields.size(); i++) {
+                    System.out.println("ith field equals:" + fields.get(i).equals(otherType.getFields().get(i)));
+                    System.out.println("ith fieldType equals:" + fields.get(i).fieldType.equals(otherType.getField(i).fieldType) + " this:" + fields.get(i).fieldType + fields.get(i).fieldType.isNullable() + " other:" + otherType.getField(i).fieldType + otherType.getField(i).fieldType.isNullable());
+                    System.out.println("ith fieldName equals:" + fields.get(i).getFieldNameOptional().equals(otherType.getField(i).getFieldNameOptional()));
+                }
+                // System.out.println("Record fields:" + this.fields.equals(otherType.fields) + " this:" + this.fields + " otherType:" + otherType.fields);
+                System.out.println("Record equals called result:" + result + " this:" + this + " other:" + otherType);
+            }
+            return result;
         }
 
         @Override
