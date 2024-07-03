@@ -1158,6 +1158,7 @@ message PIndexKeyValueToPartialRecord {
     optional PTupleSource source = 2;
     optional PCopyIfPredicate copy_if_predicate = 3;
     repeated int32 ordinal_path = 4;
+    optional string invertible_function = 5;
   }
 
   enum PTupleSource {

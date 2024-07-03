@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopier;
@@ -41,6 +43,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -54,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 /**
  * Construct a record from a covering index.
@@ -242,15 +246,21 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         private final AvailableFields.CopyIfPredicate copyIfPredicate;
         @Nonnull
         private final ImmutableIntArray ordinalPath;
+        @Nullable
+        private final String invertibleFunctionName;
+        @Nullable
+        private Function<Object, Object> invertibleFunction;
 
         private FieldCopier(@Nonnull final String field,
                             @Nonnull final TupleSource source,
                             @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
-                            @Nonnull final ImmutableIntArray ordinalPath) {
+                            @Nonnull final ImmutableIntArray ordinalPath,
+                            @Nullable final String invertibleFunctionName) {
             this.field = field;
             this.source = source;
             this.copyIfPredicate = copyIfPredicate;
             this.ordinalPath = ordinalPath;
+            this.invertibleFunctionName = invertibleFunctionName;
         }
 
         @Override
@@ -263,6 +273,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
             Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             Object value = getForOrdinalPath(tuple, ordinalPath);
+            if (invertibleFunctionName != null) {
+                value = getInvertibleFunction().apply(value);
+            }
             if (value == null) {
                 //
                 // The logic here goes like this: If the field is null, but it is required we cannot
@@ -291,6 +304,16 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             return true;
         }
 
+        @Nonnull
+        public Function<Object, Object> getInvertibleFunction() {
+            if (invertibleFunction == null) {
+                final InvertibleFunctionKeyExpression keyExpression = (InvertibleFunctionKeyExpression)
+                        Key.Expressions.function(Objects.requireNonNull(invertibleFunctionName), Key.Expressions.field(field));
+                invertibleFunction = obj -> Iterables.getOnlyElement(keyExpression.evaluateInverse(Key.Evaluated.scalar(obj))).getObject(0);
+            }
+            return invertibleFunction;
+        }
+
         @Override
         public String toString() {
             return field + ": " + source + ordinalPath;
@@ -307,17 +330,20 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             FieldCopier that = (FieldCopier) o;
             return ordinalPath.equals(that.ordinalPath) &&
                     Objects.equals(field, that.field) &&
-                    source == that.source;
+                    source == that.source &&
+                    Objects.equals(invertibleFunctionName, that.invertibleFunctionName);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(field, source, ordinalPath);
+            return Objects.hash(field, source, ordinalPath, invertibleFunctionName);
         }
 
         @Override
         public int planHash(@Nonnull final PlanHashMode hashMode) {
-            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, field, source, copyIfPredicate, ordinalPath);
+            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, field, source, copyIfPredicate, ordinalPath) +
+                    // Keep compatible if absent.
+                    PlanHashable.objectPlanHash(hashMode, invertibleFunctionName);
         }
 
         @Nonnull
@@ -328,6 +354,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                     .setSource(source.toProto(serializationContext))
                     .setCopyIfPredicate(copyIfPredicate.toCopyIfPredicateProto(serializationContext));
             ordinalPath.forEach(builder::addOrdinalPath);
+            if (invertibleFunctionName != null) {
+                builder.setInvertibleFunction(invertibleFunctionName);
+            }
             return builder.build();
         }
 
@@ -348,7 +377,8 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             return new FieldCopier(Objects.requireNonNull(fieldCopierProto.getField()),
                     TupleSource.fromProto(serializationContext, Objects.requireNonNull(fieldCopierProto.getSource())),
                     AvailableFields.CopyIfPredicate.fromCopyIfPredicateProto(serializationContext, Objects.requireNonNull(fieldCopierProto.getCopyIfPredicate())),
-                    ordinalPathBuilder.build());
+                    ordinalPathBuilder.build(),
+                    fieldCopierProto.hasInvertibleFunction() ? fieldCopierProto.getInvertibleFunction() : null);
         }
 
         /**
@@ -521,7 +551,8 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         public Builder addField(@Nonnull final String field, @Nonnull final TupleSource source,
                                 @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
-                                @Nonnull final ImmutableIntArray ordinalPath) {
+                                @Nonnull final ImmutableIntArray ordinalPath,
+                                @Nullable final String invertibleFunction) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             if (fieldDescriptor == null) {
                 throw new MetaDataException("field not found: " + field);
@@ -530,7 +561,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
-            FieldCopier copier = new FieldCopier(field, source, copyIfPredicate, ordinalPath);
+            FieldCopier copier = new FieldCopier(field, source, copyIfPredicate, ordinalPath, invertibleFunction);
             FieldCopier prev = fields.put(field, copier);
             if (prev != null) {
                 throw new RecordCoreException("setting field more than once: " + field);

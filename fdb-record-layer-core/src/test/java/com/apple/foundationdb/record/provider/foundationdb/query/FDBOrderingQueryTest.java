@@ -49,6 +49,10 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -233,4 +237,24 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         assertTrue(planner.planQuery(query).getPlan() instanceof RecordQueryUnionOnKeyExpressionPlan);
     }
 
+    @Test
+    void testCoveringOrdered() throws Exception {
+        final RecordMetaDataHook hook = indexHook("order_desc_nulls_last");
+        loadRecords(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setSort(fullOrderingKey("order_desc_nulls_last"))
+                .setFilter(Query.and(Query.field("num_value_2").equalsValue(101), Query.field("str_value_indexed").greaterThan("a")))
+                .setRequiredResults(List.of(field("str_value_indexed")))
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final RecordQueryPlan plan = planner.planQuery(query).getPlan();
+            assertMatchesExactly(plan, coveringIndexPlan().where(indexPlanOf(indexPlan().where(indexName("ordered_str_value")))));
+            final List<String> values = plan.execute(recordStore)
+                    .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getStrValueIndexed())
+                    .asList().join();
+            assertEquals(List.of("b", "ab"), values);
+        }
+    }
 }

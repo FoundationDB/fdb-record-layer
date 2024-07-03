@@ -45,7 +45,7 @@ class IndexKeyValueToPartialRecordTest {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private static final IndexKeyValueToPartialRecord plan = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
-            .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.of(0))
+            .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.of(0), null)
             .build();
 
     @Nonnull
