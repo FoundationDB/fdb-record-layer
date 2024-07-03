@@ -947,7 +947,7 @@ public class KeyExpressionTest {
     @MethodSource
     void testRecordTypePrefix(@Nonnull KeyExpression key, boolean hasRecordTypePrefix) {
         assertEquals(hasRecordTypePrefix, Key.Expressions.hasRecordTypePrefix(key),
-                () -> String.format("%s should%s have a record type prefix", key, hasRecordTypePrefix ? "" : " not"));
+                () ->  key + " should" + (hasRecordTypePrefix ? "" : " not") + " have a record type prefix");
     }
 
     @SuppressWarnings("unused")
@@ -972,7 +972,7 @@ public class KeyExpressionTest {
     @MethodSource("getLosslessNormalizationKeys")
     void testLosslessNormalization(@Nonnull KeyExpression key, boolean lossless) {
         assertEquals(lossless, key.hasLosslessNormalization(),
-                () -> String.format("%s should have %s normalization", key, lossless ? "lossless" : "lossy"));
+                () -> key + " should have " + (lossless ? "lossless" : "lossy") + " normalization");
     }
 
     /**

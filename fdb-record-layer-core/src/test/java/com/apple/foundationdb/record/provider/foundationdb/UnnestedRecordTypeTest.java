@@ -1536,7 +1536,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                             .build();
                     List<Map<String, Message>> queried = plan.execute(recordStore, EvaluationContext.forBindings(bindings))
                             .map(rec -> {
-                                assertEquals(DOUBLE_NESTED, rec.getRecordType().getName(), () -> String.format("record type for record %s should match type %s", rec, DOUBLE_NESTED));
+                                assertEquals(DOUBLE_NESTED, rec.getRecordType().getName(), () -> "record type for record " + rec + " should match type " + DOUBLE_NESTED);
                                 return rec.getSyntheticRecord();
                             })
                             .map(rec -> rec.getConstituents().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> (Message) e.getValue().getRecord())))

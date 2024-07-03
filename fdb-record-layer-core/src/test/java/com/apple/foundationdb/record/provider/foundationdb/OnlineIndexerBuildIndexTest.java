@@ -149,14 +149,14 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 TestLogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
                 LogMessageKeys.KEY_SPACE_PATH, path,
                 LogMessageKeys.LIMIT, 20,
-                TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
+                TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = newIndexerBuilder()
                 .setIndex(index)
                 .setConfigLoader(old -> {
-                    OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
+                    OnlineIndexOperationConfig.Builder conf = OnlineIndexOperationConfig.newBuilder()
                             .setMaxLimit(20)
                             .setMaxRetries(Integer.MAX_VALUE)
-                            .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+                            .setRecordsPerSecond(OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100);
                     if (ThreadLocalRandom.current().nextBoolean()) {
                         // randomly enable the progress logging to ensure that it doesn't throw exceptions,
                         // or otherwise disrupt the build.

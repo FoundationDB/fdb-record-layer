@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
@@ -40,6 +39,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -1651,7 +1651,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
@@ -1744,7 +1744,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 

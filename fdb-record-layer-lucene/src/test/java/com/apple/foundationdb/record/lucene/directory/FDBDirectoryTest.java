@@ -226,18 +226,18 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {
         assertEquals(expectedValue, timer.getCount(metric),
-                () -> String.format("Incorrect call count for metric %s", metric));
+                () -> "Incorrect call count for metric " + metric);
     }
 
     private void assertCorrectMetricSize(StoreTimer.SizeEvent metric, int expectedNumber, long expectedCumulativeBytes) {
         assertEquals(expectedNumber, timer.getCount(metric),
-                () -> String.format("Incorrect call count for metric %s", metric));
+                () -> "Incorrect call count for metric " + metric);
         assertEquals(expectedCumulativeBytes, timer.getSize(metric),
-                () -> String.format("Incorrect size for metric %s", metric));
+                () -> "Incorrect size for metric " + metric);
     }
 
     private void assertMetricCountAtMost(StoreTimer.Event metric, int maximumValue) {
-        assertThat(String.format("Metric %s should be called at most %d times", metric, maximumValue),
+        assertThat("Metric " + metric + " should be called at most " + maximumValue + " times",
                 timer.getCount(metric), lessThanOrEqualTo(maximumValue));
     }
 }

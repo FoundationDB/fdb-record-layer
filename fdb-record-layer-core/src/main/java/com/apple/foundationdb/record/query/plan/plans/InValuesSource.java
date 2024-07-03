@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInValuesSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
+import com.apple.foundationdb.record.planprotos.PInValuesSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -171,8 +171,8 @@ public class InValuesSource extends InSource {
 
     @Nonnull
     @Override
-    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PInSource.newBuilder().setInValuesSource(toInValuesSourceProto(serializationContext)).build();
+    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInSource.newBuilder().setInValuesSource(toInValuesSourceProto(serializationContext)).build();
     }
 
     @Nonnull

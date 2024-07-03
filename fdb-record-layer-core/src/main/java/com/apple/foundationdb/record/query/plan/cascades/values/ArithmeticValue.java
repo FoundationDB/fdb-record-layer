@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PArithmeticValue;
+import com.apple.foundationdb.record.planprotos.PArithmeticValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -157,7 +157,7 @@ public class ArithmeticValue extends AbstractValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -172,8 +172,8 @@ public class ArithmeticValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

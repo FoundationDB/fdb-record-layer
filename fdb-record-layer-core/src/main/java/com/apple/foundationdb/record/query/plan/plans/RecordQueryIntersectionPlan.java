@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PRecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -39,9 +39,9 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -290,10 +290,11 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
 
     @Nonnull
     public static RecordQueryIntersectionOnValuesPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                      @Nonnull final List<? extends Value> comparisonKeyValues) {
+                                                                      @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                                      final boolean isReverse) {
         return RecordQueryIntersectionOnValuesPlan.intersection(quantifiers,
                 comparisonKeyValues,
-                Quantifiers.isReversed(quantifiers));
+                isReverse);
     }
 
     /**
@@ -309,9 +310,9 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan left,
-                                                                  @Nonnull RecordQueryPlan right,
-                                                                  @Nonnull KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull final RecordQueryPlan left,
+                                                                  @Nonnull final RecordQueryPlan right,
+                                                                  @Nonnull final KeyExpression comparisonKey) {
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
@@ -331,7 +332,8 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull final List<? extends RecordQueryPlan> children,
+                                                                  @Nonnull final KeyExpression comparisonKey) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to union plan");
         }

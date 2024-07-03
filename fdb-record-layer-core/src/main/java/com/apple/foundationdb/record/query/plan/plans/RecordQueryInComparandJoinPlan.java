@@ -25,20 +25,20 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInComparandJoinPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryInComparandJoinPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -171,8 +171,8 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setInComparandJoinPlan(toProto(serializationContext)).build();
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder().setInComparandJoinPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull

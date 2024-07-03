@@ -73,7 +73,8 @@ public class GeophileIndexMaintainer extends StandardIndexMaintainer {
                 continue;
             }
             throw new KeyExpression.InvalidExpressionException(
-                    String.format("need spatial key expression for %s index", index.getType()),
+                    "need spatial key expression for index type",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, index.getRootExpression());
         }

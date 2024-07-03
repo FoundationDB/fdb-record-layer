@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;

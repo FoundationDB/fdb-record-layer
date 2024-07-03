@@ -74,7 +74,7 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
         final DirectoryLayer directoryLayer = DirectoryLayer.getDefault();
 
         final List<String> names = IntStream.range(0, 5)
-                .mapToObj(number -> String.format("name-%d", number))
+                .mapToObj(number -> "name-" + number)
                 .collect(Collectors.toList());
         Map<String, Long> values = new HashMap<>();
         try (FDBRecordContext context = database.openContext()) {

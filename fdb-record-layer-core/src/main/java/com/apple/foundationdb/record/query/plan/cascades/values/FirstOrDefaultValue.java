@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFirstOrDefaultValue;
+import com.apple.foundationdb.record.planprotos.PFirstOrDefaultValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -111,17 +111,6 @@ public class FirstOrDefaultValue extends AbstractValue {
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final var that = (FirstOrDefaultValue)other;
-        return childValue.semanticEquals(that.childValue, equivalenceMap) &&
-                onEmptyResultValue.semanticEquals(that.onEmptyResultValue, equivalenceMap);
-    }
-
-    @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
@@ -152,7 +141,7 @@ public class FirstOrDefaultValue extends AbstractValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -166,8 +155,8 @@ public class FirstOrDefaultValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setFirstOrDefaultValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setFirstOrDefaultValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

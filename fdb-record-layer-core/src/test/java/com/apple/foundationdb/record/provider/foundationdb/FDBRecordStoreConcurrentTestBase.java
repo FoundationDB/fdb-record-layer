@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
-import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.test.TestMdcExtension;
@@ -66,12 +65,9 @@ public class FDBRecordStoreConcurrentTestBase {
 
     protected boolean useCascadesPlanner = false;
     protected FDBDatabase fdb;
-    @Nullable
-    protected KeySpacePath path;
     protected FDBStoreTimer timer = new FDBStoreTimer();
 
-    public FDBRecordStoreConcurrentTestBase(@Nullable KeySpacePath path) {
-        this.path = path;
+    public FDBRecordStoreConcurrentTestBase() {
     }
 
     public boolean isUseCascadesPlanner() {
@@ -86,13 +82,12 @@ public class FDBRecordStoreConcurrentTestBase {
     @BeforeEach
     void initDatabaseAndPath() {
         fdb = dbExtension.getDatabase();
-        if (path == null) {
-            path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-        }
     }
 
-    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
-        FDBRecordStore store = getStoreBuilder(context, metaData).createOrOpen();
+    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context,
+                                                                         @Nonnull RecordMetaData metaData,
+                                                                         @Nonnull final KeySpacePath path) {
+        FDBRecordStore store = getStoreBuilder(context, metaData, path).createOrOpen();
         return Pair.of(store, setupPlanner(store, null));
     }
 
@@ -101,7 +96,7 @@ public class FDBRecordStoreConcurrentTestBase {
         if (useCascadesPlanner) {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
             if (Debugger.getDebugger() == null) {
-                Debugger.setDebugger(new DebuggerWithSymbolTables());
+                Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
             }
             Debugger.setup();
         } else {
@@ -114,7 +109,8 @@ public class FDBRecordStoreConcurrentTestBase {
     }
 
     @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData,
+                                                     @Nonnull final KeySpacePath path) {
         return FDBRecordStore.newBuilder()
                 .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
                 .setKeySpacePath(path)

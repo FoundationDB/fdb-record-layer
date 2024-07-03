@@ -41,6 +41,34 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.517.0
+
+* **Feature** Key expression support for reverse ordering and nulls last [(Issue #2722)](https://github.com/FoundationDB/fdb-record-layer/issues/2722)
+
+### 3.4.516.0
+
+* **Feature** OnlineIndexer / OnlineIndexScrubber: move the sync session lease length to Config [(Issue #2794)](https://github.com/FoundationDB/fdb-record-layer/issues/2794)
+
+### 3.4.515.0
+
+* **Performance** The index scrubber now attempts to take a transaction time limit into account when deciding whether to commit early [(Issue #2787)](https://github.com/FoundationDB/fdb-record-layer/issues/2787)
+* **Breaking change** Online indexer and index scrubber configuration has been extracted into its own top-level class [(PR #2788)](https://github.com/FoundationDB/fdb-record-layer/pull/2788)
+
+### 3.4.514.0
+
+* **Feature** Improve modeling of Ordering, OrderingPart [(Issue #2127)](https://github.com/FoundationDB/fdb-record-layer/issues/2127)
+
+### 3.4.513.0
+
+* **Bug fix** Fix out of bound exception with repartitioning [(Issue #2784)](https://github.com/FoundationDB/fdb-record-layer/issues/2784)
+* **Bug fix** Only log repartitioning records when there's repartitioning to do [(Issue #2782)](https://github.com/FoundationDB/fdb-record-layer/issues/2782)
+
+### 3.4.512.0
+
+* **Bug fix** Make exceptions from LuceneIndexMaintainer more verbose [(Issue #2768)](https://github.com/FoundationDB/fdb-record-layer/issues/2768)
+* **Feature** Merge partitions when they become too small [(Issue #2739)](https://github.com/FoundationDB/fdb-record-layer/issues/2739)
+* **Feature** Include cause with AgilityContext already closed exception [(Issue #2774)](https://github.com/FoundationDB/fdb-record-layer/issues/2774)
+
 ### 3.4.511.0
 
 * **Bug fix** Fix flaky test - break loop into smaller commits [(Issue #2756)](https://github.com/FoundationDB/fdb-record-layer/issues/2756)

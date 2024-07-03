@@ -22,7 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPlanReference;
+import com.apple.foundationdb.record.planprotos.PPlanReference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;

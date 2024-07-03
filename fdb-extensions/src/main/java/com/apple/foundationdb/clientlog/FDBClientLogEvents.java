@@ -765,7 +765,9 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return String.format("%016x%016x", part1, part2);
+            String hexPart1 = Long.toHexString(part1);
+            String hexPart2 = Long.toHexString(part2);
+            return ("0".repeat(16 - hexPart1.length())) + hexPart1 + ("0".repeat(16 - hexPart2.length())) + hexPart2;
         }
     }
 

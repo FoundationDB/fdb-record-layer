@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -689,11 +689,11 @@ class BooleanValueTest {
     protected static Value verifySerialization(@Nonnull final Value value) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        final RecordQueryPlanProto.PValue planProto = value.toValueProto(serializationContext);
+        final PValue planProto = value.toValueProto(serializationContext);
         final byte[] serializedValue = planProto.toByteArray();
-        final RecordQueryPlanProto.PValue parsedValueProto;
+        final PValue parsedValueProto;
         try {
-            parsedValueProto = RecordQueryPlanProto.PValue.parseFrom(serializedValue);
+            parsedValueProto = PValue.parseFrom(serializedValue);
         } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
         }

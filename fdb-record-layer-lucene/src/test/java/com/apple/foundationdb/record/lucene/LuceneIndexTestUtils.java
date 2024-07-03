@@ -615,7 +615,7 @@ public class LuceneIndexTestUtils {
         if (useRewritePlanner) {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
             if (Debugger.getDebugger() == null) {
-                Debugger.setDebugger(new DebuggerWithSymbolTables());
+                Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
             }
             Debugger.setup();
         } else {

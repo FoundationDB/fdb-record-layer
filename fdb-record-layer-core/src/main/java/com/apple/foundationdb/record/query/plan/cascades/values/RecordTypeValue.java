@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeValue;
+import com.apple.foundationdb.record.planprotos.PRecordTypeValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -117,7 +116,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
@@ -153,8 +152,8 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

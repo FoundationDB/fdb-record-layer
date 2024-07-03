@@ -495,7 +495,7 @@ public class FDBDirectory extends Directory  {
         }
         if (reference == null) {
             CompletableFuture<byte[]> exceptionalFuture = new CompletableFuture<>();
-            exceptionalFuture.completeExceptionally(new RecordCoreArgumentException(String.format("No reference with name %s was found", fileName)));
+            exceptionalFuture.completeExceptionally(new RecordCoreArgumentException("No reference with for file name was found").addLogInfo(LogMessageKeys.EXPECTED, fileName));
             return exceptionalFuture;
         }
         final long id = reference.getId();

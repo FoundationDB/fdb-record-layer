@@ -145,7 +145,7 @@ class JoinedRecordPlanner {
     private PendingJoin createPendingJoin(@Nonnull JoinedRecordType.Join join) {
         final PendingType pendingLeft = findPendingType(join.getLeft());
         final PendingType pendingRight = findPendingType(join.getRight());
-        final PendingJoin pendingJoin = new PendingJoin(join, pendingLeft, pendingRight, String.format("_j%d", ++bindingCounter));
+        final PendingJoin pendingJoin = new PendingJoin(join, pendingLeft, pendingRight, "_j" + (++bindingCounter));
         pendingLeft.pendingJoins.add(pendingJoin);
         pendingRight.pendingJoins.add(pendingJoin);
         return pendingJoin;

@@ -92,7 +92,7 @@ class TypeRepositoryTest {
         if (type instanceof Type.Record) {
             return 1 + ((Type.Record)type).getFields().stream().map(f -> countTypes(f.getFieldType())).reduce(0, Integer::sum);
         }
-        throw new IllegalArgumentException(String.format("unexpected type %s", type.getTypeCode().toString()));
+        throw new IllegalArgumentException("unexpected type " + type.getTypeCode().toString());
     }
 
     private static Type generateRandomTypeInternal(int depth) {

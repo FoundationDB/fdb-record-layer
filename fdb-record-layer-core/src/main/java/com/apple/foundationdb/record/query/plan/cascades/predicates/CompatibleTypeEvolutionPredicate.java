@@ -29,13 +29,15 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCompatibleTypeEvolutionPredicate;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCompatibleTypeEvolutionPredicate.PRecordTypeNameFieldAccessPair;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldAccessTrieNode;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.planprotos.PCompatibleTypeEvolutionPredicate;
+import com.apple.foundationdb.record.planprotos.PCompatibleTypeEvolutionPredicate.PRecordTypeNameFieldAccessPair;
+import com.apple.foundationdb.record.planprotos.PFieldAccessTrieNode;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -162,17 +164,19 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-
-        final CompatibleTypeEvolutionPredicate otherCompatibleTypeEvolutionPredicate = (CompatibleTypeEvolutionPredicate)other;
-        return recordTypeNameFieldAccessMap.equals(otherCompatibleTypeEvolutionPredicate.recordTypeNameFieldAccessMap);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> {
+                    final CompatibleTypeEvolutionPredicate otherCompatibleTypeEvolutionPredicate = (CompatibleTypeEvolutionPredicate)other;
+                    return recordTypeNameFieldAccessMap.equals(
+                            otherCompatibleTypeEvolutionPredicate.recordTypeNameFieldAccessMap);
+                });
     }
 
     @Nonnull
@@ -190,8 +194,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setCompatibleTypeEvolutionPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setCompatibleTypeEvolutionPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

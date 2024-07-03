@@ -445,6 +445,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
+        return update(oldRecord, newRecord, null);
+    }
+
+    @Nonnull
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                       @Nullable FDBIndexableRecord<M> newRecord,
+                                                       @Nullable Integer destinationPartitionIdHint) {
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
         // Extract information for grouping from old and new records
@@ -477,7 +484,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> {
                     try {
                         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
-                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey()).thenApply(partitionId -> {
+                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint).thenApply(partitionId -> {
                                     try {
                                         writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
                                     } catch (IOException e) {

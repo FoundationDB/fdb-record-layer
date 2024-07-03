@@ -24,9 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PAndOrPredicate;
+import com.apple.foundationdb.record.planprotos.PAndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.google.common.base.Equivalence;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -47,8 +48,8 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     @Nonnull
     private final List<QueryPredicate> children;
 
-    private final Supplier<Set<Equivalence.Wrapper<QueryPredicate>>> childrenAsSetSupplier =
-            Suppliers.memoize(() -> computeChildrenAsSet(getChildren(), AliasMap.identitiesFor(getCorrelatedTo())));
+    private final Supplier<Set<QueryPredicate>> childrenAsSetSupplier =
+            Suppliers.memoize(() -> ImmutableSet.copyOf(getChildren()));
 
     protected AndOrPredicate(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PAndOrPredicate andOrPredicateProto) {
         super(serializationContext, Objects.requireNonNull(andOrPredicateProto.getSuper()));
@@ -59,13 +60,13 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         this.children = childrenBuilder.build();
     }
 
-    protected AndOrPredicate(@Nonnull final List<QueryPredicate> children, final boolean isAtomic) {
+    protected AndOrPredicate(@Nonnull final List<? extends QueryPredicate> children, final boolean isAtomic) {
         super(isAtomic);
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }
 
-        this.children = children;
+        this.children = ImmutableList.copyOf(children);
     }
 
     @Nonnull
@@ -75,7 +76,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     }
 
     @Nonnull
-    private Set<Equivalence.Wrapper<QueryPredicate>> getChildrenAsSet() {
+    private Set<QueryPredicate> getChildrenAsSet() {
         return childrenAsSetSupplier.get();
     }
 
@@ -83,21 +84,20 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
     @SuppressWarnings({"squid:S1206", "EqualsWhichDoesntCheckParameterClass"})
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    @Nonnull
     @Override
-    public boolean equalsForChildren(@Nonnull final QueryPredicate otherPred, @Nonnull final AliasMap aliasMap) {
-        final var andOrPredicateOptional = otherPred.narrowMaybe(AndOrPredicate.class);
+    public BooleanWithConstraint equalsForChildren(@Nonnull final QueryPredicate other,
+                                                   @Nonnull final ValueEquivalence valueEquivalence) {
+        final var andOrPredicateOptional = other.narrowMaybe(AndOrPredicate.class);
         if (andOrPredicateOptional.isEmpty()) {
-            return false;
+            return BooleanWithConstraint.falseValue();
         }
-        final var andOrPredicate = andOrPredicateOptional.get();
+        final var that = andOrPredicateOptional.get();
 
-        if (aliasMap.definesOnlyIdentities() && getCorrelatedTo().containsAll(aliasMap.sources())) {
-            return getChildrenAsSet().equals(andOrPredicate.getChildrenAsSet());
-        }
-        return super.equalsForChildren(otherPred, aliasMap);
+        return valueEquivalence.semanticEquals(getChildrenAsSet(), that.getChildrenAsSet());
     }
 
     @Override
@@ -128,14 +128,5 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         children.add(second);
         Collections.addAll(children, operands);
         return children;
-    }
-
-    @Nonnull
-    private static Set<Equivalence.Wrapper<QueryPredicate>> computeChildrenAsSet(@Nonnull final List<? extends QueryPredicate> children,
-                                                                                 @Nonnull final AliasMap aliasMap)  {
-        final var equivalence = new BoundEquivalence<QueryPredicate>(aliasMap);
-        final var resultBuilder = ImmutableSet.<Equivalence.Wrapper<QueryPredicate>>builder();
-        children.forEach(child -> resultBuilder.add(equivalence.wrap(child)));
-        return resultBuilder.build();
     }
 }

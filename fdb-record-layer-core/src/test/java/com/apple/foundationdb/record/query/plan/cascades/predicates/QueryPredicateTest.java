@@ -24,16 +24,16 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.DefaultQueryPredicateRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithCnfRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithDnfRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -124,7 +124,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
     };
@@ -144,7 +144,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
     };
@@ -164,7 +164,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
     };

@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PArrayCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPrimitiveCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPrimitiveCoercionBiFunction.PPhysicalOperator;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPromoteValue;
+import com.apple.foundationdb.record.planprotos.PArrayCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PPrimitiveCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PPrimitiveCoercionBiFunction.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PPromoteValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -277,7 +277,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -295,8 +295,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setPromoteValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setPromoteValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

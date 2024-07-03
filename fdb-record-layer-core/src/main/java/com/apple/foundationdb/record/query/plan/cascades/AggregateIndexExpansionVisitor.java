@@ -177,7 +177,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                     // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
                     final var maybePlaceholder = baseExpansion.getPlaceholders()
                             .stream()
-                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
                             .findFirst();
                     if (maybePlaceholder.isEmpty()) {
                         predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
@@ -209,7 +209,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     private Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
-            throw new UnsupportedOperationException(String.format("aggregate index is expected to contain exactly one aggregation, however it contains %d aggregations", groupingKeyExpression.getGroupedCount()));
+            throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
         final Value groupedValue = groupingKeyExpression.getGroupedCount() == 0
                                    ? EmptyValue.empty()

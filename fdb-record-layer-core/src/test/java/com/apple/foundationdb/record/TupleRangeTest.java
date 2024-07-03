@@ -100,7 +100,7 @@ public class TupleRangeTest {
                 new TupleRange(Tuple.from(1066), Tuple.from(1066), EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING)
         );
         testRanges.forEach(range ->
-                assertThrows(RecordCoreException.class, range::toRange, () -> String.format("range %s should have thrown an error", range))
+                assertThrows(RecordCoreException.class, range::toRange, () -> "range " + range + " should have thrown an error")
         );
     }
 }

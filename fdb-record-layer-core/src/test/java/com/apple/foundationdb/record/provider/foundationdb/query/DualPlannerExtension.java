@@ -119,7 +119,7 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
         private final List<Extension> extensions;
 
         public DualPlannerTestInvocationContext(String testName, boolean useCascadesPlanner) {
-            this.displayName = String.format("%s[%s]", testName, useCascadesPlanner ? "cascades" : "old");
+            this.displayName = testName + "[" + (useCascadesPlanner ? "cacades" : "old") + "]";
             this.extensions = List.of(setPlannerExtension(useCascadesPlanner));
         }
 

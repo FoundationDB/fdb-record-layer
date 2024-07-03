@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
@@ -61,13 +62,15 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
 
     protected FDBRecordStore recordStore;
     protected QueryPlanner planner;
+    @Nullable
+    protected KeySpacePath path;
 
     public FDBRecordStoreTestBase() {
         this(null);
     }
 
     public FDBRecordStoreTestBase(@Nullable KeySpacePath path) {
-        super(path);
+        this.path = path == null ? pathManager.createPath(TestKeySpace.RECORD_STORE) : path;
     }
 
     @Nonnull
@@ -101,12 +104,17 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         void open(FDBRecordContext context) throws Exception;
     }
 
-    @Override
-    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
-        Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = super.createOrOpenRecordStore(context, metaData);
+    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context,
+                                                                         @Nonnull RecordMetaData metaData) {
+        Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = createOrOpenRecordStore(context, metaData, path);
         recordStore = recordStoreQueryPlannerPair.getLeft();
         planner = recordStoreQueryPlannerPair.getRight();
         return recordStoreQueryPlannerPair;
+    }
+
+    @Nonnull
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+        return getStoreBuilder(context, metaData, path);
     }
 
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {

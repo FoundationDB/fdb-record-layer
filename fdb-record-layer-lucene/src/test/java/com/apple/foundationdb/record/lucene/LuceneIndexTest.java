@@ -149,6 +149,8 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK;
+import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.ANALYZER_CHOOSER_TEST_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY;
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY;
@@ -213,6 +215,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -428,15 +431,6 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setPlanOtherAttemptWholeFilter(false)
                 .build());
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
-    }
-
-    @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
-        return FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
-                .setKeySpacePath(path)
-                .setContext(context)
-                .setMetaDataProvider(metaData);
     }
 
     @Override
@@ -1751,6 +1745,241 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         return hits.stream().map(Map.Entry::getKey).collect(Collectors.toList());
     }
 
+    static Stream<Arguments> integratedConsolidationTest() {
+        return Stream.of(true, false).flatMap(isSynthetic ->
+                Stream.of(
+                        // arguments: isSynthetic, high, low, repartitionCount, total docs created, counts to delete from partitions
+
+                        // -> start with 3 partitions, 8 docs each,
+                        Arguments.of(isSynthetic, 8, 5, 2, 24, new int[] {4, 4, 0}), // delete 4 from oldest, 4 from middle
+                        // -> start with 3 partitions, 8 docs each,
+                        Arguments.of(isSynthetic, 8, 5, 2, 24, new int[] {2, 4, 2}), // delete 2 from oldest, 4 from middle, 2 from newest
+                        // -> start with 2 partitions, 6 and 8 docs respectively,
+                        Arguments.of(isSynthetic, 8, 5, 2, 14, new int[] {2, 4}), // delete 2 from oldest, 4 from newest
+                        // -> start with 2 partitions, 5 and 8 docs respectively
+                        Arguments.of(isSynthetic, 8, 5, 2, 13, new int[] {1, 1}) // delete 1 from oldest, 1 from newest
+                ));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void integratedConsolidationTest(boolean isSynthetic,
+                                     int highWatermark,
+                                     int lowWatermark,
+                                     int repartitionDocCount,
+                                     int docCount,
+                                     int... docCountsToDelete) throws IOException {
+        final Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
+                PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(lowWatermark),
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWatermark));
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        final Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionDocCount)
+                .build();
+
+        final long start = Instant.now().toEpochMilli();
+        final String textFieldValue = "A word about what I want to say";
+        final String luceneSearch = isSynthetic ? "simple_text:about" : "text:about";
+        final Tuple groupTuple = Tuple.from(1L);
+
+        Map<Tuple, Tuple> primaryKeyToTimestamp = new HashMap<>();
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            for (int i = 0; i < docCount; i++) {
+                long timestamp = start + i * 100000L;
+                long complexDocId = 1000L + i;
+                long simpleDocId = 1000L - i;
+                final Tuple primaryKey;
+                ComplexDocument complexDocument = ComplexDocument.newBuilder()
+                        .setGroup(1L)
+                        .setDocId(complexDocId)
+                        .setIsSeen(true)
+                        .setText(textFieldValue)
+                        .setTimestamp(timestamp)
+                        .setHeader(ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
+                        .build();
+                if (isSynthetic) {
+                    TestRecordsTextProto.SimpleDocument simpleDocument = TestRecordsTextProto.SimpleDocument.newBuilder()
+                            .setGroup(1L)
+                            .setDocId(simpleDocId)
+                            .setText(textFieldValue)
+                            .build();
+                    final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
+                            .getSyntheticRecordType("luceneJoinedPartitionedIdx")
+                            .getRecordTypeKeyTuple();
+                    primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
+                            recordStore.saveRecord(complexDocument).getPrimaryKey().getItems(),
+                            recordStore.saveRecord(simpleDocument).getPrimaryKey().getItems());
+                } else {
+                    primaryKey = recordStore.saveRecord(complexDocument).getPrimaryKey();
+                }
+                primaryKeyToTimestamp.put(primaryKey, Tuple.from(timestamp));
+            }
+            commit(context);
+        }
+
+        // initially, all documents are saved into one partition
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                groupTuple, contextProps, schemaSetup);
+        assertEquals(1, partitionInfos.size());
+        assertEquals(docCount, partitionInfos.get(0).getCount());
+
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        // get partitions for all groups, post re-partitioning
+        partitionInfos = getPartitionMeta(index, groupTuple, contextProps, schemaSetup);
+
+        LuceneIndexTestValidator luceneIndexTestValidator =
+                new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+                    schemaSetup.accept(context);
+                    return recordStore;
+                });
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+
+        // next delete some docs
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+
+            Collections.reverse(partitionInfos);
+            List<Tuple> sortedPrimaryKeys = primaryKeyToTimestamp.keySet().stream().sorted().collect(Collectors.toList());
+            int docOffset = 0;
+            for (int i = 0; i < docCountsToDelete.length; i++) {
+                int howManyToDelete = docCountsToDelete[i];
+                for (int j = 0; j < howManyToDelete; j++) {
+                    Tuple primaryKeyToDelete = sortedPrimaryKeys.get(docOffset + j);
+                    if (isSynthetic) {
+                        Tuple complexDocKey = Tuple.fromList((List<?>)primaryKeyToDelete.get(1));
+                        Tuple simpleDocKey = Tuple.fromList((List<?>)primaryKeyToDelete.get(2));
+                        recordStore.deleteRecord(complexDocKey);
+                        recordStore.deleteRecord(simpleDocKey);
+                    } else {
+                        recordStore.deleteRecord(primaryKeyToDelete);
+                    }
+                    primaryKeyToTimestamp.remove(primaryKeyToDelete);
+                }
+                docOffset += partitionInfos.get(i).getCount();
+            }
+            context.commit();
+        }
+        // run re-partitioning
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        // validate that after merge, partitions have been adjusted as expected
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), Map.of(groupTuple, primaryKeyToTimestamp), Integer.MAX_VALUE, luceneSearch, false);
+    }
+
+    static Stream<Arguments> simplePartitionConsolidationTest() {
+        // arguments:
+        // - low watermark
+        // - high watermark
+        // - repartition doc count
+        // - the first int array is the count of docs in each partition, starting with
+        //   the oldest partition -> newest
+        // - the second int array is the resulting count of docs in each partition
+        //   after merge, in the same order
+
+        return Stream.of(
+                // consolidate two low partitions into one
+                Arguments.of(2, 4, 3, new int[] {1, 1}, new int[] {2}),
+                // consolidate a partition into its previous neighbor
+                Arguments.of(2, 4, 3, new int[] {2, 2, 1}, new int[] {2, 3}),
+                // consolidate a partition falling between two partitions with capacity into its previous neighbor
+                Arguments.of(3, 7, 3, new int[] {5, 2, 5}, new int[] {7, 5}),
+                // consolidate a partition falling between two partitions which individually don't have enough
+                // capacity, but together they do
+                Arguments.of(3, 7, 3, new int[] {6, 2, 6}, new int[] {7, 7}),
+                // cannot consolidate a partition that has no neighbors with capacity
+                Arguments.of(3, 7, 3, new int[] {6, 2, 7}, new int[] {6, 2, 7}),
+                // cannot consolidate a partition that has no neighbors with capacity
+                Arguments.of(3, 7, 3, new int[] {7, 2, 6}, new int[] {7, 2, 6}),
+                // cannot consolidate partitions that have no neighbors with capacity
+                Arguments.of(3, 7, 3, new int[] {6, 2, 7, 3}, new int[] {6, 2, 7, 3}),
+                Arguments.of(4, 7, 3, new int[] {6, 3, 4, 5, 5, 5, 5}, new int[] {6, 7, 5, 5, 5, 5}),
+                // consolidate one partition that has a neighbor with capacity, while another
+                // that doesn't, won't be consolidated
+                Arguments.of(3, 7, 3, new int[] {6, 2, 6, 1}, new int[] {6, 2, 7}),
+                // splitting one partition, removes the need to consolidate a previous low partition
+                Arguments.of(3, 7, 3, new int[] {6, 1, 8}, new int[] {6, 4, 5}),
+                // consolidating two neighboring partitions into their left and right neighbors
+                Arguments.of(3, 7, 3, new int[] {6, 1, 1, 6}, new int[] {7, 7}),
+                // two low partitions merge into one
+                Arguments.of(5, 7, 3, new int[] {3, 4}, new int[] {7}),
+                // multiple-stage split
+                Arguments.of(3, 7, 3, new int[] { 15 }, new int[] {6, 3, 6}),
+                // move more than 2x the repartition count
+                Arguments.of(3, 6, 2, new int[] { 13, 2 }, new int[] {6, 2, 5, 2}),
+                // ensure it won't move 3 from second partition to first
+                Arguments.of(10, 20, 3, new int[] {15, 8, 20}, new int[] {15, 8, 20})
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void simplePartitionConsolidationTest(int lowWatermark,
+                                          int highWatermark,
+                                          int repartitionCount,
+                                          int[] initialPartitionCounts,
+                                          int[] expectedPartitionCounts) throws IOException {
+        boolean isSynthetic = false;
+
+        Map<String, String> options = Map.of(
+                INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
+                INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWatermark),
+                INDEX_PARTITION_LOW_WATERMARK, String.valueOf(lowWatermark)
+                );
+        Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
+        Index index = indexConsumerPair.getLeft();
+        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+
+        final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
+                .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
+                .build();
+
+        final String luceneSearch = "text:vision";
+        Map<Tuple, Map<Tuple, Tuple>> createdKeys;
+        try (FDBRecordContext context = openContext(contextProps)) {
+            schemaSetup.accept(context);
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            createdKeys = createPartitionsAndComplexDocs(index, initialPartitionCounts);
+            context.commit();
+        }
+
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index,
+                Tuple.from(1), contextProps, schemaSetup);
+
+        // getPartitionMeta() returns partitions sorted by `from` in descending order.
+        // the rest of this test assumes they're sorted in ascending order, so we reverse.
+        Collections.reverse(partitionInfos);
+
+        // assert sane initial setup
+        assertEquals(initialPartitionCounts.length, partitionInfos.size());
+        assertArrayEquals(initialPartitionCounts, partitionInfos.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getCount).toArray());
+
+        explicitMergeIndex(index, contextProps, schemaSetup);
+
+        partitionInfos = getPartitionMeta(index, Tuple.from(1), contextProps, schemaSetup);
+        partitionInfos.sort(Comparator.comparing(pInfo -> Tuple.fromBytes(pInfo.getFrom().toByteArray())));
+
+        // assert correct partition setup after repartitioning
+        assertEquals(expectedPartitionCounts.length, partitionInfos.size());
+        assertArrayEquals(expectedPartitionCounts, partitionInfos.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getCount).toArray());
+
+        LuceneIndexTestValidator luceneIndexTestValidator =
+                new LuceneIndexTestValidator(() -> openContext(contextProps), context -> {
+                    schemaSetup.accept(context);
+                    return recordStore;
+                });
+        luceneIndexTestValidator.validate(Objects.requireNonNull(index), createdKeys, Integer.MAX_VALUE, luceneSearch, false);
+    }
+
     @Test
     void simpleCrossPartitionQuery() {
         try (FDBRecordContext context = openContext()) {
@@ -2086,11 +2315,38 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         yesterday = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
     }
 
+    Map<Tuple, Map<Tuple, Tuple>> createPartitionsAndComplexDocs(Index index, int[] docCounts) {
+        // make partition ids not sequential relative to their from/to ranges
+        List<Integer> partitionIds = IntStream.rangeClosed(0, docCounts.length - 1).boxed().collect(Collectors.toList());
+        Collections.shuffle(partitionIds);
+
+        Map<Tuple, Map<Tuple, Tuple>> keys = new HashMap<>();
+        Tuple groupingKey = Tuple.from(1L);
+        keys.put(groupingKey, new HashMap<>());
+        long startTime = 1000;
+        for (int i = 0; i < docCounts.length; i++) {
+            long from = startTime * (i + 1);
+            long to = from + 999;
+
+            createPartitionMetadata(index, groupingKey, partitionIds.get(i), from, to);
+
+            for (int j = 0; j < docCounts[i]; j++) {
+                long timestamp = ThreadLocalRandom.current().nextLong(from, to + 1);
+                keys.get(groupingKey).put(recordStore.saveRecord(createComplexDocument(i * 100L + j, ENGINEER_JOKE, 1, timestamp)).getPrimaryKey(), Tuple.from(timestamp));
+            }
+        }
+        return keys;
+    }
+
     void createDualPartitionsWithComplexDocs(int docCount) {
+        createDualPartitionsWithComplexDocs(COMPLEX_PARTITIONED, docCount);
+    }
+
+    void createDualPartitionsWithComplexDocs(Index index, int docCount) {
         // two partitions: 0 and 1. 0 has older messages, 1 has newer.
         // doc keys in 0 start at (1, 0), doc keys in 1 start at (1, 1000)
-        createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1L), 0, timestamp60DaysAgo, timestamp30DaysAgo);
-        createPartitionMetadata(COMPLEX_PARTITIONED, Tuple.from(1L), 1, timestamp29DaysAgo, yesterday);
+        createPartitionMetadata(index, Tuple.from(1L), 0, timestamp60DaysAgo, timestamp30DaysAgo);
+        createPartitionMetadata(index, Tuple.from(1L), 1, timestamp29DaysAgo, yesterday);
         for (int i = 0; i < docCount; i++) {
             recordStore.saveRecord(createComplexDocument(i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp60DaysAgo, timestamp30DaysAgo + 1)));
         }
@@ -2279,24 +2535,28 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         param2 -> Arguments.of(indexedType, param2)));
     }
 
+    @Nonnull
+    private String specialCharacterText(String specialCharacter) {
+        return "Do we match special characters like " + specialCharacter + ", even when its mashed together like " + specialCharacter + "noSpaces?";
+    }
+
     @ParameterizedTest
     @MethodSource({"specialCharacterParams"})
     void insertAndSearchWithSpecialCharacters(IndexedType indexedType, String specialCharacter) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
-        String baseText = "Do we match special characters like %s, even when its mashed together like %snoSpaces?";
         try (FDBRecordContext context = openContext()) {
             if (indexedType.isSynthetic()) {
                 openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
-                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, String.format(baseText, specialCharacter, specialCharacter), "", true, System.currentTimeMillis(), 0);
-                createComplexRecordJoinedToSimple(1, 1547L, 1547L, String.format(baseText, " ", " "), "", true, System.currentTimeMillis(), 0);
+                Tuple primaryKey = createComplexRecordJoinedToSimple(2, 1623L, 1623L, specialCharacterText(specialCharacter), "", true, System.currentTimeMillis(), 0);
+                createComplexRecordJoinedToSimple(1, 1547L, 1547L, specialCharacterText(" "), "", true, System.currentTimeMillis(), 0);
                 timer.reset();
                 assertIndexEntryPrimaryKeyTuples(Set.of(primaryKey),
                         recordStore.scanIndex(index, fullTextSearch(index, specialCharacter), null, ScanProperties.FORWARD_SCAN));
             } else {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 //one document when the chars, one without
-                recordStore.saveRecord(createSimpleDocument(1623L, String.format(baseText, specialCharacter, specialCharacter), 2));
-                recordStore.saveRecord(createSimpleDocument(1547L, String.format(baseText, " ", " "), 1));
+                recordStore.saveRecord(createSimpleDocument(1623L, specialCharacterText(specialCharacter), 2));
+                recordStore.saveRecord(createSimpleDocument(1547L, specialCharacterText(" "), 1));
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, specialCharacter), null, ScanProperties.FORWARD_SCAN));
             }
@@ -5201,7 +5461,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     () -> recordStore.deleteRecordsWhere(SIMPLE_DOC, indexedType.isSynthetic() ? Query.field("simple").matches(qc) : qc));
             assertThat(err.getMessage(), containsString(indexedType.isSynthetic()
                     ? "deleteRecordsWhere not matching primary key " + SIMPLE_DOC
-                    : String.format("deleteRecordsWhere not supported by index %s", index.getName())));
+                    : "deleteRecordsWhere not supported by index " + index.getName()));
 
             FDBStoredRecord<? extends Message> storedRecord = indexedType.isSynthetic()
                                                     ? recordStore.loadSyntheticRecord(primaryKey).get().getConstituent("simple")
@@ -5379,12 +5639,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     if (indexedType.isSynthetic()) {
                         int newId = group + (int) docId;
                         createComplexRecordJoinedToSimple(newId, newId, newId,
-                                TextSamples.TELUGU, String.format("hello there %d", group), false, System.currentTimeMillis(), group);
+                                TextSamples.TELUGU, "hello there " + group, false, System.currentTimeMillis(), group);
                     } else {
                         ComplexDocument doc = ComplexDocument.newBuilder()
                                 .setGroup(group)
                                 .setDocId(docId)
-                                .setText(String.format("hello there %d", group))
+                                .setText("hello there " + group)
                                 .setText2(TextSamples.TELUGU)
                                 .build();
                         recordStore.saveRecord(doc);
@@ -5422,7 +5682,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName(indexedType.isSynthetic() ? "text2" : "text");
                     assertTrue(record.hasField(textFieldDescriptor));
                     final String textField = (String)record.getField(textFieldDescriptor);
-                    assertEquals(String.format("hello there %d", group), textField);
+                    assertEquals("hello there " + group, textField);
 
                     final IndexEntry entry = result.getIndexEntry();
                     Assertions.assertNotNull(entry);
@@ -5468,7 +5728,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         final Descriptors.FieldDescriptor textFieldDescriptor = descriptor.findFieldByName("text");
                         assertTrue(record.hasField(textFieldDescriptor));
                         final String textField = (String)record.getField(textFieldDescriptor);
-                        assertEquals(String.format("hello there %d", group), textField);
+                        assertEquals("hello there " + group, textField);
                         final IndexEntry entry = result.getIndexEntry();
                         Assertions.assertNotNull(entry);
                         Tuple primaryKey = entry.getPrimaryKey();

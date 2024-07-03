@@ -26,14 +26,16 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PValuePredicate;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
+import com.apple.foundationdb.record.planprotos.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -142,7 +144,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
@@ -160,14 +162,18 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return Objects.hash(value.semanticHashCode(), comparison.semanticHashCode());
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!PredicateWithValue.super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-        final ValuePredicate that = (ValuePredicate)other;
-        return value.semanticEquals(that.value, aliasMap) &&
-               comparison.semanticEquals(that.comparison, aliasMap);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+        return PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence)
+                .compose(ignored -> {
+                    final ValuePredicate that = (ValuePredicate)other;
+                    return value.semanticEquals(that.value, valueEquivalence);
+                })
+                .compose(ignored -> {
+                    final ValuePredicate that = (ValuePredicate)other;
+                    return comparison.semanticEquals(that.comparison, valueEquivalence);
+                });
     }
 
     @Override
@@ -192,8 +198,8 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setValuePredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

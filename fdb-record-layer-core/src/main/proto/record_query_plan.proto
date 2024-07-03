@@ -19,12 +19,13 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record;
+package com.apple.foundationdb.record.planprotos;
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/any.proto";
 import "record_metadata.proto";
 
 option java_outer_classname = "RecordQueryPlanProto";
+option java_multiple_files = true;
 
 //
 // Type system
@@ -394,7 +395,8 @@ message PEmptyValue {
 }
 
 message PExistsValue {
-  optional PQuantifiedObjectValue child = 1;
+  optional PQuantifiedObjectValue child = 1; // deprecated
+  optional string alias = 2;
 }
 
 message PFieldValue {

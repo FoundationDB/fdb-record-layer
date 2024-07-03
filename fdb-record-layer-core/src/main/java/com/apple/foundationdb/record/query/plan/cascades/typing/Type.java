@@ -24,17 +24,18 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyRecordType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PAnyType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PArrayType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PEnumType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PNoneType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PNullType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PPrimitiveType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PRecordType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PRelationType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PType.PTypeCode;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.planprotos.PType;
+import com.apple.foundationdb.record.planprotos.PType.PAnyRecordType;
+import com.apple.foundationdb.record.planprotos.PType.PAnyType;
+import com.apple.foundationdb.record.planprotos.PType.PArrayType;
+import com.apple.foundationdb.record.planprotos.PType.PEnumType;
+import com.apple.foundationdb.record.planprotos.PType.PNoneType;
+import com.apple.foundationdb.record.planprotos.PType.PNullType;
+import com.apple.foundationdb.record.planprotos.PType.PPrimitiveType;
+import com.apple.foundationdb.record.planprotos.PType.PRecordType;
+import com.apple.foundationdb.record.planprotos.PType.PRelationType;
+import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
@@ -600,7 +601,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         if (typeCode.isPrimitive()) {
             return Type.primitiveType(typeCode, false);
         }
-        throw new RecordCoreException(String.format("Unable to convert %s to Type", object));
+        throw new RecordCoreException("Unable to convert value to Type")
+                .addLogInfo(LogMessageKeys.VALUE, object);
     }
 
     @Nonnull
@@ -624,11 +626,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     @Nonnull
-    RecordQueryPlanProto.PType toTypeProto(@Nonnull PlanSerializationContext serializationContext);
+    PType toTypeProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static Type fromTypeProto(@Nonnull final PlanSerializationContext serializationContext,
-                              @Nonnull final RecordQueryPlanProto.PType typeProto) {
+                              @Nonnull final PType typeProto) {
         return (Type)PlanSerialization.dispatchFromProtoContainer(serializationContext, typeProto);
     }
 
@@ -963,8 +965,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setPrimitiveType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setPrimitiveType(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1046,8 +1048,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setNullType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setNullType(toProto(serializationContext)).build();
         }
 
         @SuppressWarnings("unused")
@@ -1128,8 +1130,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setNoneType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setNoneType(toProto(serializationContext)).build();
         }
 
         @SuppressWarnings("unused")
@@ -1248,8 +1250,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setAnyType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setAnyType(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1378,8 +1380,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setAnyRecordType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setAnyRecordType(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1580,8 +1582,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setEnumType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setEnumType(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1982,8 +1984,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setRecordType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setRecordType(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2511,8 +2513,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setRelationType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setRelationType(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2727,8 +2729,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PType.newBuilder().setArrayType(toProto(serializationContext)).build();
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setArrayType(toProto(serializationContext)).build();
         }
 
         @Nonnull

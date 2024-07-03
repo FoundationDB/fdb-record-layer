@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PScanComparisons;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.planprotos.PScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -38,13 +38,13 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Extractor;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -423,7 +423,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object o) {
-        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(o, AliasMap.emptyMap());
     }
 
     @Override

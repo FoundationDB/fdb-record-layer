@@ -57,8 +57,11 @@ public class GeophileBoxLatLon {
                 ? new Box(latLo, latHi, lonLo, lonHi)
                 : new GeophileBoxLatLonWithWraparound(latLo, latHi, lonLo, lonHi);
         } catch (IllegalArgumentException ex) {
-            throw new RecordCoreArgumentException(String.format("cannot make box: latLo = %s, latHi = %s, lonLo = %s, lonHi = %s",
-                                                                latLo, latHi, lonLo, lonHi), ex);
+            throw new RecordCoreArgumentException("cannot make box", ex)
+                    .addLogInfo("latLo", latLo)
+                    .addLogInfo("latHi", latHi)
+                    .addLogInfo("lonLo", lonLo)
+                    .addLogInfo("lonHi", lonHi);
         }
     }
 
@@ -66,7 +69,7 @@ public class GeophileBoxLatLon {
     // This calculation can put us past min/max lon.
     private static double fixLon(double lon) {
         if (lon > GeophileSpatial.MAX_LON + CIRCLE || lon < GeophileSpatial.MIN_LON - CIRCLE) {
-            throw new RecordCoreArgumentException(String.format("longitude %s", lon));
+            throw new RecordCoreArgumentException("Invalid longitude").addLogInfo("longitude", lon);
         }
         if (lon < GeophileSpatial.MIN_LON) {
             lon += CIRCLE;
@@ -79,7 +82,7 @@ public class GeophileBoxLatLon {
     // Fix lat by truncating at +/-90
     private static double fixLat(double lat) {
         if (lat > GeophileSpatial.MAX_LAT + CIRCLE || lat < GeophileSpatial.MIN_LAT - CIRCLE) {
-            throw new RecordCoreArgumentException(String.format("latitude %s", lat));
+            throw new RecordCoreArgumentException("Invalid latitude").addLogInfo("latitude", lat);
         }
         if (lat > GeophileSpatial.MAX_LAT) {
             lat = GeophileSpatial.MAX_LAT;

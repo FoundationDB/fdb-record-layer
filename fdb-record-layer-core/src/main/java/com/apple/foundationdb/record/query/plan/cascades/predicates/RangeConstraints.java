@@ -25,18 +25,22 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCompilableRange;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRangeConstraints;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexComparison;
+import com.apple.foundationdb.record.planprotos.PCompilableRange;
+import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +63,7 @@ import java.util.stream.Collectors;
  * Represents a compile-time range that can be evaluated against other compile-time ranges with an optional list
  * of deferred ranges that cannot be evaluated at compile-time but can still be used as scan index prefix.
  */
-public class RangeConstraints implements PlanHashable, Correlated<RangeConstraints>, PlanSerializable {
+public class RangeConstraints implements PlanHashable, Correlated<RangeConstraints>, UsesValueEquivalence<RangeConstraints>, PlanSerializable {
 
     @Nonnull
     private final Supplier<List<Comparisons.Comparison>> comparisonsCalculator;
@@ -360,47 +364,47 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (other == null) {
+            return false;
+        }
+
         if (this == other) {
             return true;
         }
-        if (other == null || getClass() != other.getClass()) {
+
+        if (this.getClass() != other.getClass()) {
             return false;
         }
 
-        final var that = (RangeConstraints)other;
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
+    }
 
-        if (deferredRanges.size() != that.deferredRanges.size()) {
-            return false;
+    @Nonnull
+    @Override
+    public BooleanWithConstraint semanticEqualsTyped(@Nonnull final RangeConstraints other,
+                                                     @Nonnull final ValueEquivalence valueEquivalence) {
+        if (deferredRanges.size() != other.deferredRanges.size()) {
+            return BooleanWithConstraint.falseValue();
         }
 
-        if (!deferredRanges.stream().allMatch(left -> that.deferredRanges.stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
-            return false;
+        var deferredRangesEquals =
+                valueEquivalence.semanticEquals(deferredRanges, other.deferredRanges);
+        if (deferredRangesEquals.isFalse()) {
+            return BooleanWithConstraint.falseValue();
         }
 
-        final var inverseAliasMap = aliasMap.inverse();
-
-        if (!that.deferredRanges.stream().allMatch(left -> deferredRanges.stream().anyMatch(right -> left.semanticEquals(right, inverseAliasMap)))) {
-            return false;
+        if (evaluableRange == null && other.evaluableRange == null) {
+            return deferredRangesEquals;
         }
 
-        if (evaluableRange == null && that.evaluableRange == null) {
-            return true;
-        }
-
-        if (evaluableRange == null || that.evaluableRange == null) {
-            return false;
-        }
-
-        if (evaluableRange.compilableComparisons.size() != that.evaluableRange.compilableComparisons.size()) {
-            return false;
-        }
-
-        if (!evaluableRange.compilableComparisons.stream().allMatch(left -> that.evaluableRange.compilableComparisons.stream().anyMatch(right -> left.semanticEquals(right, aliasMap)))) {
-            return false;
-        }
-
-        return that.evaluableRange.compilableComparisons.stream().allMatch(
-                left -> evaluableRange.compilableComparisons.stream().anyMatch(right -> left.semanticEquals(right, inverseAliasMap)));
+        return deferredRangesEquals
+                .compose(ignored -> {
+                    if (evaluableRange != null && other.evaluableRange != null) {
+                        return valueEquivalence.semanticEquals(evaluableRange.compilableComparisons,
+                                other.evaluableRange.compilableComparisons);
+                    }
+                    return BooleanWithConstraint.falseValue();
+                });
     }
 
     @Override
@@ -579,7 +583,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case IS_NULL:
                     return Range.singleton(boundary);
                 default:
-                    throw new RecordCoreException(String.format("can not transform '%s' to range", comparison));
+                    throw new RecordCoreException("cannot transform comparison to range").addLogInfo(LogMessageKeys.COMPARISON_VALUE, comparison);
             }
         }
 
@@ -685,7 +689,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case LIKE:
                     return false;
                 default:
-                    throw new RecordCoreException(String.format("unexpected comparison type '%s'", comparison.getType()));
+                    throw new RecordCoreException("unexpected comparison type").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparison.getType());
             }
         }
 

@@ -57,6 +57,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -361,13 +362,18 @@ public class LuceneHighlighterTest {
         }
     }
 
+    @Nonnull
+    private String specialCharacterText(@Nonnull String specialCharacter) {
+        return "Do we match special characters like " + specialCharacter + " even when its mashed together like " + specialCharacter + "noSpaces?";
+    }
+
 
     @MethodSource("specialCharacterAnalyzerCombinations")
     @ParameterizedTest(name = "{0},{3}")
     void highlightsSpecialCharacterPrefixSearch(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
-        String text = String.format("Do we match special characters like %1$s even when its mashed together like %1$snoSpaces?", specialCharacter);
+        String text = specialCharacterText(specialCharacter);
 
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", specialCharacter.toLowerCase(Locale.ROOT)), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + specialCharacter.toLowerCase(Locale.ROOT) + "*", 1);
         Assertions.assertEquals(2, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...like " + specialCharacter + " even...like " + specialCharacter + "noSpaces?", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -383,9 +389,9 @@ public class LuceneHighlighterTest {
     @MethodSource("specialCharacterAnalyzerCombinations")
     @ParameterizedTest(name = "{0},{3}")
     void highlightsSpecialCharacterTerm(String ignored, Analyzer queryAnalyzer, Analyzer indexAnalyzer, String specialCharacter) throws Exception {
-        String text = String.format("Do we match special characters like %1$s even when its mashed together like %1$snoSpaces?", specialCharacter);
+        String text = specialCharacterText(specialCharacter);
 
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s", specialCharacter.toLowerCase(Locale.ROOT)), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + specialCharacter.toLowerCase(Locale.ROOT), 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         Assertions.assertEquals("...like " + specialCharacter + " even...", result.getSummarizedText(), "Incorrect summary string!");
         for (int i = 0; i < result.getNumHighlights(); i++) {
@@ -406,7 +412,7 @@ public class LuceneHighlighterTest {
         String text = "This is a " + longTerm + "  I think, but maybe not also because things are weird";
 
         int maxTokenSize = getMaxTokenSize(queryAnalyzer);
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", longTerm.toLowerCase(Locale.ROOT).substring(0, maxTokenSize - 1)), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + longTerm.toLowerCase(Locale.ROOT).substring(0, maxTokenSize - 1) + "*", 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
         if ("Ngram".equals(name)) {
             Assertions.assertEquals("...a " + longTerm + "  ...", result.getSummarizedText(), "Incorrect summary string!");
@@ -440,7 +446,7 @@ public class LuceneHighlighterTest {
 
 
         final String prefix = longTerm.substring(0, 25);
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", prefix.toLowerCase(Locale.ROOT)), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + prefix.toLowerCase(Locale.ROOT) + "*", 1);
         Assertions.assertEquals(1, result.getNumHighlights(), "Incorrect number of highlights!");
 
 
@@ -474,7 +480,7 @@ public class LuceneHighlighterTest {
         String longTerm = "reallyLongTermWhichTakesHundredsAndHundredsNoIMeanItLotsAndLotsOfCharactersSoItWillExceedTheLimitOfOurConfigurations";
         String text = "This is a " + longTerm + "  I think, but maybe not also because things are weird";
 
-        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, String.format("text:%s*", longTerm.toLowerCase(Locale.ROOT)), 1);
+        HighlightedTerm result = doHighlight(queryAnalyzer, indexAnalyzer, text, "text:" + longTerm.toLowerCase(Locale.ROOT) + "*", 1);
 
         int maxTokenSize = getMaxTokenSize(indexAnalyzer);
         if (maxTokenSize > 0) {

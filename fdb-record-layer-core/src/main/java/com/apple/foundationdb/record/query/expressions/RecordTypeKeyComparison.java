@@ -27,15 +27,15 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeComparison;
+import com.apple.foundationdb.record.planprotos.PComparison;
+import com.apple.foundationdb.record.planprotos.PRecordTypeComparison;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
@@ -195,9 +195,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             if (newType == Comparisons.Type.EQUALS) {
                 return this;
             }
-            throw new RecordCoreException(String.format("'%s' expects '%s' comparison only",
-                    RecordTypeKeyComparison.class.getSimpleName(),
-                    Comparisons.Type.EQUALS.name()));
+            throw new RecordCoreException("'" + RecordTypeKeyComparison.class.getSimpleName() + "' expects '" + Comparisons.Type.EQUALS.name() + "' comparison only");
         }
 
         @Nullable
@@ -262,8 +260,8 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setRecordTypeComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setRecordTypeComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull

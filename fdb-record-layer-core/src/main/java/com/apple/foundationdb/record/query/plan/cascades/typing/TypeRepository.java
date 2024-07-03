@@ -65,9 +65,6 @@ public class TypeRepository {
     public static final TypeRepository EMPTY_SCHEMA = empty();
 
     @Nonnull
-    private static final String DUPLICATE_NAME_ERROR_MESSAGE = "duplicate name: %s";
-
-    @Nonnull
     private final FileDescriptorSet fileDescSet;
 
     @Nonnull
@@ -365,11 +362,16 @@ public class TypeRepository {
     }
 
     @Nonnull
+    private static String duplicateNameErrorMessage(@Nonnull String name) {
+        return "duplicate name: " + name;
+    }
+
+    @Nonnull
     private static Set<String> collectFileDescriptorNamesAndCheckForDupes(@Nonnull final FileDescriptorSet fileDescSet) {
         Set<String> result = new HashSet<>();
         for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
             if (result.contains(fdProto.getName())) {
-                throw new IllegalArgumentException(String.format(DUPLICATE_NAME_ERROR_MESSAGE, fdProto.getName()));
+                throw new IllegalArgumentException(duplicateNameErrorMessage(fdProto.getName()));
             }
             result.add(fdProto.getName());
         }
@@ -384,7 +386,7 @@ public class TypeRepository {
         String msgTypeNameShort = (scope == null ? msgType.getName() : scope + "." + msgType.getName());
 
         if (msgDescriptorMapFull.containsKey(msgTypeNameFull)) {
-            throw new IllegalArgumentException(String.format(DUPLICATE_NAME_ERROR_MESSAGE, msgTypeNameFull));
+            throw new IllegalArgumentException(duplicateNameErrorMessage(msgTypeNameFull));
         }
         if (msgDescriptorMapShort.containsKey(msgTypeNameShort)) {
             msgDupes.add(msgTypeNameShort);
@@ -408,7 +410,7 @@ public class TypeRepository {
         String enumTypeNameShort = (scope == null ? enumType.getName() : scope + "." + enumType.getName());
 
         if (enumDescriptorMapFull.containsKey(enumTypeNameFull)) {
-            throw new IllegalArgumentException(String.format(DUPLICATE_NAME_ERROR_MESSAGE, enumTypeNameFull));
+            throw new IllegalArgumentException(duplicateNameErrorMessage(enumTypeNameFull));
         }
         if (enumDescriptorMapShort.containsKey(enumTypeNameShort)) {
             enumDupes.add(enumTypeNameShort);

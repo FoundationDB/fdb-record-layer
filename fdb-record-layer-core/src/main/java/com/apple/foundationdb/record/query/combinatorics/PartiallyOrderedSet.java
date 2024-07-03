@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.query.combinatorics;
 
-import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Maps;
@@ -161,23 +161,25 @@ public class PartiallyOrderedSet<T> {
     }
 
     @Nonnull
-    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, BiMap<T, R>> mapFunction) {
-        final var elements = getSet();
-        final var elementsToMappedElementsMap = mapFunction.apply(elements);
+    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, Map<T, R>> mapFunction) {
+        return mapAll(mapFunction.apply(getSet()));
+    }
 
-        final var mappedElements = Sets.newLinkedHashSet(elementsToMappedElementsMap.values());
+    @Nonnull
+    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
+        final var mappedElements = Sets.newLinkedHashSet(map.values());
 
         final var resultDependencyMapBuilder = ImmutableSetMultimap.<R, R>builder();
         for (final var entry : getTransitiveClosure().entries()) {
             final var key = entry.getKey();
             final var value = entry.getValue();
 
-            if (elementsToMappedElementsMap.containsKey(key) && elementsToMappedElementsMap.containsKey(value)) {
-                resultDependencyMapBuilder.put(elementsToMappedElementsMap.get(key), elementsToMappedElementsMap.get(value));
+            if (map.containsKey(key) && map.containsKey(value)) {
+                resultDependencyMapBuilder.put(map.get(key), map.get(value));
             } else {
-                if (!elementsToMappedElementsMap.containsKey(value)) {
-                    // key depends on value that does not exist -- do not insert the dependency and also remove key
-                    final var mappedKey = elementsToMappedElementsMap.get(key);
+                if (!map.containsKey(value)) {
+                    // if key depends on value that does not exist -- do not insert the dependency and also remove key
+                    final var mappedKey = map.get(key);
                     if (mappedKey != null) {
                         mappedElements.remove(mappedKey);
                     }
@@ -185,27 +187,53 @@ public class PartiallyOrderedSet<T> {
             }
         }
 
+        // this needs the dependency map to be cleansed (which is done in the constructor)
         return PartiallyOrderedSet.of(mappedElements, resultDependencyMapBuilder.build());
     }
 
     /**
-     * Method that computes a new partially-ordered set that does not have any independent elements, i.e. elements
-     * that do not use exert dependencies and that are not dependent upon any other items.
-     * @param retainIfPredicate a predicate that can decide whether an independent element is removed or retained
+     * Method that computes a new partially-ordered set that only retains elements that pass the filtering predicate.
+     * The filtering is applied in a way that we do not break dependencies.
+     * @param predicate a predicate that can decide whether an independent element is removed or retained
      * @return a new {@link PartiallyOrderedSet}
      */
     @Nonnull
-    public PartiallyOrderedSet<T> filterIndependentElements(@Nonnull final Predicate<T> retainIfPredicate) {
-        final var filteredSet =
-                set.stream()
-                        .filter(element -> dependencyMap.containsKey(element) || dependencyMap.containsValue(element) || retainIfPredicate.test(element))
-                        .collect(ImmutableSet.toImmutableSet());
-        return PartiallyOrderedSet.of(filteredSet, getDependencyMap());
+    public PartiallyOrderedSet<T> filterElements(@Nonnull final Predicate<T> predicate) {
+        final var translationMap = ImmutableMap.<T, T>builder();
+        for (final var t : getSet()) {
+            if (predicate.test(t)) {
+                translationMap.put(t, t);
+            }
+        }
+
+        return mapAll(translationMap.build());
     }
 
     @Nonnull
     public static <T> PartiallyOrderedSet<T> empty() {
         return new PartiallyOrderedSet<>(ImmutableSet.of(), ImmutableSetMultimap.of());
+    }
+
+    @Nonnull
+    private static <T> SetMultimap<T, T> cleanseDependencyMap(@Nonnull final Set<T> set,
+                                                              @Nonnull final SetMultimap<T, T> dependencyMap) {
+        boolean needsCopy = false;
+        final ImmutableSetMultimap.Builder<T, T> cleanDependencyMapBuilder = ImmutableSetMultimap.builder();
+
+        for (final Map.Entry<T, T> entry : dependencyMap.entries()) {
+            final T key = entry.getKey();
+            final T value = entry.getValue();
+            if (set.contains(key) && set.contains(value)) {
+                cleanDependencyMapBuilder.put(key, entry.getValue());
+            } else {
+                // There is an entry we don't want in the dependency map.
+                needsCopy = true;
+            }
+        }
+        if (needsCopy) {
+            return cleanDependencyMapBuilder.build();
+        }
+        return dependencyMap;
     }
 
     /**
@@ -266,7 +294,7 @@ public class PartiallyOrderedSet<T> {
         }
 
         public EligibleSet<T> removeEligibleElements(@Nonnull final Set<T> toBeRemovedEligibleElements) {
-            Preconditions.checkArgument(eligibleElements().containsAll(toBeRemovedEligibleElements));
+            Debugger.sanityCheck(() -> Preconditions.checkArgument(eligibleElements().containsAll(toBeRemovedEligibleElements)));
 
             final var set = partiallyOrderedSet.getSet();
             final var newSetBuilder = ImmutableSet.<T>builder();
@@ -344,7 +372,7 @@ public class PartiallyOrderedSet<T> {
     }
 
     public static <T> PartiallyOrderedSet<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
-        return new PartiallyOrderedSet<>(set, DependencyUtils.cleanseDependencyMap(set, dependencyMap));
+        return new PartiallyOrderedSet<>(set, cleanseDependencyMap(set, dependencyMap));
     }
 
     @Nonnull
@@ -393,12 +421,12 @@ public class PartiallyOrderedSet<T> {
             return this;
         }
 
-        public Builder<T> addAll(@Nonnull final Iterable<T> additionalElements) {
+        public Builder<T> addAll(@Nonnull final Iterable<? extends T> additionalElements) {
             setBuilder.addAll(additionalElements);
             return this;
         }
 
-        public Builder<T> addListWithDependencies(@Nonnull final List<T> additionalElements) {
+        public Builder<T> addListWithDependencies(@Nonnull final List<? extends T> additionalElements) {
             setBuilder.addAll(additionalElements);
 
             final var iterator = additionalElements.iterator();

@@ -27,13 +27,14 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PAvg;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMax;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PMin;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PPhysicalOperator;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNumericAggregationValue.PSum;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMax;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMin;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PSum;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -85,7 +86,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     private final Value child;
 
     protected NumericAggregationValue(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final RecordQueryPlanProto.PNumericAggregationValue numericAggregationValueProto) {
+                                      @Nonnull final PNumericAggregationValue numericAggregationValueProto) {
         this.operator = PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getOperator()));
         this.child = Value.fromValueProto(serializationContext, Objects.requireNonNull(numericAggregationValueProto.getChild()));
     }
@@ -162,12 +163,12 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
-    public RecordQueryPlanProto.PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        RecordQueryPlanProto.PNumericAggregationValue.Builder builder = RecordQueryPlanProto.PNumericAggregationValue.newBuilder();
+    public PNumericAggregationValue toNumericAggregationValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        PNumericAggregationValue.Builder builder = PNumericAggregationValue.newBuilder();
         builder.setOperator(operator.toProto(serializationContext));
         builder.setChild(child.toValueProto(serializationContext));
         return builder.build();
@@ -247,8 +248,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueSum(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setNumericAggregationValueSum(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -310,8 +311,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueAvg(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setNumericAggregationValueAvg(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -379,8 +380,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueMin(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setNumericAggregationValueMin(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -448,8 +449,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setNumericAggregationValueMax(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setNumericAggregationValueMax(toProto(serializationContext)).build();
         }
 
         @Nonnull

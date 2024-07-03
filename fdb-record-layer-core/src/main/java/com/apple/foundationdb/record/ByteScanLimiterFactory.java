@@ -110,7 +110,7 @@ public class ByteScanLimiterFactory
 
         @Override
         public String toString() {
-            return String.format("ByteScanLimiter(%d limit, %d left)", originalLimit, bytesRemaining.get());
+            return "ByteScanLimiter(" + originalLimit + " limit, " + bytesRemaining.get() + " left)";
         }
     }
 
@@ -154,7 +154,7 @@ public class ByteScanLimiterFactory
 
         @Override
         public String toString() {
-            return String.format("ByteScanLimiter(UNLIMITED, %d scanned)", bytesScanned.get());
+            return "ByteScanLimiter(UNLIMITED, " + bytesScanned.get() + " scanned)";
         }
     }
 

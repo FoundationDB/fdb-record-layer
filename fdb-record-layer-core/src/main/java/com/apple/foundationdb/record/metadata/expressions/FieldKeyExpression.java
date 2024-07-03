@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -151,7 +152,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 case None:
                     throw new RecordCoreException("FanType.None with repeated field");
                 default:
-                    throw new RecordCoreException(String.format("unknown fan type: %s", fanType));
+                    throw new RecordCoreException("unknown fan type").addLogInfo(LogMessageKeys.VALUE, fanType);
             }
         } else if (fieldDescriptor != null && (nullStandin == Key.Evaluated.NullStandin.NOT_NULL || message.hasField(fieldDescriptor))) {
             Object value = message.getField(fieldDescriptor);
@@ -176,7 +177,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             case None:
                 return Collections.singletonList(Key.Evaluated.scalar(nullStandin));
             default:
-                throw new RecordCoreException(String.format("unknown fan type: %s", fanType));
+                throw new RecordCoreException("unknown fan type").addLogInfo(LogMessageKeys.VALUE, fanType);
         }
     }
 

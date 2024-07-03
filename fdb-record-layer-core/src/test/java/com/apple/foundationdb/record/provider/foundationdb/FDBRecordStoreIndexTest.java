@@ -1284,7 +1284,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     void markManyDisabled() {
         final Index[] indexes = new Index[100];
         for (int i = 0; i < indexes.length; i++) {
-            indexes[i] = new Index(String.format("index-%d", i), "str_value_indexed");
+            indexes[i] = new Index("index-" + i, "str_value_indexed");
         }
         final RecordMetaDataHook hook = metaData -> {
             final RecordTypeBuilder recordType = metaData.getRecordType("MySimpleRecord");

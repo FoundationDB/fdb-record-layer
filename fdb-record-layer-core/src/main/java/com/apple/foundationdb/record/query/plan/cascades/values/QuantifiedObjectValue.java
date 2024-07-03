@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PQuantifiedObjectValue;
+import com.apple.foundationdb.record.planprotos.PQuantifiedObjectValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -141,7 +140,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
@@ -169,9 +168,9 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
-        return RecordQueryPlanProto.PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
+        return PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
     }
 
     @Nonnull
