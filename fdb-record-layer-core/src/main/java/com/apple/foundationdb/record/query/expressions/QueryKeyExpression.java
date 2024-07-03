@@ -44,7 +44,7 @@ public class QueryKeyExpression {
     private static final ObjectPlanHash PARAMETER_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Parameter-Comparison");
 
     @Nonnull
-    private final QueryableKeyExpression keyExpression;
+    protected final QueryableKeyExpression keyExpression;
 
     public QueryKeyExpression(@Nonnull QueryableKeyExpression keyExpression) {
         this.keyExpression = keyExpression;
@@ -242,7 +242,7 @@ public class QueryKeyExpression {
     }
 
     @Nonnull
-    private QueryKeyExpressionWithComparison simpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
+    protected QueryKeyExpressionWithComparison simpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
         final Function<Object, Object> conversion = keyExpression.getComparandConversionFunction();
         if (conversion != null) {
             return new QueryKeyExpressionWithComparison(keyExpression, new ConversionSimpleComparison(type, comparand, conversion));
@@ -257,7 +257,7 @@ public class QueryKeyExpression {
     }
 
     @Nonnull
-    private QueryKeyExpressionWithComparison parameterComparison(@Nonnull Comparisons.Type type, @Nonnull String param) {
+    protected QueryKeyExpressionWithComparison parameterComparison(@Nonnull Comparisons.Type type, @Nonnull String param) {
         final Function<Object, Object> conversion = keyExpression.getComparandConversionFunction();
         if (conversion != null) {
             return new QueryKeyExpressionWithComparison(keyExpression, new ConversionParameterComparison(type, param, conversion));
