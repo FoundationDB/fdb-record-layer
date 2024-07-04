@@ -30,9 +30,11 @@ import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -48,6 +50,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests related to planning and executing queries with non-standard ordering.
@@ -210,6 +213,24 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
             expected = Lists.reverse(expected);
         }
         assertEquals(expected, actual);
+    }
+
+    @Test
+    void testUnionOrdered() throws Exception {
+        final RecordMetaDataHook hook = indexHook("order_desc_nulls_last");
+        loadRecords(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setSort(fullOrderingKey("order_desc_nulls_last"))
+                .setFilter(Query.or(
+                                Query.field("num_value_2").equalsValue(100),
+                                Query.field("num_value_2").equalsValue(101),
+                                Query.field("num_value_2").equalsValue(102)))
+                .build();
+        final List<Long> expected = List.of(1L, 5L, 4L, 3L, 2L, 6L);
+        final List<Long> actual = queryRecords(query, hook, true);
+        assertEquals(expected, actual);
+        assertTrue(planner.planQuery(query).getPlan() instanceof RecordQueryUnionOnKeyExpressionPlan);
     }
 
 }
