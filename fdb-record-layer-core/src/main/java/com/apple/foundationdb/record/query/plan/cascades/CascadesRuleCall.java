@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -61,6 +62,8 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private final Traversal traversal;
     @Nonnull
+    private final Deque<CascadesPlanner.Task> taskStack;
+    @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
     private final PlanContext context;
@@ -77,12 +80,14 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                             @Nonnull final CascadesRule<?> rule,
                             @Nonnull final Reference root,
                             @Nonnull final Traversal traversal,
+                            @Nonnull final Deque<CascadesPlanner.Task> taskStack,
                             @Nonnull final PlannerBindings bindings,
                             @Nonnull final EvaluationContext evaluationContext) {
         this.context = context;
         this.rule = rule;
         this.root = root;
         this.traversal = traversal;
+        this.taskStack = taskStack;
         this.bindings = bindings;
         this.newExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
@@ -331,7 +336,6 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         return memoizePlans(Arrays.asList(plans));
     }
 
-    @SuppressWarnings("unchecked")
     @Nonnull
     @Override
     public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
@@ -451,5 +455,12 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 return expressionSet;
             }
         };
+    }
+
+    public void emitEvent(@Nonnull Debugger.Location location) {
+        Debugger.withDebugger(debugger ->
+                debugger.onEvent(
+                        new Debugger.TransformRuleCallEvent(root, taskStack, location, root,
+                                bindings.get(rule.getMatcher()), rule, this)));
     }
 }

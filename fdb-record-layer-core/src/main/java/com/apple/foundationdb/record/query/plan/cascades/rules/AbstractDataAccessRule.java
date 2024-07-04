@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
@@ -61,10 +62,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -73,8 +77,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.IntStream;
-import java.util.stream.StreamSupport;
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
@@ -94,6 +96,8 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"java:S3776", "java:S4738"})
 public abstract class AbstractDataAccessRule<R extends RelationalExpression> extends CascadesRule<MatchPartition> {
+    private static final Logger logger = LoggerFactory.getLogger(AbstractDataAccessRule.class);
+
     private final BindingMatcher<PartialMatch> completeMatchMatcher;
     private final BindingMatcher<R> expressionMatcher;
 
@@ -216,7 +220,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var resultSet = new LinkedIdentitySet<RelationalExpression>();
 
         // create single scan accesses
-        for (final var bestMatch : bestMaximumCoverageMatches) {
+        for (final var bestMatchWithIndex : bestMaximumCoverageMatches) {
+            final var bestMatch = bestMatchWithIndex.getElement();
             applyCompensationForSingleDataAccess(call, bestMatch, bestMatchToPlanMap.get(bestMatch.getPartialMatch()))
                     .ifPresent(resultSet::add);
         }
@@ -227,29 +232,185 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         final var commonPrimaryKeyValuesOptional =
                 WithPrimaryKeyMatchCandidate.commonPrimaryKeyValuesMaybe(
                         bestMaximumCoverageMatches.stream()
-                                .map(PartialMatchWithCompensation::getPartialMatch)
-                                .map(PartialMatch::getMatchCandidate)
+                                .map(singleMatchedAccessVectored -> singleMatchedAccessVectored.getElement().getPartialMatch().getMatchCandidate())
                                 .collect(ImmutableList.toImmutableList()));
-        commonPrimaryKeyValuesOptional.ifPresent(commonPrimaryKeyValues -> {
-            final var boundPartitions = Lists.<List<PartialMatchWithCompensation>>newArrayList();
-            // create intersections for all n choose k partitions from k = 2 ... n
-            IntStream.range(2, bestMaximumCoverageMatches.size() + 1)
-                    .mapToObj(k -> ChooseK.chooseK(bestMaximumCoverageMatches, k))
-                    .flatMap(iterable -> StreamSupport.stream(iterable.spliterator(), false))
-                    .forEach(boundPartitions::add);
+        if (commonPrimaryKeyValuesOptional.isEmpty() || bestMaximumCoverageMatches.size() == 1) {
+            return resultSet;
+        }
+        final var commonPrimaryKeyValues = commonPrimaryKeyValuesOptional.get();
 
-            boundPartitions
-                    .stream()
-                    .flatMap(partition ->
+        //
+        // Create all combinations of scans for all best matches and intersect them.
+        //
+
+        //
+        // Performance optimization:
+        //
+        // Observations:
+        // (1) A necessary condition for the intersection to be plan-able is for the common ordering to exist. In
+        //     fact, this condition is the most filtering condition when planning the intersection of index scans.
+        // (2) The intersection merge of n orderings is commutative and associative.
+        // (3) If there is a set of two orderings among the n orderings for a combination of single access orderings
+        //     that does not have a common intersection ordering, the entire intersection ordering also does not exist
+        //     and the intersection of these n single accesses cannot be planned.
+        // (4) If all combinations of size k <= n - 1 do not have a common intersection ordering, then there cannot be
+        //     a combination of size k + 1. Reasoning: Under the assumption that there is such a common intersection
+        //     ordering of size k + 1, there must be a common ordering of size k that then can be intersection merged
+        //     with the (k + 1)th ordering. That contradicts the assumption.
+        //
+        // Because of these observations we
+        // 1. define a data structure that records all two-element sets of orderings of single accesses that do not
+        //    have a common intersection ordering
+        // 2. define an algorithm that allows us to quickly establish whether a set of n orderings contains
+        //    a two-element set of orderings that is known to not have a common intersection ordering
+        // 3. early out if we were unable to find combinations of size k that have a common intersection ordering
+        //
+
+        //
+        // In order to check if a set contains any two-element sets that are contained in a set of bad pairs, we use
+        // a sieve bit matrix. Every participating single data access is assigned a position. For n single data
+        // accesses, the individual single data accesses are numbered from 0 to n - 1.
+        // We define a square bit matrix that contains a true at [i, j] and at [j, i] if the single data access at
+        // position i and the single data access at position j do not have a common ordering.
+        //
+        final BitSet[] sieveBitMatrix =
+                bestMaximumCoverageMatches.size() > 2 ? newSquareBitMatrix(bestMaximumCoverageMatches.size()) : null;
+        for (final var binaryPartition : ChooseK.chooseK(bestMaximumCoverageMatches, 2)) {
+            Verify.verify(binaryPartition.size() == 2);
+            final var binaryIntersections =
+                    createIntersectionAndCompensation(
+                            call,
+                            commonPrimaryKeyValues,
+                            bestMatchToDistinctPlanMap,
+                            binaryPartition,
+                            requestedOrderings);
+            if (binaryIntersections.hasCommonIntersectionOrdering()) {
+                resultSet.addAll(binaryIntersections.getExpressions());
+            } else {
+                if (sieveBitMatrix != null) {
+                    final int i = binaryPartition.get(0).getPosition();
+                    final int j = binaryPartition.get(1).getPosition();
+                    sieveBitMatrix[i].set(j);
+                    sieveBitMatrix[j].set(i);
+                }
+            }
+        }
+
+        if (bestMaximumCoverageMatches.size() > 2) {
+            Objects.requireNonNull(sieveBitMatrix);
+
+            final var checkBitMatrix = newSquareBitMatrix(bestMaximumCoverageMatches.size());
+
+            int numCombinations = 0;
+            int numDiscardedCombinations = 0;
+
+            // create intersections for all n choose k partitions from k = 3 ... n
+            for (int k = 3; k < bestMaximumCoverageMatches.size() + 1; k ++) {
+                boolean hasCommonOrderingForK = false;
+                for (final var kPartition : ChooseK.chooseK(bestMaximumCoverageMatches, k)) {
+                    numCombinations ++;
+                    call.emitEvent(Debugger.Location.ALL_INTERSECTION_COMBINATIONS);
+
+                    //
+                    // For a combination of n orderings we enumerate find all the positions in that the combination
+                    // does not contain. Starting from a matrix where all bits are set we clear all columns and
+                    // rows at those positions. That is the check bit matrix.
+                    //
+                    setAll(checkBitMatrix); // all bits to 1
+                    final var membership = new BitSet(bestMaximumCoverageMatches.size());
+                    for (final var singleMatchedAccessVectored : kPartition) {
+                        membership.set(singleMatchedAccessVectored.getPosition());
+                    }
+
+                    for (int position = membership.nextClearBit(0);
+                             position >= 0 && position < bestMaximumCoverageMatches.size();
+                             position = membership.nextClearBit(position + 1)) {
+                        clearRowAndColumnAtPosition(checkBitMatrix, position);
+                    }
+
+                    if (!hasCommonOrdering(sieveBitMatrix, checkBitMatrix)) {
+                        numDiscardedCombinations ++;
+                        call.emitEvent(Debugger.Location.DISCARDED_INTERSECTION_COMBINATIONS);
+                        continue;
+                    }
+
+                    final var intersectionResult =
                             createIntersectionAndCompensation(
                                     call,
                                     commonPrimaryKeyValues,
                                     bestMatchToDistinctPlanMap,
-                                    partition,
-                                    requestedOrderings).stream())
-                    .forEach(resultSet::add);
-        });
+                                    kPartition,
+                                    requestedOrderings);
+
+                    Verify.verify(intersectionResult.hasCommonIntersectionOrdering());
+                    hasCommonOrderingForK = true;
+
+                    resultSet.addAll(intersectionResult.getExpressions());
+                }
+
+                if (!hasCommonOrderingForK) {
+                    // if we weren't able to find combinations of size k that created intersections, there won't be any
+                    // of size k + 1
+                    break;
+                }
+            }
+            if (logger.isDebugEnabled()) {
+                logger.debug("bit matrix sieve discarded {}/{} combinations", numDiscardedCombinations, numCombinations);
+            }
+        }
+
         return resultSet;
+    }
+
+    @Nonnull
+    private static BitSet[] newSquareBitMatrix(final int size) {
+        BitSet[] matrix = new BitSet[size];
+        for (int row = 0; row < size; row++) {
+            matrix[row] = new BitSet(size);
+        }
+        return matrix;
+    }
+
+    private static void setAll(@Nonnull final BitSet[] matrix) {
+        for (final var bitSet : matrix) {
+            bitSet.set(0, matrix.length);
+        }
+    }
+
+    private static void clearRowAndColumnAtPosition(@Nonnull final BitSet[] matrix, int position) {
+        for (int i = 0; i < matrix.length; i++) {
+            final var bitSet = matrix[i];
+            if (i == position) {
+                bitSet.clear();
+            } else {
+                bitSet.clear(position);
+            }
+        }
+    }
+
+    private static boolean hasCommonOrdering(@Nonnull final BitSet[] sieveBitMatrix,
+                                             @Nonnull final BitSet[] checkMatrix) {
+        Verify.verify(sieveBitMatrix.length == checkMatrix.length);
+
+        //
+        // Strictly speaking, multiply the checkMatrix^T * sieveMatrix where multiplication is done by bit-and-ing and
+        // addition is done by bit-or-ing. Since checkMatrix is symmetric and all matrices are square matrices we just
+        // multiply checkMatrix * sieveMatrix. All operations are just simple vector bit operations provided by
+        // standard Java JDK bit sets which makes this multiplication fast. If the resulting matrix is hollow (all bits
+        // on the main diagonal are 0), a common ordering exist, otherwise a common ordering does not exist.
+        //
+        for (int i = 0; i < sieveBitMatrix.length; i ++) {
+            checkMatrix[i].and(sieveBitMatrix[i]);
+
+            //
+            // Since we do not care about the actual result matrix, but only if that matrix is hollow, we only need to
+            // compute the values on the main diagonal until we compute a value that is 1, or we are done.
+            //
+            if (checkMatrix[i].cardinality() > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -261,12 +422,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     @SuppressWarnings({"java:S1905", "java:S135"})
-    private static List<PartialMatchWithCompensation> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
-                                                                             @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+    private static List<Vectored<SingleMatchedAccess>> maximumCoverageMatches(@Nonnull final Collection<? extends PartialMatch> matches,
+                                                                              @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var partialMatchesWithCompensation =
                 prepareMatchesAndCompensations(matches, requestedOrderings);
 
-        final var maximumCoverageMatchesBuilder = ImmutableList.<PartialMatchWithCompensation>builder();
+        int index = 0;
+        final var maximumCoverageMatchesBuilder = ImmutableList.<Vectored<SingleMatchedAccess>>builder();
         for (var i = 0; i < partialMatchesWithCompensation.size(); i++) {
             final var outerPartialMatchWithCompensation =
                     partialMatchesWithCompensation.get(i);
@@ -304,7 +466,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 //
                 // no other partial match completely contained this one
                 //
-                maximumCoverageMatchesBuilder.add(outerPartialMatchWithCompensation);
+                maximumCoverageMatchesBuilder.add(Vectored.of(outerPartialMatchWithCompensation, index));
+                index ++;
             }
         }
 
@@ -317,12 +480,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * directopm.
      * @param partialMatches a collection of partial matches
      * @param requestedOrderings a set of {@link RequestedOrdering}s
-     * @return a list of {@link PartialMatchWithCompensation}s
+     * @return a list of {@link SingleMatchedAccess}s
      */
     @Nonnull
-    private static List<PartialMatchWithCompensation> prepareMatchesAndCompensations(final @Nonnull Collection<? extends PartialMatch> partialMatches,
-                                                                                     final @Nonnull Set<RequestedOrdering> requestedOrderings) {
-        final var partialMatchesWithCompensation = new ArrayList<PartialMatchWithCompensation>();
+    private static List<SingleMatchedAccess> prepareMatchesAndCompensations(final @Nonnull Collection<? extends PartialMatch> partialMatches,
+                                                                            final @Nonnull Set<RequestedOrdering> requestedOrderings) {
+        final var partialMatchesWithCompensation = new ArrayList<SingleMatchedAccess>();
         for (final var partialMatch: partialMatches) {
             final var scanDirectionOptional = satisfiesAnyRequestedOrderings(partialMatch, requestedOrderings);
             if (scanDirectionOptional.isEmpty()) {
@@ -336,7 +499,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var compensation = partialMatch.compensate();
 
             if (scanDirection == ScanDirection.FORWARD || scanDirection == ScanDirection.BOTH) {
-                partialMatchesWithCompensation.add(new PartialMatchWithCompensation(partialMatch, compensation, false));
+                partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation, false));
             }
 
             //
@@ -348,12 +511,12 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             //      that satisfy the requirements.
             //
             if (scanDirection == ScanDirection.REVERSE /* || scanDirection == ScanDirection.BOTH */) {
-                partialMatchesWithCompensation.add(new PartialMatchWithCompensation(partialMatch, compensation, true));
+                partialMatchesWithCompensation.add(new SingleMatchedAccess(partialMatch, compensation, true));
             }
         }
 
         partialMatchesWithCompensation.sort(
-                Comparator.comparing((Function<PartialMatchWithCompensation, Integer>)
+                Comparator.comparing((Function<SingleMatchedAccess, Integer>)
                         p -> p.getPartialMatch().getBindingPredicates().size()).reversed());
         return partialMatchesWithCompensation;
     }
@@ -495,15 +658,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     private static Map<PartialMatch, RecordQueryPlan> createScansForMatches(@Nonnull final PlanContext planContext,
                                                                             @Nonnull final Memoizer memoizer,
-                                                                            @Nonnull final Collection<PartialMatchWithCompensation> matches) {
+                                                                            @Nonnull final Collection<Vectored<SingleMatchedAccess>> matches) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
-                        PartialMatchWithCompensation::getPartialMatch,
-                        partialMatchWithCompensation -> {
-                            final var partialMatch = partialMatchWithCompensation.getPartialMatch();
+                        singleMatchedAccessVectored ->  singleMatchedAccessVectored.getElement().getPartialMatch(),
+                        singleMatchedAccessVectored ->  {
+                            final var singleMatchedAccess = singleMatchedAccessVectored.getElement();
+                            final var partialMatch = singleMatchedAccess.getPartialMatch();
                             return partialMatch.getMatchCandidate()
-                                    .toEquivalentPlan(partialMatch, planContext, memoizer, partialMatchWithCompensation.isReverseScanOrder());
+                                    .toEquivalentPlan(partialMatch, planContext, memoizer, singleMatchedAccess.isReverseScanOrder());
                         }));
     }
 
@@ -544,15 +708,15 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * two-step approach of separately planning the scan and then computing the compensation and the compensating
      * expression.
      * @param memoizer the memoizer of this call
-     * @param partialMatchWithCompensation the match the caller wants to apply compensation for
+     * @param singleMatchedAccess the match the caller wants to apply compensation for
      * @param plan the plan the caller would like to create compensation for.
      * @return a new {@link RelationalExpression} that represents the data access and its compensation
      */
     @Nonnull
     private static Optional<RelationalExpression> applyCompensationForSingleDataAccess(@Nonnull final Memoizer memoizer,
-                                                                                       @Nonnull final PartialMatchWithCompensation partialMatchWithCompensation,
+                                                                                       @Nonnull final SingleMatchedAccess singleMatchedAccess,
                                                                                        @Nonnull final RecordQueryPlan plan) {
-        final var compensation = partialMatchWithCompensation.getCompensation();
+        final var compensation = singleMatchedAccess.getCompensation();
         return compensation.isImpossible()
                ? Optional.empty()
                : Optional.of(compensation.isNeeded()
@@ -570,19 +734,18 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * @param memoizer the memoizer
      * @param commonPrimaryKeyValues normalized common primary key
      * @param matchToPlanMap a map from match to single data access expression
-     * @param partition a partition (i.e. a list of {@link PartialMatch}es that the caller would like to compute
+     * @param partition a partition (i.e. a list of {@link SingleMatchedAccess}es that the caller would like to compute
      *        and intersected data access for
      * @param requestedOrderings a set of ordering that have been requested by consuming expressions/plan operators
-     * @return an optional containing a new {@link RelationalExpression} that represents the data access and its
-     *         compensation, {@code Optional.empty()} if this method was unable to compute the intersection expression
+     * @return an {@link IntersectionResult} possibly contained new {@link RelationalExpression} that represent the
+     *         realized data access and its compensation.
      */
     @Nonnull
-    private static List<RelationalExpression> createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
-                                                                                @Nonnull final List<Value> commonPrimaryKeyValues,
-                                                                                @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
-                                                                                @Nonnull final List<PartialMatchWithCompensation> partition,
-                                                                                @Nonnull final Set<RequestedOrdering> requestedOrderings) {
-
+    private static IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
+                                                                        @Nonnull final List<Value> commonPrimaryKeyValues,
+                                                                        @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                        @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                        @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var partitionOrderings = adjustMatchedOrderingParts(partition);
 
         final var equalityBoundKeyValues =
@@ -596,7 +759,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         .collect(ImmutableSet.toImmutableSet());
 
         final var intersectionOrdering = intersectOrderings(partitionOrderings);
-
+        boolean hasCommonOrdering = false;
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var requestedOrdering : requestedOrderings) {
             final var comparisonKeyValuesIterable =
@@ -608,21 +771,15 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     continue;
                 }
 
+                hasCommonOrdering = true;
+
                 final var compensation =
                         partition
                                 .stream()
-                                .map(PartialMatchWithCompensation::getCompensation)
+                                .map(pair -> pair.getElement().getCompensation())
                                 .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
                 if (!compensation.isImpossible()) {
-                    final var newQuantifiers =
-                            partition
-                                    .stream()
-                                    .map(partialMatch -> Objects.requireNonNull(matchToPlanMap.get(partialMatch.getPartialMatch())))
-                                    .map(memoizer::memoizePlans)
-                                    .map(Quantifier::physical)
-                                    .collect(ImmutableList.toImmutableList());
-
                     final var directionalOrderingParts =
                             intersectionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering,
                                     OrderingPart.ProvidedSortOrder.FIXED);
@@ -630,6 +787,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
 
                     if (comparisonDirectionOptional.isPresent()) {
+                        final var newQuantifiers =
+                                partition
+                                        .stream()
+                                        .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
+                                        .map(memoizer::memoizePlans)
+                                        .map(Quantifier::physical)
+                                        .collect(ImmutableList.toImmutableList());
+
                         final var intersectionPlan =
                                 RecordQueryIntersectionPlan.fromQuantifiers(newQuantifiers,
                                         ImmutableList.copyOf(comparisonKeyValues), comparisonDirectionOptional.get());
@@ -643,7 +808,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             }
         }
 
-        return expressionsBuilder.build();
+        return IntersectionResult.of(expressionsBuilder.build(), hasCommonOrdering ? intersectionOrdering : null);
     }
 
     /**
@@ -651,15 +816,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * a partial match and can therefore not contribute to the ordering of the realized scan (minus its compensation)
      * before it is intersected. This method serves a stop-gap purpose as laid out here:
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2764">relevant issue</a>
-     * @param partialMatchWithCompensations a list of {@link PartialMatchWithCompensation}s
+     * @param singleMatchedAccesses a list of {@link SingleMatchedAccess}s
      * @return a list pairs of matched ordering parts and the respective scan direction of the partial match it was
      *         computed from
      */
     @Nonnull
-    private static List<NonnullPair<List<MatchedOrderingPart>, Boolean>> adjustMatchedOrderingParts(@Nonnull final List<PartialMatchWithCompensation> partialMatchWithCompensations) {
-        return partialMatchWithCompensations
+    private static List<NonnullPair<List<MatchedOrderingPart>, Boolean>> adjustMatchedOrderingParts(@Nonnull final List<Vectored<SingleMatchedAccess>> singleMatchedAccesses) {
+        return singleMatchedAccesses
                 .stream()
-                .map(partialMatchWithCompensation -> {
+                .map(pair -> {
+                    final var partialMatchWithCompensation = pair.getElement();
                     final var partialMatch = partialMatchWithCompensation.getPartialMatch();
                     final var boundParametersPrefixMap =
                             partialMatch.getBoundParameterPrefixMap();
@@ -737,16 +903,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .allMatch(comparisonKeyValues::contains);
     }
 
-    private static class PartialMatchWithCompensation {
+    private static class SingleMatchedAccess {
         @Nonnull
         private final PartialMatch partialMatch;
         @Nonnull
         private final Compensation compensation;
         private final boolean reverseScanOrder;
 
-        public PartialMatchWithCompensation(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final Compensation compensation,
-                                            final boolean reverseScanOrder) {
+        public SingleMatchedAccess(@Nonnull final PartialMatch partialMatch,
+                                   @Nonnull final Compensation compensation,
+                                   final boolean reverseScanOrder) {
             this.partialMatch = partialMatch;
             this.compensation = compensation;
             this.reverseScanOrder = reverseScanOrder;
@@ -764,6 +930,92 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         public boolean isReverseScanOrder() {
             return reverseScanOrder;
+        }
+    }
+
+    private static class Vectored<T> {
+        @Nonnull
+        private final T element;
+        final int position;
+
+        private Vectored(@Nonnull final T element, final int position) {
+            this.element = element;
+            this.position = position;
+        }
+
+        @Nonnull
+        public T getElement() {
+            return element;
+        }
+
+        public int getPosition() {
+            return position;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Vectored)) {
+                return false;
+            }
+            final Vectored<?> vectored = (Vectored<?>)o;
+            return position == vectored.position && Objects.equals(element, vectored.element);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(element, position);
+        }
+
+        @Override
+        public String toString() {
+            return "[" + element + ":" + position + "]";
+        }
+
+        public static <T> Vectored<T> of(@Nonnull final T element, final int position) {
+            return new Vectored<>(element, position);
+        }
+    }
+
+    private static class IntersectionResult {
+        @Nonnull
+        private final List<RelationalExpression> expressions;
+        @Nullable
+        private final Ordering.Intersection commonIntersectionOrdering;
+
+        private IntersectionResult(@Nonnull final List<RelationalExpression> expressions,
+                                   @Nullable final Ordering.Intersection commonIntersectionOrdering) {
+            Verify.verify(commonIntersectionOrdering != null || expressions.isEmpty());
+            this.expressions = ImmutableList.copyOf(expressions);
+            this.commonIntersectionOrdering = commonIntersectionOrdering;
+        }
+
+        @Nonnull
+        public List<RelationalExpression> getExpressions() {
+            return Objects.requireNonNull(expressions);
+        }
+
+        public boolean hasCommonIntersectionOrdering() {
+            return commonIntersectionOrdering != null;
+        }
+
+        @Nonnull
+        public Ordering.Intersection getCommonIntersectionOrdering() {
+            return Objects.requireNonNull(commonIntersectionOrdering);
+        }
+
+        @Nonnull
+        public static IntersectionResult of(@Nonnull final List<RelationalExpression> expressions,
+                                            @Nullable final Ordering.Intersection commonIntersectionOrdering) {
+            return new IntersectionResult(expressions, commonIntersectionOrdering);
+        }
+
+        @Override
+        public String toString() {
+            return "[" + expressions + ", ordering=" +
+                    (commonIntersectionOrdering == null ? "no common ordering" : commonIntersectionOrdering) + "]";
         }
     }
 
