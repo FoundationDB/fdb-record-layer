@@ -511,12 +511,6 @@ public class CascadesPlanner implements QueryPlanner {
             } else {
                 RelationalExpression bestMember = null;
                 for (RelationalExpression member : group.getMembers()) {
-                    if (member instanceof RecordQueryInJoinPlan || bestMember instanceof RecordQueryInJoinPlan) {
-                        member.show(false);
-                        bestMember.show(false);
-                        System.out.println("member class:" + member.getClass() + " bestMember class:" + bestMember.getClass());
-                        System.out.println("compare result:" + new CascadesCostModel(configuration).compare(member, bestMember));
-                    }
                     if (bestMember == null || new CascadesCostModel(configuration).compare(member, bestMember) < 0) {
                         if (bestMember != null) {
                             // best member is being pruned

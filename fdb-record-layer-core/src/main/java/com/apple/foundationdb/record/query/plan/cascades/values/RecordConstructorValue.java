@@ -125,11 +125,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                     wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
                     childResult = wrapperBuilder.build();
                 }
-                if (false) {
-                    resultMessageBuilder.setField(fieldDescriptor, ((Number) childResult).longValue());
-                } else {
-                    resultMessageBuilder.setField(fieldDescriptor, childResult);
-                }
+                resultMessageBuilder.setField(fieldDescriptor, childResult);
             } else {
                 Verify.verify(fieldType.isNullable());
             }

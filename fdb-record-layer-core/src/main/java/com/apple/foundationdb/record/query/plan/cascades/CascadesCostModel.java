@@ -77,9 +77,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
     @Override
     public int compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
-        if (a instanceof RecordQueryInJoinPlan) {
-            return -1;
-        }
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }
@@ -125,11 +122,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
                 NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
         if (unsatisfiedFilterCompare != 0) {
-            if (a instanceof RecordQueryInJoinPlan || b instanceof RecordQueryInJoinPlan) {
-                System.out.println("get here A, a:" + NormalizedResidualPredicateProperty.countNormalizedConjuncts(a) + " b:" + NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
-                System.out.println("A magicPredicate:" + NormalizedResidualPredicateProperty.evaluate(a) + " B magicPredicate:" + NormalizedResidualPredicateProperty.evaluate(b));
-                return -1;
-            }
             return unsatisfiedFilterCompare;
         }
 

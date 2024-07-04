@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -93,7 +94,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
  *
  *
  * The transformation cannot be done for a class of predicates that contain an IN within incompatible
- * constructs such as {@link com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate} as the
+ * constructs such as {@link NotPredicate} as the
  * transformed expression.
  *
  * <pre>
@@ -180,10 +181,8 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                     Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
 
                     if (arrayElementType.isRecord()) {
-                        // explodeExpression should be promoted?
-                        Value promotedComparandValue = promoteComparandValue(value, comparisonValue.getComparandValue());
-                        System.out.println("promotedComparandValue elementType:" + ((Type.Array)promotedComparandValue.getResultType()).getElementType());
-                        explodeExpression = new ExplodeExpression(promotedComparandValue);
+                        System.out.println("arrayElementType:" + arrayElementType);
+                        explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
                         final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
                         QueryPredicate queryPredicate = findNewValuePredicate(value, newQuantifier);
                         transformedPredicates.add(queryPredicate);
@@ -232,35 +231,27 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
     }
 
 
-    private AbstractArrayConstructorValue.LightArrayConstructorValue promoteComparandValue(Value value, Value comparandValue) {
-        List<Value> valueChildren = toList(value.getChildren());
-        System.out.println("comparandValue class:" + comparandValue.getClass());
-        List<Value> promotedComparandValueChildren = new ArrayList<>();
-        for (Value currentComparandValue: comparandValue.getChildren()) {
-            System.out.println("currentComparandValue result type:" + currentComparandValue.getResultType());
-            promotedComparandValueChildren.add(PromoteValue.inject(currentComparandValue, value.getResultType()));
-        }
-        return AbstractArrayConstructorValue.LightArrayConstructorValue.of(promotedComparandValueChildren);
-    }
-
-
     /*
      * value:($T1.PK as _0, $T1.A as _1)
      * comparisonValue:IN array((@c13 as _0, @c15 as _1), (@c19 as _0, @c21 as _1)) comparandValue:array((@c13 as _0, @c15 as _1), (@c19 as _0, @c21 as _1))
      * return value_0 = newQuantifier_0 and value_1 = newQuantifier_1 and ...
      */
     private QueryPredicate findNewValuePredicate(Value value, Quantifier.ForEach newQuantifier) {
-        for (Column<? extends Value> c: newQuantifier.getFlowedColumns()) {
-            System.out.println("flowed column value:" + c.getValue() + " column field:" + c.getField());
-        }
-        List<Typed> conjuncts = new ArrayList<>();
+        // verify valueChildren.size >= 2
         List<Value> valueChildren = toList(value.getChildren());
         List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
 
-        for (int i = 0; i < valueChildren.size(); i++) {
-            conjuncts.add(new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue())));
+        AndOrValue result = null;
+        for (int i = 1; i < valueChildren.size(); i++) {
+            if (i == 1) {
+                var value0 = new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(0), comparandValueChildren.get(0).getValue()));
+                var value1 = new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(1), comparandValueChildren.get(1).getValue()));
+                result = (AndOrValue) new AndOrValue.AndFn().encapsulate(List.of(value0, value1));
+            } else {
+                var currentVal = new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
+                result = (AndOrValue) new AndOrValue.AndFn().encapsulate(List.of(result, currentVal));
+            }
         }
-        AndOrValue result = (AndOrValue) new AndOrValue.AndFn().encapsulate(conjuncts);
         System.out.println("new QueryPredicate:" + result.toQueryPredicate(null, Quantifier.current()).get());
         return result.toQueryPredicate(null, Quantifier.current()).get();
     }
