@@ -183,25 +183,16 @@ public class MessageHelpers {
         for (int i = 1; i <= m1.getDescriptorForType().getFields().size(); i++) {
             Descriptors.FieldDescriptor f1 = findFieldDescriptorOnMessage(m1, i);
             Descriptors.FieldDescriptor f2 = findFieldDescriptorOnMessage(m2, i);
+            // do not support repeated or nested fields in the message
             if (f1.isRepeated() || f1.isMapField() || f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE
                     || f2.isRepeated() || f2.isMapField() || f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                 return false;
             }
-            if (f1.getJavaType() == f2.getJavaType()) {
+            if (f1.getJavaType() == f2.getJavaType() && m1.getField(f1).equals(m2.getField(f2))) {
                 if (!m1.getField(f1).equals(m2.getField(f2))) {
                     return false;
                 }
-            }
-            /*
-            else if ((f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT)
-            || (f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT && f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG)) {
-                if (((Number)(m1.getField(f1))).longValue() != ((Number)(m2.getField(f2))).longValue()) {
-                    return false;
-                }
-            }
-
-             */
-            else {
+            } else {
                 return false;
             }
         }

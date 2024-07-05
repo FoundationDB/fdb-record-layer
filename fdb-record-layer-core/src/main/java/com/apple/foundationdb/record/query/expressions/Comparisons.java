@@ -1494,7 +1494,6 @@ public class Comparisons {
             if (context == null) {
                 throw EvaluationContextRequiredException.instance();
             }
-            System.out.println("ValueComparison getCOmparand comparandValue:" + comparandValue + " getClass:" + comparandValue.getClass());
             return comparandValue.eval(store, context);
         }
 

@@ -378,7 +378,6 @@ public class CascadesPlanner implements QueryPlanner {
     private void planPartial(@Nonnull Supplier<Reference> referenceSupplier,
                              @Nonnull Function<Reference, PlanContext> contextCreatorFunction,
                              @Nonnull final EvaluationContext evaluationContext) {
-        System.out.println("planPartial is called");
         currentRoot = referenceSupplier.get();
         final var context = contextCreatorFunction.apply(currentRoot);
 
@@ -404,7 +403,6 @@ public class CascadesPlanner implements QueryPlanner {
 
                 Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                 try {
-                    System.out.println("nextTask class:" + nextTask.getClass());
                     nextTask.execute();
                 } finally {
                     Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));

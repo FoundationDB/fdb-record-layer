@@ -336,16 +336,9 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             Tuple t = new Tuple();
             DynamicMessage m = (DynamicMessage)item;
             for (Descriptors.FieldDescriptor f: m.getAllFields().keySet()) {
-                if (f.getJavaType() == Descriptors.FieldDescriptor.JavaType.STRING) {
-                    t.add((String) m.getField(f));
-                } else if (f.getJavaType() == Descriptors.FieldDescriptor.JavaType.LONG) {
-                    t.add((long) m.getField(f));
-                } else if (f.getJavaType() == Descriptors.FieldDescriptor.JavaType.INT) {
-                    t.add((int) m.getField(f));
-                }
+                t.addObject(m.getField(f));
             }
             return t;
-
         } else {
             return item;
         }

@@ -117,7 +117,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
                 }
             }
         }
-        System.out.println("get here -Z");
 
         int unsatisfiedFilterCompare = Long.compare(NormalizedResidualPredicateProperty.countNormalizedConjuncts(a),
                 NormalizedResidualPredicateProperty.countNormalizedConjuncts(b));
@@ -141,9 +140,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         int countDataAccessesCompare =
                 Integer.compare(numDataAccessA, numDataAccessB);
         if (countDataAccessesCompare != 0) {
-            if (a instanceof RecordQueryInJoinPlan || b instanceof RecordQueryInJoinPlan) {
-                System.out.println("get here B");
-            }
             return countDataAccessesCompare;
         }
 
@@ -152,9 +148,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         final OptionalInt inPlanVsOtherOptional =
                 flipFlop(() -> compareInOperator(a, b), () -> compareInOperator(b, a));
         if (inPlanVsOtherOptional.isPresent() && inPlanVsOtherOptional.getAsInt() != 0) {
-            if (a instanceof RecordQueryInJoinPlan || b instanceof RecordQueryInJoinPlan) {
-                System.out.println("get here C");
-            }
             return inPlanVsOtherOptional.getAsInt();
         }
 

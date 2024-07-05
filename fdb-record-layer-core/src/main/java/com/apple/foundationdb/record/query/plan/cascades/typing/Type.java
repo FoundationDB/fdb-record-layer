@@ -1942,9 +1942,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             final var otherType = (Record)obj;
-            return (getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) ||
-                    (Objects.requireNonNull(fields).equals(otherType.fields))));
+                    (Objects.requireNonNull(fields).equals(otherType.fields)));
         }
 
         @Override
