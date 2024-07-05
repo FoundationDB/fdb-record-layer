@@ -213,7 +213,7 @@ public final class YamlExecutionContext {
         } else {
             // wrap
             final var wrapper = new YamlExecutionError(msg.get(), e);
-            wrapper.setStackTrace(new StackTraceElement[]{ new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber) });
+            wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, resourcePath, lineNumber)});
             return wrapper;
         }
     }

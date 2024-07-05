@@ -71,7 +71,7 @@ import java.util.stream.IntStream;
  * </ul>
  */
 @SuppressWarnings({"PMD.GuardLogStatement"})
-public class TestBlock extends Block {
+public final class TestBlock extends Block {
 
     private static final Logger logger = LogManager.getLogger(TestBlock.class);
 
@@ -150,7 +150,7 @@ public class TestBlock extends Block {
     @Nonnull
     private final List<QueryCommand> queryCommands;
     @Nullable
-    private RuntimeException maybeFailureException = null;
+    private RuntimeException maybeFailureException;
 
     /**
      * The set of options that defines how the tests are executed. The following options are supported currently:

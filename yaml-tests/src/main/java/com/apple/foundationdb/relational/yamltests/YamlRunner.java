@@ -81,7 +81,7 @@ public final class YamlRunner {
 
         final var testBlocks = new ArrayList<TestBlock>();
         try (var inputStream = getInputStream(resourcePath)) {
-            for (var doc: yaml.loadAll(inputStream)) {
+            for (var doc : yaml.loadAll(inputStream)) {
                 final var block = Block.parse(doc, executionContext);
                 logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
                 block.execute();

@@ -50,8 +50,8 @@ public class SetupBlock extends Block {
 
     public static final String SETUP_BLOCK = "setup";
 
-    private SetupBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI,
-                       @Nonnull YamlExecutionContext executionContext) {
+    protected SetupBlock(int lineNumber, @Nonnull List<Consumer<RelationalConnection>> executables, @Nonnull URI connectionURI,
+                         @Nonnull YamlExecutionContext executionContext) {
         super(lineNumber, executables, connectionURI, executionContext);
     }
 
@@ -66,7 +66,7 @@ public class SetupBlock extends Block {
         }
     }
 
-    public static class ManualSetupBlock extends SetupBlock {
+    public static final class ManualSetupBlock extends SetupBlock {
 
         public static final String MANUAL_SETUP_BLOCK_STEPS = "steps";
 
@@ -78,7 +78,7 @@ public class SetupBlock extends Block {
                     Assert.failUnchecked("Illegal Format: No steps provided in setup block.");
                 }
                 final var executables = new ArrayList<Consumer<RelationalConnection>>();
-                for (final var step: Matchers.arrayList(stepsObject, "setup steps")) {
+                for (final var step : Matchers.arrayList(stepsObject, "setup steps")) {
                     Assert.thatUnchecked(Matchers.map(step, "setup step").size() == 1, "Illegal Format: A setup step should be a single command");
                     final var resolvedCommand = Objects.requireNonNull(Command.parse(List.of(step), executionContext));
                     executables.add(resolvedCommand::execute);
@@ -96,7 +96,7 @@ public class SetupBlock extends Block {
         }
     }
 
-    public static class SchemaTemplateBlock extends SetupBlock {
+    public static final class SchemaTemplateBlock extends SetupBlock {
 
         static final String DOMAIN = "/FRL";
         public static final String SCHEMA_TEMPLATE_BLOCK = "schema_template";
@@ -132,7 +132,7 @@ public class SetupBlock extends Block {
         }
     }
 
-    private static class DestructTemplateBlock extends SetupBlock {
+    private static final class DestructTemplateBlock extends SetupBlock {
 
         public static DestructTemplateBlock withDatabaseAndSchema(int lineNumber, @Nonnull YamlExecutionContext executionContext,
                                                  @Nonnull String schemaTemplateName, @Nonnull String databasePath) {

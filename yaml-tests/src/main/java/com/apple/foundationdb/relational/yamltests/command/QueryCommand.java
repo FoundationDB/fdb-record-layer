@@ -60,7 +60,7 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings({"PMD.GuardLogStatement"})
 // It already is, but PMD is confused and reporting error in unrelated locations.
-public class QueryCommand extends Command {
+public final class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
 
     @Nonnull
@@ -93,7 +93,7 @@ public class QueryCommand extends Command {
             return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext);
         } catch (Exception e) {
             throw executionContext.wrapContext(e,
-                    () -> "‼️ Error parsing query command at line " + lineNumber, "query" , lineNumber);
+                    () -> "‼️ Error parsing query command at line " + lineNumber, "query", lineNumber);
         }
     }
 
@@ -124,7 +124,7 @@ public class QueryCommand extends Command {
             if (maybeExecutionError.get() == null) {
                 maybeExecutionError.set(executionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at line " + getLineNumber(),
-                        String.format("query [%s] ", executor) , getLineNumber()));
+                        String.format("query [%s] ", executor), getLineNumber()));
             }
         }
     }
