@@ -951,7 +951,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         @Override
         public String toString() {
-            return getTypeCode().toString();
+            return getTypeCode().toString() + " isNullable:" + isNullable;
         }
 
         @Nonnull
