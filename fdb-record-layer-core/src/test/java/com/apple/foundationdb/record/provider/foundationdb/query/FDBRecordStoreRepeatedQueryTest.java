@@ -221,7 +221,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var selectHavingBuilder = selectHavingByGroup(groupedSum);
                 final Quantifier selectHaving = Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
-                return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, selectHaving));
+                return Reference.of(LogicalSortExpression.unsorted(selectHaving));
             });
             assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()
                     .where(scanComparisons(range("[[42],[42]]")))));
@@ -246,7 +246,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42L))
                 );
                 final Quantifier selectHaving = Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
-                return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, selectHaving));
+                return Reference.of(LogicalSortExpression.unsorted(selectHaving));
             });
             assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()
                     .where(scanComparisons(range("[[42],[42]]")))));

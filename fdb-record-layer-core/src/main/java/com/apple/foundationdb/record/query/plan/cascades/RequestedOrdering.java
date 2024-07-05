@@ -129,6 +129,11 @@ public class RequestedOrdering {
         return Objects.hash(getOrderingParts(), getDistinctness());
     }
 
+    @Override
+    public String toString() {
+        return orderingParts.stream().map(Object::toString).collect(Collectors.joining(", "));
+    }
+
     /**
      * Method to push this requested ordering through the value that is passed in. The method delegates the actual
      * process of pushing the constituent parts of this requested ordering to {@link Value}
@@ -214,12 +219,11 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public static RequestedOrdering fromSortValues(@Nonnull final List<? extends Value> values,
-                                                   final boolean isReverse,
-                                                   @Nonnull final Distinctness distinctness) {
-        return new RequestedOrdering(values.stream().map(value ->
-                        new RequestedOrderingPart(value, RequestedSortOrder.fromIsReverse(isReverse)))
-                .collect(ImmutableList.toImmutableList()), distinctness);
+    public RequestedOrdering withDistinctness(@Nonnull final Distinctness distinctness) {
+        if (this.distinctness == distinctness) {
+            return this;
+        }
+        return new RequestedOrdering(orderingParts, distinctness);
     }
 
     /**
