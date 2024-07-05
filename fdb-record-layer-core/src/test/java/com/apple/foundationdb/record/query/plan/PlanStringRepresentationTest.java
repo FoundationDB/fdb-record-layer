@@ -264,7 +264,7 @@ public class PlanStringRepresentationTest {
         assertThat(childPlan.getLeft(), Matchers.instanceOf(RecordQueryPlanWithIndex.class));
         RecordQueryPlanWithIndex planWithIndex = (RecordQueryPlanWithIndex) childPlan.getLeft();
         IndexKeyValueToPartialRecord partialRecord = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
-                .addField("str_value_indexed", r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.builder().add(r.nextInt(10)).build())
+                .addField("str_value_indexed", r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.builder().add(r.nextInt(10)).build(), null)
                 .build();
         return NonnullPair.of(new RecordQueryCoveringIndexPlan(planWithIndex, randomTypeName(r), planWithIndex.getAvailableFields(), partialRecord),
                 String.format("Covering(%s -> %s)", childPlan.getRight(), partialRecord));

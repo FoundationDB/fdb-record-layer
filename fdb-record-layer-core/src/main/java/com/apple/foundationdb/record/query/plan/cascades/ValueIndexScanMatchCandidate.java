@@ -344,7 +344,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
         final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath());
+            builder.addField(fieldName, fieldData.getSource(),
+                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
         }
         return true;
     }
