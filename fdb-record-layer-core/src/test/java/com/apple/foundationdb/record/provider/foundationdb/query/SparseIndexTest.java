@@ -34,9 +34,9 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -52,7 +52,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Tag;
 
@@ -185,7 +184,7 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         final var query = queryBuilder.build().buildSelect();
 
         qun = Quantifier.forEach(Reference.of(query));
-        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+        return Reference.of(LogicalSortExpression.unsorted(qun));
     }
 
     /**

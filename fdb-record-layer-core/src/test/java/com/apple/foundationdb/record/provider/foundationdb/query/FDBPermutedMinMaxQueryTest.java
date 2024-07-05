@@ -244,7 +244,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_3_indexed", "m"));
-                return Reference.of(new LogicalSortExpression(List.of(), false, qun));
+                return Reference.of(LogicalSortExpression.unsorted(qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -457,7 +457,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, aggregateValueReference.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
-                return Reference.of(new LogicalSortExpression(List.of(), false, qun));
+                return Reference.of(LogicalSortExpression.unsorted(qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(

@@ -141,7 +141,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                         // make accessors and resolve them
                         qun = Quantifier.forEach(Reference.of(new DeleteExpression(qun, "RestaurantRecord")));
 
-                        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                        return Reference.of(LogicalSortExpression.unsorted(qun));
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
@@ -368,7 +368,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         qun = Quantifier.forEach(Reference.of(new InsertExpression(qun,
                 "RestaurantRecord",
                 Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
-        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+        return Reference.of(LogicalSortExpression.unsorted(qun));
     }
 
     /**
@@ -411,7 +411,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.of(new InsertExpression(qun,
                             "RestaurantRecord",
                             Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
@@ -445,7 +445,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         }
         final var selectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(qun.getFlowedObjectValue());
         qun = Quantifier.forEach(Reference.of(selectExpression));
-        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+        return Reference.of(LogicalSortExpression.unsorted(qun));
     }
 
     @Nonnull
@@ -518,7 +518,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                 restaurantType,
                                 ImmutableMap.of(updatePath, updateValue))));
 
-                        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                        return Reference.of(LogicalSortExpression.unsorted(qun));
                     });
 
             assertMatchesExactly(plan,
@@ -719,7 +719,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                                 "RestaurantRecord",
                                 Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor()))));
 
-                        return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                        return Reference.of(LogicalSortExpression.unsorted(qun));
                     },
                     Optional.empty(),
                     IndexQueryabilityFilter.TRUE,
@@ -834,7 +834,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                             reviewerType,
                             ImmutableMap.of(updatePath, updateValue))));
 
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
@@ -881,7 +881,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                             recordType,
                             ImmutableMap.of(updatePath, updateValue))));
 
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,

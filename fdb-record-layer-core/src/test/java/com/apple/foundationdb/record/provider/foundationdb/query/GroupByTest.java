@@ -233,7 +233,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
             final var result = graphBuilder.build().buildSelect();
             qun = Quantifier.forEach(Reference.of(result));
-            return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+            return Reference.of(LogicalSortExpression.unsorted(qun));
         }
     }
 
