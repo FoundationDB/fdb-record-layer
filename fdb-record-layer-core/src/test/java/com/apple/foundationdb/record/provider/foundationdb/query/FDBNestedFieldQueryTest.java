@@ -662,8 +662,8 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                                                     valuePredicate(ValueMatchers.fieldValueWithFieldNames("value"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "test")))))))));
 
             // plan: flatMap(Index(key_index [[1, alpha],[1, alpha]]), firstOrDefault(explode([$q2.map.entry]) | ($q4.key EQUALS alpha) and ($q4.value NOT_EQUALS test) || null) | $q6 NOT_NULL) | UnorderedPrimaryKeyDistinct()
-            assertEquals(225482808, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(804281270, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-981888014, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(2030491452, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         }
     }
 

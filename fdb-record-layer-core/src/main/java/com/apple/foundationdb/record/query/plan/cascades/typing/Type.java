@@ -366,7 +366,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
         } else {
             if (typeCode.isPrimitive()) {
-                return primitiveType(typeCode, false);
+                return primitiveType(typeCode, isNullable);
             } else if (typeCode == TypeCode.ENUM) {
                 final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
                 return Enum.fromProtoValues(isNullable, enumDescriptor.getValues());
@@ -580,6 +580,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     @Nonnull
     static Type fromObject(@Nullable final Object object) {
+        return fromObject(object, false);
+    }
+
+    @Nonnull
+    static Type fromObject(@Nullable final Object object, final boolean isNullable) {
         if (object instanceof Typed) {
             return ((Typed)object).getResultType();
         }
@@ -603,7 +608,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return Type.any();
         }
         if (typeCode.isPrimitive()) {
-            return Type.primitiveType(typeCode, false);
+            return Type.primitiveType(typeCode, isNullable);
         }
         throw new RecordCoreException("Unable to convert value to Type")
                 .addLogInfo(LogMessageKeys.VALUE, object);

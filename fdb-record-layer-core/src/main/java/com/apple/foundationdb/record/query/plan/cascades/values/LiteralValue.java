@@ -64,7 +64,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @VisibleForTesting
     public LiteralValue(@Nullable final T value) {
-        this(Type.fromObject(value), value);
+        this(Type.fromObject(value, true), value);
     }
 
     @VisibleForTesting
@@ -228,7 +228,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     public static <T> LiteralValue<T> ofScalar(final T value) {
-        final var result = new LiteralValue<>(Type.fromObject(value), value);
+        final var result = new LiteralValue<>(Type.fromObject(value, true), value);
         Verify.verify(result.resultType.isPrimitive());
         return result;
     }

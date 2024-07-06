@@ -410,7 +410,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
         Assertions.assertTrue(isCompatible);
     }
-    
+
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testSimpleJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
@@ -541,10 +541,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final var restaurantRecordType = Record.fromFields(true,
                 ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rest_no")),
-                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
                         Field.of(new Type.Array(reviewsType), Optional.of("reviews")),
                         Field.of(new Type.Array(tagsType), Optional.of("tags")),
-                        Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false)), Optional.of("customer"))));
+                        Field.of(new Type.Array(Type.primitiveType(Type.TypeCode.STRING)), Optional.of("customer"))));
 
         //
         // RestaurantReviewer:
@@ -583,7 +583,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         Assertions.assertNotNull(childFieldAccesses);
         var leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
-        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, false));
+        Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.STRING, true));
 
         childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of("reviews", 2));
         Assertions.assertNotNull(childFieldAccesses);
@@ -662,11 +662,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final var restaurantRecordType = Record.fromFields(true,
                 ImmutableList.of(Field.of(Type.primitiveType(Type.TypeCode.LONG, false), Optional.of("rest_no")),
-                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("name")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
                         Field.of(new Type.Array(reviewsType), Optional.of("reviews")),
-                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("new_field1")),
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("new_field1")),
                         Field.of(new Type.Array(tagsType), Optional.of("tags")),
-                        Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("new_field3"))));
+                        Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("new_field3"))));
 
         //
         // RestaurantReviewer:
