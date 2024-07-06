@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
@@ -255,13 +256,14 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
 
         final RecordType recordType = Iterables.getOnlyElement(queriedRecordTypes);
+        final List<KeyExpression> normalizedKeyExpressions = fullKeyExpression.normalizeKeyForPositions();
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
-                @SuppressWarnings("UnstableApiUsage") final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+                final AvailableFields.FieldData fieldData = indexFieldData(IndexKeyValueToPartialRecord.TupleSource.KEY, i,
+                        normalizedKeyExpressions);
                 if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
                     return Optional.empty();
                 }
@@ -271,8 +273,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         for (int i = 0; i < indexValueValues.size(); i++) {
             final Value valueValue = indexValueValues.get(i);
             if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
+                final AvailableFields.FieldData fieldData = indexFieldData(IndexKeyValueToPartialRecord.TupleSource.VALUE, i,
+                        normalizedKeyExpressions);
                 if (!addCoveringField(builder, (FieldValue)valueValue, fieldData)) {
                     return Optional.empty();
                 }
@@ -303,6 +305,24 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
         return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+    }
+
+    @Nonnull
+    @SuppressWarnings("UnstableApiUsage")
+    private AvailableFields.FieldData indexFieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source, final int i,
+                                                     @Nonnull List<KeyExpression> normalizedKeyExpressions) {
+        AvailableFields.FieldData fieldData = AvailableFields.FieldData.ofUnconditional(source, ImmutableIntArray.of(i));
+        int position = i;
+        if (source == IndexKeyValueToPartialRecord.TupleSource.VALUE) {
+            position += indexKeyValues.size();
+        }
+        if (position < normalizedKeyExpressions.size()) {
+            KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(position);
+            if (normalizedKeyExpression instanceof InvertibleFunctionKeyExpression) {
+                fieldData = fieldData.withInvertibleFunction(((InvertibleFunctionKeyExpression)normalizedKeyExpression).getName());
+            }
+        }
+        return fieldData;
     }
 
     @Nonnull

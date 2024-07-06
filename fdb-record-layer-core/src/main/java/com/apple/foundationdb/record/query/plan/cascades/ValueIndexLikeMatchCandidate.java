@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.OrderFunctionKeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
@@ -98,11 +100,30 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             if (normalizedValues.add(value)) {
                 builder.add(
                         MatchedOrderingPart.of(parameterId, value, comparisonRange,
-                                MatchedSortOrder.ASCENDING));
+                                keyMatchedOrder(normalizedKeyExpression)));
             }
         }
 
         return builder.build();
+    }
+
+    @Nonnull
+    private static MatchedSortOrder keyMatchedOrder(@Nonnull final KeyExpression keyExpression) {
+        if (keyExpression instanceof OrderFunctionKeyExpression) {
+            switch (((OrderFunctionKeyExpression)keyExpression).getDirection()) {
+                case ASC_NULLS_FIRST:
+                    return MatchedSortOrder.ASCENDING;
+                case DESC_NULLS_LAST:
+                    return MatchedSortOrder.DESCENDING;
+                case ASC_NULLS_LAST:
+                    return MatchedSortOrder.ASCENDING_NULLS_LAST;
+                case DESC_NULLS_FIRST:
+                    return MatchedSortOrder.DESCENDING_NULLS_FIRST;
+                default:
+                    break;
+            }
+        }
+        return MatchedSortOrder.ASCENDING;
     }
 
     @Nonnull
@@ -153,11 +174,29 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
 
             if (!normalizedValues.contains(normalizedValue)) {
                 normalizedValues.add(normalizedValue);
-                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
+                bindingMapBuilder.put(normalizedValue, Binding.sorted(keyProvidedOrder(normalizedKeyExpression, isReverse)));
                 orderingSequenceBuilder.add(normalizedValue);
             }
         }
 
         return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
+    }
+
+    private static OrderingPart.ProvidedSortOrder keyProvidedOrder(@Nonnull final KeyExpression keyExpression, final boolean isReverse) {
+        if (keyExpression instanceof OrderFunctionKeyExpression) {
+            switch (((OrderFunctionKeyExpression)keyExpression).getDirection()) {
+                case ASC_NULLS_FIRST:
+                    return isReverse ? OrderingPart.ProvidedSortOrder.DESCENDING : OrderingPart.ProvidedSortOrder.ASCENDING;
+                case DESC_NULLS_LAST:
+                    return isReverse ? OrderingPart.ProvidedSortOrder.ASCENDING : OrderingPart.ProvidedSortOrder.DESCENDING;
+                case ASC_NULLS_LAST:
+                    return isReverse ? OrderingPart.ProvidedSortOrder.DESCENDING_NULLS_FIRST : OrderingPart.ProvidedSortOrder.ASCENDING_NULLS_LAST;
+                case DESC_NULLS_FIRST:
+                    return isReverse ? OrderingPart.ProvidedSortOrder.ASCENDING_NULLS_LAST : OrderingPart.ProvidedSortOrder.DESCENDING_NULLS_FIRST;
+                default:
+                    break;
+            }
+        }
+        return OrderingPart.ProvidedSortOrder.fromIsReverse(isReverse);
     }
 }
