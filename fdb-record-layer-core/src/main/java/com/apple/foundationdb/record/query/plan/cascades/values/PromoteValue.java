@@ -52,6 +52,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -418,6 +419,15 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             final var promoteToArray = (Type.Array)promoteToType;
             SemanticException.check(!inArray.isErased() && !promoteToArray.isErased(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return isPromotionNeeded(Verify.verifyNotNull(inArray.getElementType()), Verify.verifyNotNull(promoteToArray.getElementType()));
+        }
+        if (inType.isRecord() && inType.isRecord()) {
+            final List<Type> inTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
+            final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
+            SemanticException.check(inTypeElements.size() == promoteToTypeElements.size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            for (int i = 0; i < inTypeElements.size(); i++) {
+                SemanticException.check(!isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i)), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            }
+            return false;
         }
         SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive() ||
                 inType.isPrimitive() && promoteToType.isEnum(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
