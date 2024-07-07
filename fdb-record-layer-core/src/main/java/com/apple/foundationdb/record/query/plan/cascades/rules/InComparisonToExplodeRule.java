@@ -122,8 +122,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
-    private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
-
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
