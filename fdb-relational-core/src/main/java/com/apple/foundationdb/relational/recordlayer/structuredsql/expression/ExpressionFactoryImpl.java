@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
-import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
+import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
@@ -65,7 +65,7 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
                     ErrorCode.INVALID_COLUMN_REFERENCE,
                     "invalid field reference %s",
                     fieldParts);
-            final var normalizedFieldPart = Assert.notNullUnchecked(ParserUtils.normalizeString(fieldPart, caseSensitive));
+            final var normalizedFieldPart = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(fieldPart, caseSensitive));
             normalizedFieldParts.add(normalizedFieldPart);
             final var result =
                     ((DataType.StructType) current)
@@ -86,7 +86,7 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
     @Override
     public Field<?> field(@Nonnull final String tableName, @Nonnull Iterable<String> parts) {
         final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
-        final var normalizedName = Assert.notNullUnchecked(ParserUtils.normalizeString(tableName, caseSensitive));
+        final var normalizedName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(tableName, caseSensitive));
         final Optional<Table> maybeTable;
         try {
             maybeTable = schemaTemplate.findTableByName(normalizedName); // could be a performance hit.

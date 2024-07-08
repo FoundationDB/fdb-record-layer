@@ -87,7 +87,7 @@ test_block:
       - result: []
     -
       - query: select count(*) from T3;
-      - explainContains: "Index(T3_I1 <,>)"
+      - explainContains: "Index(T3_I2 <,>)"
       - result: [{0}]
     -
       - query: select count(*) from T3 where col1 = 0;

@@ -69,7 +69,7 @@ public final class PlanValidator {
     public static void validateHashes(@Nonnull final ContinuationImpl parsedContinuation,
                                       @Nonnull final MetricCollector metricCollector,
                                       @Nonnull final RecordQueryPlan plan,
-                                      @Nonnull final QueryExecutionParameters context,
+                                      @Nonnull final QueryExecutionContext context,
                                       @Nonnull final PlanHashMode currentPlanHashMode,
                                       @Nonnull final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
         // Nothing needs to be validated if this continuation is at the beginning
@@ -92,7 +92,7 @@ public final class PlanValidator {
         }
     }
 
-    private static boolean validateBindingHash(QueryExecutionParameters parameters, ContinuationImpl continuation) {
+    private static boolean validateBindingHash(QueryExecutionContext parameters, ContinuationImpl continuation) {
         return Objects.equals(parameters.getParameterHash(), continuation.getBindingHash());
     }
 

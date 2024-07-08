@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -36,16 +37,13 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class QueryHasherContext implements QueryExecutionParameters {
+public final class QueryHasherContext implements QueryExecutionContext {
 
     @Nonnull
     private final Literals literals;
 
     @Nullable
     private final byte[] continuation;
-
-    @Nonnull
-    private final PreparedStatementParameters preparedStatementParameters;
 
     private final boolean isForExplain;
 
@@ -60,7 +58,6 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     private QueryHasherContext(@Nonnull Literals literals,
                                @Nullable byte[] continuation,
-                               @Nonnull PreparedStatementParameters preparedStatementParameters,
                                int limit,
                                int parameterHash,
                                int offset,
@@ -68,7 +65,6 @@ public final class QueryHasherContext implements QueryExecutionParameters {
                                @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
-        this.preparedStatementParameters = preparedStatementParameters;
         this.isForExplain = isForExplain;
         this.limit = limit;
         this.parameterHash = parameterHash;
@@ -78,14 +74,16 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
     @Nonnull
     @Override
-    public Literals getLiterals() {
+    public Literals getLiteralsBuilder() {
         return literals;
     }
 
+    @Override
     public int getLimit() {
         return limit;
     }
 
+    @Override
     public int getOffset() {
         return offset;
     }
@@ -119,12 +117,6 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         return parameterHash;
     }
 
-    @Nonnull
-    @Override
-    public PreparedStatementParameters getPreparedStatementParameters() {
-        return preparedStatementParameters;
-    }
-
     @Override
     public boolean isForExplain() {
         return isForExplain;
@@ -151,9 +143,6 @@ public final class QueryHasherContext implements QueryExecutionParameters {
 
         private int parameterHash;
 
-        @Nonnull
-        private PreparedStatementParameters preparedStatementParameters;
-
         @Nullable
         private PlanHashable.PlanHashMode planHashMode;
 
@@ -162,26 +151,25 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             this.isForExplain = false;
             this.continuation = null;
             this.limit = Optional.empty();
-            this.preparedStatementParameters = PreparedStatementParameters.empty();
             this.planHashMode = null;
         }
 
         @Nonnull
-        public Builder setLimit(final int limit) {
+        public Builder setLimit(int limit) {
             Assert.thatUnchecked(this.limit.isEmpty(), "setting multiple limits is not supported");
-            ParserUtils.verifyIntegerBounds(limit, 1, null);
+            SemanticAnalyzer.validateLimit(Expression.ofUnnamed(LiteralValue.ofScalar(limit)));
             this.limit = Optional.of(limit);
             return this;
         }
 
         @Nonnull
-        public Builder setParameterHash(@Nonnull final int parameterHash) {
+        public Builder setParameterHash(int parameterHash) {
             this.parameterHash = parameterHash;
             return this;
         }
 
         @Nonnull
-        public Builder setOffset(@Nonnull final Optional<ConstantObjectValue> offset) {
+        public Builder setOffset(@Nonnull Optional<ConstantObjectValue> offset) {
             // TODO
             Assert.thatUnchecked(offset.isEmpty(), "OFFSET clause is not supported.");
             return this;
@@ -194,7 +182,7 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             return this;
         }
 
-        public void addLiteral(@Nonnull final  OrderedLiteral orderedLiteral) {
+        public void addLiteral(@Nonnull OrderedLiteral orderedLiteral) {
             literals.addLiteral(orderedLiteral);
         }
 
@@ -202,9 +190,9 @@ public final class QueryHasherContext implements QueryExecutionParameters {
             literals.startArrayLiteral();
         }
 
-        public void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
-                                       @Nullable final String parameterName,
-                                       final int tokenIndex) {
+        public void finishArrayLiteral(@Nullable Integer unnamedParameterIndex,
+                                       @Nullable String parameterName,
+                                       int tokenIndex) {
             literals.finishArrayLiteral(unnamedParameterIndex, parameterName, true, tokenIndex);
         }
 
@@ -226,20 +214,14 @@ public final class QueryHasherContext implements QueryExecutionParameters {
         }
 
         @Nonnull
-        public Builder setPreparedStatementParameters(@Nonnull final PreparedStatementParameters preparedStatementParameters) {
-            this.preparedStatementParameters = preparedStatementParameters;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setPlanHashMode(@Nonnull final PlanHashable.PlanHashMode planHashMode) {
+        public Builder setPlanHashMode(@Nonnull PlanHashable.PlanHashMode planHashMode) {
             this.planHashMode = planHashMode;
             return this;
         }
 
         @Nonnull
         public QueryHasherContext build() {
-            return new QueryHasherContext(literals.build(), continuation, preparedStatementParameters,
+            return new QueryHasherContext(literals.build(), continuation,
                     limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED), parameterHash, 0, isForExplain,
                     Objects.requireNonNull(planHashMode));
         }

@@ -24,7 +24,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
+import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.HashMultiset;
@@ -627,7 +627,7 @@ public class Matchers {
             if (Objects.equals(expected, new String((byte[]) actual, StandardCharsets.UTF_8))) {
                 return ResultSetMatchResult.success();
             } else if (((String) expected).toLowerCase(Locale.ROOT).startsWith("x'") && ((String) expected).endsWith("'") &&
-                    Arrays.equals(ParserUtils.parseBytes((String) expected), (byte[]) actual)) {
+                    Arrays.equals(ParseHelpers.parseBytes((String) expected), (byte[]) actual)) {
                 return ResultSetMatchResult.success();
             }
         }

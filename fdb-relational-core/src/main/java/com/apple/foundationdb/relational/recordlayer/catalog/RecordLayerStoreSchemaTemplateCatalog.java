@@ -198,7 +198,8 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     /**
      * Instantiate an instance of {@link SchemaTemplate} using content of the passed {@link Message}.
      */
-    private static SchemaTemplate toSchemaTemplate(Message m) throws InvalidProtocolBufferException {
+    @Nonnull
+    private static SchemaTemplate toSchemaTemplate(@Nonnull Message m) throws InvalidProtocolBufferException {
         Descriptors.Descriptor d = m.getDescriptorForType();
         ByteString bs = (ByteString) m.getField(d.findFieldByName(SchemaTemplateSystemTable.METADATA));
         RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));

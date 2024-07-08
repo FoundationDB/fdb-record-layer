@@ -203,6 +203,23 @@ public final class Assert {
         throw new RelationalException(failMessage, failErrorCode).toUncheckedWrappedException();
     }
 
+    @Nonnull
+    public static <S, T> S castUnchecked(T object, Class<S> clazz) {
+        return castUnchecked(object, clazz, ErrorCode.INTERNAL_ERROR, () -> "expected " + clazz.getSimpleName() +
+                " but got " + (object == null ? "null" : object.getClass().getSimpleName()));
+    }
+
+    @Nonnull
+    public static <S, T> S castUnchecked(T object, Class<S> clazz, @Nonnull final ErrorCode errorCodeIfCastFailed,
+                                         @Nonnull final Supplier<String> messageSupplier) {
+        final var notNullObject = notNullUnchecked(object, errorCodeIfCastFailed, messageSupplier);
+        if (clazz.isInstance(notNullObject)) {
+            return clazz.cast(object);
+        }
+        failUnchecked(errorCodeIfCastFailed, messageSupplier.get());
+        return null;
+    }
+
     private Assert() {
     }
 }

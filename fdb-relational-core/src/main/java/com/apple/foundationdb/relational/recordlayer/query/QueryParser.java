@@ -80,7 +80,7 @@ public class QueryParser {
                                 int line, int charPositionInLine,
                                 String msg, RecognitionException e)
         {
-            syntaxErrors.add(ParserUtils.underlineParsingError(recognizer, (Token) offendingSymbol, line, charPositionInLine));
+            syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token) offendingSymbol, line, charPositionInLine));
         }
 
         @Override

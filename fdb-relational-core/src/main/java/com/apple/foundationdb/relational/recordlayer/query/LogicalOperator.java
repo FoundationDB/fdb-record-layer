@@ -1,0 +1,396 @@
+/*
+ * LogicalOperator.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.recordlayer.query;
+
+import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.util.Assert;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
+import org.apache.commons.lang3.tuple.Pair;
+
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * A logical operator wraps an SQL operation that produces some output. The operator has the following structure:
+ * <ul>
+ *     <li>optional name, this name usually corresponds to either a SQL alias (e.g. in case of subquery) or a table name</li>
+ *     <li>output {@link Expression}s.</li>
+ *     <li>internal representation by means of a {@link Quantifier}.</li>
+ * </ul>
+ * The operator is created when a SQL abstract syntax tree (AST) is traversed [1].
+ * For example, the following SQL statement {@code SELECT A, B, C FROM T} will produce a {@link LogicalOperator} whose
+ * name is {@code T} and has an output of three {@link Expression}s named {@code A},
+ * {@code B}, and {@code C}, the logical operator will wrap an internal quantifier that is a for-each {@link Quantifier}
+ * that returns all the rows of the table {@code T}.
+ * <br>
+ * [1] see {@link com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor} for more information.
+ */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+public class LogicalOperator {
+
+    @Nonnull
+    private final Optional<Identifier> name;
+
+    @Nonnull
+    private final Expressions output;
+
+    @Nonnull
+    private final Quantifier quantifier;
+
+    public LogicalOperator(@Nonnull Optional<Identifier> name,
+                           @Nonnull Expressions output,
+                           @Nonnull Quantifier quantifier) {
+        this.name = name;
+        this.output = output;
+        this.quantifier = quantifier;
+    }
+
+    @Nonnull
+    public Optional<Identifier> getName() {
+        return name;
+    }
+
+    @Nonnull
+    public Expressions getOutput() {
+        return output;
+    }
+
+    @Nonnull
+    public Quantifier getQuantifier() {
+        return quantifier;
+    }
+
+    @Nonnull
+    public LogicalOperator withName(@Nonnull Identifier name) {
+        if (getName().isPresent() && getName().get().equals(name)) {
+            return this;
+        }
+        return LogicalOperator.newNamedOperator(name, getOutput(), getQuantifier());
+    }
+
+    @Nonnull
+    public LogicalOperator withQuantifier(@Nonnull Quantifier quantifier) {
+        if (quantifier == getQuantifier()) {
+            return this;
+        }
+        return LogicalOperator.newOperator(getName(), getOutput(), quantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateAccess(@Nonnull Identifier identifier,
+                                                 @Nonnull Optional<Identifier> alias,
+                                                 @Nonnull Set<String> requestedIndexes,
+                                                 @Nonnull LogicalOperators logicalOperators,
+                                                 @Nonnull SemanticAnalyzer semanticAnalyzer) {
+        if (semanticAnalyzer.tableExists(identifier)) {
+            return generateTableAccess(semanticAnalyzer.getTable(identifier), alias, requestedIndexes, semanticAnalyzer);
+        } else {
+            final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, logicalOperators);
+            Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format("Can not hint indexes with correlated field access %s", identifier));
+            return generateCorrelatedFieldAccess(correlatedField, alias);
+        }
+    }
+
+    @Nonnull
+    public static LogicalOperator newNamedOperator(@Nonnull Identifier name,
+                                                   @Nonnull Expressions output,
+                                                   @Nonnull Quantifier quantifier) {
+        return new LogicalOperator(Optional.of(name), output.withQualifier(name), quantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator newUnnamedOperator(@Nonnull Expressions output,
+                                                     @Nonnull Quantifier quantifier) {
+        return new LogicalOperator(Optional.empty(), output.clearQualifier(), quantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator newOperator(@Nonnull Optional<Identifier> name,
+                                              @Nonnull Expressions output,
+                                              @Nonnull Quantifier quantifier) {
+        return name.map(identifier -> newNamedOperator(identifier, output, quantifier))
+                .orElseGet(() -> newUnnamedOperator(output, quantifier));
+    }
+
+    @Nonnull
+    public static LogicalOperator newOperatorWithPreservedExpressionNames(@Nonnull Expressions output,
+                                                                          @Nonnull Quantifier quantifier) {
+        return new LogicalOperator(Optional.empty(), output, quantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateTableAccess(@Nonnull Table table,
+                                                       @Nonnull Optional<Identifier> alias,
+                                                       @Nonnull Set<String> requestedIndexes,
+                                                       @Nonnull SemanticAnalyzer semanticAnalyzer) {
+        final var tableNames = semanticAnalyzer.getAllTableNames();
+        semanticAnalyzer.validateIndexes(table, requestedIndexes);
+        final var indexAccessHints = requestedIndexes.stream().map(IndexAccessHint::new).collect(ImmutableSet.toImmutableSet());
+        final var scanExpression = Quantifier.forEach(Reference.of(
+                new FullUnorderedScanExpression(tableNames,
+                        new Type.AnyRecord(false),
+                        new AccessHints(indexAccessHints.toArray(indexAccessHints.toArray(new IndexAccessHint[0]))))));
+        final var type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
+        final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(table.getName()), scanExpression, type);
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(typeFilterExpression));
+        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+        int colCount = 0;
+        for (final var column : table.getColumns()) {
+            final var attributeName = Identifier.of(column.getName());
+            final var attributeType = column.getDatatype();
+            final var fieldType = type.getField(colCount);
+            final var attributeExpression = FieldValue.ofFields(resultingQuantifier.getFlowedObjectValue(),
+                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
+            attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
+            colCount++;
+        }
+        final var operatorName = alias.orElse(Identifier.of(table.getName()));
+        final var attributes = Expressions.of(attributesBuilder.build());
+        return LogicalOperator.newNamedOperator(operatorName, attributes, resultingQuantifier);
+    }
+
+    @Nonnull
+    private static LogicalOperator generateCorrelatedFieldAccess(@Nonnull Expression expression,
+                                                                 @Nonnull Optional<Identifier> alias) {
+        Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
+                ErrorCode.INVALID_COLUMN_REFERENCE,
+                () -> String.format("join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
+        final var explode = new ExplodeExpression(expression.getUnderlying());
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(explode));
+        final var outputAttributes = Expressions.of(convertToExpressions(resultingQuantifier));
+        return LogicalOperator.newOperator(alias, outputAttributes, resultingQuantifier);
+    }
+
+    @Nonnull
+    private static Expressions convertToExpressions(@Nonnull Quantifier quantifier) {
+        final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
+        int colCount = 0;
+        final var columns = quantifier.getFlowedColumns();
+        for (final var column : columns) {
+            final var field = column.getField();
+            final var value = column.getValue();
+            final var attributeName = field.getFieldNameOptional().map(Identifier::of);
+            final var attributeType = DataTypeUtils.toRelationalType(value.getResultType());
+            final var attributeExpression = FieldValue.ofOrdinalNumber(quantifier.getFlowedObjectValue(), colCount);
+            attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
+            colCount++;
+        }
+        return Expressions.of(attributesBuilder.build());
+    }
+
+    @Nonnull
+    public static LogicalOperator generateSelect(@Nonnull Expressions output,
+                                                 @Nonnull LogicalOperators logicalOperators,
+                                                 @Nonnull Optional<Expression> predicate,
+                                                 @Nonnull Optional<Pair<Boolean, Expressions>> orderByInfoOptional,
+                                                 @Nonnull Optional<Identifier> alias,
+                                                 @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                                 boolean isTopLevel,
+                                                 boolean isForDdl) {
+        if (orderByInfoOptional.isEmpty()) {
+            if (isTopLevel) {
+                return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), Optional.empty(), outerCorrelations, alias);
+            }
+            return generateSimpleSelect(output, logicalOperators, predicate, alias, outerCorrelations, isForDdl);
+        }
+        final var orderByInfo = orderByInfoOptional.get();
+        final var orderByExpressions = orderByInfo.getRight();
+        final var remainingOrderByExpressions = orderByExpressions.difference(output);
+        if (remainingOrderByExpressions.isEmpty()) {
+            return generateSort(generateSimpleSelect(output, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl), orderByInfoOptional, outerCorrelations, alias);
+        } else {
+            final var selectWithExtraOrderByExpressions = output.concat(remainingOrderByExpressions);
+            final var selectWithExtraOrderBy = generateSimpleSelect(selectWithExtraOrderByExpressions, logicalOperators, predicate, Optional.empty(), outerCorrelations, isForDdl);
+            final var sortOperator = generateSort(selectWithExtraOrderBy, orderByInfoOptional, outerCorrelations, Optional.empty());
+            final var pulledOutput = output.expanded().rewireQov(selectWithExtraOrderBy.getQuantifier().getFlowedObjectValue())
+                    .rewireQov(sortOperator.getQuantifier().getFlowedObjectValue()).clearQualifier();
+            return generateSimpleSelect(pulledOutput, LogicalOperators.ofSingle(sortOperator), Optional.empty(), alias, outerCorrelations, isForDdl);
+        }
+    }
+
+    @Nonnull
+    public static LogicalOperator generateSelectWhere(@Nonnull LogicalOperators logicalOperators,
+                                                      @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                                      @Nonnull Optional<Expression> where,
+                                                      boolean isForDdl) {
+        final var quantifiers = logicalOperators.getQuantifiers();
+        final var quantifiedObjectValues = Streams.stream(quantifiers).map(QuantifiedObjectValue::of).collect(ImmutableList.toImmutableList());
+        final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers).addAllResultValues(quantifiedObjectValues);
+        where.ifPresent(predicate -> {
+            final var innermostAlias = getInnermostAlias(logicalOperators);
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, innermostAlias, isForDdl));
+        });
+        final var selectExpression = selectBuilder.build().buildSelect();
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(selectExpression));
+        final var expressions = logicalOperators.getExpressions();
+        final var output = expressions.pullUp(selectExpression.getResultValue(), resultingQuantifier.getAlias(), outerCorrelations);
+        return LogicalOperator.newOperatorWithPreservedExpressionNames(output, resultingQuantifier);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static LogicalOperator generateGroupBy(@Nonnull LogicalOperators logicalOperators,
+                                                  @Nonnull Expressions groupByExpressions,
+                                                  @Nonnull Expressions outputExpressions,
+                                                  @Nonnull Optional<Expression> havingPredicate,
+                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
+        final var aliasMap = AliasMap.identitiesFor(logicalOperators.getCorrelations());
+        final var aggregates = Expressions.of(havingPredicate.map(outputExpressions::concat).orElse(outputExpressions)
+                .collectAggregateValues().stream().map(Expression::fromUnderlying).collect(ImmutableSet.toImmutableSet()));
+        SemanticAnalyzer.validateGroupByAggregates(aggregates);
+        final var validSubExpressions = groupByExpressions.concat(aggregates);
+
+        for (final var expression : outputExpressions.expanded().concat(havingPredicate.map(Expressions::ofSingle).orElseGet(Expressions::empty))) {
+            Assert.thatUnchecked(SemanticAnalyzer.isComposableFrom(expression, validSubExpressions, aliasMap, outerCorrelations),
+                    ErrorCode.GROUPING_ERROR,
+                    () -> String.format("Invalid reference to non-grouping expression %s", expression));
+        }
+
+        final var aggregateValue = RecordConstructorValue.ofUnnamed((List<Value>) Assert.castUnchecked(aggregates.underlying(), List.class));
+        final var groupingValue = RecordConstructorValue.ofUnnamed((List<Value>) Assert.castUnchecked(groupByExpressions.underlying(), List.class));
+
+        final var groupByExpression = new GroupByExpression(groupingValue.getColumns().isEmpty() ? null : groupingValue, aggregateValue,
+                GroupByExpression::nestedResults, Iterables.getOnlyElement(logicalOperators).quantifier);
+
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(groupByExpression));
+
+        // this must be aligned with _how_ the GroupByExpression composes its result set.
+        final var output = groupByExpressions.concat(aggregates).pullUp(groupByExpression.getResultValue(), resultingQuantifier.getAlias(),
+                outerCorrelations).clearQualifier();
+
+        return LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateSimpleSelect(@Nonnull Expressions output,
+                                                       @Nonnull LogicalOperators logicalOperators,
+                                                       @Nonnull Optional<Expression> where,
+                                                       @Nonnull Optional<Identifier> alias,
+                                                       @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                                       boolean isForDdl) {
+        final var selectBuilder = GraphExpansion.builder();
+        logicalOperators.forEach(logicalOperator -> selectBuilder.addQuantifier(logicalOperator.getQuantifier()));
+        where.ifPresent(predicate -> {
+            final var innermostAlias = getInnermostAlias(logicalOperators);
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, innermostAlias, isForDdl));
+        });
+        final var expandedOutput = output.expanded();
+        SelectExpression selectExpression;
+
+        final var canAvoidProjectingIndividualFields = Iterables.size(logicalOperators.forEachOnly()) == 1 &&
+                Iterables.size(output) == 1 && output.iterator().next() instanceof Star;
+        if (canAvoidProjectingIndividualFields) {
+            final var passedThroughResultValue = output.iterator().next().getUnderlying();
+            selectExpression = selectBuilder.build().buildSelectWithResultValue(passedThroughResultValue);
+        } else {
+            expandedOutput.underlyingAsColumns().forEach(selectBuilder::addResultColumn);
+            selectExpression = selectBuilder.build().buildSelect();
+        }
+
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(selectExpression));
+        var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
+        resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
+        return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateSort(@Nonnull LogicalOperator logicalOperator,
+                                               @Nonnull Optional<Pair<Boolean, Expressions>> orderByInfoOptional,
+                                               @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                               @Nonnull Optional<Identifier> alias) {
+        final var direction = orderByInfoOptional.map(Pair::getLeft).orElse(false);
+
+        // if we have order by columns, we pull them up through the underlying select, otherwise return all the select columns.
+        final var pulledUpOrderByExpressions = orderByInfoOptional.map(p -> {
+            final var expressions = p.getRight().expanded()
+                    .pullUp(logicalOperator.quantifier.getRangesOver().get().getResultValue(),
+                            logicalOperator.getQuantifier().getAlias(),
+                            outerCorrelations);
+            return logicalOperator.getName().map(expressions::withQualifier).orElseGet(expressions::clearQualifier);
+        }).orElse(Expressions.of(logicalOperator.getOutput()));
+        Assert.thatUnchecked(!pulledUpOrderByExpressions.isEmpty());
+
+        final List<Value> sortValues = orderByInfoOptional.isPresent() ?
+                ImmutableList.copyOf(pulledUpOrderByExpressions.underlyingRebased(logicalOperator.quantifier.getAlias(), Quantifier.current())) :
+                ImmutableList.of();
+        final var sortExpression = new LogicalSortExpression(sortValues, direction, logicalOperator.quantifier);
+
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(sortExpression));
+        // the resulting sort expression has exactly the same output as the underlying expression.
+        var resultingExpressions = Expressions.of(logicalOperator.output).rewireQov(resultingQuantifier.getFlowedObjectValue());
+        resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
+        return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator generateInsert(@Nonnull LogicalOperator insertSource, @Nonnull Table target) {
+        final var targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
+        final var insertExpression = new InsertExpression(Assert.castUnchecked(insertSource.getQuantifier(),
+                        Quantifier.ForEach.class),
+                target.getName(),
+                targetType);
+        final var resultingQuantifier = Quantifier.forEach(Reference.of(insertExpression));
+        final var output = Expressions.fromQuantifier(resultingQuantifier);
+        final var insertOperator = LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
+        return generateSort(insertOperator, Optional.empty(), ImmutableSet.of(), Optional.empty());
+    }
+
+    @Nonnull
+    public static CorrelationIdentifier getInnermostAlias(@Nonnull Iterable<LogicalOperator> logicalOperators) {
+        final Collection<CorrelationIdentifier> aliases = Streams.stream(logicalOperators)
+                .map(LogicalOperator::getQuantifier)
+                .filter(qun -> qun instanceof Quantifier.ForEach)
+                .map(Quantifier::getAlias)
+                .collect(Collectors.toList()); // not sure if this is correct
+        return aliases.stream().findFirst().orElseThrow();
+    }
+}

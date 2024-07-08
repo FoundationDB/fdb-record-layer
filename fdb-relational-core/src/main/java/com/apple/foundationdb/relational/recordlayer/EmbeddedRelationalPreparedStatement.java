@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedStatementParameters;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import com.google.protobuf.Message;
 
@@ -203,7 +203,7 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
                 .fromRecordStore(store)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(conn.metricCollector)
-                .withPreparedParameters(PreparedStatementParameters.of(parameters, namedParameters))
+                .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
                 .withSchemaTemplate(conn.getSchemaTemplate())
                 .build();
     }

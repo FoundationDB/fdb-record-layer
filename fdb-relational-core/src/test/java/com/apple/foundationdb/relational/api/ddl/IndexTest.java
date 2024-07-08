@@ -107,12 +107,12 @@ public class IndexTest {
                 .build();
     }
 
-    private PlanGenerator getPlanGenerator() throws SQLException, RelationalException {
+    private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
         final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, Map.of());
         final FDBRecordStoreBase<Message> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
-        return PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), storeState, Options.NONE);
+        return PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), storeState, Options.NONE);
     }
 
     void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
@@ -124,13 +124,13 @@ public class IndexTest {
                                        @Nonnull final String errorMessage,
                                        @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()));
+                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format("expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build());
+        getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query);
     }
 
     private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
@@ -360,7 +360,7 @@ public class IndexTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, a2 bigint, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT a1, a2 FROM T1 order by a4";
-        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "non existing column");
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "non existing column");
     }
 
     @Test
@@ -540,7 +540,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT t2.\"__ROW_VERSION\" FROM T1 AS t ORDER BY t2.\"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "attempting to query non existing column 'T2.__ROW_VERSION'");
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN, "Attempting to query non existing column 'T2.__ROW_VERSION'");
     }
 
     @Test
@@ -599,7 +599,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, \"__ROW_VERSION\" FROM T1, (SELECT col2 FROM T1.A) X ORDER BY X.col2, \"__ROW_VERSION\" " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "ambiguous column name '__ROW_VERSION'");
+        shouldFailWith(stmt, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous reference '__ROW_VERSION'");
     }
 
     @Test
@@ -680,8 +680,7 @@ public class IndexTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
                 String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, %s(col4), %s(col4), col3", index, index, index);
-        // Error message could be improved
-        shouldFailWith(stmt, ErrorCode.COLUMN_ALREADY_EXISTS, "Order by column _0 is duplicated in the order by clause");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, aggregate can appear only once in ordering clause");
     }
 
     @ParameterizedTest
@@ -699,7 +698,7 @@ public class IndexTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
                 String.format("CREATE INDEX mv1 AS SELECT col1, col3, %s(col4) FROM T1 group by col1, col2, col3 order by col1, col2, %s(col4), col3", index, index);
-        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by a column that is not present in the projection list");
+        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
     }
 
     @ParameterizedTest
@@ -726,7 +725,7 @@ public class IndexTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
                 String.format("CREATE INDEX mv1 AS SELECT col1, col2, col3, %s(col4) FROM T1 group by col1, col2", index);
-        shouldFailWith(stmt, ErrorCode.GROUPING_ERROR, "could not find field name 'COL3' in the grouping list");
+        shouldFailWith(stmt, ErrorCode.GROUPING_ERROR, "Invalid reference to non-grouping expression T1.COL3");
     }
 
     @Test
@@ -787,7 +786,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M order by M.x) SQ";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
     }
 
     @Test
@@ -796,7 +795,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t where exists (select M.x from t.a AS M order by M.x)";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is only supported for top level selects");
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
     }
 
     @Test
@@ -805,6 +804,6 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p from T AS t order by t.p + 4";
-        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "Arbitrary expressions are not allowed in order by clause");
+        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
     }
 }

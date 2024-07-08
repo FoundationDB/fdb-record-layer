@@ -94,7 +94,7 @@ public final class NullableArrayUtils {
         return wrapArrayInternal(keyExpression, parentDescriptor);
     }
 
-    public static RecordMetaDataProto.KeyExpression wrapArrayInternal(RecordMetaDataProto.KeyExpression keyExpression,
+    private static RecordMetaDataProto.KeyExpression wrapArrayInternal(RecordMetaDataProto.KeyExpression keyExpression,
                                                                       Descriptors.Descriptor parentDescriptor) {
         // handle concat (straightforward recursion)
         if (keyExpression.hasThen()) {

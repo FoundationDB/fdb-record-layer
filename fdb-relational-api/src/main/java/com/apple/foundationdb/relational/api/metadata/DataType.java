@@ -678,6 +678,79 @@ public abstract class DataType {
         }
     }
 
+    public static final class VersionType extends DataType {
+        @Nonnull
+        private static final VersionType NOT_NULLABLE_INSTANCE = new VersionType(false);
+
+        @Nonnull
+        private static final VersionType NULLABLE_INSTANCE = new VersionType(true);
+
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private VersionType(boolean isNullable) {
+            super(isNullable, true, Code.VERSION);
+        }
+
+        @Override
+        @Nonnull
+        public DataType withNullable(boolean isNullable) {
+            if (isNullable) {
+                return Primitives.NULLABLE_VERSION.type();
+            } else {
+                return Primitives.VERSION.type();
+            }
+        }
+
+        @Override
+        public boolean isResolved() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
+            return this;
+        }
+
+        @Nonnull
+        public static VersionType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static VersionType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof VersionType)) {
+                return false;
+            }
+            final var otherVersionType = (VersionType) other;
+            return this.isNullable() == otherVersionType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return "version" + (isNullable() ? " ∪ ∅" : "");
+        }
+    }
+
     public static final class EnumType extends DataType implements Named {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
@@ -1039,7 +1112,7 @@ public abstract class DataType {
 
         @Override
         public String toString() {
-            return name + " { " + fields.stream().map(field -> field.getName() + ":" + field.getType()).collect(Collectors.joining(",")) + " } ";
+            return name.substring(0, Math.min(name.length(), 5)) + " { " + fields.stream().map(field -> field.getName() + ":" + field.getType()).collect(Collectors.joining(",")) + " } ";
         }
     }
 
@@ -1182,6 +1255,7 @@ public abstract class DataType {
         DOUBLE,
         STRING,
         BYTES,
+        VERSION,
         ENUM,
         STRUCT,
         ARRAY,
@@ -1197,6 +1271,7 @@ public abstract class DataType {
         DOUBLE(DoubleType.notNullable()),
         STRING(StringType.notNullable()),
         BYTES(BytesType.notNullable()),
+        VERSION(VersionType.notNullable()),
         NULLABLE_BOOLEAN(BooleanType.nullable()),
         NULLABLE_LONG(LongType.nullable()),
         NULLABLE_INTEGER(IntegerType.nullable()),
@@ -1204,6 +1279,7 @@ public abstract class DataType {
         NULLABLE_DOUBLE(DoubleType.nullable()),
         NULLABLE_STRING(StringType.nullable()),
         NULLABLE_BYTES(BytesType.nullable()),
+        NULLABLE_VERSION(VersionType.nullable())
         ;
 
         @Nonnull

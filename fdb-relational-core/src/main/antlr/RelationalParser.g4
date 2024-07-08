@@ -87,7 +87,7 @@ templateClause
     ;
 
 createStatement
-   : CREATE SCHEMA schemaId WITH TEMPLATE schemaTemplateId                                                  #createSchemaStatement
+   : CREATE SCHEMA schemaId WITH TEMPLATE schemaTemplateId                                            #createSchemaStatement
    | CREATE SCHEMA TEMPLATE schemaTemplateId  templateClause+ optionsClause?                          #createSchemaTemplateStatement
    | CREATE DATABASE path                                                                             #createDatabaseStatement
    ;
@@ -159,13 +159,13 @@ intervalType
     | HOUR_MICROSECOND | DAY_MICROSECOND
     ;
 
-schemaId:
+schemaId: // redundant, remove.
    path;
 
-path:
-   uid; // matching happens in parser
+path: // redundant, remove.
+   uid;
 
-schemaTemplateId:
+schemaTemplateId: // redundant, remove.
    uid;
 
 // Data Manipulation Language
@@ -175,7 +175,7 @@ schemaTemplateId:
 deleteStatement
     : DELETE
       FROM tableName
-      (WHERE expression)?
+      (WHERE whereExpr)?
       orderByClause? limitClause?
       (RETURNING selectElements)?
       queryOptions?
@@ -237,7 +237,7 @@ assignmentField
 updateStatement
     : UPDATE tableName (AS? uid)?
       SET updatedElement (',' updatedElement)*
-      (WHERE expression)?
+      (WHERE whereExpr)?
       (RETURNING selectElements)?
       (WITH CONTINUATION continuationAtom)?
       queryOptions?
@@ -328,13 +328,16 @@ selectElement
     ;
 
 fromClause // done
-    : FROM tableSources (WHERE whereExpr=expression)?
+    : FROM tableSources (WHERE whereExpr)?
     ;
 
 groupByClause // done
     :  GROUP BY
        groupByItem (',' groupByItem)*
     ;
+
+whereExpr
+    : expression;
 
 havingClause
     :  HAVING havingExpr=expression

@@ -121,12 +121,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final QueryPlanConstraint constraint;
 
         @Nonnull
-        private final QueryExecutionParameters queryExecutionParameters;
+        private final QueryExecutionContext queryExecutionParameters;
 
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
-                                 @Nonnull final QueryExecutionParameters queryExecutionParameters,
+                                 @Nonnull final QueryExecutionContext queryExecutionParameters,
                                  @Nonnull final String query,
                                  @Nonnull final PlanHashMode currentPlanHashMode) {
             super(query);
@@ -161,7 +161,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        public QueryExecutionParameters getQueryExecutionParameters() {
+        public QueryExecutionContext getQueryExecutionParameters() {
             return queryExecutionParameters;
         }
 
@@ -173,7 +173,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         @Override
         @Nonnull
-        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters) {
+        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
             if (parameters == this.queryExecutionParameters) {
                 return this;
             }
@@ -208,9 +208,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull final CascadesPlanner planner,
-                                                @Nonnull final PlannerConfiguration configuration,
-                                                @Nonnull final PlanHashMode currentPlanHashMode) {
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner,
+                                                @Nonnull PlanContext planContext,
+                                                @Nonnull PlanHashMode currentPlanHashMode) {
             return this;
         }
 
@@ -339,7 +339,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             // Do not send the serialized plan unless we can continue with this continuation.
             if (serializeCompiledStatement && !continuation.atEnd()) {
                 final var serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
-                final var literals = queryExecutionParameters.getLiterals();
+                final var literals = queryExecutionParameters.getLiteralsBuilder();
                 final var compiledStatementBuilder = CompiledStatement.newBuilder()
                         .setPlanSerializationMode(queryExecutionParameters.getPlanHashMode().name());
                 int i = 0;
@@ -422,7 +422,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         public ContinuedPhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                           @Nonnull final TypeRepository typeRepository,
                                           @Nonnull final QueryPlanConstraint constraint,
-                                          @Nonnull final QueryExecutionParameters queryExecutionParameters,
+                                          @Nonnull final QueryExecutionContext queryExecutionParameters,
                                           @Nonnull final String query,
                                           @Nonnull final PlanHashMode currentPlanHashMode,
                                           @Nonnull final PlanHashMode serializedPlanHashMode) {
@@ -438,7 +438,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         @Override
         @Nonnull
-        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters) {
+        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
             if (parameters == this.getQueryExecutionParameters()) {
                 return this;
             }
@@ -485,7 +485,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final RelationalExpression relationalExpression;
 
         @Nonnull
-        private final PlanGenerationContext context;
+        private final MutablePlanGenerationContext context;
 
         @Nonnull
         private final String query;
@@ -495,7 +495,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private Optional<PhysicalQueryPlan> optimizedPlan;
 
         private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
-                                 @Nonnull final PlanGenerationContext context,
+                                 @Nonnull final MutablePlanGenerationContext context,
                                  @Nonnull final String query) {
             super(query);
             this.relationalExpression = relationalExpression;
@@ -512,12 +512,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Override
         @Nonnull
-        public PhysicalQueryPlan optimize(@Nonnull final CascadesPlanner planner, @Nonnull PlannerConfiguration configuration,
-                                          @Nonnull final PlanHashMode currentPlanHashMode) throws RelationalException {
+        public PhysicalQueryPlan optimize(@Nonnull CascadesPlanner planner, @Nonnull PlanContext planContext,
+                                          @Nonnull PlanHashMode currentPlanHashMode) throws RelationalException {
             if (optimizedPlan.isPresent()) {
                 return optimizedPlan.get();
             }
-            return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN, () -> {
+            return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN, () -> {
                 final TypeRepository.Builder builder = TypeRepository.newBuilder();
                 final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
                 usedTypes.forEach(builder::addTypeIfNeeded);
@@ -527,7 +527,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 try {
                     planResult = planner.planGraph(() ->
                                     Reference.of(relationalExpression),
-                            configuration.getReadableIndexes().map(s -> s),
+                            planContext.getPlannerConfiguration().getReadableIndexes().map(s -> s),
                             IndexQueryabilityFilter.TRUE,
                             typedEvaluationContext);
                 } catch (RecordCoreException ex) {
@@ -557,7 +557,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         @Override
-        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull final QueryExecutionParameters parameters) {
+        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
             return this;
         }
 
@@ -585,13 +585,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return relationalExpression;
         }
 
-        public PlanGenerationContext getGenerationContext() {
+        public MutablePlanGenerationContext getGenerationContext() {
             return context;
         }
 
         @Nonnull
         public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final PlanGenerationContext context,
+                                          @Nonnull final MutablePlanGenerationContext context,
                                           @Nonnull final String query) {
             return new LogicalQueryPlan(relationalExpression, context, query);
         }
@@ -622,9 +622,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull final CascadesPlanner planner,
-                                                @Nonnull final PlannerConfiguration configuration,
-                                                @Nonnull final PlanHashMode currentPlanHashMode) {
+        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner,
+                                                @Nonnull PlanContext planContext,
+                                                @Nonnull PlanHashMode currentPlanHashMode) {
             return this;
         }
 
@@ -641,7 +641,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         @Override
-        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters) {
+        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionContext parameters) {
             return this;
         }
 

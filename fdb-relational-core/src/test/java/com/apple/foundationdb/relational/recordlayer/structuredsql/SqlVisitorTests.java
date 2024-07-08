@@ -177,7 +177,7 @@ public class SqlVisitorTests {
                 .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .build();
-        final PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
-        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan(query, planContext));
+        final PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan(query));
     }
 }

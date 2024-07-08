@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -48,9 +47,10 @@ import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionParameters.OrderedLiteral;
+import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
@@ -63,7 +63,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -86,16 +86,22 @@ public final class PlanGenerator {
     @Nonnull
     private final CascadesPlanner planner;
 
+    @Nonnull
+    private final PlanContext planContext;
+
     private long beginTime = System.nanoTime();
+
     private long currentTime = beginTime;
 
     @Nonnull
     private Options options;
 
-    private PlanGenerator(@Nonnull final Optional<RelationalPlanCache> cache,
-                          @Nonnull final CascadesPlanner planner,
-                          @Nonnull final Options options) {
+    private PlanGenerator(@Nonnull Optional<RelationalPlanCache> cache,
+                          @Nonnull PlanContext planContext,
+                          @Nonnull CascadesPlanner planner,
+                          @Nonnull Options options) {
         this.cache = cache;
+        this.planContext = planContext;
         this.planner = planner;
         this.options = options;
     }
@@ -107,20 +113,17 @@ public final class PlanGenerator {
      * it in the cache.
      *
      * @param query The SQL query.
-     * @param context The context related for planning the query and looking it in the cache.
      * @return a corresponding {@link Plan}.
      * @throws RelationalException If planning was unsuccessful.
      */
     @Nonnull
-    public Plan<?> getPlan(@Nonnull final String query,
-                           @Nonnull final PlanContext context) throws RelationalException {
+    public Plan<?> getPlan(@Nonnull String query) throws RelationalException {
         resetTimer();
         KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         Plan<?> plan = null;
         RelationalException exception = null;
         try {
-            plan = context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () ->
-                    getPlanInternal(query, context, message));
+            plan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.TOTAL_GET_PLAN_QUERY, () -> getPlanInternal(query, message));
         } catch (RelationalException e) {
             exception = e;
             throw e;
@@ -135,23 +138,25 @@ public final class PlanGenerator {
         return options;
     }
 
+    private boolean isCaseSensitive() {
+        return options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
+    }
+
     @Nonnull
-    private Plan<?> getPlanInternal(@Nonnull final String query, @Nonnull final PlanContext context,
-                                     @Nonnull KeyValueLogMessage message) throws RelationalException {
+    private Plan<?> getPlanInternal(@Nonnull String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
-            final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
             final Set<PlanHashable.PlanHashMode> validPlanHashModes =
                     QueryPlan.PhysicalQueryPlan.getValidPlanHashModes(options);
             final PlanHashable.PlanHashMode currentPlanHashMode = QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options);
-            final var astHashResult = AstNormalizer.normalizeQuery(context, query, caseSensitive, currentPlanHashMode);
+            final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode);
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = Options.combine(astHashResult.getQueryOptions(), options);
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive, validPlanHashModes,
+                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes,
                         currentPlanHashMode);
                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
                 return plan;
@@ -162,7 +167,7 @@ public final class PlanGenerator {
 
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
-            return context.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
+            return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
                             astHashResult.getSchemaTemplateName(),
                             astHashResult.getQueryCacheKey(),
@@ -170,8 +175,7 @@ public final class PlanGenerator {
                             () -> {
                                 final Plan<?> physicalPlan;
                                 try {
-                                    physicalPlan = generatePhysicalPlan(astHashResult, context, planner, caseSensitive,
-                                            validPlanHashModes, currentPlanHashMode);
+                                    physicalPlan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
                                 } catch (final RelationalException vE) {
                                     throw vE.toUncheckedWrappedException();
                                 }
@@ -193,13 +197,13 @@ public final class PlanGenerator {
                                     return candidate;
                                 }
                             }),
-                            e -> context.getMetricsCollector().increment(e)
+                            e -> planContext.getMetricsCollector().increment(e)
                     )
             );
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();
         } catch (MetaDataException mde) {
-            // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
+            // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
         } catch (VerifyException | SemanticException ve) {
             throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
@@ -208,65 +212,35 @@ public final class PlanGenerator {
         }
     }
 
-    /**
-     * Creates a new instance of the plan generator.
-     * @param cache An optional plan cache.
-     * @param metaData The record store metadata
-     * @param recordStoreState The record store state
-     * @param options a set of planner options.
-     * @return a plan generator
-     * @throws RelationalException if creation of the plan generator fails.
-     */
     @Nonnull
-    public static PlanGenerator of(@Nonnull final Optional<RelationalPlanCache> cache,
-                                   @Nonnull final RecordMetaData metaData,
-                                   @Nonnull final RecordStoreState recordStoreState,
-                                   @Nonnull final Options options) throws RelationalException {
-        return new PlanGenerator(cache, createPlanner(metaData, recordStoreState, options), options);
-    }
-
-    @Nonnull
-    private static Plan<?> generatePhysicalPlan(@Nonnull final AstNormalizer.Result ast,
-                                                @Nonnull final PlanContext planContext,
-                                                @Nonnull final CascadesPlanner planner,
-                                                final boolean caseSensitive,
-                                                @Nonnull final Set<PlanHashable.PlanHashMode> validPlanHashModes,
-                                                @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
+    private Plan<?> generatePhysicalPlan(@Nonnull AstNormalizer.Result ast,
+                                         @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
+                                         @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         if (ast.getQueryCachingFlags().contains(AstNormalizer.Result.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
-            return generatePhysicalPlanForExecuteContinuation(ast, planContext, validPlanHashModes, currentPlanHashMode);
+            return generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode);
         } else {
-            return generatePhysicalPlanForCompilableStatement(ast, planContext, planner, caseSensitive, currentPlanHashMode);
+            return generatePhysicalPlanForCompilableStatement(ast, isCaseSensitive(), currentPlanHashMode);
         }
     }
 
     @Nonnull
-    private static Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull final AstNormalizer.Result ast,
-                                                                      @Nonnull final PlanContext planContext,
-                                                                      @Nonnull final CascadesPlanner planner,
-                                                                      final boolean caseSensitive,
-                                                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
-        // todo (yhatem) rewrite this
-        final var context =
-                PlanGenerationContext.newBuilder()
-                        .setMetadataFactory(planContext.getConstantActionFactory())
-                        .setPreparedStatementParameters(planContext.getPreparedStatementParameters())
-                        .setMetricsCollector(planContext.getMetricsCollector())
-                        .setPlanHashMode(currentPlanHashMode)
-                        .build();
-        // (yhatem) why is this needed? looks hacky...
-        // TODO This is needed so the execute can pick up the limit and offset which are stored by the grammar
-        //      actions in that dql context.
-        context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(), "foo", 1));
+    private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.Result ast,
+                                                               boolean caseSensitive,
+                                                               @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
-        context.setParameterHash(ast.getQueryExecutionParameters().getParameterHash());
+        final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
+        final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
+                currentPlanHashMode, parameterHash);
+        final var metadata = RecordLayerSchemaTemplate.fromRecordMetadataWithFakeTemplateNameAndVersion(planContext.getMetaData());
         try {
-            final var maybePlan = generateLogicalPlan(context, ast, planContext.getDdlQueryFactory(), planContext.getDbUri(), caseSensitive);
-            Assert.thatUnchecked(maybePlan instanceof Plan, ErrorCode.INTERNAL_ERROR, "Could not generate a logical plan for query '%s'", ast.getQueryCacheKey().getCanonicalQueryString());
-            final Plan<?> logicalPlan = (Plan<?>) maybePlan;
-            return logicalPlan.optimize(planner, planContext.getPlannerConfiguration(), currentPlanHashMode);
+            final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
+                    new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
+                            planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
+                            .generateLogicalPlan(ast.getParseTree()));
+            return maybePlan.optimize(planner, planContext, currentPlanHashMode);
         } catch (MetaDataException mde) {
-            // we need a better way to pass-thru / translate errors codes between record layer and Relational as SQL exceptions
+            // we need a better way for translating error codes between record layer and Relational SQL error codes
             throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
         } catch (VerifyException | SemanticException ve) {
             throw ExceptionUtil.toRelationalException(ve).toUncheckedWrappedException();
@@ -276,11 +250,11 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private static QueryPlan.PhysicalQueryPlan generatePhysicalPlanForExecuteContinuation(@Nonnull final AstNormalizer.Result ast,
-                                                                                          @Nonnull final PlanContext planContext,
-                                                                                          @Nonnull final Set<PlanHashable.PlanHashMode> validPlanHashModes,
-                                                                                          @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
-        final var queryHasherContext = (QueryHasherContext) ast.getQueryExecutionParameters();
+    private QueryPlan.PhysicalQueryPlan generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.Result ast,
+                                                                                   @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
+                                                                                   @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
+            throws RelationalException {
+        final var queryHasherContext = ast.getQueryExecutionParameters();
         final var continuationProto = queryHasherContext.getContinuation();
         final ContinuationImpl continuation;
         try {
@@ -325,42 +299,43 @@ public final class PlanGenerator {
         final var preparedStatementParameters =
                 deserializeArgumentsForParameters(compiledStatement, orderedLiteralsTable);
 
-        final var context =
-                PlanGenerationContext.newBuilder()
-                        .setMetadataFactory(planContext.getConstantActionFactory())
-                        .setPreparedStatementParameters(preparedStatementParameters)
-                        .setMetricsCollector(planContext.getMetricsCollector())
-                        .setPlanHashMode(currentPlanHashMode)
-                        .build();
-        context.setForExplain(ast.getQueryExecutionParameters().isForExplain());
-        context.setParameterHash(Objects.requireNonNull(continuation.getBindingHash()));
-
-        // TODO This is needed so the execute code path can pick up the limit and offset which are stored by the grammar
-        //      actions in that dql context.
-        final var dqlContext =
-                context.pushDqlContext(RecordLayerSchemaTemplate.fromRecordMetadata(planContext.getMetaData(),
-                        "foo", 1));
-        dqlContext.setLimit(queryHasherContext.getLimit());
-        dqlContext.setOffset(queryHasherContext.getOffset());
-
-        Arrays.stream(orderedLiteralsTable).forEach(context::addStrippedLiteralOrParameter);
-        context.setContinuation(continuationProto);
-
-        final var continuationPlanConstraint =
-                QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
-
+        final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
+                currentPlanHashMode,
+                Objects.requireNonNull(continuation.getBindingHash()));
+        planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
+        planGenerationContext.setLimit(queryHasherContext.getLimit());
+        planGenerationContext.setOffset(queryHasherContext.getOffset());
+        Arrays.stream(orderedLiteralsTable).forEach(planGenerationContext::addStrippedLiteralOrParameter);
+        planGenerationContext.setContinuation(continuationProto);
+        final var continuationPlanConstraint = QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
                 continuationPlanConstraint,
-                context,
+                planGenerationContext,
                 "EXECUTE CONTINUATION " + ast.getQueryCacheKey().getCanonicalQueryString(),
                 currentPlanHashMode,
                 serializedPlanHashMode);
     }
 
-    private static void deserializeTypedQueryArgument(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final TypeRepository typeRepository,
-                                                      @Nonnull final OrderedLiteral[] orderedLiteralsTable,
-                                                      @Nonnull final TypedQueryArgument argumentProto) {
+    private void resetTimer() {
+        currentTime = System.nanoTime();
+        beginTime = currentTime;
+    }
+
+    private long stepTimeMicros() {
+        final long time = System.nanoTime();
+        final long result = TimeUnit.NANOSECONDS.toMicros(time - currentTime);
+        currentTime = time;
+        return result;
+    }
+
+    private long totalTimeMicros() {
+        return TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime);
+    }
+
+    private static void deserializeTypedQueryArgument(@Nonnull PlanSerializationContext serializationContext,
+                                                      @Nonnull TypeRepository typeRepository,
+                                                      @Nonnull OrderedLiteral[] orderedLiteralsTable,
+                                                      @Nonnull TypedQueryArgument argumentProto) {
         final var argumentType = Type.fromTypeProto(serializationContext, argumentProto.getType());
         if (argumentProto.hasUnnamedParameterIndex()) {
             orderedLiteralsTable[argumentProto.getLiteralsTableIndex()] =
@@ -381,8 +356,8 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private static PreparedStatementParameters deserializeArgumentsForParameters(@Nonnull final CompiledStatement compiledStatement,
-                                                                                 @Nonnull final OrderedLiteral[] orderedLiteralsTable) {
+    private static PreparedParams deserializeArgumentsForParameters(@Nonnull CompiledStatement compiledStatement,
+                                                                    @Nonnull OrderedLiteral[] orderedLiteralsTable) {
         final var unnamedParameterMap = Maps.<Integer, Object>newHashMap();
         final var namedParameterMap = Maps.<String, Object>newHashMap();
 
@@ -396,23 +371,13 @@ public final class PlanGenerator {
                 namedParameterMap.put(argument.getParameterName(), literal.getLiteralObject());
             }
         }
-        return PreparedStatementParameters.of(unnamedParameterMap, namedParameterMap);
-    }
-
-    private static Object generateLogicalPlan(@Nonnull PlanGenerationContext planGenerationContext,
-                                              @Nonnull AstNormalizer.Result ast,
-                                              @Nonnull DdlQueryFactory ddlQueryFactory,
-                                              @Nonnull URI dbUri,
-                                              final boolean caseSensitive) throws RelationalException {
-        return planGenerationContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
-                new AstVisitor(planGenerationContext, ddlQueryFactory, dbUri, ast.getQueryCacheKey().getCanonicalQueryString(), caseSensitive)
-                        .visit(ast.getParseTree()));
+        return PreparedParams.of(unnamedParameterMap, namedParameterMap);
     }
 
     @Nonnull
-    private static CascadesPlanner createPlanner(@Nonnull final RecordMetaData metaData,
-                                                 @Nonnull final RecordStoreState recordStoreState,
-                                                 @Nonnull final Options options) throws RelationalException {
+    private static CascadesPlanner createPlanner(@Nonnull RecordMetaData metaData,
+                                                 @Nonnull RecordStoreState recordStoreState,
+                                                 @Nonnull Options options) throws RelationalException {
         // todo (yhatem) TODO (Interaction between planner configurations and query cache)
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         CascadesPlanner planner = new CascadesPlanner(metaData, recordStoreState);
@@ -427,7 +392,7 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private static IndexFetchMethod toRecLayerIndexFetchMethod(Options.IndexFetchMethod method) throws RelationalException {
+    private static IndexFetchMethod toRecLayerIndexFetchMethod(@Nullable Options.IndexFetchMethod method) throws RelationalException {
         if (method == null) {
             return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
         }
@@ -458,19 +423,23 @@ public final class PlanGenerator {
                 queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT);
     }
 
-    private void resetTimer() {
-        currentTime = System.nanoTime();
-        beginTime = currentTime;
-    }
-
-    private long stepTimeMicros() {
-        final long time = System.nanoTime();
-        final long result = TimeUnit.NANOSECONDS.toMicros(time - currentTime);
-        currentTime = time;
-        return result;
-    }
-
-    private long totalTimeMicros() {
-        return TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime);
+    /**
+     * Creates a new instance of the plan generator.
+     * @param cache An optional plan cache.
+     * @param metaData The record store metadata
+     * @param planContext The context related for planning the query and looking it in the cache.
+     * @param recordStoreState The record store state
+     * @param options a set of planner options.
+     * @return a plan generator
+     * @throws RelationalException if creation of the plan generator fails.
+     */
+    @Nonnull
+    public static PlanGenerator of(@Nonnull Optional<RelationalPlanCache> cache,
+                                   @Nonnull PlanContext planContext,
+                                   @Nonnull RecordMetaData metaData,
+                                   @Nonnull RecordStoreState recordStoreState,
+                                   @Nonnull Options options) throws RelationalException {
+        final var planner = createPlanner(metaData, recordStoreState, options);
+        return new PlanGenerator(cache, planContext, planner, options);
     }
 }

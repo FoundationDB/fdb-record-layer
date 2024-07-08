@@ -59,6 +59,9 @@ import java.util.stream.Stream;
 
 /**
  * End-to-end unit tests for Schema Template language in the RecordLayer.
+ * <br/>
+ * <b>Note:</b> this test suite has side effects, FDB should be manually cleaned up after running this test.
+ *
  */
 public class DdlRecordLayerSchemaTemplateTest {
     @RegisterExtension
@@ -274,6 +277,6 @@ public class DdlRecordLayerSchemaTemplateTest {
 
         run(statement -> RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(template))
                 .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE)
-                .hasMessageContaining("table 'FOO' already exists"));
+                .hasMessageContaining("type with name 'FOO' already exists"));
     }
 }

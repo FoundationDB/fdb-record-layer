@@ -117,7 +117,7 @@ public enum ErrorCode {
     DATABASE_ALREADY_EXISTS("42F04"),
     SCHEMA_ALREADY_EXISTS("42F06"),
     TABLE_ALREADY_EXISTS("42F07"),
-    INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in result set
+    INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in the result set
     INVALID_TABLE_DEFINITION("42F16"),
     UNKNOWN_TYPE("42F18"),
     /**

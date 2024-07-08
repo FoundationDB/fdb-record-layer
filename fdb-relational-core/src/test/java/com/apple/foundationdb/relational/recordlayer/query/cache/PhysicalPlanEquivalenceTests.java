@@ -37,7 +37,7 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionParameters.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
 
 /**
  * This contains a set of tests the verify equality semantics which is necessary for secondary cache load, lookup,

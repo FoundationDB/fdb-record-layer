@@ -96,7 +96,7 @@ public class CaseSensitiveDbObjectsTest {
                 .hasMessageContaining("T1");
 
         RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("select id from t1 where Group = 1"))
-                .hasErrorCode(ErrorCode.INVALID_COLUMN_REFERENCE)
+                .hasErrorCode(ErrorCode.UNDEFINED_COLUMN)
                 .hasMessageContaining("Group");
     }
 

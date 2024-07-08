@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
@@ -27,12 +28,13 @@ import com.apple.foundationdb.relational.api.RowStruct;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
-import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
 
+import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -74,7 +76,7 @@ public final class DdlPermutationGenerator {
             List<RowStruct> rows = new ArrayList<>();
             int colNum = 0;
             for (String col : columnTypes) {
-                int typeCode = SqlTypeSupport.recordTypeToSqlType(ParserUtils.toRecordLayerType(col));
+                int typeCode = SqlTypeSupport.recordTypeToSqlType(toRecordLayerType(col));
                 rows.add(new ImmutableRowStruct(new ArrayRow("COL" + colNum, typeCode), new RelationalStructMetaData("COLUMN",
                         FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                         FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
@@ -119,5 +121,27 @@ public final class DdlPermutationGenerator {
     }
 
     private DdlPermutationGenerator() {
+    }
+
+    @Nonnull
+    public static Type.TypeCode toRecordLayerType(@Nonnull final String text) {
+        switch (text.toUpperCase(Locale.ROOT)) {
+            case "STRING":
+                return Type.TypeCode.STRING;
+            case "INTEGER":
+                return Type.TypeCode.INT;
+            case "BIGINT":
+                return Type.TypeCode.LONG;
+            case "FLOAT":
+                return Type.TypeCode.FLOAT;
+            case "DOUBLE":
+                return Type.TypeCode.DOUBLE;
+            case "BOOLEAN":
+                return Type.TypeCode.BOOLEAN;
+            case "BYTES":
+                return Type.TypeCode.BYTES;
+            default: // assume it is a custom type, will fail in upper layers if the type can not be resolved.
+                return Type.TypeCode.RECORD;
+        }
     }
 }

@@ -55,9 +55,9 @@ test_block:
       - query: select idr from r, (select * from r.nr) as NEST where NEST.f = 23;
       - result: [{2}]
     -
-      # correlation should _not_ be allowed in from-subquery.
-      - query: select x from a, (select * from r where r.idr = a.x) sq;
-      - error: "42F10"
+      # correlation are allowed in from-subquery.
+      - query: select x, sq.idr, sq.nr from a, (select * from r where r.idr = a.x) sq;
+      - result: [{x: 1, 1, [{11}, {12}, {13}]}, {x: 2, 2, [{21}, {22}, {23}]}, {x: 3, 3, [{31}, {32}, {33}]}]
     -
       # correlations are allowed inside a nested subquery with group by
       - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)

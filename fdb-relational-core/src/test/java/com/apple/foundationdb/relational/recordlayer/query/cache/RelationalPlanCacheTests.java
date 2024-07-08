@@ -51,7 +51,6 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.google.common.testing.FakeTicker;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -70,7 +69,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionParameters.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
 
 /**
  * This contains a set of tests for {@link RelationalPlanCache} and {@link PlanGenerator}. Similar to {@link MultiStageCacheTests},
@@ -223,7 +222,7 @@ public class RelationalPlanCacheTests {
     private static final String Scan = "SCAN";
 
     @Nonnull
-    private Triple<PlanContext, PlanGenerator, BitSet> getPlanGenerator(@Nonnull final RelationalPlanCache cache,
+    private Pair<PlanGenerator, BitSet> getPlanGenerator(@Nonnull final RelationalPlanCache cache,
                                                                         @Nonnull final String schemaTemplateName,
                                                                         int schemaTemplateVersion,
                                                                         int userVersion,
@@ -243,7 +242,7 @@ public class RelationalPlanCacheTests {
                 .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
                 .withUserVersion(userVersion)
                 .build();
-        return Triple.of(planContext, PlanGenerator.of(Optional.of(cache),
+        return Pair.of(PlanGenerator.of(Optional.of(cache), planContext,
                         store.getRecordMetaData(), storeState, Options.builder().build()),
                 schemaTemplate.getIndexEntriesAsBitset(Optional.of(readableIndexes)));
     }
@@ -324,10 +323,9 @@ public class RelationalPlanCacheTests {
                              @Nonnull final Set<String> readableIndexes,
                              @Nonnull final String expectedPhysicalPlan) throws Exception {
         final var input = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVerison, userVersion, readableIndexes);
-        final var planContext = input.getLeft();
-        final var planGenerator = input.getMiddle();
+        final var planGenerator = input.getLeft();
         final var readableIndexesBitset = input.getRight();
-        final var physicalPlan = planGenerator.getPlan(query, planContext);
+        final var physicalPlan = planGenerator.getPlan(query);
         Assertions.assertEquals(expectedPhysicalPlan, inferScanType(physicalPlan));
         return readableIndexesBitset;
     }

@@ -82,7 +82,7 @@ public abstract class Plan<T> {
      */
     public abstract boolean isUpdatePlan();
 
-    public abstract Plan<T> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlannerConfiguration configuration,
+    public abstract Plan<T> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlanContext planContext,
                                      @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException;
 
     /**
@@ -104,7 +104,7 @@ public abstract class Plan<T> {
     public abstract QueryPlanConstraint getConstraint();
 
     @Nonnull
-    public abstract Plan<T> withQueryExecutionParameters(@Nonnull QueryExecutionParameters parameters);
+    public abstract Plan<T> withQueryExecutionParameters(@Nonnull QueryExecutionContext parameters);
 
     @Nonnull
     public abstract String explain();

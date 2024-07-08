@@ -99,7 +99,7 @@ public class PlanGenerationStackTest {
                     Arguments.of(11, "select * from restaurant where rest_no <= 10 ", null),
                     Arguments.of(12, "select * from restaurant where rest_no is null ", null),
                     Arguments.of(13, "select * from restaurant where rest_no is not null ", null),
-                    Arguments.of(14, "select * from restaurant where NON_EXISTING > 10 ", "attempting to query non existing column 'NON_EXISTING'"),
+                    Arguments.of(14, "select * from restaurant where NON_EXISTING > 10 ", "Attempting to query non existing column 'NON_EXISTING'"),
                     Arguments.of(15, "select * from restaurant where rest_no > 'hello'", "unable to encapsulate comparison operation due to type mismatch(es)"),
                     Arguments.of(16, "select * from restaurant where rest_no > 10 AND rest_no < 20", null),
                     Arguments.of(17, "select * from restaurant where rest_no < 10 AND rest_no < 20", null),
@@ -147,18 +147,18 @@ public class PlanGenerationStackTest {
                     Arguments.of(59, "select * from restaurant where rest_no is not null", null),
                     Arguments.of(60, "select * from restaurant with continuation b64'abc'", null),
                     Arguments.of(61, "select * from restaurant USE INDEX (record_name_idx) where rest_no > 10 ", null),
-                    Arguments.of(62, "select * from restaurant USE INDEX (record_name_idx, reviewer_name_idx) where rest_no > 10 ", null),
-                    Arguments.of(63, "select * from restaurant USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", null),
+                    Arguments.of(62, "select * from restaurant USE INDEX (record_name_idx, reviewer_name_idx) where rest_no > 10 ", "Unknown index(es) REVIEWER_NAME_IDX"),
+                    Arguments.of(63, "select * from restaurant USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx) where rest_no > 10 ", "Unknown index(es) REVIEWER_NAME_IDX"),
                     Arguments.of(64, "select * from restaurant with continuation", "syntax error[[]]select * from restaurant with continuation[[]]                                          ^^"),
                     Arguments.of(65, "select X.rest_no from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", null),
-                    Arguments.of(66, "select X.UNKNOWN from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", "attempting to query non existing column 'X.UNKNOWN'"),
+                    Arguments.of(66, "select X.UNKNOWN from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) X", "Attempting to query non existing column 'X.UNKNOWN'"),
                     Arguments.of(67, "select X.rest_no from (select Y.rest_no from (select rest_no from restaurant where 42 >= rest_no OR 42 > rest_no) Y where 42 >= Y.rest_no OR 42 > Y.rest_no) X", null),
                     Arguments.of(68, "select X.rating from restaurant AS Rec, (select rating from Rec.reviews) X", null),
-                    Arguments.of(79, "select COUNT(MAX(Y.rating)) FROM (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY Y.rest_no", "nested aggregate 'count(max_l([[]].Y.RATING))' is not supported"),
-                    Arguments.of(70, "select rating from restaurant GROUP BY rest_no", "could not find field name 'RATING'"),
+                    Arguments.of(69, "select COUNT(MAX(Y.rating)) FROM (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY Y.rest_no", "unsupported nested aggregate(s) count(max_l"),
+                    Arguments.of(70, "select rating from restaurant GROUP BY rest_no", "Attempting to query non existing column 'RATING'"),
                     // TODO understand why the query below cannot be planned
                     //Arguments.of(71, "select rating + rest_no, MAX(rest_no) from (select rest_no, X.rating from restaurant AS Rec, (select rating from Rec.reviews) X) as Y GROUP BY rest_no, rating", null),
-                    Arguments.of(72, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "could not resolve column 'wrong'"),
+                    Arguments.of(72, "insert into restaurant_reviewer values (42, \"wrong\", null, null)", "Attempting to query non existing column 'wrong'"),
                     Arguments.of(73, "select * from restaurant limit 1", null),
                     Arguments.of(74, "select * from restaurant limit 2", null)
             );
@@ -167,7 +167,7 @@ public class PlanGenerationStackTest {
 
     @ParameterizedTest(name = "[{0}] {1}")
     @ArgumentsSource(RandomQueryProvider.class)
-    void queryTestHarness(final int ignored, @Nonnull final String query, @Nullable String error) throws Exception {
+    void queryTestHarness(int ignored, @Nonnull String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection.connection;
         final AbstractDatabase database = embeddedConnection.frl;
@@ -180,17 +180,17 @@ public class PlanGenerationStackTest {
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .build();
         if (error == null) {
-            PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
-            final Plan<?> generatedPlan1 = planGenerator.getPlan(query, planContext);
+            PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+            final Plan<?> generatedPlan1 = planGenerator.getPlan(query);
             final var queryHash1 = ((QueryPlan.PhysicalQueryPlan) generatedPlan1).getRecordQueryPlan().semanticHashCode();
-            planGenerator = PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
-            final Plan<?> generatedPlan2 = planGenerator.getPlan(query, planContext);
+            planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+            final Plan<?> generatedPlan2 = planGenerator.getPlan(query);
             final var queryHash2 = ((QueryPlan.PhysicalQueryPlan) generatedPlan2).getRecordQueryPlan().semanticHashCode();
             Assertions.assertEquals(queryHash1, queryHash2);
         } else {
             try {
-                PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
-                planGenerator.getPlan(query, planContext);
+                PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+                planGenerator.getPlan(query);
                 Assertions.fail("expected an exception to be thrown");
             } catch (RelationalException e) {
                 // there is probably a more intelligent way to do this e.g. via Regex.

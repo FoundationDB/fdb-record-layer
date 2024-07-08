@@ -53,7 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionParameters.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
 
 /**
  * This tests different aspects of quick AST hashing of {@link AstNormalizer}. Namely:
@@ -90,22 +90,22 @@ public class AstNormalizerTests {
 
     private static void validate(@Nonnull final String query,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
-        validate(List.of(query), PreparedStatementParameters.empty(), expectedCanonicalRepresentation);
+        validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation);
     }
 
     private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
         validate(List.of(query), preparedStatementParameters, expectedCanonicalRepresentation);
     }
 
     private static void validate(@Nonnull final List<String> queries,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
-        validate(queries, PreparedStatementParameters.empty(), expectedCanonicalRepresentation, queries.stream().map(q -> Map.<String, Object>of()).collect(Collectors.toList()));
+        validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, queries.stream().map(q -> Map.<String, Object>of()).collect(Collectors.toList()));
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
         validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, queries.stream().map(q -> Map.<String, Object>of()).collect(Collectors.toList()));
     }
@@ -113,11 +113,11 @@ public class AstNormalizerTests {
     private static void validate(@Nonnull final String query,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final Map<String, Object> expectedParameters) throws RelationalException {
-        validate(List.of(query), PreparedStatementParameters.empty(), expectedCanonicalRepresentation, List.of(expectedParameters));
+        validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation, List.of(expectedParameters));
     }
 
     private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final Map<String, Object> expectedParameters) throws RelationalException {
         validate(List.of(query), preparedStatementParameters, expectedCanonicalRepresentation, List.of(expectedParameters));
@@ -126,11 +126,11 @@ public class AstNormalizerTests {
     private static void validate(@Nonnull final List<String> queries,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParameters) throws RelationalException {
-        validate(queries, PreparedStatementParameters.empty(), expectedCanonicalRepresentation, expectedParameters, null);
+        validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, expectedParameters, null);
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParameters) throws RelationalException {
         validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParameters, null);
@@ -140,11 +140,11 @@ public class AstNormalizerTests {
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final Map<String, Object> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
-        validate(List.of(query), PreparedStatementParameters.empty(), expectedCanonicalRepresentation, List.of(expectedParameters), expectedContinuation, -1);
+        validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation, List.of(expectedParameters), expectedContinuation, -1);
     }
 
     private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final Map<String, Object> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
@@ -155,11 +155,11 @@ public class AstNormalizerTests {
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
-        validate(queries, PreparedStatementParameters.empty(), expectedCanonicalRepresentation, expectedParameters, expectedContinuation, -1);
+        validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, expectedParameters, expectedContinuation, -1);
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
@@ -170,11 +170,11 @@ public class AstNormalizerTests {
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final Map<String, Object> expectedParameters,
                                  int limit) throws RelationalException {
-        validate(List.of(query), PreparedStatementParameters.empty(), expectedCanonicalRepresentation, List.of(expectedParameters), null, limit);
+        validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation, List.of(expectedParameters), null, limit);
     }
 
     private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final Map<String, Object> expectedParameters,
                                  int limit) throws RelationalException {
@@ -185,11 +185,11 @@ public class AstNormalizerTests {
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParameters,
                                  int limit) throws RelationalException {
-        validate(queries, PreparedStatementParameters.empty(), expectedCanonicalRepresentation, expectedParameters, null, limit);
+        validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, expectedParameters, null, limit);
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedStatementParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParameters,
                                  int limit) throws RelationalException {
@@ -197,26 +197,26 @@ public class AstNormalizerTests {
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit) throws RelationalException {
-        validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, null);
+        validate(queries, preparedParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, null);
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
                                  @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags) throws RelationalException {
-        validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, queryCachingFlags, null);
+        validate(queries, preparedParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, queryCachingFlags, null);
     }
 
     private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedStatementParameters preparedStatementParameters,
+                                 @Nonnull final PreparedParams preparedParameters,
                                  @Nonnull final String expectedCanonicalRepresentation,
                                  @Nonnull final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
@@ -231,7 +231,7 @@ public class AstNormalizerTests {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
             final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
-                    PreparedStatementParameters.of(preparedStatementParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                    PreparedParams.copyOf(preparedParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
@@ -280,7 +280,7 @@ public class AstNormalizerTests {
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
-                    PreparedStatementParameters.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                    PreparedParams.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
             Assertions.fail(String.format("expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -289,32 +289,32 @@ public class AstNormalizerTests {
 
     private static void validateNotSameHash(@Nonnull final String query1,
                                             @Nonnull final String query2) throws RelationalException {
-        validateNotSameHash(query1, query2, PreparedStatementParameters.empty());
+        validateNotSameHash(query1, query2, PreparedParams.empty());
     }
 
     private static void validateNotSameHash(@Nonnull final String query1,
                                             @Nonnull final String query2,
-                                            @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
+                                            @Nonnull PreparedParams preparedParams) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
     private static void validateNotEqual(@Nonnull final String query1,
                                          @Nonnull final String query2) throws RelationalException {
-        validateNotEqual(query1, query2, PreparedStatementParameters.empty());
+        validateNotEqual(query1, query2, PreparedParams.empty());
     }
 
     private static void validateNotEqual(@Nonnull final String query1,
                                          @Nonnull final String query2,
-                                         @Nonnull PreparedStatementParameters preparedParams) throws RelationalException {
+                                         @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedStatementParameters.of(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -460,7 +460,7 @@ public class AstNormalizerTests {
         final var expectedContinuationStr = "FBUCFA==";
         validate(List.of("select * from t1 limit 100 with continuation b64'" + expectedContinuationStr + "'",
                         "select * from t1 limit             100   with  continuation    b64'" + expectedContinuationStr + "'"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 expectedContinuationStr,
@@ -537,7 +537,7 @@ public class AstNormalizerTests {
         validate(List.of("create schema template aggregate_index_tests_template" +
                         "\n create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))" +
                         "\n create index mv1 as select sum(col2) from t1 where col1 > 42 group by col1"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "create schema template \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
                         " create table \"T1\" ( \"ID\" bigint , \"COL1\" bigint , \"COL2\" bigint , primary key ( \"ID\" ) )" +
                         " create index \"MV1\" as select sum ( \"COL2\" ) from \"T1\" where \"COL1\" > ? group by \"COL1\" ",
@@ -551,7 +551,7 @@ public class AstNormalizerTests {
     void parseDqlStatementSetsCorrectCachingFlags() throws Exception {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ",
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
@@ -563,7 +563,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithNoCacheSetsCorrectCachingFlags() throws Exception {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (nocache)", "  select * from t1   where   col1 > 42 options (  nocache    )"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ", // note: the canonical representation is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
@@ -576,7 +576,7 @@ public class AstNormalizerTests {
     void parseAdministrationStatementCorrectCachingFlags() throws Exception {
         // (yhatem) 'show databases' is _not_ using a string literal in the path prefix, that's why we don't pick it up, we should fix that.
         validate(List.of("show databases with prefix /a/b/c", "  show databases   with prefix \n\n\n /a/b/c\t"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "show databases with prefix \"/A/B/C\" ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(), Map.of()),
                 null,
@@ -587,7 +587,7 @@ public class AstNormalizerTests {
     @Test
     void parseUtilityStatementCorrectCachingFlags() throws Exception {
         validate(List.of("explain select * from t1 where col1 > 42", "  explain select  \t * from    t1 \n\n where col1 > 42   \n\n"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "explain select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(8), 42), Map.of(constantId(8), 42)),
                 null,
@@ -599,7 +599,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithoutLogQuerySetLogQueryFalseFlag() throws Exception {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42", "  select * from t1   where   col1 > 42"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
@@ -612,7 +612,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithLogQuerySetLogQueryFlag() throws Exception {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > 42 options (log query)", "  select * from t1   where   col1 > 42 options (  log    query)"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "select * from \"T1\" where \"COL1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
@@ -624,7 +624,7 @@ public class AstNormalizerTests {
     @Test
     void parseDmlStatementWithDryRunSetDryRunFalse() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
@@ -636,7 +636,7 @@ public class AstNormalizerTests {
     @Test
     void parseDmlStatementWithDryRunSetDryRunTrue() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN)"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
@@ -648,7 +648,7 @@ public class AstNormalizerTests {
     @Test
     void parseDmlStatementWithMultipleQueryOptions() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN, nocache, log query)"),
-                PreparedStatementParameters.empty(),
+                PreparedParams.empty(),
                 "update \"A\" set \"A2\" = ? where \"A1\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
@@ -663,7 +663,7 @@ public class AstNormalizerTests {
                         "select * from t1 where col1 = ? or col2 = ?NamedParam",
                         "select * from      t1 where col1 = ? or col2 = ?NamedParam",
                         "select * from \n\n\n\t t1 where \n  col1 = ? or col2 = ?NamedParam"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("NamedParam", "foo")),
+                PreparedParams.of(Map.of(1, 42), Map.of("NamedParam", "foo")),
                 "select * from \"T1\" where \"COL1\" = ? or \"COL2\" = ?NamedParam ",
                 List.of(Map.of(constantId(7), 42, constantId(11), "foo"),
                         Map.of(constantId(7), 42, constantId(11), "foo"),
@@ -675,7 +675,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select * from t1 where col1 = 30 and col3 = 90 and col4 = ?",
                         "select * from      t1 where col1     = 60 and col3 = -4556 and    col4 = ?"),
-                PreparedStatementParameters.ofUnnamed(Map.of(1, 42)),
+                PreparedParams.ofUnnamed(Map.of(1, 42)),
                 "select * from \"T1\" where \"COL1\" = ? and \"COL3\" = ? and \"COL4\" = ? ",
                 List.of(Map.of(constantId(7), 30, constantId(11), 90, constantId(15), 42),
                         Map.of(constantId(7), 60, constantId(11), -4556, constantId(16), 42)));
@@ -686,7 +686,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select a, 40, ? from t1 where col1 = 30 and col3 = 90",
                         "select a, 'hello', ? from      t1 where col1     = 60 and col3 = -4556"),
-                PreparedStatementParameters.ofUnnamed(Map.of(1, 42)),
+                PreparedParams.ofUnnamed(Map.of(1, 42)),
                 "select \"A\" , ? , ? from \"T1\" where \"COL1\" = ? and \"COL3\" = ? ",
                 List.of(Map.of(constantId(3), 40, constantId(5), 42, constantId(11), 30, constantId(15), 90),
                         Map.of(constantId(3), "hello", constantId(5), 42, constantId(11), 60, constantId(15), -4556)));
@@ -697,7 +697,7 @@ public class AstNormalizerTests {
         validate(List.of(
                         "select 3 + 40 + ?NamedParam1 + ?NamedParam2 from t1",
                         "select 'hello' + 'world' + ?NamedParam1 +    ?NamedParam2 from      t1"),
-                PreparedStatementParameters.ofNamed(Map.of("NamedParam1", 42, "NamedParam2", 100)),
+                PreparedParams.ofNamed(Map.of("NamedParam1", 42, "NamedParam2", 100)),
                 "select ? + ? + ?NamedParam1 + ?NamedParam2 from \"T1\" ",
                 List.of(Map.of(constantId(1), 3, constantId(3), 40, constantId(5), 42, constantId(7), 100),
                         Map.of(constantId(1), "hello", constantId(3), "world", constantId(5), 42, constantId(7), 100)));
@@ -706,7 +706,7 @@ public class AstNormalizerTests {
     @Test
     void stripBooleanLiteralWithPreparedParameters() throws RelationalException {
         validate("select false, true, ?, ?Param from t1 where false",
-                PreparedStatementParameters.of(Map.of(1, false), Map.of("Param", true)),
+                PreparedParams.of(Map.of(1, false), Map.of("Param", true)),
                 "select ? , ? , ? , ?Param from \"T1\" where ? ",
                 Map.of(constantId(1), false,
                         constantId(3), true,
@@ -718,7 +718,7 @@ public class AstNormalizerTests {
     @Test
     void stripStringLiteralWithPreparedParameters() throws RelationalException {
         validate("select 'hello', ?, 'wOrLd', ?Param from t1 where col1 in ('foo', 'bar')",
-                PreparedStatementParameters.of(Map.of(1, "preparedValue1"), Map.of("Param", "preparedValue2")),
+                PreparedParams.of(Map.of(1, "preparedValue1"), Map.of("Param", "preparedValue2")),
                 "select ? , ? , ? , ?Param from \"T1\" where \"COL1\" in ( [ ] ) ",
                 Map.of(constantId(1), "hello",
                         constantId(3), "preparedValue1",
@@ -732,7 +732,7 @@ public class AstNormalizerTests {
         java.sql.Array param = toArrayParameter(List.of("preparedValue1", "preparedValue2"));
         java.sql.Array namedParam = toArrayParameter(List.of("preparedValue3", "preparedValue4"));
         validate("select 'hello', 'wOrLd' from t1 where col1 in ? and col2 in ?param",
-                PreparedStatementParameters.of(
+                PreparedParams.of(
                         Map.of(1, param),
                         Map.of("param", namedParam)),
                 "select ? , ? from \"T1\" where \"COL1\" in ? and \"COL2\" in ?param ",
@@ -745,7 +745,7 @@ public class AstNormalizerTests {
     @Test
     void stripDecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select 1, 2.3, 4.5f, -8, -9.1, -2.3f, ?, ?, ?param1, ?param2 from t1",
-                PreparedStatementParameters.of(Map.of(1, 1000, 2, -1000), Map.of("param1", 5000, "param2", -5000)),
+                PreparedParams.of(Map.of(1, 1000, 2, -1000), Map.of("param1", 5000, "param2", -5000)),
                 "select ? , ? , ? , ? , ? , ? , ? , ? , ?param1 , ?param2 from \"T1\" ",
                 Map.of(constantId(1), 1,
                         constantId(3), 2.3,
@@ -762,7 +762,7 @@ public class AstNormalizerTests {
     @Test
     void stripHexadecimalLiteralWithPreparedParameters() throws RelationalException {
         validate("select X'0A0B', ?, ?param from t1",
-                PreparedStatementParameters.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
+                PreparedParams.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
                 "select ? , ? , ?param from \"T1\" ",
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("0A0B")),
                         constantId(3), ByteString.copyFrom(Hex.decodeHex("0A0C")),
@@ -772,7 +772,7 @@ public class AstNormalizerTests {
     @Test
     void stripBase64LiteralWithPreparedParameters() throws RelationalException {
         validate("select B64'yv4=', ?, ?param from t1",
-                PreparedStatementParameters.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
+                PreparedParams.of(Map.of(1, Hex.decodeHex("0a0c")), Map.of("param", Hex.decodeHex("0B0C"))),
                 "select ? , ? , ?param from \"T1\" ",
                 Map.of(constantId(1), ByteString.copyFrom(Hex.decodeHex("cafe")),
                         constantId(3), ByteString.copyFrom(Hex.decodeHex("0A0C")),
@@ -783,14 +783,14 @@ public class AstNormalizerTests {
     void parseLimitWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 limit ?",
                         "select * from t1 limit             ?   "),
-                PreparedStatementParameters.ofUnnamed(Map.of(1, 100)),
+                PreparedParams.ofUnnamed(Map.of(1, 100)),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 100);
 
         validate(List.of("select * from t1 limit ?param",
                         "select * from t1 limit             ?param   "),
-                PreparedStatementParameters.ofNamed(Map.of("param", 100)),
+                PreparedParams.ofNamed(Map.of("param", 100)),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 100);
@@ -802,7 +802,7 @@ public class AstNormalizerTests {
         final var expectedContinuation = Base64.getDecoder().decode(expectedContinuationStr);
         validate(List.of("select * from t1 limit 100 with continuation ?",
                         "select * from t1 limit             100   with  continuation    ?          "),
-                PreparedStatementParameters.ofUnnamed(Map.of(1, expectedContinuation)),
+                PreparedParams.ofUnnamed(Map.of(1, expectedContinuation)),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 expectedContinuationStr,
@@ -810,7 +810,7 @@ public class AstNormalizerTests {
 
         validate(List.of("select * from t1 limit 100 with continuation ?param",
                         "select * from t1 limit             100   with  continuation    ?param          "),
-                PreparedStatementParameters.ofNamed(Map.of("param", expectedContinuation)),
+                PreparedParams.ofNamed(Map.of("param", expectedContinuation)),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 expectedContinuationStr,
@@ -826,7 +826,7 @@ public class AstNormalizerTests {
         validate(List.of("select ?, ?NamedParam from t1 where col1 in (10, 100, 1000)",
                         "select ?, ?NamedParam from t1 where col1 in (20,   200)",
                         "select ?, ?NamedParam from t1 where col1 in (30,   300.0,    3000.1)"),
-                PreparedStatementParameters.of(Map.of(1, "param1"), Map.of("NamedParam", "param2")),
+                PreparedParams.of(Map.of(1, "param1"), Map.of("NamedParam", "param2")),
                 "select ? , ?NamedParam from \"T1\" where \"COL1\" in ( [ ] ) ",
                 List.of(Map.of(constantId(1), "param1",
                                 constantId(3), "param2",
@@ -845,7 +845,7 @@ public class AstNormalizerTests {
         // the literals and add them _individually_ to the literals array.
         validate(List.of("select ?, ?NamedParam1 from t1 where col1 in (10,      ?, ?NamedParam2, ?, 1000)",
                         "select ?, ?NamedParam1 from t1 where col1 in (200,   ?,    ?NamedParam2, ?, 20000)"),
-                PreparedStatementParameters.of(Map.of(1, "unnamed1", 2, "unnamed2", 3, "unnamed3"),
+                PreparedParams.of(Map.of(1, "unnamed1", 2, "unnamed2", 3, "unnamed3"),
                         Map.of("NamedParam1", "named1", "NamedParam2", "named2")),
                 "select ? , ?NamedParam1 from \"T1\" where \"COL1\" in ( ? , ? , ?NamedParam2 , ? , ? ) ",
                 List.of(Map.of(constantId(1), "unnamed1",
@@ -867,15 +867,15 @@ public class AstNormalizerTests {
     @Test
     void parseInPredicateCheckQueriesNotSimilarWithPreparedParameters() throws Exception {
         validateNotSameHash("select * from t1 where col1 in (10, col2, 1000, ?)",
-                "select * from t1 where col1 in (10, 100, 1000, ?)", PreparedStatementParameters.ofUnnamed(Map.of(1, 42)));
+                "select * from t1 where col1 in (10, 100, 1000, ?)", PreparedParams.ofUnnamed(Map.of(1, 42)));
         validateNotEqual("select * from t1 where col1 in (10, col2, 1000)",
-                "select * from t1 where col1 in (10, 100, 1000)",  PreparedStatementParameters.ofUnnamed(Map.of(1, 42)));
+                "select * from t1 where col1 in (10, 100, 1000)",  PreparedParams.ofUnnamed(Map.of(1, 42)));
     }
 
     @Test
     void parseDqlStatementWithJavaCallDoesNotCacheFunctionCall() throws Exception {
         validate(List.of("select java_call('a.b.c.Foo', col1, ?, ?namedParam1) From t1"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "select java_call ( 'a.b.c.Foo' , \"COL1\" , ? , ?namedParam1 ) From \"T1\" ",
                 List.of(Map.of(constantId(7), 42, constantId(9), 43)),
                 null,
@@ -905,7 +905,7 @@ public class AstNormalizerTests {
         validate(List.of("create schema template aggregate_index_tests_template" +
                         "\n create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))" +
                         "\n create index mv1 as select sum(col2) from t1 where col1 > ?namedParam1 and col2 > ? group by col1"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "create schema template \"AGGREGATE_INDEX_TESTS_TEMPLATE\"" +
                         " create table \"T1\" ( \"ID\" bigint , \"COL1\" bigint , \"COL2\" bigint , primary key ( \"ID\" ) )" +
                         " create index \"MV1\" as select sum ( \"COL2\" ) from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? group by \"COL1\" ",
@@ -919,7 +919,7 @@ public class AstNormalizerTests {
     void parseDqlStatementSetsCorrectCachingFlagsWithPreparedParameters() throws Exception {
         // note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ",
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
@@ -932,7 +932,7 @@ public class AstNormalizerTests {
     void parseDqlStatementWithNoCacheSetsCorrectCachingFlagsWithPreparedParameters() throws Exception {
         // (yhatem) note that the materialised view definition does not set IS_DQL_STATEMENT flag.
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (nocache)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  nocache    )"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
@@ -945,7 +945,7 @@ public class AstNormalizerTests {
     @Test
     void parseDqlStatementWithoutLogQuerySetsOptionsLogQueryFalseWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ?", "  select * from t1   where   col1 > ?namedParam1 and col2 > ?"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
@@ -958,7 +958,7 @@ public class AstNormalizerTests {
     @Test
     void parseDqlStatementWithLogQuerySetsOptionsLogQueryTrueWithPreparedParameters() throws Exception {
         validate(List.of("select * from t1 where col1 > ?namedParam1 and col2 > ? options (log query)", "  select * from t1   where   col1 > ?namedParam1 and col2 > ? options (  log       query)"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(7), 43, constantId(11), 42),
                         Map.of(constantId(7), 43, constantId(11), 42)),
@@ -974,7 +974,7 @@ public class AstNormalizerTests {
     @Test
     void parseUtilityStatementCorrectCachingFlagsWithPreparedParameters() throws Exception {
         validate(List.of("explain select * from t1 where col1 > ?namedParam1 and col2   > ?", "  explain select  \t * from    t1 \n\n where col1 > ?namedParam1 and   col2 > ?   \n\n"),
-                PreparedStatementParameters.of(Map.of(1, 42), Map.of("namedParam1", 43)),
+                PreparedParams.of(Map.of(1, 42), Map.of("namedParam1", 43)),
                 "explain select * from \"T1\" where \"COL1\" > ?namedParam1 and \"COL2\" > ? ", // note: this is irrelevant as the query will be recompiled anyway.
                 List.of(Map.of(constantId(8), 43, constantId(12), 42),
                         Map.of(constantId(8), 43, constantId(12), 42)),

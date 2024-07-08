@@ -61,7 +61,7 @@ public class GroupByQueryTests {
                 insertT1Record(statement, 7, 2, 1, 40);
                 insertT1Record(statement, 8, 2, 1, 20);
                 insertT1Record(statement, 9, 2, 1, 90);
-                Assertions.assertTrue(statement.execute("SELECT a, b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a, b"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT a AS OK, b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a, b HAVING MIN(c) < 50"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(2L, 1L, 90L)

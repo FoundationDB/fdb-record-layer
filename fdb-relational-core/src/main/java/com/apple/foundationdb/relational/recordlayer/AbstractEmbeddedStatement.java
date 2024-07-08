@@ -79,9 +79,12 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                 }
                 try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
                     final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
+                    @SuppressWarnings("unchecked")
                     final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
-                            store.getRecordMetaData(), store.getRecordStoreState(), options);
-                    final Plan<?> plan = planGenerator.getPlan(sql, buildPlanContext(store));
+                            buildPlanContext(store),
+                            store.getRecordMetaData(),
+                            store.getRecordStoreState(), options);
+                    final Plan<?> plan = planGenerator.getPlan(sql);
                     options = Options.combine(planGenerator.getOptions(), options);
                     final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, conn.metricCollector);
                     if (plan instanceof QueryPlan) {

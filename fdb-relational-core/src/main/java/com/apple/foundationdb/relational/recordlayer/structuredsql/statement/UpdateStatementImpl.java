@@ -38,7 +38,7 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.query.CaseInsensitiveCharStream;
 import com.apple.foundationdb.relational.recordlayer.query.ParseTreeInfoImpl;
-import com.apple.foundationdb.relational.recordlayer.query.ParserUtils;
+import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.FieldImpl;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -161,7 +161,7 @@ public class UpdateStatementImpl implements UpdateStatement {
     private String generateQuery() {
         final var sb = new StringBuilder();
         final var sqlVisitor = new SqlVisitor();
-        sb.append("UPDATE ").append("\"").append(ParserUtils.normalizeString(originalTableName, caseSensitive)).append("\"").append(" SET ");
+        sb.append("UPDATE ").append("\"").append(SemanticAnalyzer.normalizeString(originalTableName, caseSensitive)).append("\"").append(" SET ");
         final var setClauses = getSetClauses().entrySet();
         final var size = setClauses.size();
         int counter = 0;
@@ -311,7 +311,7 @@ public class UpdateStatementImpl implements UpdateStatement {
         @Override
         public Builder setTable(@Nonnull final String table) {
             final var normalizedTableName =
-                    Assert.notNullUnchecked(ParserUtils.normalizeString(table, isCaseSensitive));
+                    Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(table, isCaseSensitive));
             Optional<Table> maybeTable;
             try {
                 maybeTable = schemaTemplate.findTableByName(normalizedTableName);
@@ -436,7 +436,7 @@ public class UpdateStatementImpl implements UpdateStatement {
                 });
 
                 if (ctx.WHERE() != null) {
-                    final var whereClauseParts = withNewScratchPad(Null -> visit(ctx.expression()));
+                    final var whereClauseParts = withNewScratchPad(Null -> visit(ctx.whereExpr().expression()));
                     updateBuilder.addWhereClause(expressionFactory.parseFragment(whereClauseParts).asBoolean());
                 }
 
@@ -533,8 +533,8 @@ public class UpdateStatementImpl implements UpdateStatement {
             private UidReplacer(@Nonnull final Map<String, List<String>> symnonymsMap, boolean isCaseSensitive) {
                 ImmutableMap.Builder<String, List<String>> normalizedSynonymsMap = ImmutableMap.builder();
                 for (final var synonymsPair : symnonymsMap.entrySet()) {
-                    final var normalizedKey = Assert.notNullUnchecked(ParserUtils.normalizeString(synonymsPair.getKey(), isCaseSensitive));
-                    final var normalizedValue = synonymsPair.getValue().stream().map(part -> Assert.notNullUnchecked(ParserUtils.normalizeString(part, isCaseSensitive))).collect(Collectors.toUnmodifiableList());
+                    final var normalizedKey = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(synonymsPair.getKey(), isCaseSensitive));
+                    final var normalizedValue = synonymsPair.getValue().stream().map(part -> Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(part, isCaseSensitive))).collect(Collectors.toUnmodifiableList());
                     normalizedSynonymsMap.put(normalizedKey, normalizedValue);
                 }
                 this.synonymsMap = normalizedSynonymsMap.build();
@@ -543,7 +543,7 @@ public class UpdateStatementImpl implements UpdateStatement {
 
             @Override
             public Void visitUid(RelationalParser.UidContext ctx) {
-                final var normalizeUid = ParserUtils.normalizeString(ctx.getText(), isCaseSensitive);
+                final var normalizeUid = SemanticAnalyzer.normalizeString(ctx.getText(), isCaseSensitive);
                 final var synonymsValueMaybe = synonymsMap.get(normalizeUid);
                 if (synonymsValueMaybe != null) {
                     if (!(ctx.parent instanceof ParserRuleContext)) {

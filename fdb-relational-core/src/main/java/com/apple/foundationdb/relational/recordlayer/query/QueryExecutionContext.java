@@ -1,5 +1,5 @@
 /*
- * QueryExecutionParameters.java
+ * QueryExecutionContext.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -45,13 +45,14 @@ import java.util.Objects;
 import java.util.Stack;
 import java.util.function.Supplier;
 
-public interface QueryExecutionParameters {
+public interface QueryExecutionContext {
 
     @Nonnull
-    EvaluationContext getEvaluationContext(@Nonnull final TypeRepository typeRepository);
+    EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository);
 
+    @Nonnull
     default EvaluationContext getEvaluationContext() {
-        return getEvaluationContext(ParserUtils.EMPTY_TYPE_REPOSITORY);
+        return getEvaluationContext(ParseHelpers.EMPTY_TYPE_REPOSITORY);
     }
 
     @Nonnull
@@ -63,12 +64,13 @@ public interface QueryExecutionParameters {
     int getParameterHash();
 
     @Nonnull
-    PreparedStatementParameters getPreparedStatementParameters();
-
-    @Nonnull
-    Literals getLiterals();
+    Literals getLiteralsBuilder();
 
     boolean isForExplain(); // todo (yhatem) remove.
+
+    int getLimit();
+
+    int getOffset();
 
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();

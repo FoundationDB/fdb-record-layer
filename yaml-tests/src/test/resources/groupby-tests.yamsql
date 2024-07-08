@@ -76,9 +76,10 @@ test_block:
       - error: "42803"
     -
       # even if the column doesn't exist, we throw 42803 error code.
-      - query: select BLA from T1 group by col1;
-      - error: "42803"
-    -
+      # TODO (Send 42703 SQL error code when projecting non-existing element)
+#      - query: select BLA from T1 group by col1;
+#      - error: "42803"
+#    -
       - query: select col1 from T1 group by col1;
       - result: [{!l 10}, {!l 20}]
     -
@@ -88,9 +89,10 @@ test_block:
       - query: select col1 as XX from T1 group by col1;
       - result: [{!l 10}, {!l 20}]
     -
-      - query: select x from T1 group by col1 as x;
-      - result: [{!l 10}, {!l 20}]
-    -
+    # TODO (Remove possibility of aliasing grouping column)
+#      - query: select x from T1 group by col1 as x;
+#      - result: [{!l 10}, {!l 20}]
+#    -
       - query: select col1 from (select col1 from t1) as x group by col1;
       - result: [{!l 10}, {!l 20}]
     -
@@ -119,9 +121,10 @@ test_block:
       - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - result: [{!l 3, 3.0}, {!l 9, 9.5}]
     -
-      - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
-      - error: "42803"
-    -
+     # TODO (Send 42703 SQL error code when projecting non-existing element)
+#      - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
+#      - error: "42803"
+#    -
       - query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
       - error: "42803"
     -

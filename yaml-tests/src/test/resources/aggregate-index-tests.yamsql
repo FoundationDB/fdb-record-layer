@@ -212,10 +212,10 @@ test_block:
       - result: [{!l 20, !l 76}]
     -
       - query: select sum(col2) from T1 where col1  = 10 group by col1
-      - explain: "map(AggregateIndexScan(Index(MV1 [EQUALS promote(@c11 as LONG)] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
+      - explain: "map(AggregateIndexScan(Index(MV1 [EQUALS promote(@c11 as LONG)] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as _0)])"
       - result: [{!l 15}]
     -
       - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
-      - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@c19 as LONG) && LESS_THAN_OR_EQUALS promote(@c12 as LONG)]] BY_GROUP) -> [_0: [COL1: KEY[0]], _1: [_0: VALUE[0]]])[($c0._1._0 as _0)])"
+      - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@c19 as LONG) && LESS_THAN_OR_EQUALS promote(@c12 as LONG)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as _0)])"
       - result: [{!l 15}]
 ...

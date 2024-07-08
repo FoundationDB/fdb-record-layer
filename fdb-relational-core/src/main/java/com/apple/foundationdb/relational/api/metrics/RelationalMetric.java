@@ -39,7 +39,7 @@ public class RelationalMetric {
         NORMALIZE_QUERY("normalize the query"),
         /**
          * Time taken to generate a logical query plan.
-         * See {@link com.apple.foundationdb.relational.recordlayer.query.AstVisitor}
+         * See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}
          * */
         GENERATE_LOGICAL_PLAN("generate logical plan for a query"),
         /**

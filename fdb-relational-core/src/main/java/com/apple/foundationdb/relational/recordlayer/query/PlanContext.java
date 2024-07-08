@@ -29,13 +29,11 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
-import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
@@ -57,12 +55,14 @@ public final class PlanContext {
     @Nonnull
     private final URI dbUri;
     @Nonnull
-    private final PreparedStatementParameters preparedStatementParameters;
+    private final PreparedParams preparedStatementParameters;
 
     @Nonnull
     private final SchemaTemplate schemaTemplate;
 
     private final int userVersion;
+
+    private final boolean isCaseSensitive;
 
     /**
      * Creates a new instance of {@link PlanContext} needed for generating plans.
@@ -76,16 +76,19 @@ public final class PlanContext {
      * @param ddlQueryFactory             The DDL factory.
      * @param preparedStatementParameters A list of prepared statement parameters.
      * @param userVersion                 The user version bound to the opened record store.
+     * @param isCaseSensitive             {@code True} if SQL identifiers should be treated as case-sensitive, otherwise
+     *                                    {@code false}.
      **/
-    private PlanContext(@Nonnull final RecordMetaData metaData,
-                        @Nonnull final MetricCollector metricCollector,
-                        @Nonnull final SchemaTemplate schemaTemplate,
-                        @Nonnull final PlannerConfiguration plannerConfiguration,
-                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
-                        @Nonnull final DdlQueryFactory ddlQueryFactory,
-                        @Nonnull final URI dbUri,
-                        @Nonnull final PreparedStatementParameters preparedStatementParameters,
-                        final int userVersion) {
+    private PlanContext(@Nonnull RecordMetaData metaData,
+                        @Nonnull MetricCollector metricCollector,
+                        @Nonnull SchemaTemplate schemaTemplate,
+                        @Nonnull PlannerConfiguration plannerConfiguration,
+                        @Nonnull MetadataOperationsFactory metadataOperationsFactory,
+                        @Nonnull DdlQueryFactory ddlQueryFactory,
+                        @Nonnull URI dbUri,
+                        @Nonnull PreparedParams preparedStatementParameters,
+                        final int userVersion,
+                        boolean isCaseSensitive) {
         this.metaData = metaData;
         this.metricCollector = metricCollector;
         this.schemaTemplate = schemaTemplate;
@@ -95,6 +98,7 @@ public final class PlanContext {
         this.dbUri = dbUri;
         this.preparedStatementParameters = preparedStatementParameters;
         this.userVersion = userVersion;
+        this.isCaseSensitive = isCaseSensitive;
     }
 
     @Nonnull
@@ -128,7 +132,7 @@ public final class PlanContext {
     }
 
     @Nonnull
-    public PreparedStatementParameters getPreparedStatementParameters() {
+    public PreparedParams getPreparedStatementParameters() {
         return preparedStatementParameters;
     }
 
@@ -158,76 +162,89 @@ public final class PlanContext {
         private DdlQueryFactory ddlQueryFactory;
 
         private URI dbUri;
-        @Nullable
-        private RelationalPlanCache planCache;
 
-        private PreparedStatementParameters preparedStatementParameters;
+        private PreparedParams preparedStatementParameters;
+
+        private boolean isCaseSensitive;
 
         private Builder() {
         }
 
         @Nonnull
-        public Builder withMetadata(@Nonnull final RecordMetaData metadata) {
+        public Builder withMetadata(@Nonnull RecordMetaData metadata) {
             this.metaData = metadata;
             return this;
         }
 
         @Nonnull
-        public Builder withMetricsCollector(@Nonnull final MetricCollector metricCollector) {
+        public Builder withMetricsCollector(@Nonnull MetricCollector metricCollector) {
             this.metricCollector = metricCollector;
             return this;
         }
 
         @Nonnull
-        public Builder withSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+        public Builder withSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate) {
             this.schemaTemplate = schemaTemplate;
             return this;
         }
 
         @Nonnull
-        public Builder withPlannerConfiguration(@Nonnull final PlannerConfiguration plannerConfiguration) {
+        public Builder withPlannerConfiguration(@Nonnull PlannerConfiguration plannerConfiguration) {
             this.plannerConfiguration = plannerConfiguration;
             return this;
         }
 
         @Nonnull
-        public Builder withUserVersion(final int userVersion) {
+        public Builder withUserVersion(int userVersion) {
             this.userVersion = userVersion;
             return this;
         }
 
         @Nonnull
-        public Builder withConstantActionFactory(@Nonnull final MetadataOperationsFactory metadataOperationsFactory) {
+        public Builder isCaseSensitive(boolean isCaseSensitive) {
+            this.isCaseSensitive = isCaseSensitive;
+            return this;
+        }
+
+        @Nonnull
+        public Builder withConstantActionFactory(@Nonnull MetadataOperationsFactory metadataOperationsFactory) {
             this.metadataOperationsFactory = metadataOperationsFactory;
             return this;
         }
 
         @Nonnull
-        public Builder withDdlQueryFactory(@Nonnull final DdlQueryFactory ddlQueryFactory) {
+        public Builder withDdlQueryFactory(@Nonnull DdlQueryFactory ddlQueryFactory) {
             this.ddlQueryFactory = ddlQueryFactory;
             return this;
         }
 
         @Nonnull
-        public Builder withPlanCache(@Nullable final RelationalPlanCache planCache) {
-            this.planCache = planCache;
-            return this;
-        }
-
-        @Nonnull
-        public Builder withDbUri(@Nonnull final URI dbUri) {
+        public Builder withDbUri(@Nonnull URI dbUri) {
             this.dbUri = dbUri;
             return this;
         }
 
         @Nonnull
-        public Builder withPreparedParameters(@Nonnull final PreparedStatementParameters parameters) {
+        public Builder withPreparedParameters(@Nonnull PreparedParams parameters) {
             this.preparedStatementParameters = parameters;
             return this;
         }
 
         @Nonnull
-        public Builder fromRecordStore(@Nonnull final FDBRecordStoreBase<Message> recordStore) {
+        private static Optional<Set<String>> getReadableIndexes(@Nonnull RecordMetaData metaData,
+                                                                @Nonnull RecordStoreState storeState) {
+            // (yhatem) we should cache this somewhere, or embed it in the caching logic of the {@code FDBRecordStoreBase#createOrOpen}.
+            if (storeState.allIndexesReadable()) {
+                return Optional.empty();
+            } else {
+                final var universalIndexes = metaData.getUniversalIndexes();
+                return Optional.of(metaData.getAllIndexes().stream().filter(storeState::isReadable).filter(index ->
+                        !universalIndexes.contains(index)).map(com.apple.foundationdb.record.metadata.Index::getName).collect(Collectors.toUnmodifiableSet()));
+            }
+        }
+
+        @Nonnull
+        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<Message> recordStore) {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes() :
                     PlannerConfiguration.from(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()));
@@ -237,22 +254,9 @@ public final class PlanContext {
         }
 
         @Nonnull
-        private static Optional<Set<String>> getReadableIndexes(@Nonnull final RecordMetaData metaData,
-                                                                 @Nonnull final RecordStoreState storeState) {
-            // (yhatem) we should cache this somewhere, or embed it in the caching logic of the {@code FDBRecordStoreBase#createOrOpen}.
-            if (storeState.allIndexesReadable()) {
-                return Optional.empty();
-            } else {
-                final var universalIndexes = metaData.getUniversalIndexes();
-                return Optional.of(metaData.getAllIndexes().stream().filter(storeState::isReadable).filter(index -> !universalIndexes.contains(index)).map(com.apple.foundationdb.record.metadata.Index::getName).collect(Collectors.toUnmodifiableSet()));
-            }
-        }
-
-        @Nonnull
-        public Builder fromDatabase(@Nonnull final AbstractDatabase database) {
+        public Builder fromDatabase(@Nonnull AbstractDatabase database) {
             return withDdlQueryFactory(database.getDdlQueryFactory())
                     .withConstantActionFactory(database.getDdlFactory())
-                    .withPlanCache(database.getPlanCache())
                     .withDbUri(database.getURI());
         }
 
@@ -264,14 +268,15 @@ public final class PlanContext {
             Assert.notNull(ddlQueryFactory);
             Assert.notNull(dbUri);
             if (preparedStatementParameters == null) {
-                preparedStatementParameters = PreparedStatementParameters.empty();
+                preparedStatementParameters = PreparedParams.empty();
             }
         }
 
         @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
-            return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory, ddlQueryFactory, dbUri, preparedStatementParameters, userVersion);
+            return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
+                    ddlQueryFactory, dbUri, preparedStatementParameters, userVersion, isCaseSensitive);
         }
 
         @Nonnull
@@ -279,7 +284,8 @@ public final class PlanContext {
             return new Builder();
         }
 
-        public static Builder unapply(@Nonnull final PlanContext planContext) {
+        @Nonnull
+        public static Builder unapply(@Nonnull PlanContext planContext) {
             return create().withConstantActionFactory(planContext.metadataOperationsFactory)
                     .withDbUri(planContext.dbUri)
                     .withMetadata(planContext.metaData)
@@ -287,7 +293,8 @@ public final class PlanContext {
                     .withSchemaTemplate(planContext.schemaTemplate)
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withPlannerConfiguration(planContext.plannerConfiguration)
-                    .withUserVersion(planContext.userVersion);
+                    .withUserVersion(planContext.userVersion)
+                    .isCaseSensitive(planContext.isCaseSensitive);
         }
     }
 }

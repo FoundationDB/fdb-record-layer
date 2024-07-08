@@ -422,17 +422,17 @@ public class StandardQueryTests {
                             .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "Name should = testName"));
                 }
                 // successfully execute a query with multiple hinted indexes
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx, reviewer_name_idx)")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx, mv1, mv2)")) {
                     ResultSetAssert.assertThat(resultSet)
                             .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
                 // successfully execute a query with multiple hinted indexes, different syntax
-                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx), USE INDEX (reviewer_name_idx)")) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("SELECT name FROM RestaurantComplexRecord USE INDEX (record_name_idx), USE INDEX (mv1)")) {
                     ResultSetAssert.assertThat(resultSet)
                             .meetsForAllRows(ResultSetAssert.perRowCondition(rs -> "testName".equals(rs.getString(1)), "name should equals 'testName'"));
                 }
                 // exception is thrown when hinted indexes don't exist
-                RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT * FROM RestaurantRecord USE INDEX (name) WHERE 11 <= rest_no"))
+                RelationalAssertions.assertThrowsSqlException(() -> statement.executeQuery("SELECT * FROM RestaurantComplexRecord USE INDEX (name) WHERE 11 <= rest_no"))
                         .hasErrorCode(ErrorCode.UNDEFINED_INDEX)
                         .hasMessage("Unknown index(es) NAME");
             }
@@ -945,7 +945,7 @@ public class StandardQueryTests {
                     Assert.that(!resultSet.next());
                 }
                 final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("delete from simple limit 1 returning rest_no, name")).getMessage();
-                Assertions.assertEquals("query is not supported", message);
+                Assertions.assertEquals("limit is not supported", message);
             }
         }
     }
@@ -1036,7 +1036,7 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                Assertions.assertTrue(statement.execute("select a, 42, struct def (b, c), (a, b, c, struct def(b, c), a) as X from t1"));
+                Assertions.assertTrue(statement.execute("select a, 42, struct def (b, c), (a, b, c, struct def(b, c)) as X from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
                     final var col3 = resultSet.getStruct(3);

@@ -97,7 +97,7 @@ import static java.util.stream.Collectors.toList;
 /**
  * Generates a {@link KeyExpression} from a given query plan.
  */
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
 public final class IndexGenerator {
 
     /**
@@ -112,7 +112,7 @@ public final class IndexGenerator {
     @Nonnull
     private final RelationalExpression relationalExpression;
 
-    private IndexGenerator(@Nonnull final RelationalExpression relationalExpression) {
+    private IndexGenerator(@Nonnull RelationalExpression relationalExpression) {
         collectQuantifiers(relationalExpression);
         final var partialOrder = ReferencesAndDependenciesProperty.evaluate(Reference.of(relationalExpression));
         relationalExpressions =
@@ -125,7 +125,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public RecordLayerIndex generate(@Nonnull final String indexName, boolean isUnique, @Nonnull final Type.Record tableType, boolean containsNullableArray) {
+    public RecordLayerIndex generate(@Nonnull String indexName, boolean isUnique, @Nonnull Type.Record tableType, boolean containsNullableArray) {
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
                 .setTableName(getRecordTypeName())
@@ -217,14 +217,14 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private List<Value> collectResultValues(@Nonnull final Value value) {
+    private List<Value> collectResultValues(@Nonnull Value value) {
         final var resultValues = simplify(value);
         final var isSingleAggregation = resultValues.size() == 1 && resultValues.get(0) instanceof IndexableAggregateValue;
         final var maybeGroupBy = relationalExpressions.stream().filter(exp -> exp instanceof GroupByExpression).findFirst();
         if (maybeGroupBy.isPresent()) {
             // if the final result value contains nothing but the aggregation value, add the grouping values to it.
-            final var groupBy = maybeGroupBy.get();
-            final var groupingValues = ((GroupByExpression) groupBy).getGroupingValue();
+            final var groupBy = (GroupByExpression) maybeGroupBy.get();
+            final var groupingValues = groupBy.getGroupingValue();
             if (isSingleAggregation) {
                 if (groupingValues == null) {
                     return resultValues;
@@ -262,7 +262,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private List<Value> simplify(@Nonnull final Value value) {
+    private List<Value> simplify(@Nonnull Value value) {
         return Values.deconstructRecord(value)
                 .stream()
                 .map(this::dereference)
@@ -271,13 +271,13 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private List<Value> getOrderByValues(@Nonnull final RelationalExpression relationalExpression) {
+    private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression) {
         if (relationalExpression instanceof LogicalSortExpression) {
             final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
             final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
-            return logicalSortExpression.getSortValues()
+            return logicalSortExpression.getOrdering().getOrderingParts()
                     .stream()
-                    .flatMap(v -> v.getResultType().getTypeCode() == Type.TypeCode.RECORD ? Values.deconstructRecord(v).stream() : Stream.of(v))
+                    .flatMap(v -> v.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD ? Values.deconstructRecord(v.getValue()).stream() : Stream.of(v.getValue()))
                     .map(v -> v.rebase(reverseAliasMap))
                     .map(this::dereference)
                     .map(v -> v.simplify(AliasMap.emptyMap(), Set.of()))
@@ -286,7 +286,7 @@ public final class IndexGenerator {
         return List.of();
     }
 
-    private static List<Value> reorderValues(@Nonnull final List<Value> values, @Nonnull List<Value> orderByValues) {
+    private static List<Value> reorderValues(@Nonnull List<Value> values, @Nonnull List<Value> orderByValues) {
         Assert.thatUnchecked(values.size() >= orderByValues.size());
         if (orderByValues.isEmpty()) {
             return values;
@@ -295,13 +295,16 @@ public final class IndexGenerator {
         return ImmutableList.<Value>builder().addAll(orderByValues).addAll(remaining).build();
     }
 
+    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
-    private Pair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull final AggregateValue aggregateValue, @Nonnull final Optional<KeyExpression> maybeGroupingExpression) {
+    private Pair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
+                                                                            @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
         Assert.thatUnchecked(aggregateValue instanceof IndexableAggregateValue);
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
         final KeyExpression groupedValue;
         final GroupingKeyExpression keyExpression;
-        if (aggregateValue instanceof CountValue && child instanceof RecordConstructorValue && ((RecordConstructorValue) child).getColumns().isEmpty()) {
+        // COUNT(*) is a special case.
+        if (aggregateValue instanceof CountValue && ((CountValue) aggregateValue).getIndexTypeName().equals(IndexTypes.COUNT)) {
             if (maybeGroupingExpression.isPresent()) {
                 keyExpression = new GroupingKeyExpression(maybeGroupingExpression.get(), 0);
             } else {
@@ -325,7 +328,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression generate(@Nonnull final List<Value> fields) {
+    private KeyExpression generate(@Nonnull List<Value> fields) {
         if (fields.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (fields.size() == 1) {
@@ -355,7 +358,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(Value value) {
+    private KeyExpression toKeyExpression(@Nonnull Value value) {
         if (value instanceof VersionValue) {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
@@ -368,7 +371,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toKeyExpression(@Nonnull final FieldValueTrieNode trieNode) {
+    private static KeyExpression toKeyExpression(@Nonnull FieldValueTrieNode trieNode) {
         Assert.notNullUnchecked(trieNode.getChildrenMap());
         Assert.thatUnchecked(!trieNode.getChildrenMap().isEmpty());
 
@@ -389,7 +392,7 @@ public final class IndexGenerator {
         }
     }
 
-    private void checkValidity(@Nonnull final List<? extends RelationalExpression> expressions) {
+    private void checkValidity(@Nonnull List<? extends RelationalExpression> expressions) {
 
         // there must be exactly one type full-unordered-scan, no joins, no self-joins.
         final var numScans = expressions.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
@@ -414,7 +417,7 @@ public final class IndexGenerator {
     }
 
     @Nullable
-    private static QueryPredicate getTopLevelPredicate(@Nonnull final List<? extends RelationalExpression> expressions) {
+    private static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
         if (expressions.isEmpty()) {
             return null;
         }
@@ -491,12 +494,12 @@ public final class IndexGenerator {
         }
     }
 
-    private void collectQuantifiers(@Nonnull final RelationalExpression relationalExpression) {
+    private void collectQuantifiers(@Nonnull RelationalExpression relationalExpression) {
         MutableInt counter = new MutableInt(0);
         collectQuantifiersInternal(relationalExpression, counter);
     }
 
-    private void collectQuantifiersInternal(@Nonnull final RelationalExpression relationalExpression, @Nonnull MutableInt explodeCounter) {
+    private void collectQuantifiersInternal(@Nonnull RelationalExpression relationalExpression, @Nonnull MutableInt explodeCounter) {
         for (final var qun : relationalExpression.getQuantifiers()) {
             if (qun.getRangesOver().get() instanceof ExplodeExpression) {
                 explodeCounter.increment();
@@ -517,7 +520,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private Value dereference(@Nonnull final Value value) {
+    private Value dereference(@Nonnull Value value) {
         if (value instanceof RecordConstructorValue) {
             return RecordConstructorValue.ofColumns(
                     ((RecordConstructorValue) value).getColumns()
@@ -543,12 +546,12 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull final List<Pair<String, Type>> fields) {
+    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields) {
         return toKeyExpression(fields, 0);
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull final List<Pair<String, Type>> fields, int index) {
+    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields, int index) {
         Assert.thatUnchecked(!fields.isEmpty());
         final var field = fields.get(index);
         final var keyExpression = toKeyExpression(field.getLeft(), field.getRight());
@@ -571,7 +574,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private static FieldKeyExpression toKeyExpression(@Nonnull final String name, @Nonnull final Type type) {
+    private static FieldKeyExpression toKeyExpression(@Nonnull String name, @Nonnull Type type) {
         Assert.notNullUnchecked(name);
         final var fanType = type.getTypeCode() == Type.TypeCode.ARRAY ?
                 KeyExpression.FanType.FanOut :
@@ -580,7 +583,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public static IndexGenerator from(@Nonnull final RelationalExpression relationalExpression) {
+    public static IndexGenerator from(@Nonnull RelationalExpression relationalExpression) {
         return new IndexGenerator(relationalExpression);
     }
 }

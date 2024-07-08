@@ -54,9 +54,16 @@ public class DataTypeUtils {
         if (primitivesMap.containsValue(type)) {
             return primitivesMap.inverse().get(type);
         }
+
+        final var typeCode = type.getTypeCode();
+
+        if (typeCode == Type.TypeCode.ANY || typeCode == Type.TypeCode.NONE || typeCode == Type.TypeCode.NULL || typeCode == Type.TypeCode.UNKNOWN) {
+            return DataType.UnknownType.instance();
+        }
+
         Assert.thatUnchecked(!type.isPrimitive());
 
-        switch (type.getTypeCode()) {
+        switch (typeCode) {
             case RECORD:
                 final var record = (Type.Record) type;
                 final var columns = record.getFields().stream().map(field -> DataType.StructType.Field.from(field.getFieldName(), toRelationalType(field.getFieldType()), field.getFieldIndex())).collect(Collectors.toList());
@@ -136,6 +143,7 @@ public class DataTypeUtils {
         primitivesMap.put(DataType.Primitives.FLOAT.type(), Type.primitiveType(Type.TypeCode.FLOAT, false));
         primitivesMap.put(DataType.Primitives.BYTES.type(), Type.primitiveType(Type.TypeCode.BYTES, false));
         primitivesMap.put(DataType.Primitives.STRING.type(), Type.primitiveType(Type.TypeCode.STRING, false));
+        primitivesMap.put(DataType.Primitives.VERSION.type(), Type.primitiveType(Type.TypeCode.VERSION, false));
 
         primitivesMap.put(DataType.Primitives.NULLABLE_BOOLEAN.type(), Type.primitiveType(Type.TypeCode.BOOLEAN, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_INTEGER.type(), Type.primitiveType(Type.TypeCode.INT, true));
@@ -144,5 +152,6 @@ public class DataTypeUtils {
         primitivesMap.put(DataType.Primitives.NULLABLE_FLOAT.type(), Type.primitiveType(Type.TypeCode.FLOAT, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_BYTES.type(), Type.primitiveType(Type.TypeCode.BYTES, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_STRING.type(), Type.primitiveType(Type.TypeCode.STRING, true));
+        primitivesMap.put(DataType.Primitives.NULLABLE_VERSION.type(), Type.primitiveType(Type.TypeCode.VERSION, true));
     }
 }

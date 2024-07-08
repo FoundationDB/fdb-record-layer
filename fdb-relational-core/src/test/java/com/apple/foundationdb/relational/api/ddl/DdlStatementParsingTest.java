@@ -121,12 +121,12 @@ public class DdlStatementParsingTest {
                 .build();
     }
 
-    private PlanGenerator getPlanGenerator() throws SQLException, RelationalException {
+    private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
         final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, Map.of());
         final FDBRecordStoreBase<Message> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
-        return PlanGenerator.of(Optional.empty(), store.getRecordMetaData(), storeState, Options.NONE);
+        return PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), storeState, Options.NONE);
     }
 
     public static Stream<Arguments> columnTypePermutations() {
@@ -143,22 +143,22 @@ public class DdlStatementParsingTest {
 
     void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()));
+                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build());
+        getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query);
     }
 
     void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()));
+                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
-        getPlanGenerator().getPlan(query, PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build());
+        getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()).getPlan(query);
     }
 
     @Nonnull
@@ -180,7 +180,7 @@ public class DdlStatementParsingTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE foo(a bigint, PRIMARY KEY(a))" +
                 " CREATE INDEX t_idx as select non_existing from foo";
-        shouldFailWith(stmt, ErrorCode.INVALID_COLUMN_REFERENCE);
+        shouldFailWith(stmt, ErrorCode.UNDEFINED_COLUMN);
     }
 
     @Test

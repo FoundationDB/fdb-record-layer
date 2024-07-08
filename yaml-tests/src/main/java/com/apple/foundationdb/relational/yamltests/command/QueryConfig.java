@@ -175,16 +175,15 @@ public abstract class QueryConfig {
                 final var resultSet = (RelationalResultSet) actual;
                 final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
                 if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
-                    reportTestFailure(String.format("‼️ result mismatch at line %d:%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            Matchers.notNull(matchResult.getExplanation(), "failure error message") + "%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "↪ expected result:%n" +
-                            getValueString() + "%n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                            "↩ actual result:%n" +
-                            Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"),
-                            getLineNumber()));
+                    reportTestFailure("‼️ result mismatch at line " + getLineNumber() + ":\n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                            Matchers.notNull(matchResult.getExplanation(), "failure error message") + "\n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                            "↪ expected result:\n" +
+                            getValueString() + "\n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                            "↩ actual result:\n" +
+                            Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"));
                 } else {
                     logger.debug("✅ results match!");
                 }
@@ -332,7 +331,7 @@ public abstract class QueryConfig {
                 resultSet.next();
                 final var actualPlanHash = resultSet.getInt(2);
                 if (!Matchers.matches(getVal(), actualPlanHash)) {
-                    reportTestFailure("‼️ Incorrect plan hash at line " + getLineNumber());
+                    reportTestFailure("‼️ Incorrect plan hash: expecting " + getVal() + " got " + actualPlanHash + " at line " + getLineNumber());
                 }
                 logger.debug("✅️ Plan hash matches!");
             }

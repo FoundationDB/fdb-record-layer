@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.continuation.LiteralObject;
@@ -64,10 +63,6 @@ public final class LiteralsUtils {
                         return Type.fromObject(o);
                     }
                 }).collect(Collectors.toList()));
-    }
-
-    public static Type.Array resolveArrayTypeFromValues(List<Value> values) {
-        return resolveArrayTypeFromElementTypes(values.stream().map(Value::getResultType).collect(Collectors.toList()));
     }
 
     private static Type.Array resolveArrayTypeFromElementTypes(List<Type> types) {

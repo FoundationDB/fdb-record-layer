@@ -92,9 +92,9 @@ test_block:
       - query: select B.*.S1 from B;
       - error: "42601"
     -
-      # Ambiguous column A1
+      # Ambiguous column A1 (error code is now correct).
       - query: select A1 from (select A.*, A.* from A) as nested
-      - error: "42F10"
+      - error: "42702"
 #    -
 #      - query: select A.*, SUM(B1) from A, B where A.A1 = B.B1 group by A1, A2, A3;
 #      - result: [{A1: 1 , A2: 10, A3: 1, 1},
