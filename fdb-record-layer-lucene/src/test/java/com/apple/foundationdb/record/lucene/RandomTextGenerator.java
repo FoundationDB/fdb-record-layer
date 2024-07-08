@@ -63,7 +63,7 @@ class RandomTextGenerator {
             final String baseWord = i == universalWordIndex ? universalWord : words.get(random.nextInt(words.size()));
             if (random.nextInt(100) == 0) {
                 builder.append(". ")
-                        .append(baseWord.charAt(0))
+                        .append(Character.toUpperCase(baseWord.charAt(0)))
                         .append(baseWord, 1, baseWord.length());
             } else if (random.nextInt(30) == 0) {
                 builder.append(", ")

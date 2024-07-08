@@ -859,11 +859,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     throw new RuntimeException("Failed to generate documents at iteration " + currentLoop.get(), e);
                 }
 
-                if (mergeIndex()) {
-                    continue; // merge failed but we should continue testing
-                }
+                boolean mergeFailed = mergeIndex();
                 try {
-                    luceneIndexTestValidator.validate(index, ids, isSynthetic ? "child_str_value:forth" : "text_value:about");
+                    luceneIndexTestValidator.validate(index, ids, isSynthetic ? "child_str_value:forth" : "text_value:about", mergeFailed);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -972,9 +970,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     long timestamp = start + countInGroup + random.nextInt(20) - 5;
                     final Tuple primaryKey = saveRecords(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
                     ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
-                    documentCount.incrementAndGet();
                 }
                 commit(context);
+                documentCount.addAndGet(docCount);
             }
             transactionCounter.incrementAndGet();
             i++;
