@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -71,6 +72,11 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
         final var constantAliases = call.getConstantAliases();
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var correlatedTo = toBePulledUpValue.getCorrelatedTo();
+
+            if (toBePulledUpValue.preOrderStream()
+                    .anyMatch(v -> v instanceof AggregateValue)) {
+                continue;
+            }
 
             if (constantAliases.containsAll(correlatedTo)) {
                 newMatchedValuesMap.put(toBePulledUpValue, ignored -> toBePulledUpValue);

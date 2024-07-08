@@ -44,7 +44,7 @@ public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? exten
 
     protected static final Set<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_RULES =
             ImmutableSet.of(matchValueRule,
-                    // matchOrCompensateQuantifiedObjectValueRule,
+                    matchOrCompensateQuantifiedObjectValueRule,
                     matchOrCompensateFieldValueRule,
                     compensateRecordConstructorRule,
                     matchConstantValueRule);
