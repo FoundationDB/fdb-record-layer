@@ -36,10 +36,14 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** New the representation of aggregate plans [(Issue #2763)](https://github.com/FoundationDB/fdb-record-layer/issues/2763)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.4.519.0
+
+* **Breaking change** New the representation of aggregate plans [(Issue #2763)](https://github.com/FoundationDB/fdb-record-layer/issues/2763)
 
 ### 3.4.518.0
 
