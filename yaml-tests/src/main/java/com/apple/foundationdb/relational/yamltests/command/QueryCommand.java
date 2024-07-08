@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
@@ -145,19 +147,15 @@ public final class QueryCommand extends Command {
             var queryConfig = queryConfigsIterator.next();
             if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
-                executor.execute(connection, null, queryConfig, checkCache);
+                // Ignore debugger configuration, always set the debugger for plan hashes. Executing the plan hash
+                // can result in the explain plan being put into the plan cache, so running without the debugger
+                // can pollute cache and thus interfere with the explain's results
+                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
-                final var savedDebugger = Debugger.getDebugger();
-                try {
-                    // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
-                    // results
-                    Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
-                    Debugger.setup();
-                    executor.execute(connection, null, queryConfig, checkCache);
-                } finally {
-                    Debugger.setDebugger(savedDebugger);
-                }
+                // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
+                // results
+                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache));
             } else {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
@@ -199,6 +197,19 @@ public final class QueryCommand extends Command {
             Assertions.fail(message);
         } else {
             Assertions.fail(message, throwable);
+        }
+    }
+
+    private static void runWithDebugger(@Nonnull TestHelpers.DangerousRunnable r) throws SQLException {
+        final var savedDebugger = Debugger.getDebugger();
+        try {
+            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
+            Debugger.setup();
+            r.run();
+        } catch (Exception t) {
+            throw ExceptionUtil.toRelationalException(t).toSqlException();
+        } finally {
+            Debugger.setDebugger(savedDebugger);
         }
     }
 
