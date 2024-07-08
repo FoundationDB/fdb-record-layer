@@ -37,14 +37,16 @@ import java.util.function.Function;
 @SuppressWarnings("java:S1452")
 public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> {
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchValueRule = new MatchValueRule();
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchOrCompensateQuantifiedObjectValueRule = new MatchOrCompensateQuantifiedObjectValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchValueAgainstQuantifiedObjectValueRule = new MatchValueAgainstQuantifiedObjectValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchFieldValueAgainstQuantifiedObjectValueRule = new MatchFieldValueAgainstQuantifiedObjectValueRule();
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchOrCompensateFieldValueRule = new MatchOrCompensateFieldValueRule();
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> compensateRecordConstructorRule = new CompensateRecordConstructorRule();
     protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value> matchConstantValueRule = new MatchConstantValueRule();
 
     protected static final Set<ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, ? extends Value>> PULL_UP_RULES =
             ImmutableSet.of(matchValueRule,
-                    matchOrCompensateQuantifiedObjectValueRule,
+                    matchValueAgainstQuantifiedObjectValueRule,
+                    matchFieldValueAgainstQuantifiedObjectValueRule,
                     matchOrCompensateFieldValueRule,
                     compensateRecordConstructorRule,
                     matchConstantValueRule);

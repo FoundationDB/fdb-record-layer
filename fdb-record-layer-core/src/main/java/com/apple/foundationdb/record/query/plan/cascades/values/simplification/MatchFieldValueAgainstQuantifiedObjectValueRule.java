@@ -1,5 +1,5 @@
 /*
- * MatchOrCompensateFieldValueRule.java
+ * MatchFieldValueAgainstQuantifiedObjectValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -40,12 +41,12 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchOrCompensateQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, QuantifiedObjectValue> {
+public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, QuantifiedObjectValue> {
     @Nonnull
     private static final BindingMatcher<QuantifiedObjectValue> rootMatcher =
             ValueMatchers.quantifiedObjectValue();
 
-    public MatchOrCompensateQuantifiedObjectValueRule() {
+    public MatchFieldValueAgainstQuantifiedObjectValueRule() {
         super(rootMatcher);
     }
 
@@ -55,6 +56,9 @@ public class MatchOrCompensateQuantifiedObjectValueRule extends ValueComputation
         final var quantifiedObjectValue = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
         final var equivalenceMap = call.getEquivalenceMap();
+        final var resultPairFromChild = call.getResult(quantifiedObjectValue);
+        final var matchedValuesMap =
+                resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
         final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
 
@@ -65,8 +69,18 @@ public class MatchOrCompensateQuantifiedObjectValueRule extends ValueComputation
                 if (quantifiedObjectValue.semanticEquals(toBePulledUpFieldValue.getChild(), equivalenceMap)) {
                     newMatchedValuesMap.put(toBePulledUpValue, new FieldValueCompensation(toBePulledUpFieldValue.getFieldPath()));
                 }
+            } else {
+                inheritMatchedMapEntry(matchedValuesMap, newMatchedValuesMap, toBePulledUpValue);
             }
         }
         call.yieldValue(quantifiedObjectValue, newMatchedValuesMap);
+    }
+
+    private static void inheritMatchedMapEntry(@Nullable final Map<Value, Function<Value, Value>> matchedValuesMap,
+                                               @Nonnull final Map<Value, Function<Value, Value>> newMatchedValuesMap,
+                                               @Nonnull final Value toBePulledUpValue) {
+        if (matchedValuesMap != null && matchedValuesMap.containsKey(toBePulledUpValue)) {
+            newMatchedValuesMap.put(toBePulledUpValue, matchedValuesMap.get(toBePulledUpValue));
+        }
     }
 }
