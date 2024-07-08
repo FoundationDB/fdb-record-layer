@@ -410,6 +410,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
         Assertions.assertTrue(isCompatible);
     }
+
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testSimpleJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();

@@ -580,11 +580,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     @Nonnull
     static Type fromObject(@Nullable final Object object) {
-        return fromObject(object, false);
-    }
-
-    @Nonnull
-    static Type fromObject(@Nullable final Object object, final boolean isNullable) {
         if (object instanceof Typed) {
             return ((Typed)object).getResultType();
         }
@@ -608,7 +603,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return Type.any();
         }
         if (typeCode.isPrimitive()) {
-            return Type.primitiveType(typeCode, isNullable);
+            return Type.primitiveType(typeCode, false);
         }
         throw new RecordCoreException("Unable to convert value to Type")
                 .addLogInfo(LogMessageKeys.VALUE, object);

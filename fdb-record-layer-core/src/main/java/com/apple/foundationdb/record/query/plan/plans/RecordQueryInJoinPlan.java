@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -152,6 +153,21 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        final var resultType = inSource.getResultType();
+
+        if (!resultType.isAny()) {
+            final var resultTypesBuilder = ImmutableSet.<Type>builder();
+            resultTypesBuilder.addAll(RecordQueryPlanWithChild.super.getDynamicTypes());
+            resultTypesBuilder.add(resultType);
+            return resultTypesBuilder.build();
+        } else {
+            return RecordQueryPlanWithChild.super.getDynamicTypes();
+        }
     }
 
     @Nonnull
