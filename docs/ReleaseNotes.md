@@ -41,6 +41,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.520.0
+
+
 ### 3.4.519.0
 
 * **Breaking change** New the representation of aggregate plans [(Issue #2763)](https://github.com/FoundationDB/fdb-record-layer/issues/2763)
