@@ -21,31 +21,28 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Verify;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * A rule that matches a {@link Value} against the current {@link QuantifiedObjectValue}. If the argument is a
  * {@link Value} that is semantically equal to the current {@link Value}, we match and create a compensation that
- * rebases the matched {@link Value}.
+ * re-bases the matched {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, QuantifiedObjectValue> {
+public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, QuantifiedObjectValue> {
     @Nonnull
     private static final BindingMatcher<QuantifiedObjectValue> rootMatcher =
             ValueMatchers.quantifiedObjectValue();
@@ -55,11 +52,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
-        if (!call.isRoot()) {
-            return;
-        }
-
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
         final var bindings = call.getBindings();
         final var quantifiedObjectValue = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
@@ -67,7 +60,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
         final var matchedValuesMap =
                 resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue ||
@@ -89,17 +82,18 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
 
             final var alias = Iterables.getOnlyElement(correlatedTo);
 
-            newMatchedValuesMap.put(toBePulledUpValue, value -> {
-                Verify.verify(value instanceof QuantifiedValue);
-                final var newUpperBaseAlias = ((QuantifiedValue)value).getAlias();
-                return toBePulledUpValue.rebase(AliasMap.ofAliases(alias, newUpperBaseAlias));
-            });
+            newMatchedValuesMap.put(toBePulledUpValue,
+                    ((upperBaseAlias, value) -> {
+                        final var translationMapBuilder = TranslationMap.builder();
+                        translationMapBuilder.when(alias).then(((sourceAlias, leafValue) -> value));
+                        return toBePulledUpValue.translateCorrelations(translationMapBuilder.build());
+                    }));
         }
         call.yieldValue(quantifiedObjectValue, newMatchedValuesMap);
     }
 
-    private static void inheritMatchedMapEntry(@Nullable final Map<Value, Function<Value, Value>> matchedValuesMap,
-                                               @Nonnull final Map<Value, Function<Value, Value>> newMatchedValuesMap,
+    private static void inheritMatchedMapEntry(@Nullable final Map<Value, PullUpCompensation> matchedValuesMap,
+                                               @Nonnull final Map<Value, PullUpCompensation> newMatchedValuesMap,
                                                @Nonnull final Value toBePulledUpValue) {
         if (matchedValuesMap != null && matchedValuesMap.containsKey(toBePulledUpValue)) {
             newMatchedValuesMap.put(toBePulledUpValue, matchedValuesMap.get(toBePulledUpValue));

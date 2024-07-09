@@ -32,7 +32,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * A rule that matches a {@link QuantifiedObjectValue} (with the argument values). If the argument is a
@@ -41,7 +40,7 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, QuantifiedObjectValue> {
+public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, QuantifiedObjectValue> {
     @Nonnull
     private static final BindingMatcher<QuantifiedObjectValue> rootMatcher =
             ValueMatchers.quantifiedObjectValue();
@@ -51,7 +50,7 @@ public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComput
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
         final var bindings = call.getBindings();
         final var quantifiedObjectValue = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
@@ -60,7 +59,7 @@ public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComput
         final var matchedValuesMap =
                 resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue) {
@@ -76,8 +75,8 @@ public class MatchFieldValueAgainstQuantifiedObjectValueRule extends ValueComput
         call.yieldValue(quantifiedObjectValue, newMatchedValuesMap);
     }
 
-    private static void inheritMatchedMapEntry(@Nullable final Map<Value, Function<Value, Value>> matchedValuesMap,
-                                               @Nonnull final Map<Value, Function<Value, Value>> newMatchedValuesMap,
+    private static void inheritMatchedMapEntry(@Nullable final Map<Value, PullUpCompensation> matchedValuesMap,
+                                               @Nonnull final Map<Value, PullUpCompensation> newMatchedValuesMap,
                                                @Nonnull final Value toBePulledUpValue) {
         if (matchedValuesMap != null && matchedValuesMap.containsKey(toBePulledUpValue)) {
             newMatchedValuesMap.put(toBePulledUpValue, matchedValuesMap.get(toBePulledUpValue));

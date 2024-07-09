@@ -565,7 +565,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);
             if (compensation != null) {
-                resultsMap.put(toBePulledUpValue, compensation.apply(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
+                resultsMap.put(toBePulledUpValue,
+                        compensation.compensate(upperBaseAlias,
+                                QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
             }
         }
 

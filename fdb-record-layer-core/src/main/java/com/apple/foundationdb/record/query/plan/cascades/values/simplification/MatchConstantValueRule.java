@@ -31,14 +31,13 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * A rule that matches any {@link Value} (with the argument values) that is a constant expression.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, Value> {
+public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher =
             ValueMatchers.anyValue();
@@ -54,7 +53,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
         if (!call.isRoot()) {
             return;
         }
@@ -62,7 +61,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
         final var resultPair = call.getResult(value);
         final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
         if (matchedValuesMap != null) {
@@ -79,7 +78,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
             }
 
             if (constantAliases.containsAll(correlatedTo)) {
-                newMatchedValuesMap.put(toBePulledUpValue, ignored -> toBePulledUpValue);
+                newMatchedValuesMap.put(toBePulledUpValue, (ignored1, ignored2) -> toBePulledUpValue);
             }
         }
         call.yieldValue(value, newMatchedValuesMap);
