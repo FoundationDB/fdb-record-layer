@@ -69,6 +69,7 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
     }
 
     @Nonnull
+    @Override
     public Type getResultType() {
         return Type.any();
     }

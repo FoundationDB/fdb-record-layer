@@ -43,6 +43,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -117,7 +118,12 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                             return getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), bindingValue),
                                     innerContinuation, executeProperties.clearSkipAndLimit());
                         },
-                        outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
+                        outerObject -> {
+                            if (outerObject instanceof DynamicMessage) {
+                                return ((DynamicMessage) outerObject).toByteArray();
+                            } else {
+                                return Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack();
+                            }},
                         continuation,
                         store.getPipelineSize(PipelineOperation.IN_JOIN))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());

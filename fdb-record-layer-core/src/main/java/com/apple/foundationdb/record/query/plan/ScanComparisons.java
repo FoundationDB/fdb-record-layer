@@ -50,8 +50,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Internal;
 
 import javax.annotation.Nonnull;
@@ -332,13 +330,6 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             return ((Internal.EnumLite) item).getNumber();
         } else if (item instanceof FDBRecordVersion) {
             return ((FDBRecordVersion) item).toVersionstamp();
-        } else if (item instanceof DynamicMessage) {
-            Tuple t = new Tuple();
-            DynamicMessage m = (DynamicMessage)item;
-            for (Descriptors.FieldDescriptor f: m.getAllFields().keySet()) {
-                t.addObject(m.getField(f));
-            }
-            return t;
         } else {
             return item;
         }

@@ -58,7 +58,6 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.StringUtils;
 
@@ -591,9 +590,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return Type.noneType();
             }
             return new Type.Array(Type.fromListObject((List<?>)object));
-        }
-        if (object instanceof DynamicMessage) {
-            return Record.fromDescriptor(((DynamicMessage) object).getDescriptorForType());
         }
         final var typeCode = typeCodeFromPrimitive(object);
         if (typeCode == TypeCode.NULL) {

@@ -36,8 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -158,45 +157,37 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 final var comparison = valuePredicate.getComparison();
                 Verify.verify(comparison.getType() == Comparisons.Type.IN);
                 final ExplodeExpression explodeExpression;
+                final Quantifier.ForEach newQuantifier;
 
                 if (comparison instanceof Comparisons.ValueComparison) {
                     final var comparisonValue = (Comparisons.ValueComparison)comparison;
                     Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
                     Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
                     Verify.verify(arrayElementType != null);
+                    explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
+                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
-                        explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
-                        final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
-                        Optional<QueryPredicate> queryPredicate = findNewValuePredicate(value, newQuantifier);
-                        Verify.verify(queryPredicate.isPresent());
-                        transformedPredicates.add(queryPredicate.get());
-                        transformedQuantifiers.add(newQuantifier);
+                        transformedPredicates.addAll(findNewValuePredicate(value, newQuantifier));
                     } else {
-                        explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
-                        final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
-                        ValuePredicate newValuePredicate = new ValuePredicate(value,
-                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType)));
-                        transformedPredicates.add(newValuePredicate);
-                        transformedQuantifiers.add(newQuantifier);
+                        transformedPredicates.add(new ValuePredicate(value,
+                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                     }
                 } else if (comparison instanceof Comparisons.ListComparison) {
                     final var listComparison = (Comparisons.ListComparison)comparison;
                     explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
-                    final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
-                    ValuePredicate newValuePredicate = new ValuePredicate(value,
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType)));
-                    transformedPredicates.add(newValuePredicate);
-                    transformedQuantifiers.add(newQuantifier);
+                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    transformedPredicates.add(new ValuePredicate(value,
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
+
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
                     explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(elementType)));
-                    final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
-                    ValuePredicate newValuePredicate = new ValuePredicate(value,
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType)));
-                    transformedPredicates.add(newValuePredicate);
-                    transformedQuantifiers.add(newQuantifier);
+                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    transformedPredicates.add(new ValuePredicate(value,
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
+                transformedQuantifiers.add(newQuantifier);
             } else {
                 transformedPredicates.add(predicate);
             }
@@ -209,28 +200,24 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 transformedPredicates.build()));
     }
 
-
     /*
      * value:($T1.PK as _0, $T1.A as _1)
      * comparisonValue:IN array((@c13 as _0, @c15 as _1), (@c19 as _0, @c21 as _1)) comparandValue:array((@c13 as _0, @c15 as _1), (@c19 as _0, @c21 as _1))
      * return value_0 = newQuantifier_0 and value_1 = newQuantifier_1 and ...
      */
-    private static Optional<QueryPredicate> findNewValuePredicate(Value value, Quantifier.ForEach newQuantifier) {
-        List<Value> valueChildren = toList(value.getChildren());
+    private static List<QueryPredicate> findNewValuePredicate(Value value, Quantifier.ForEach newQuantifier) {
+        List<Value> valueChildren = ImmutableList.copyOf(value.getChildren());
         List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
-        Verify.verify(valueChildren.size() >= 2 && valueChildren.size() == comparandValueChildren.size());
+        Verify.verify(valueChildren.size() == comparandValueChildren.size());
 
-        Typed result = new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(0), comparandValueChildren.get(0).getValue()));
-        for (int i = 1; i < valueChildren.size(); i++) {
-            var currentVal = new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
-            result = new AndOrValue.AndFn().encapsulate(List.of(result, currentVal));
+        List<QueryPredicate> results = new ArrayList<>();
+        for (int i = 0; i < valueChildren.size(); i++) {
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
+            Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
+            Verify.verify(currentQueryPredicate.isPresent());
+            results.add(currentQueryPredicate.get());
         }
-        return ((AndOrValue) result).toQueryPredicate(null, Quantifier.current());
+        return results;
     }
 
-    private static List<Value> toList(Iterable<? extends Value> iterable) {
-        List<Value> result = new ArrayList<>();
-        iterable.forEach(result::add);
-        return result;
-    }
 }

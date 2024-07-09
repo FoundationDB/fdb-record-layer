@@ -174,7 +174,13 @@ public class MessageHelpers {
         return message.getDescriptorForType().getFields().get(fieldOrdinal);
     }
 
-    public static boolean compareMessageEquals(@Nonnull MessageOrBuilder m1, @Nonnull MessageOrBuilder m2) {
+    public static boolean compareMessageEquals(@Nonnull Object o1, @Nonnull Object o2) {
+        if (!(o1 instanceof Message) || !(o2 instanceof Message)) {
+            return false;
+        }
+        MessageOrBuilder m1 = (MessageOrBuilder) o1;
+        MessageOrBuilder m2 = (MessageOrBuilder) o2;
+
         if (m1.getDescriptorForType().getFields().size() != m2.getDescriptorForType().getFields().size()) {
             return false;
         }
@@ -183,10 +189,8 @@ public class MessageHelpers {
             Descriptors.FieldDescriptor f1 = findFieldDescriptorOnMessage(m1, i);
             Descriptors.FieldDescriptor f2 = findFieldDescriptorOnMessage(m2, i);
             // do not support repeated or nested fields in the message
-            if (f1.isRepeated() || f1.isMapField() || f1.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE
-                    || f2.isRepeated() || f2.isMapField() || f2.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                return false;
-            }
+            Verify.verify(!f1.isRepeated() && !f1.isMapField() && f1.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE);
+            Verify.verify(!f2.isRepeated() && !f2.isMapField() && f2.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE);
             if (f1.getJavaType() == f2.getJavaType() && m1.getField(f1).equals(m2.getField(f2))) {
                 if (!m1.getField(f1).equals(m2.getField(f2))) {
                     return false;

@@ -221,8 +221,6 @@ public class Comparisons {
             return obj;
         } else if (obj instanceof List) {
             return obj;
-        } else if (obj instanceof Message) {
-            return obj;
         } else {
             throw new RecordCoreException("Tried to compare non-comparable object " + obj.getClass());
         }
@@ -250,10 +248,7 @@ public class Comparisons {
             return null;
         } else {
             if (value instanceof Message) {
-                if (!(comparand instanceof Message)) {
-                    return false;
-                }
-                return MessageHelpers.compareMessageEquals((Message)value, (Message)comparand);
+                return MessageHelpers.compareMessageEquals(value, comparand);
             } else {
                 return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
             }
@@ -332,10 +327,14 @@ public class Comparisons {
             boolean hasNull = false;
             value = toClassWithRealEquals(value);
             for (Object comparandItem : (List<?>) comparand) {
-                if (value instanceof Message && comparandItem instanceof Message && MessageHelpers.compareMessageEquals((Message) value, (Message) comparandItem)) {
-                    return true;
-                } else if (value.equals(toClassWithRealEquals(comparandItem))) {
-                    return true;
+                if (value instanceof Message) {
+                    if (MessageHelpers.compareMessageEquals(value, comparandItem)) {
+                        return true;
+                    }
+                } else {
+                    if (toClassWithRealEquals(value).equals(toClassWithRealEquals(comparandItem))) {
+                        return true;
+                    }
                 }
                 hasNull |= comparandItem == null;
             }
