@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
@@ -39,7 +38,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, Value> {
+public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher = anyValue();
 
@@ -54,12 +53,12 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
 
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
 
         final var resultPair = call.getResult(value);
         final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
@@ -70,7 +69,7 @@ public class MatchValueRule extends ValueComputationRule<Iterable<? extends Valu
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (!(toBePulledUpValue instanceof FieldValue)) {
                 if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
-                    newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
+                    newMatchedValuesMap.put(toBePulledUpValue, PullUpCompensation.noCompensation());
                 }
             }
         }

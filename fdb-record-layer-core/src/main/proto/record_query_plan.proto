@@ -553,7 +553,8 @@ message PRecordConstructorValue {
 }
 
 message PRecordTypeValue {
-  optional string alias = 1;
+  optional string alias = 1; // deprecated
+  optional PValue in = 2;
 }
 
 message PRelOpValue {

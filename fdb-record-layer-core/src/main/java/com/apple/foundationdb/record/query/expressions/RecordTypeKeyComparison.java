@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -100,7 +101,10 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
                                  @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-        return GraphExpansion.ofPredicate(new RecordTypeValue(baseQuantifier.getAlias()).withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, Objects.requireNonNull(comparison.getComparand()))));
+        return GraphExpansion.ofPredicate(
+                new RecordTypeValue(QuantifiedObjectValue.of(baseQuantifier))
+                        .withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS,
+                                Objects.requireNonNull(comparison.getComparand()))));
     }
 
     @Override

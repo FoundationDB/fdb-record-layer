@@ -20,27 +20,27 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import java.util.function.Function;
 
 /**
  * A compensation that utilizes a field access.
  */
-public class FieldValueCompensation implements Function<Value, Value> {
+public class FieldValueCompensation implements PullUpCompensation {
     @Nonnull
     private final FieldValue.FieldPath fieldPath;
 
     @Nonnull
-    private final Function<Value, Value> downstreamCompensation;
+    private final PullUpCompensation downstreamCompensation;
 
     public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath) {
-        this(fieldPath, Function.identity());
+        this(fieldPath, PullUpCompensation.noCompensation());
     }
 
-    public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath, @Nonnull final Function<Value, Value> downstreamCompensation) {
+    public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath, @Nonnull final PullUpCompensation downstreamCompensation) {
         this.fieldPath = fieldPath;
         this.downstreamCompensation = downstreamCompensation;
     }
@@ -53,11 +53,11 @@ public class FieldValueCompensation implements Function<Value, Value> {
 
     @Nonnull
     @Override
-    public Value apply(final Value value) {
-        return downstreamCompensation.apply(FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
+    public Value compensate(@Nonnull final CorrelationIdentifier upperBaseAlias, @Nonnull final Value value) {
+        return downstreamCompensation.compensate(upperBaseAlias, FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
     }
 
-    public Function<Value, Value> withSuffix(@Nonnull final FieldValue.FieldPath suffixFieldPath) {
+    public PullUpCompensation withSuffix(@Nonnull final FieldValue.FieldPath suffixFieldPath) {
         if (suffixFieldPath.isEmpty()) {
             return downstreamCompensation;
         }
