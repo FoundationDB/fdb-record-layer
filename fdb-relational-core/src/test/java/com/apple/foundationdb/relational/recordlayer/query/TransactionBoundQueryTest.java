@@ -23,8 +23,10 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -223,6 +225,95 @@ public class TransactionBoundQueryTest {
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .doesNotContain("unnestedIndex")
                                 .contains("Index(cIndex");
+                        RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNoNextRow();
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void addUniversalCountIndex() throws SQLException, RelationalException {
+        final String countIndex = "countByType";
+        RecordMetaData metaData = getUpdatedMetaData(metaDataBuilder -> {
+            Index index = new Index(countIndex, Key.Expressions.recordType().ungrouped(), IndexTypes.COUNT);
+            metaDataBuilder.addUniversalIndex(index);
+        });
+
+        try (FDBRecordContext context = openContext()) {
+            try (EmbeddedRelationalConnection connection = connectTransactionBound(context, metaData)) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    // This query could use the count index if we can match against the record type correctly.
+                    String sqlQuery = "SELECT count(*) FROM t1";
+                    try (RelationalResultSet resultSet = statement.executeQuery("explain " + sqlQuery)) {
+                        RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNextRow();
+                        Assertions.assertThat(resultSet.getString("plan"))
+                                .doesNotContain(countIndex)
+                                .contains("Scan(<,>)");
+                        RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNoNextRow();
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void addUniversalCountWithGrouping() throws SQLException, RelationalException {
+        final String countIndexName = "groupedCountByType";
+        final String valueIndexName = "valueIndex";
+        RecordMetaData metaData = getUpdatedMetaData(metaDataBuilder -> {
+            Index countIndex = new Index(countIndexName, new GroupingKeyExpression(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("A")), 0), IndexTypes.COUNT);
+            metaDataBuilder.addUniversalIndex(countIndex);
+
+            Index valueIndex = new Index(valueIndexName, Key.Expressions.field("A"));
+            metaDataBuilder.addIndex("T1", valueIndex);
+        });
+
+        try (FDBRecordContext context = openContext()) {
+            try (EmbeddedRelationalConnection connection = connectTransactionBound(context, metaData)) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    // This query could use the count index if we can match against the record type correctly.
+                    String sqlQuery = "SELECT a, count(*) FROM t1 GROUP BY a";
+                    try (RelationalResultSet resultSet = statement.executeQuery("explain " + sqlQuery)) {
+                        RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNextRow();
+                        Assertions.assertThat(resultSet.getString("plan"))
+                                .doesNotContain(countIndexName)
+                                .contains("Index(" + valueIndexName);
+                        RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNoNextRow();
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void addUniversalCountWithGroupingAndFilter() throws SQLException, RelationalException {
+        final String countIndex = "groupedCountByType";
+        final String valueIndexName = "valueIndex";
+        RecordMetaData metaData = getUpdatedMetaData(metaDataBuilder -> {
+            Index index = new Index(countIndex, new GroupingKeyExpression(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("A")), 0), IndexTypes.COUNT);
+            metaDataBuilder.addUniversalIndex(index);
+
+            Index valueIndex = new Index(valueIndexName, Key.Expressions.field("A"));
+            metaDataBuilder.addIndex("T1", valueIndex);
+        });
+
+        try (FDBRecordContext context = openContext()) {
+            try (EmbeddedRelationalConnection connection = connectTransactionBound(context, metaData)) {
+                try (RelationalStatement statement = connection.createStatement()) {
+                    // This query could use the count index if we can match against the record type correctly.
+                    String sqlQuery = "SELECT count(*) FROM t1 WHERE a = 0 GROUP BY a";
+                    try (RelationalResultSet resultSet = statement.executeQuery("explain " + sqlQuery)) {
+                        RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNextRow();
+                        Assertions.assertThat(resultSet.getString("plan"))
+                                .doesNotContain(countIndex)
+                                .contains("Index(" + valueIndexName + " [EQUALS ");
                         RelationalResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                     }
