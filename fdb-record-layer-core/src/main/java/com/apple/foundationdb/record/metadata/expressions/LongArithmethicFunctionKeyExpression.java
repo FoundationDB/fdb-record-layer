@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
-import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -135,11 +134,7 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
         scalarTranslationVisitor.push(ScalarTranslationVisitor.ScalarVisitorState.of(baseAlias, baseType, fieldNamePrefix));
         List<Value> argumentValues = new ArrayList<>(arguments.getColumnSize());
         for (KeyExpression expression : arguments.normalizeKeyForPositions()) {
-            Value argValue = expression.expand(scalarTranslationVisitor);
-
-            final Type argType = argValue.getResultType();
-            final Type targetType = Type.primitiveType(Type.TypeCode.LONG, argType.isNullable());
-            argumentValues.add(PromoteValue.inject(argValue, targetType));
+            argumentValues.add(expression.expand(scalarTranslationVisitor));
         }
         BuiltInFunction<?> builtInFunction = FunctionCatalog.resolve(valueFunctionName, arguments.getColumnSize()).orElseThrow(() -> new RecordCoreArgumentException("unknown function", LogMessageKeys.FUNCTION, getName()));
         return (Value) builtInFunction.encapsulate(argumentValues);

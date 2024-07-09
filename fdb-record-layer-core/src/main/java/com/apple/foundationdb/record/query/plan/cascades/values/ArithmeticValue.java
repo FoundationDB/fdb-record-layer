@@ -440,10 +440,18 @@ public class ArithmeticValue extends AbstractValue {
         MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r),
 
         BITOR_II(LogicalOperator.BITOR, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l | (int)r),
+        BITOR_IL(LogicalOperator.BITOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l | (long)r),
+        BITOR_LI(LogicalOperator.BITOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l | (int)r),
         BITOR_LL(LogicalOperator.BITOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l | (long)r),
+
         BITAND_II(LogicalOperator.BITAND, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l & (int)r),
+        BITAND_IL(LogicalOperator.BITAND, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l & (long)r),
+        BITAND_LI(LogicalOperator.BITAND, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l & (int)r),
         BITAND_LL(LogicalOperator.BITAND, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l & (long)r),
+
         BITXOR_II(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l ^ (int)r),
+        BITXOR_IL(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l ^ (long)r),
+        BITXOR_LI(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l ^ (int)r),
         BITXOR_LL(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l ^ (long)r),
         ;
 

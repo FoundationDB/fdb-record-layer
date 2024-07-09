@@ -48,11 +48,9 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -80,6 +78,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -232,8 +231,8 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
 
             if (useCascadesPlanner) {
                 assertMatchesExactly(plan, predicatesFilter(QuantifierMatchers.anyQuantifier(typeFilterMatcher)));
-                assertEquals(-2146084520, plan.planHash(PlanHashable.CURRENT_LEGACY));
-                assertEquals(-1239440071, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                assertEquals(1022673764, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                assertEquals(1929318213, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             } else {
                 assertMatchesExactly(plan, filterPlan(typeFilterMatcher));
                 assertEquals(-1686224670, plan.planHash(PlanHashable.CURRENT_LEGACY));
@@ -320,12 +319,9 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final FieldValue num2Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2");
                 final FieldValue num3Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_3_indexed");
                 final FieldValue numUniqueValue = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique");
-                final Value sumValue = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(
-                        PromoteValue.inject(num2Value, Type.primitiveType(Type.TypeCode.LONG)),
-                        PromoteValue.inject(num3Value, Type.primitiveType(Type.TypeCode.LONG))
-                ));
+                final Value sumValue = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(num2Value, num3Value));
                 final Value maskValue = (Value) new ArithmeticValue.BitAndFn().encapsulate(ImmutableList.of(
-                        PromoteValue.inject(numUniqueValue, Type.primitiveType(Type.TypeCode.LONG)),
+                        numUniqueValue,
                         LiteralValue.ofScalar(4L)
                 ));
                 SelectExpression select = GraphExpansion.builder()
@@ -347,31 +343,31 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                             .where(indexName(index.getName()))
                             .and(scanComparisons(range("[EQUALS $" + strValueParam + ", [GREATER_THAN_OR_EQUALS $" + sumLowerBound + " && LESS_THAN_OR_EQUALS $" + sumUpperBound + "]]")))
             ));
-            assertEquals(600168016, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(-35779047, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(2089976284, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(1454029221, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             for (String strValue : List.of("even", "odd")) {
-                LongStream.range(-1, 9).forEach(lowerSum ->
-                        LongStream.range(lowerSum, 10).forEach(upperSum -> {
+                IntStream.range(-1, 9).forEach(lowerSum ->
+                        IntStream.range(lowerSum, 10).forEach(upperSum -> {
                             Bindings bindings = Bindings.newBuilder()
                                     .set(strValueParam, strValue)
                                     .set(sumLowerBound, lowerSum)
                                     .set(sumUpperBound, upperSum)
                                     .build();
 
-                            Set<Map<String, Long>> results = new HashSet<>();
+                            Set<Map<String, Number>> results = new HashSet<>();
                             try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, bindings)) {
-                                long previousSum = Long.MIN_VALUE;
+                                int previousSum = Integer.MIN_VALUE;
                                 for (RecordCursorResult<QueryResult> queryResult = cursor.getNext(); queryResult.hasNext(); queryResult = cursor.getNext()) {
                                     Message msg = queryResult.get().getMessage();
                                     assertNotNull(msg);
                                     Descriptors.Descriptor descriptor = msg.getDescriptorForType();
-                                    Map<String, Long> result = ImmutableMap.of(
-                                            "sum", (long) msg.getField(descriptor.findFieldByName("sum")),
+                                    Map<String, Number> result = ImmutableMap.of(
+                                            "sum", (int) msg.getField(descriptor.findFieldByName("sum")),
                                             "mask", (long) msg.getField(descriptor.findFieldByName("mask")),
                                             "id", (long) msg.getField(descriptor.findFieldByName("id"))
                                     );
-                                    long sumValue = result.get("sum");
+                                    int sumValue = result.get("sum").intValue();
                                     assertThat("Sum value should be in query predicate range", sumValue, both(greaterThanOrEqualTo(lowerSum)).and(lessThanOrEqualTo(upperSum)));
                                     assertThat("Results should be sorted by sum value", sumValue, greaterThanOrEqualTo(previousSum));
                                     results.add(result);
@@ -380,9 +376,9 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
 
                             Object[] expected = data.stream()
                                     .filter(rec -> rec.getStrValueIndexed().equals(strValue))
-                                    .map(rec -> ImmutableMap.of("sum", (long)(rec.getNumValue2() + rec.getNumValue3Indexed()), "mask", ((long)rec.getNumValueUnique()) & 4L, "id", rec.getRecNo()))
+                                    .map(rec -> ImmutableMap.of("sum", rec.getNumValue2() + rec.getNumValue3Indexed(), "mask", rec.getNumValueUnique() & 4L, "id", rec.getRecNo()))
                                     .filter(res -> {
-                                        long sum = res.get("sum");
+                                        int sum = res.get("sum").intValue();
                                         return sum >= lowerSum && sum <= upperSum;
                                     })
                                     .toArray();

@@ -357,11 +357,19 @@ message PArithmeticValue {
       MOD_DD = 89;
 
       BITOR_II = 90;
-      BITOR_LL = 91;
-      BITAND_II = 92;
-      BITAND_LL = 93;
-      BITXOR_II = 94;
-      BITXOR_LL = 95;
+      BITOR_IL = 91;
+      BITOR_LI = 92;
+      BITOR_LL = 93;
+
+      BITAND_II = 94;
+      BITAND_IL = 95;
+      BITAND_LI = 96;
+      BITAND_LL = 97;
+
+      BITXOR_II = 98;
+      BITXOR_IL = 99;
+      BITXOR_LI = 100;
+      BITXOR_LL = 101;
   }
 
   optional PPhysicalOperator operator = 1;
