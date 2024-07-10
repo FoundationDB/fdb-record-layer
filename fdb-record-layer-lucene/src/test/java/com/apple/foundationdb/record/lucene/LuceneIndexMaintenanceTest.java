@@ -66,6 +66,7 @@ import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -756,6 +757,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     @ParameterizedTest
     @MethodSource
     @SuperSlow
+    @Timeout(value = 10, unit = TimeUnit.MINUTES) // https://github.com/FoundationDB/fdb-record-layer/issues/2813
     void concurrentStoreTest(boolean isGrouped,
                              boolean isSynthetic,
                              boolean primaryKeySegmentIndexEnabled,
