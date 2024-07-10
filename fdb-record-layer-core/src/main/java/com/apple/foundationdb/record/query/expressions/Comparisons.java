@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -246,7 +247,11 @@ public class Comparisons {
         if (value == null || comparand == null) {
             return null;
         } else {
-            return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            if (value instanceof Message) {
+                return MessageHelpers.compareMessageEquals(value, comparand);
+            } else {
+                return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            }
         }
     }
 
@@ -320,10 +325,16 @@ public class Comparisons {
         }
         if ((comparand instanceof List<?>)) {
             boolean hasNull = false;
-            value = toClassWithRealEquals(value);
+            value = (value instanceof Message) ? value : toClassWithRealEquals(value);
             for (Object comparandItem : (List<?>) comparand) {
-                if (value.equals(toClassWithRealEquals(comparandItem))) {
-                    return true;
+                if (value instanceof Message) {
+                    if (MessageHelpers.compareMessageEquals(value, comparandItem)) {
+                        return true;
+                    }
+                } else {
+                    if (toClassWithRealEquals(value).equals(toClassWithRealEquals(comparandItem))) {
+                        return true;
+                    }
                 }
                 hasNull |= comparandItem == null;
             }
