@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.OrderFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
@@ -105,6 +106,9 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     @Override
     public final Value visitExpression(@Nonnull final KeyExpression keyExpression) {
+        if (keyExpression instanceof OrderFunctionKeyExpression) {
+            return ((OrderFunctionKeyExpression)keyExpression).getChild().expand(this);
+        }
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 

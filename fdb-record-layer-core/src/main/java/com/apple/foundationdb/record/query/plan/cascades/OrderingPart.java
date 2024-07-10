@@ -278,7 +278,9 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      */
     public enum MatchedSortOrder implements SortOrder {
         ASCENDING("↑"),
-        DESCENDING("↓");
+        DESCENDING("↓"),
+        ASCENDING_NULLS_LAST("↗"),
+        DESCENDING_NULLS_FIRST("↙");
 
         @Nonnull
         private final String arrowIndicator;
@@ -294,12 +296,16 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         public boolean isReverse() {
-            return this == DESCENDING;
+            return this == DESCENDING || this == DESCENDING_NULLS_FIRST;
         }
 
         @Override
         public boolean isDirectional() {
             return true;
+        }
+
+        public boolean isCounterflowNulls() {
+            return this == ASCENDING_NULLS_LAST || this == DESCENDING_NULLS_FIRST;
         }
 
         @Nonnull
@@ -314,6 +320,10 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
                     return isReverse ? ProvidedSortOrder.DESCENDING : ProvidedSortOrder.ASCENDING;
                 case DESCENDING:
                     return isReverse ? ProvidedSortOrder.ASCENDING : ProvidedSortOrder.DESCENDING;
+                case ASCENDING_NULLS_LAST:
+                    return isReverse ? ProvidedSortOrder.DESCENDING_NULLS_FIRST : ProvidedSortOrder.ASCENDING_NULLS_LAST;
+                case DESCENDING_NULLS_FIRST:
+                    return isReverse ? ProvidedSortOrder.ASCENDING_NULLS_LAST : ProvidedSortOrder.DESCENDING_NULLS_FIRST;
                 default:
                     throw new RecordCoreException("cannot translate this sort order to provided sort order");
             }
