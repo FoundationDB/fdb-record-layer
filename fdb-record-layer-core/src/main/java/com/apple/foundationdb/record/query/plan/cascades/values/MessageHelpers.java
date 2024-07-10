@@ -174,6 +174,7 @@ public class MessageHelpers {
         return message.getDescriptorForType().getFields().get(fieldOrdinal);
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public static boolean compareMessageEquals(@Nonnull Object o1, @Nonnull Object o2) {
         if (!(o1 instanceof Message) || !(o2 instanceof Message)) {
             return false;
