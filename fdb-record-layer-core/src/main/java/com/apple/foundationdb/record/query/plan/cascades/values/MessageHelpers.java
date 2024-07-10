@@ -181,6 +181,10 @@ public class MessageHelpers {
         MessageOrBuilder m1 = (MessageOrBuilder) o1;
         MessageOrBuilder m2 = (MessageOrBuilder) o2;
 
+        if (m1.getDescriptorForType() == m2.getDescriptorForType()) {
+            return m1.equals(m2);
+        }
+
         if (m1.getDescriptorForType().getFields().size() != m2.getDescriptorForType().getFields().size()) {
             return false;
         }
