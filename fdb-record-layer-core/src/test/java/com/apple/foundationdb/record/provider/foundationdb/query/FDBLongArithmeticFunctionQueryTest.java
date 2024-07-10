@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -48,7 +49,9 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -78,6 +81,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -86,11 +90,14 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilter;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
@@ -100,6 +107,7 @@ import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -388,6 +396,86 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             }
 
             TestHelpers.assertDiscardedNone(context);
+            commit(context);
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void matchConstantMaskValue() {
+        final Index index = new Index("MySimpleRecord$num_value_unique&4", bitMaskExpression("num_value_unique", 4));
+        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+        final List<TestRecords1Proto.MySimpleRecord> data = setupSimpleRecordStore(hook,
+                (i, builder) -> builder.setRecNo(i).setNumValueUnique(i));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            final String maskResultParam = "masked";
+            final CorrelationIdentifier baseConstantId = CorrelationIdentifier.uniqueID();
+            final ConstantObjectValue maskConstantValue = ConstantObjectValue.of(baseConstantId, "mask", Type.primitiveType(Type.TypeCode.LONG, false));
+            for (int i = 0; i < 3; i++) {
+                final long mask = (1 << i);
+                final Bindings bindings = constantBindings(maskConstantValue, mask);
+                final RecordQueryPlan plan = planGraph(() -> {
+                    Quantifier typeQun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                    final Value maskValue = (Value)new ArithmeticValue.BitAndFn().encapsulate(List.of(
+                            FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique"),
+                            maskConstantValue
+                    ));
+                    final Quantifier selectQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(typeQun)
+                            .addPredicate(new ValuePredicate(maskValue, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, maskResultParam)))
+                            .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(typeQun.getFlowedObjectValue(), "rec_no"))
+                            .build()
+                            .buildSelect()));
+                    return Reference.of(new LogicalSortExpression(List.of(), false, selectQun));
+                }, bindings);
+
+                if (mask == 4) {
+                    // This mask value (and only this mask value) should match the literal value in the index, and so
+                    // it should be able to leverage the expected index
+                    assertMatchesExactly(plan, mapPlan(
+                            coveringIndexPlan().where(indexPlanOf(
+                                    indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS $" + maskResultParam + "]")))
+                            ))
+                    ));
+                    assertEquals(-1043926565, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                    assertEquals(-1859939974, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                } else {
+                    // The other mask values do not work, and so they require executing as a scan
+                    assertMatchesExactly(plan, mapPlan(
+                            predicatesFilterPlan(
+                                    typeFilterPlan(
+                                            scanPlan().where(scanComparisons(unbounded())
+                                    )
+                            )
+                    )));
+                    // assertEquals(0, plan.planHash(PlanHashable.CURRENT_LEGACY));
+                    assertEquals(-1713033856, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                }
+
+                for (long queryMaskValue : List.of(0L, mask, mask + 1)) {
+                    final Set<Long> expectedIds = data.stream()
+                            .filter(rec -> (rec.getNumValueUnique() & mask) == queryMaskValue)
+                            .map(TestRecords1Proto.MySimpleRecord::getRecNo)
+                            .collect(Collectors.toSet());
+                    if (queryMaskValue != 0 && queryMaskValue != mask) {
+                        assertThat("should not be any expected ids when the query mask is " + queryMaskValue,
+                                expectedIds, empty());
+                    }
+                    final Bindings queryBindings = bindings.childBuilder().set(maskResultParam, queryMaskValue).build();
+                    try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, queryBindings)) {
+                        final List<Long> queriedIds = cursor.map(queryResult -> {
+                            Message msg = queryResult.getMessage();
+                            Descriptors.FieldDescriptor fieldDescriptor = msg.getDescriptorForType().findFieldByName("rec_no");
+                            return (Long)msg.getField(fieldDescriptor);
+                        }).asList().join();
+                        assertThat("expected results with bit mask " + mask + " and predicate mask " + queryMaskValue,
+                                queriedIds, containsInAnyOrder(expectedIds.toArray()));
+                    }
+                }
+            }
+
             commit(context);
         }
     }

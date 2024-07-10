@@ -625,6 +625,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     @Nonnull
     protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull String... allowedIndexes) {
+        return planGraph(querySupplier, Bindings.EMPTY_BINDINGS, allowedIndexes);
+    }
+
+    @Nonnull
+    protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull Bindings bindings, @Nonnull String... allowedIndexes) {
         assertThat(planner, instanceOf(CascadesPlanner.class));
         final CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
         final Optional<Collection<String>> allowedIndexesOptional;
@@ -633,7 +638,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         } else {
             allowedIndexesOptional = Optional.empty();
         }
-        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.forBindings(bindings));
         return verifySerialization(planResult.getPlan());
     }
 
