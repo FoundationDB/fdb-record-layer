@@ -418,7 +418,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // with index hints (RestaurantRecord$name), plan a different query
         final var plan = planSimpleJoin(cascadesPlanner);
 
-        System.out.println("plan:" + plan);
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
                         descendantPlans(

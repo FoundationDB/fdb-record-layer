@@ -310,8 +310,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             Quantifier selectQun = Quantifier.forEach(Reference.of(select));
             return Reference.of(LogicalSortExpression.unsorted(selectQun));
         });
-        System.out.println("plan:" + plan);
-        plan.show(false);
         assertMatchesExactly(plan, inJoinPlan(
                 mapPlan(
                         coveringIndexPlan()
@@ -376,7 +374,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 });
-
+        // plan: flatMap(explode([array(('foo' as str_value_indexed, 1 as num_value_2), ('bar' as str_value_indexed, 2 as num_value_2))]), Index(MySimpleRecord$str_value_indexed [EQUALS $q61.str_value_indexed]) | $q2.num_value_2 EQUALS $q61.num_value_2)
         assertEquals(-1993112907, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(648590148, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
