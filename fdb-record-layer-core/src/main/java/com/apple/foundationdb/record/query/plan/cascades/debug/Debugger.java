@@ -216,7 +216,9 @@ public interface Debugger {
         FAILURE,
         COUNT,
         NEW,
-        REUSED
+        REUSED,
+        DISCARDED_INTERSECTION_COMBINATIONS,
+        ALL_INTERSECTION_COMBINATIONS
     }
 
     /**
