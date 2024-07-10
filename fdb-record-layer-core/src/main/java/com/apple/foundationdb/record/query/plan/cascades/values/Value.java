@@ -129,7 +129,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         });
     }
 
-
     /**
      * Returns a human-friendly textual representation of this {@link Value}.
      *

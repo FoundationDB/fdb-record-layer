@@ -325,7 +325,7 @@ public class Comparisons {
         }
         if ((comparand instanceof List<?>)) {
             boolean hasNull = false;
-            value = toClassWithRealEquals(value);
+            value = (value instanceof Message) ? value : toClassWithRealEquals(value);
             for (Object comparandItem : (List<?>) comparand) {
                 if (value instanceof Message) {
                     if (MessageHelpers.compareMessageEquals(value, comparandItem)) {

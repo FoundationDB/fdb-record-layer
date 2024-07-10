@@ -123,7 +123,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                                 return ((DynamicMessage) outerObject).toByteArray();
                             } else {
                                 return Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack();
-                            }},
+                            }
+                        },
                         continuation,
                         store.getPipelineSize(PipelineOperation.IN_JOIN))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());

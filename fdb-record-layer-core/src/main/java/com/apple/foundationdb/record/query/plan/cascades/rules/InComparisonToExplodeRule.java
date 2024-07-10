@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,7 +55,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparisonOfType;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -167,7 +165,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                     explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
                     newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
-                        transformedPredicates.addAll(findNewValuePredicate(value, newQuantifier));
+                        transformedPredicates.addAll(createSimpleEqualities(value, newQuantifier));
                     } else {
                         transformedPredicates.add(new ValuePredicate(value,
                                 new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
@@ -200,24 +198,22 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 transformedPredicates.build()));
     }
 
-    /*
-     * value:($T1.PK as _0, $T1.A as _1)
-     * comparisonValue:IN array((@c13 as _0, @c15 as _1), (@c19 as _0, @c21 as _1)) comparandValue:array((@c13 as _0, @c15 as _1), (@c19 as _0, @c21 as _1))
-     * return value_0 = newQuantifier_0 and value_1 = newQuantifier_1 and ...
+    /**
+     * This method creates an equality predicate for all constituent parts of a tuple.
      */
-    private static List<QueryPredicate> findNewValuePredicate(Value value, Quantifier.ForEach newQuantifier) {
+    @Nonnull
+    private static List<QueryPredicate> createSimpleEqualities(@Nonnull final Value value,
+                                                               @Nonnull final Quantifier.ForEach newQuantifier) {
         List<Value> valueChildren = ImmutableList.copyOf(value.getChildren());
         List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
         Verify.verify(valueChildren.size() == comparandValueChildren.size());
-
-        List<QueryPredicate> results = new ArrayList<>();
+        final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
         for (int i = 0; i < valueChildren.size(); i++) {
             BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());
-            results.add(currentQueryPredicate.get());
+            resultsBuilder.add(currentQueryPredicate.get());
         }
-        return results;
+        return resultsBuilder.build();
     }
-
 }

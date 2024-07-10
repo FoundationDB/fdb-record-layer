@@ -45,21 +45,24 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -70,6 +73,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -116,7 +120,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inComparandJoinPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inParameterJoinPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.inUnionBindingName;
@@ -138,7 +141,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.selfOrDescendantPlans;
@@ -344,8 +346,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testTupleInListPlanGraph() throws Exception {
-        complexQuerySetup(NO_HOOK);
+    void testTupleInList() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            final Index compoundIndex = new Index("compoundIndex", Key.Expressions.concat(Key.Expressions.field("str_value_indexed"), Key.Expressions.field("num_value_3_indexed")));
+            metaData.addIndex("MySimpleRecord", compoundIndex);
+        };
+
+        complexQuerySetup(hook);
         final var plan = planGraph(
                 () -> {
                     var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
@@ -355,27 +362,124 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addQuantifier(qun);
                     final var strValueIndexed =
                             FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
-                    final var numValue2 =
-                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
+                    final var numValue3Indexed =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
 
-                    final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue2));
-                    Column<LiteralValue<String>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
-                    Column<LiteralValue<String>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
-                    Column<LiteralValue<Integer>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_2");
-                    Column<LiteralValue<Integer>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_2");
+                    final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
+                    Column<LiteralValue<?>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
+                    Column<LiteralValue<?>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
+                    Column<LiteralValue<?>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
+                    Column<LiteralValue<?>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
 
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(inArrayValue, new Comparisons.ValueComparison(Comparisons.Type.IN, comparandValue)));
+                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
+                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
 
-                    graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(strValueIndexed, "strNew"));
-                    graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(numValue2, "num2New"));
+                    graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
+                    graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 });
-        // plan: flatMap(explode([array(('foo' as str_value_indexed, 1 as num_value_2), ('bar' as str_value_indexed, 2 as num_value_2))]), Index(MySimpleRecord$str_value_indexed [EQUALS $q61.str_value_indexed]) | $q2.num_value_2 EQUALS $q61.num_value_2)
-        assertEquals(-1993112907, plan.planHash(PlanHashable.CURRENT_LEGACY));
-        assertEquals(648590148, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        assertMatchesExactly(plan,
+                inComparandJoinPlan(
+                        mapPlan(
+                                coveringIndexPlan()
+                                        .where(indexPlanOf(
+                                                indexPlan()
+                                                        .where(indexName("compoundIndex"))
+                                                        .and(isNotReverse())
+                                        ))
+                        )));
+        assertEquals(-379608724, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testTupleInListNoIndex() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("MySimpleRecord$str_value_indexed");
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+        };
+
+        complexQuerySetup(hook);
+        final var plan = planGraph(
+                () -> {
+                    var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+                    final var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var strValueIndexed =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
+                    final var numValue3Indexed =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
+
+                    final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
+                    Column<LiteralValue<String>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "odd"), "str_value_indexed");
+                    Column<LiteralValue<String>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "even"), "str_value_indexed");
+                    Column<LiteralValue<Integer>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
+                    Column<LiteralValue<Integer>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
+
+                    final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
+
+                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
+                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
+
+                    graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
+                    graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
+                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                });
+
+        assertMatchesExactly(plan,
+                        mapPlan(predicatesFilterPlan(typeFilterPlan(scanPlan()))));
+        assertEquals(-1783159911, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        final var usedTypes = UsedTypesProperty.evaluate(plan);
+        final var evaluationContext =
+                EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
+        assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
+                rec -> assertThat(rec.getNumValue3Indexed(), anyOf(is(1), is(2))),
+                context -> TestHelpers.assertDiscardedExactly(80, context)));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testTupleInListCannotPromote() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            final Index compoundIndex = new Index("compoundIndex", Key.Expressions.concat(Key.Expressions.field("str_value_indexed"), Key.Expressions.field("num_value_3_indexed")));
+            metaData.addIndex("MySimpleRecord", compoundIndex);
+        };
+
+        complexQuerySetup(hook);
+        Assertions.assertThrows(SemanticException.class, () -> planGraph(
+                () -> {
+                    var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+
+                    final var graphExpansionBuilder = GraphExpansion.builder();
+
+                    graphExpansionBuilder.addQuantifier(qun);
+                    final var strValueIndexed =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
+                    final var numValue3Indexed =
+                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
+
+                    final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
+                    Column<LiteralValue<?>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
+                    Column<LiteralValue<?>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
+                    Column<LiteralValue<?>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L), "num_value_3_indexed");
+                    Column<LiteralValue<?>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L), "num_value_3_indexed");
+
+                    final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
+
+                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
+                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
+
+                    graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
+                    graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
+                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                }));
     }
 
     /**
