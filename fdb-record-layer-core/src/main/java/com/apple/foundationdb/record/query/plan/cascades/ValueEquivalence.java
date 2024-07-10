@@ -21,8 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
@@ -310,6 +315,75 @@ public abstract class ValueEquivalence {
         @Override
         protected Optional<ValueEquivalence> computeInverseMaybe() {
             return Optional.of(new AliasMapBackedValueEquivalence(aliasMap.inverse()));
+        }
+    }
+
+    @Nonnull
+    public static ValueEquivalence constantEquivalenceWithEvaluationContext(@Nonnull final EvaluationContext evaluationContext) {
+        return new ConstantValueEquivalence(evaluationContext);
+    }
+
+    /**
+     * Value equivalence implementation that relates bound constant references between {@link ConstantObjectValue}s to
+     * {@link LiteralValue}s.
+     */
+    public static class ConstantValueEquivalence extends ValueEquivalence {
+        @Nonnull
+        private final EvaluationContext evaluationContext;
+
+        public ConstantValueEquivalence(@Nonnull final EvaluationContext evaluationContext) {
+            this.evaluationContext = evaluationContext;
+        }
+
+        @Nonnull
+        @Override
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+            if (left instanceof ConstantObjectValue && right instanceof LiteralValue) {
+                return isDefinedEqual((ConstantObjectValue)left, (LiteralValue<?>)right);
+            } else if (right instanceof ConstantObjectValue && left instanceof LiteralValue) {
+                // flip
+                return isDefinedEqual((ConstantObjectValue)right, (LiteralValue<?>)left);
+            }
+            return BooleanWithConstraint.falseValue();
+        }
+
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
+                                                    @Nonnull final LiteralValue<?> literalValue) {
+            final var constantObject = constantObjectValue.compileTimeEval(evaluationContext);
+            final var literalObject = literalValue.getLiteralValue();
+            if (constantObject == null && literalObject == null) {
+                return trueWithConstraint(
+                        QueryPlanConstraint.ofPredicate(new ValuePredicate(constantObjectValue,
+                                new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+            }
+
+            if (constantObject == null || literalObject == null) {
+                return falseValue();
+            }
+
+            final boolean comparisonResult =
+                    Objects.requireNonNull(Comparisons.evalComparison(Comparisons.Type.EQUALS, constantObject,
+                            literalValue.getLiteralValue()));
+
+            if (comparisonResult) {
+                return trueWithConstraint(
+                        QueryPlanConstraint.ofPredicate(new ValuePredicate(constantObjectValue,
+                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, literalObject))));
+            }
+            return falseValue();
+        }
+
+        @Nonnull
+        @Override
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<ValueEquivalence> computeInverseMaybe() {
+            // this equivalence is symmetrical
+            return Optional.of(this);
         }
     }
 }

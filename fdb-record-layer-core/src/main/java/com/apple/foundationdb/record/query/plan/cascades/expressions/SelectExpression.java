@@ -422,7 +422,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
 
-        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap);
+        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
+                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
