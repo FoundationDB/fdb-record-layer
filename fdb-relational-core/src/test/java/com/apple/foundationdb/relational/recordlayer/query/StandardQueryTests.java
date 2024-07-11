@@ -1068,6 +1068,124 @@ public class StandardQueryTests {
         }
     }
 
+    @Test
+    void tupleInListAsPredicate() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, PRIMARY KEY(pk))" +
+                " CREATE INDEX a_index as select pk, a from T1 order by pk, a";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'bla')");
+                statement.executeUpdate("insert into t1 values (40, 'foo')");
+            }
+
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (pk, a) in ((?l1, 'bla'), (?l2, 'bar'))")) {
+                statement.setLong("l1", 42L);
+                statement.setLong("l2", 40L);
+                statement.execute();
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals(42L, resultSet.getLong(1));
+                    Assertions.assertEquals("bla", resultSet.getString(2));
+                    Assert.that(!resultSet.next());
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (pk, a) in ((?l1, 'foo'), (?l2, 'bar'))")) {
+                statement.setLong("l1", 42L);
+                statement.setLong("l2", 40L);
+                statement.execute();
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(!resultSet.next());
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (pk, a) in ((?l1, 'foo', 'foo2'), (?l2, 'bar', 'bar2'))")) {
+                statement.setLong("l1", 42L);
+                statement.setLong("l2", 40L);
+                Assertions.assertThrows(SQLException.class, statement::execute);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (pk, a) in (?l1, 'foo', 'foo2')")) {
+                statement.setLong("l1", 42L);
+                Assertions.assertThrows(SQLException.class, statement::execute);
+            }
+        }
+    }
+
+    @Test
+    void tupleInListAsPredicate2() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))" +
+                " CREATE INDEX pk_a as select pk, a from T1 order by pk, a" +
+                " CREATE INDEX b_a as select b, a from T1 order by b, a";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'bla', 1)");
+                statement.executeUpdate("insert into t1 values (40, 'foo', 2)");
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (b, a) in ((?l1, 'bla'), (?l2, 'bar'), (?l3, 'bar')) and pk = ?pk")) {
+                statement.setLong("pk", 42L);
+                statement.setLong("l1", 1L);
+                statement.setLong("l2", 2L);
+                statement.setLong("l3", 3L);
+
+                statement.execute();
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals(42L, resultSet.getLong(1));
+                    Assertions.assertEquals("bla", resultSet.getString(2));
+                    Assertions.assertEquals(1L, resultSet.getLong(3));
+                    Assert.that(!resultSet.next());
+                }
+            }
+
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (b, a) in ((?l1, 'foo'), (?l2, 'bar'))")) {
+                statement.setLong("l1", 42L);
+                statement.setLong("l2", 40L);
+                statement.execute();
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(!resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void tupleThreeInListAsPredicate() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))" +
+                " CREATE INDEX pk_a_b as select pk, a, b from T1 order by pk, a, b";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 'bla', 1)");
+                statement.executeUpdate("insert into t1 values (40, 'foo', 2)");
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (pk, a, b) in ((?pk1, 'bla', ?b1), (?pk2, 'bar', ?b2))")) {
+                statement.setLong("pk1", 42L);
+                statement.setLong("pk2", 40L);
+                statement.setLong("b1", 1L);
+                statement.setLong("b2", 2L);
+                statement.execute();
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(resultSet.next());
+                    Assertions.assertEquals(42L, resultSet.getLong(1));
+                    Assertions.assertEquals("bla", resultSet.getString(2));
+                    Assertions.assertEquals(1L, resultSet.getLong(3));
+                    Assert.that(!resultSet.next());
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("select * from t1 where (pk, a, b) in ((?pk1, 'bar', ?b1), (?pk2, 'bla', ?b2))")) {
+                statement.setLong("pk1", 42L);
+                statement.setLong("pk2", 40L);
+                statement.setLong("b1", 1L);
+                statement.setLong("b2", 2L);
+                statement.execute();
+
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assert.that(!resultSet.next());
+                }
+            }
+        }
+    }
+
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private Message insertTypeConflictRecords(RelationalStatement s) throws SQLException {
