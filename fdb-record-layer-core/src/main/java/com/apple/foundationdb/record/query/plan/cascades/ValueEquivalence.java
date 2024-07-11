@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.alwaysTrue;
 import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.falseValue;
 import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.trueWithConstraint;
 
@@ -102,7 +103,7 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        var constraint = BooleanWithConstraint.alwaysTrue();
+        var constraint = alwaysTrue();
         for (final T l : left) {
             var found = false;
             for (final T r : right) {
@@ -299,7 +300,7 @@ public abstract class ValueEquivalence {
             final var rightAlias = ((QuantifiedValue)right).getAlias();
 
             if (leftAlias.equals(rightAlias) || aliasMap.containsMapping(leftAlias, rightAlias)) {
-                return BooleanWithConstraint.alwaysTrue();
+                return alwaysTrue();
             }
 
             return falseValue();
@@ -308,7 +309,7 @@ public abstract class ValueEquivalence {
         @Nonnull
         @Override
         public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
-            return aliasMap.containsMapping(left, right) ? BooleanWithConstraint.alwaysTrue() : falseValue();
+            return aliasMap.containsMapping(left, right) ? alwaysTrue() : falseValue();
         }
 
         @Nonnull
@@ -344,7 +345,7 @@ public abstract class ValueEquivalence {
                 // flip
                 return isDefinedEqual((ConstantObjectValue)right, (LiteralValue<?>)left);
             }
-            return BooleanWithConstraint.falseValue();
+            return falseValue();
         }
 
         public BooleanWithConstraint isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
@@ -376,7 +377,7 @@ public abstract class ValueEquivalence {
         @Nonnull
         @Override
         public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
-            return BooleanWithConstraint.falseValue();
+            return falseValue();
         }
 
         @Nonnull
