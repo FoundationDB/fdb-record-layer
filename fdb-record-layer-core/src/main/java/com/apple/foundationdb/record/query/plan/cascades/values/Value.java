@@ -65,7 +65,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
@@ -537,24 +536,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                      @Nonnull final AliasMap aliasMap,
                                      @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                      @Nonnull final CorrelationIdentifier upperBaseAlias) {
-        //
-        // Construct an alias map for equivalences.
-        //
-        final var correlatedTos = Streams.stream(toBePulledUpValues)
-                .map(Correlated::getCorrelatedTo)
-                .collect(ImmutableList.toImmutableList());
-
-        final var correlatedToDifference = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
-        // TODO This seems highly suspicious -- I think this should rather be the unions of all correlatedTos that needs
-        //      to be retained.
-        correlatedTos.forEach(correlatedToDifference::retainAll);
-
-        final var equivalenceMap = aliasMap.toBuilder()
-                .identitiesFor(correlatedToDifference)
-                .build();
-
         final var resultPair =
-                Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
+                Simplification.compute(this, toBePulledUpValues, aliasMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
         if (resultPair == null) {
             return ImmutableMap.of();
         }

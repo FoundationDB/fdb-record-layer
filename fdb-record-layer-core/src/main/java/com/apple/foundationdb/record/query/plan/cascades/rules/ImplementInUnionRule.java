@@ -170,6 +170,10 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
 
             for (final var requestedOrdering : requestedOrderings) {
+                if (requestedOrdering.isPreserve()) {
+                    continue;
+                }
+                
                 final var valueRequestedSortOrderMap = requestedOrdering.getValueRequestedSortOrderMap();
                 final var adjustedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
                 for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
