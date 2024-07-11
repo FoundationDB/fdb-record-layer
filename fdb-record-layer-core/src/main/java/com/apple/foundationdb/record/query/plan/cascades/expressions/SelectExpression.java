@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -409,8 +410,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(), remainingValueComputationOptional, Optional.empty())
-                                .map(ImmutableList::of)
+                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
+                                remainingValueComputationOptional, Optional.empty(), QueryPlanConstraint.tautology())
+                        .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
                 return ImmutableList.of();
@@ -422,7 +424,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
 
-        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap);
+        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
+                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
@@ -517,7 +520,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap,
                                                 allParameterBindingMap, predicateMap, PredicateMap.empty(),
-                                                remainingValueComputationOptional, Optional.empty()))
+                                                remainingValueComputationOptional, Optional.empty(),
+                                                QueryPlanConstraint.tautology()))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })

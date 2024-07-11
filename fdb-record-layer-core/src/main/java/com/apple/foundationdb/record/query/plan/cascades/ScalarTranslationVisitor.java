@@ -137,7 +137,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Override
     public Value visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final ScalarVisitorState state = getCurrentState();
-        return keyExpressionWithValue.toValue(state.getBaseAlias(), state.getFieldNamePrefix());
+        return keyExpressionWithValue.toValue(state.getBaseAlias(), state.inputType, state.getFieldNamePrefix());
     }
     
     @Nonnull
