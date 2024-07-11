@@ -422,7 +422,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
         }
         if (inType.isRecord() && promoteToType.isRecord()) {
             final List<Type> inTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
-            final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
+            final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) promoteToType).getElementTypes());
             SemanticException.check(inTypeElements.size() == promoteToTypeElements.size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             for (int i = 0; i < inTypeElements.size(); i++) {
                 SemanticException.check(!isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i)), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
