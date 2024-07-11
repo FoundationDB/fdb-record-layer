@@ -348,6 +348,8 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
+        @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "compileTimeEval can return nullable")
+        @Nonnull
         public BooleanWithConstraint isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                     @Nonnull final LiteralValue<?> literalValue) {
             final var constantObject = constantObjectValue.compileTimeEval(evaluationContext);
