@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PSortedInParameterSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
+import com.apple.foundationdb.record.planprotos.PSortedInParameterSource;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
@@ -130,8 +130,8 @@ public class SortedInParameterSource extends InParameterSource {
 
     @Nonnull
     @Override
-    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PInSource.newBuilder().setSortedInParameterSource(toProto(serializationContext)).build();
+    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInSource.newBuilder().setSortedInParameterSource(toProto(serializationContext)).build();
     }
 
     @Nonnull

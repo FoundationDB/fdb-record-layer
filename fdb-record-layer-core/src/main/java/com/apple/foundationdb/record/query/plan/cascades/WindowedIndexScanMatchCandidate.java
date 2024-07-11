@@ -33,6 +33,9 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -47,6 +50,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
@@ -236,16 +240,17 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                                                  boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
 
-        final var normalizedKeys =
+        final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (final var parameterId : sortParameterIds) {
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
-            final var normalizedKeyExpression = normalizedKeys.get(ordinalInCandidate);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(ordinalInCandidate);
             Objects.requireNonNull(normalizedKeyExpression);
             Objects.requireNonNull(parameterId);
             @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
@@ -266,24 +271,22 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            if (parameterId.equals(scoreAlias)) {
-                //
-                // This is the score field of the index which is returned at this ordinal position.
-                // Even though we may not have bound the score field itself via matching we may have bound the
-                // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
-                // We need to record that.
-                //
-                @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
+            if (normalizedValues.add(normalizedValue)) {
+                if (parameterId.equals(scoreAlias)) {
+                    //
+                    // This is the score field of the index which is returned at this ordinal position.
+                    // Even though we may not have bound the score field itself via matching we may have bound the
+                    // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
+                    // We need to record that.
+                    //
+                    @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
-                builder.add(
-                        MatchedOrderingPart.of(normalizedValue,
-                                rankComparisonRange == null ? ComparisonRange.Type.EMPTY : rankComparisonRange.getRangeType(),
-                                isReverse));
-            } else {
-                builder.add(
-                        MatchedOrderingPart.of(normalizedValue,
-                                comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                                isReverse));
+                    builder.add(
+                            MatchedOrderingPart.of(rankAlias, normalizedValue, rankComparisonRange, MatchedSortOrder.ASCENDING));
+                } else {
+                    builder.add(
+                            MatchedOrderingPart.of(parameterId, normalizedValue, comparisonRange, MatchedSortOrder.ASCENDING));
+                }
             }
         }
 
@@ -293,11 +296,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
         final var groupingExpression = (GroupingKeyExpression)index.getRootExpression();
         final var scoreOrdinal = groupingExpression.getGroupingCount();
+
+        // We keep a set for normalized values in order to check for duplicate values in the index definition.
+        // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
@@ -311,14 +318,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
+            normalizedValues.add(normalizedValue);
             if (i == scoreOrdinal) {
-                equalityBoundValueMapBuilder.put(normalizedValue, new Comparisons.OpaqueEqualityComparison());
+                bindingMapBuilder.put(normalizedValue, Binding.fixed(new Comparisons.OpaqueEqualityComparison()));
             } else {
-                equalityBoundValueMapBuilder.put(normalizedValue, comparison);
+                bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
             }
         }
 
-        final var result = ImmutableList.<OrderingPart>builder();
+        final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(i);
 
@@ -336,10 +344,15 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             // expression. We used to refuse to compute the sort order in the presence of repeats, however,
             // I think that restriction can be relaxed.
             //
-            result.add(OrderingPart.of(normalizedValue, isReverse));
+
+            if (!normalizedValues.contains(normalizedValue)) {
+                normalizedValues.add(normalizedValue);
+                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
+                orderingSequenceBuilder.add(normalizedValue);
+            }
         }
 
-        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 
     @Nonnull
@@ -455,7 +468,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         }
         final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), new AvailableFields.TruePredicate(), fieldData.getOrdinalPath());
+            builder.addField(fieldName, fieldData.getSource(),
+                    new AvailableFields.TruePredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
         }
         return true;
     }

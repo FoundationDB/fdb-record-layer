@@ -155,7 +155,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
                         this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
                         ImmutableList.of("WHERE {{pred}}"),
-                        ImmutableMap.of("pred", Attribute.gml(AndPredicate.andOrTrue(getPredicates()).toString()))),
+                        ImmutableMap.of("pred", Attribute.gml(AndPredicate.and(getPredicates()).toString()))),
                 childGraphs);
     }
 }

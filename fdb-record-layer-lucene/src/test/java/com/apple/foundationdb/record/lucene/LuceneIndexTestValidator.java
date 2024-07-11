@@ -39,7 +39,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +59,6 @@ import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -90,13 +88,12 @@ public class LuceneIndexTestValidator {
      * </p>
      * @param index the index to validate
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
-     * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @throws IOException if there is any issue interacting with lucene
      */
     void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
-                  final int repartitionCount, final String universalSearch) throws IOException {
-        validate(index, expectedDocumentInformation, repartitionCount, universalSearch, false);
+                  final String universalSearch) throws IOException {
+        validate(index, expectedDocumentInformation, universalSearch, false);
     }
 
     /**
@@ -108,18 +105,18 @@ public class LuceneIndexTestValidator {
      * </p>
      * @param index the index to validate
      * @param expectedDocumentInformation a map from group to primaryKey to timestamp
-     * @param repartitionCount the configured repartition count
      * @param universalSearch a search that will return all the documents
      * @param allowDuplicatePrimaryKeys if {@code true} this will allow multiple entries in the primary key segment
      * index for the same primaary key. This should only be {@code true} if you expect merges to fail.
      * @throws IOException if there is any issue interacting with lucene
      */
     void validate(Index index, final Map<Tuple, Map<Tuple, Tuple>> expectedDocumentInformation,
-                  final int repartitionCount, final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
+                  final String universalSearch, final boolean allowDuplicatePrimaryKeys) throws IOException {
         final int partitionHighWatermark = Integer.parseInt(index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK));
-        // If there is less than repartitionCount of free space in the older partition, we'll create a new partition
-        // rather than moving fewer than repartitionCount
-        int maxPerPartition = partitionHighWatermark;
+        String partitionLowWaterMarkStr = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
+        final int partitionLowWatermark = partitionLowWaterMarkStr == null ?
+                                          Math.max(LucenePartitioner.DEFAULT_PARTITION_LOW_WATERMARK, 1) :
+                                          Integer.parseInt(partitionLowWaterMarkStr);
 
         Map<Tuple, Map<Tuple, Tuple>> missingDocuments = new HashMap<>();
         expectedDocumentInformation.forEach((groupingKey, groupedIds) -> {
@@ -156,28 +153,9 @@ public class LuceneIndexTestValidator {
                                 Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
                     }
 
-                    int minPerPartition;
-                    if (partitionInfos.size() == 1) {
-                        // if there is only one partition, it should have exactly the number of documents, which is
-                        // verified below
-                        minPerPartition = 1;
-                    } else if (i == 0) {
-                        // if it is the oldest, it could have fewer if the test inserted max into the most recent, and
-                        // then inserted a couple that were older
-                        // If we add tests that don't try at all to order the timestamps this could become more
-                        // complicated
-                        minPerPartition = 1;
-                    } else if (i == partitionInfos.size() - 2) {
-                        // The second to last should have at least the repartitionCount that would have been moved out
-                        // of the most recent
-                        minPerPartition = Math.min(repartitionCount, partitionHighWatermark);
-                    } else {
-                        // Everything else should be filled as much as it can, but may have had repartitionCount moved
-                        // out.
-                        minPerPartition = Math.max(1, partitionHighWatermark - repartitionCount);
-                    }
-                    assertThat("Group: " + groupingKey + " - " + allCounts, partitionInfo.getCount(),
-                            Matchers.allOf(lessThanOrEqualTo(maxPerPartition), greaterThanOrEqualTo(minPerPartition)));
+                    assertTrue(isParititionCountWithinBounds(partitionInfos, i, partitionLowWatermark, partitionHighWatermark),
+                            "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
+                                    "\nCurrent count: " + partitionInfo.getCount());
                     assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
                     final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
                     if (i > 0) {
@@ -215,6 +193,27 @@ public class LuceneIndexTestValidator {
         }
     }
 
+    boolean isParititionCountWithinBounds(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
+                                          int currentPartitionIndex,
+                                          int lowWatermark,
+                                          int highWatermark) {
+        int currentCount = partitionInfos.get(currentPartitionIndex).getCount();
+        if (currentCount > highWatermark) {
+            return false;
+        }
+        if (currentCount >= lowWatermark) {
+            return true;
+        }
+        // here: count < lowWatermark
+        int leftNeighborCapacity = currentPartitionIndex == 0 ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex - 1).getCount(), highWatermark);
+        int rightNeighborCapacity = currentPartitionIndex == (partitionInfos.size() - 1) ? 0 : getPartitionExtraCapacity(partitionInfos.get(currentPartitionIndex + 1).getCount(), highWatermark);
+
+        return currentCount > 0 && (leftNeighborCapacity + rightNeighborCapacity) < currentCount;
+    }
+
+    int getPartitionExtraCapacity(int count, int highWatermark) {
+        return Math.max(0, highWatermark - count);
+    }
 
     public static void validateDocsInPartition(final FDBRecordStore recordStore, Index index, int partitionId, Tuple groupingKey,
                                                Set<Tuple> expectedPrimaryKeys, final String universalSearch) throws IOException {

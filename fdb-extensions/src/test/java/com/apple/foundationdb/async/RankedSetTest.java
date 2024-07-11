@@ -350,21 +350,12 @@ public class RankedSetTest {
                                     .map(pk -> rs.count(tr, pk).join())
                                     .mapToLong(Long::longValue).sum();
                             if (!(d > 0 && r >= r2 && r < r2 + d && r2 == r3)) {
-                                throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; d=%d, r=%d; r2=%d; r3=%d",
-                                        ByteArrayUtil.printable(k),
-                                        d,
-                                        r,
-                                        r2,
-                                        r3));
+                                throw new IllegalStateException("Rank Mismatch: Key=" + ByteArrayUtil.printable(k) + "; d=" + d + "; r=" + r + "; r2=" + r2 + "; r3=" + r3);
                             }
                         } else {
                             long r3 = rs.getRangeList(tr, new byte[] {0x00}, k).size();
                             if (!(r == r2 && r2 == r3)) {
-                                throw new IllegalStateException(String.format("Rank Mismatch: Key=%s; r=%d; r2=%d; r3=%d",
-                                        ByteArrayUtil.printable(k),
-                                        r,
-                                        r2,
-                                        r3));
+                                throw new IllegalStateException("Rank Mismatch: Key=" + ByteArrayUtil.printable(k) + "; r=" + r + "; r2=" + r2 + "; r3=" + r3);
                             }
                         }
                     }

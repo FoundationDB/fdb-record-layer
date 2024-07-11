@@ -35,8 +35,11 @@ class GeophileBoxLatLonWithWraparound implements SpatialObject {
 
     public GeophileBoxLatLonWithWraparound(double latLo, double latHi, double lonLo, double lonHi) {
         if (lonLo <= lonHi) {
-            throw new RecordCoreArgumentException(String.format("box does not wrap around: latLo = %s, latHi = %s, lonLo = %s, lonHi = %s",
-                    latLo, latHi, lonLo, lonHi));
+            throw new RecordCoreArgumentException("box does not wrap around")
+                    .addLogInfo("latLo", latLo)
+                    .addLogInfo("latHi", latHi)
+                    .addLogInfo("lonLo", lonLo)
+                    .addLogInfo("lonHi", lonHi);
         }
         left = new Box(latLo, latHi, GeophileSpatial.MIN_LON, lonHi);
         right = new Box(latLo, latHi, lonLo, GeophileSpatial.MAX_LON);
@@ -93,7 +96,7 @@ class GeophileBoxLatLonWithWraparound implements SpatialObject {
 
     @Override
     public String toString() {
-        return String.format("(%s:%s, %s:%s)", left.yLo(), left.yHi(), right.xLo(), left.xHi());
+        return "(" + left.yLo() + ":" + left.yHi() + ", " + right.xLo() + ":" + left.xHi() + ")";
     }
 
 }

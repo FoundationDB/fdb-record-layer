@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
 
@@ -34,6 +34,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public interface QuantifiedValue extends LeafValue {
 
+    @Nonnull
     CorrelationIdentifier getAlias();
 
     @Nonnull
@@ -42,13 +43,10 @@ public interface QuantifiedValue extends LeafValue {
         return ImmutableSet.of(getAlias());
     }
 
+    @Nonnull
     @Override
-    default boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final QuantifiedValue that = (QuantifiedValue)other;
-        return equivalenceMap.containsMapping(getAlias(), that.getAlias());
+    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> getAlias().equals(((QuantifiedValue)other).getAlias()));
     }
 }

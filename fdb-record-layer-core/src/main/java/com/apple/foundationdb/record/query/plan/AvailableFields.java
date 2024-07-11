@@ -28,17 +28,18 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopyIfPredicate;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PConditionalUponPathPredicate;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PTruePredicate;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PConditionalUponPathPredicate;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PTruePredicate;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -146,11 +147,22 @@ public class AvailableFields {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         int keyPosition = 0;
         for (KeyExpression keyField : keyFields) {
-            FieldData fieldData = constrainFieldData(recordType, constituentNameToPathMap, keyField, ImmutableIntArray.of(keyPosition));
-            if (!nonStoredFields.contains(keyField) && !keyField.createsDuplicates() && addCoveringField(keyField, fieldData, builder)) {
-                fields.put(keyField, fieldData);
+            KeyExpression keyFieldToAdd = keyField;
+            FieldData fieldData = constrainFieldData(recordType, constituentNameToPathMap, keyFieldToAdd, ImmutableIntArray.of(keyPosition));
+            if (keyFieldToAdd instanceof InvertibleFunctionKeyExpression) {
+                InvertibleFunctionKeyExpression invertibleExpression = (InvertibleFunctionKeyExpression)keyFieldToAdd;
+                if (invertibleExpression.isInjective()) {
+                    // We could theoretically make both the function and its input available, but the former is never going
+                    // to pass addCoveringField, so just try the latter.
+                    keyFieldToAdd = invertibleExpression.getChild();
+                    final String invertibleFunction = invertibleExpression.getName();
+                    fieldData = fieldData.withInvertibleFunction(invertibleFunction);
+                }
             }
-            keyPosition += keyField.getColumnSize();
+            if (!nonStoredFields.contains(keyFieldToAdd) && !keyFieldToAdd.createsDuplicates() && addCoveringField(keyFieldToAdd, fieldData, builder)) {
+                fields.put(keyFieldToAdd, fieldData);
+            }
+            keyPosition += keyFieldToAdd.getColumnSize();
         }
         if (commonPrimaryKey != null) {
             // KEYs -- from the primary key
@@ -315,7 +327,8 @@ public class AvailableFields {
                 return false;
             }
             if (!builder.hasField(fieldKeyExpression.getFieldName())) {
-                builder.addField(fieldKeyExpression.getFieldName(), fieldData.source, fieldData.copyIfPredicate, fieldData.ordinalPath);
+                builder.addField(fieldKeyExpression.getFieldName(), fieldData.source,
+                        fieldData.copyIfPredicate, fieldData.ordinalPath, fieldData.invertibleFunction);
             }
             return true;
         } else {
@@ -359,13 +372,17 @@ public class AvailableFields {
         private final ImmutableIntArray ordinalPath;
         @Nonnull
         private final CopyIfPredicate copyIfPredicate;
+        @Nullable
+        private final String invertibleFunction;
 
         private FieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
                           @Nonnull final ImmutableIntArray ordinalPath,
-                          @Nonnull final CopyIfPredicate copyIfPredicate) {
+                          @Nonnull final CopyIfPredicate copyIfPredicate,
+                          @Nullable final String invertibleFunction) {
             this.source = source;
             this.ordinalPath = ordinalPath;
             this.copyIfPredicate = copyIfPredicate;
+            this.invertibleFunction = invertibleFunction;
         }
 
         @Nonnull
@@ -381,16 +398,27 @@ public class AvailableFields {
             return copyIfPredicate;
         }
 
-        @Nonnull
-        public static FieldData ofUnconditional(@Nonnull IndexKeyValueToPartialRecord.TupleSource source, final ImmutableIntArray ordinalPath) {
-            return new FieldData(source, ordinalPath, new TruePredicate());
+        @Nullable
+        public String getInvertibleFunction() {
+            return invertibleFunction;
         }
 
         @Nonnull
-        public static FieldData ofConditional(@Nonnull IndexKeyValueToPartialRecord.TupleSource source,
+        public FieldData withInvertibleFunction(@Nullable final String invertibleFunction) {
+            return new FieldData(source, ordinalPath, copyIfPredicate, invertibleFunction);
+        }
+
+        @Nonnull
+        public static FieldData ofUnconditional(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
+                                                @Nonnull final ImmutableIntArray ordinalPath) {
+            return new FieldData(source, ordinalPath, new TruePredicate(), null);
+        }
+
+        @Nonnull
+        public static FieldData ofConditional(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
                                               @Nonnull final ImmutableIntArray ordinalPath,
                                               @Nonnull final ImmutableIntArray conditionalPath) {
-            return new FieldData(source, ordinalPath, new ConditionalUponPathPredicate(conditionalPath));
+            return new FieldData(source, ordinalPath, new ConditionalUponPathPredicate(conditionalPath), null);
         }
     }
 

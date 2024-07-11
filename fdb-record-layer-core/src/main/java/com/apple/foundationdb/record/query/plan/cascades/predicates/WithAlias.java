@@ -35,5 +35,4 @@ public interface WithAlias {
      */
     @Nonnull
     CorrelationIdentifier getParameterAlias();
-
 }

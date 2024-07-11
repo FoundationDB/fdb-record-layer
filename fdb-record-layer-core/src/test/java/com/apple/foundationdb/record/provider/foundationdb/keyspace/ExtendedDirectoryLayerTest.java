@@ -223,7 +223,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
         CompletableFuture.allOf(operations.toArray(new CompletableFuture<?>[0])).join();
 
         for (Map.Entry<String, Long> entry : mappings1.entrySet()) {
-            assertThat(String.format("the mappings for %s are identical", entry.getKey()),
+            assertThat("the mappings for " + entry.getKey() + " are identical",
                     mappings2.get(entry.getKey()), is(entry.getValue()));
             try (FDBRecordContext context = database.openContext()) {
                 if (checkDirectoryLayer) {

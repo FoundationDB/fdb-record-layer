@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNullValue;
+import com.apple.foundationdb.record.planprotos.PNullValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -78,13 +79,11 @@ public class NullValue extends AbstractValue implements LeafValue {
         return false;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        return resultType.equals(other.getResultType());
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> resultType.equals(other.getResultType()));
     }
 
     @Override
@@ -147,8 +146,8 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setNullValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setNullValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

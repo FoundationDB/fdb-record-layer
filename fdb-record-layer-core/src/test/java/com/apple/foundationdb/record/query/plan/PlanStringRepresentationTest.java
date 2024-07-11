@@ -27,13 +27,13 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
@@ -79,6 +79,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
@@ -170,7 +171,7 @@ public class PlanStringRepresentationTest {
         }
     }
 
-    private static Pair<ScanComparisons, String> randomScanComparisons(Random r) {
+    private static NonnullPair<ScanComparisons, String> randomScanComparisons(Random r) {
         final int equalityComparisonCount = r.nextInt(7);
         final ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (int i = 0; i < equalityComparisonCount; i++) {
@@ -182,26 +183,26 @@ public class PlanStringRepresentationTest {
         }
         ScanComparisons comparisons = builder.build();
         TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
-        return Pair.of(comparisons, tupleRange == null ? comparisons.toString() : tupleRange.toString());
+        return NonnullPair.of(comparisons, tupleRange == null ? comparisons.toString() : tupleRange.toString());
     }
 
-    private static Pair<RecordQueryPlan, String> randomScanPlan(Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomScanPlan(Random r) {
         Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         boolean reverse = r.nextBoolean();
-        return Pair.of(new RecordQueryScanPlan(comparisons.getLeft(), reverse), String.format("Scan(%s)", comparisons.getRight()));
+        return NonnullPair.of(new RecordQueryScanPlan(comparisons.getLeft(), reverse), String.format("Scan(%s)", comparisons.getRight()));
     }
 
-    private static Pair<RecordQueryPlan, String> randomIndexPlan(Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomIndexPlan(Random r) {
         Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         IndexScanType scanType = randomChoice(r, List.of(IndexScanType.BY_VALUE, IndexScanType.BY_RANK, IndexScanType.BY_GROUP, IndexScanType.BY_VALUE_OVER_SCAN));
         IndexScanParameters scanParameters = IndexScanComparisons.byValue(comparisons.getLeft(), scanType);
         String indexName = randomIndexName(r);
         boolean reverse = r.nextBoolean();
-        return Pair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse),
+        return NonnullPair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse),
                 String.format("Index(%s %s%s%s)", indexName, comparisons.getRight(), scanType == IndexScanType.BY_VALUE ? "" : (" " + scanType), reverse ? " REVERSE" : ""));
     }
 
-    private static Pair<RecordQueryPlan, String> randomTextIndexPlan(Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomTextIndexPlan(Random r) {
         ScanComparisons.Builder groupComparisonsBuilder = new ScanComparisons.Builder();
         int groupingComparisons = r.nextInt(3);
         for (int i = 0; i < groupingComparisons; i++) {
@@ -248,12 +249,12 @@ public class PlanStringRepresentationTest {
         String indexName = randomIndexName(r);
         Index index = new Index(indexName, Key.Expressions.concatenateFields("text", "suffix").groupBy(Key.Expressions.field("group")), IndexTypes.TEXT);
         TextScan textScan = new TextScan(index, groupComparisons, textComparison, suffixComparisons);
-        return Pair.of(new RecordQueryTextIndexPlan(indexName, textScan, r.nextBoolean()), String.format("TextIndex(%s %s, %s, %s)", indexName, groupComparisons, textComparison, suffixComparisons));
+        return NonnullPair.of(new RecordQueryTextIndexPlan(indexName, textScan, r.nextBoolean()), String.format("TextIndex(%s %s, %s, %s)", indexName, groupComparisons, textComparison, suffixComparisons));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomCoveringIndexPlan(@Nonnull Random r) {
-        Pair<RecordQueryPlan, String> childPlan;
+    private static NonnullPair<RecordQueryPlan, String> randomCoveringIndexPlan(@Nonnull Random r) {
+        NonnullPair<RecordQueryPlan, String> childPlan;
         if (r.nextDouble() < 0.8) {
             childPlan = randomIndexPlan(r);
         } else {
@@ -263,67 +264,67 @@ public class PlanStringRepresentationTest {
         assertThat(childPlan.getLeft(), Matchers.instanceOf(RecordQueryPlanWithIndex.class));
         RecordQueryPlanWithIndex planWithIndex = (RecordQueryPlanWithIndex) childPlan.getLeft();
         IndexKeyValueToPartialRecord partialRecord = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
-                .addField("str_value_indexed", r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.builder().add(r.nextInt(10)).build())
+                .addField("str_value_indexed", r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.builder().add(r.nextInt(10)).build(), null)
                 .build();
-        return Pair.of(new RecordQueryCoveringIndexPlan(planWithIndex, randomTypeName(r), planWithIndex.getAvailableFields(), partialRecord),
+        return NonnullPair.of(new RecordQueryCoveringIndexPlan(planWithIndex, randomTypeName(r), planWithIndex.getAvailableFields(), partialRecord),
                 String.format("Covering(%s -> %s)", childPlan.getRight(), partialRecord));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomExplodePlan(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomExplodePlan(@Nonnull Random r) {
         Value collectionValue;
         if (r.nextBoolean()) {
             collectionValue = LiteralValue.ofList(List.of(1, 2, 3, 4, 5));
         } else {
             collectionValue = ConstantObjectValue.of(CorrelationIdentifier.uniqueID(), "__const_" + r.nextInt(10), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false)));
         }
-        return Pair.of(new RecordQueryExplodePlan(collectionValue), String.format("explode([%s])", collectionValue));
+        return NonnullPair.of(new RecordQueryExplodePlan(collectionValue), String.format("explode([%s])", collectionValue));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomLoadByKeysPlan(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomLoadByKeysPlan(@Nonnull Random r) {
         if (r.nextBoolean()) {
             String parameterName = randomParameterName(r);
-            return Pair.of(new RecordQueryLoadByKeysPlan(parameterName), String.format("ByKeys($%s)", parameterName));
+            return NonnullPair.of(new RecordQueryLoadByKeysPlan(parameterName), String.format("ByKeys($%s)", parameterName));
         } else {
             List<Tuple> primaryKeys = new ArrayList<>();
             int primaryKeyCount = r.nextInt(10);
             for (int i = 0; i < primaryKeyCount; i++) {
                 primaryKeys.add(Tuple.from(r.nextBoolean(), r.nextLong()));
             }
-            return Pair.of(new RecordQueryLoadByKeysPlan(primaryKeys), String.format("ByKeys(%s)", primaryKeys));
+            return NonnullPair.of(new RecordQueryLoadByKeysPlan(primaryKeys), String.format("ByKeys(%s)", primaryKeys));
         }
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomFilterPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomFilterPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         List<QueryComponent> filters = new ArrayList<>();
         int filterCount = 1 + r.nextInt(4);
         for (int i = 0; i < filterCount; i++) {
             filters.add(Query.field(randomFieldName(r)).equalsParameter(randomParameterName(r)));
         }
-        return Pair.of(new RecordQueryFilterPlan(childPlan.getLeft(), filters),
+        return NonnullPair.of(new RecordQueryFilterPlan(childPlan.getLeft(), filters),
                 String.format("%s | %s", childPlan.getRight(), filters.size() == 1 ? Iterables.getOnlyElement(filters) : Query.and(filters)));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomFetchFromPartialRecordPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
-        return Pair.of(new RecordQueryFetchFromPartialRecordPlan(childPlan.getLeft(), TranslateValueFunction.unableToTranslate(), Type.primitiveType(Type.TypeCode.UNKNOWN), RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY),
+    private static NonnullPair<RecordQueryPlan, String> randomFetchFromPartialRecordPlan(@Nonnull Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        return NonnullPair.of(new RecordQueryFetchFromPartialRecordPlan(childPlan.getLeft(), TranslateValueFunction.unableToTranslate(), Type.primitiveType(Type.TypeCode.UNKNOWN), RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY),
                 String.format("Fetch(%s)", childPlan.getRight()));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+    private static NonnullPair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
-        return Pair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
+        return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
                 String.format("map(%s[%s])", childPlan.getRight(), resultValue));
     }
 
     @Nonnull
-    public static Pair<RecordQueryPlan, String> randomInJoinPlan(@Nonnull Random r, double decay) {
+    public static NonnullPair<RecordQueryPlan, String> randomInJoinPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         double choice = r.nextDouble();
         boolean sortValues = r.nextBoolean();
@@ -360,49 +361,49 @@ public class PlanStringRepresentationTest {
             inJoinPlan = new RecordQueryInComparandJoinPlan(childPlan.getLeft(), innerParam, Bindings.Internal.IN, comparison, sortValues, sortReverse);
         }
 
-        return Pair.of(inJoinPlan, String.format("%s WHERE %s IN %s%s%s", childPlan.getRight(), innerParam, valueString, sortValues ? " SORTED" : "", sortValues && sortReverse ? " DESC" : ""));
+        return NonnullPair.of(inJoinPlan, String.format("%s WHERE %s IN %s%s%s", childPlan.getRight(), innerParam, valueString, sortValues ? " SORTED" : "", sortValues && sortReverse ? " DESC" : ""));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomPrimaryKeyUnorderedDistinctPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
-        return Pair.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(childPlan.getLeft()), String.format("%s | UnorderedPrimaryKeyDistinct()", childPlan.getRight()));
+    private static NonnullPair<RecordQueryPlan, String> randomPrimaryKeyUnorderedDistinctPlan(@Nonnull Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        return NonnullPair.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(childPlan.getLeft()), String.format("%s | UnorderedPrimaryKeyDistinct()", childPlan.getRight()));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomUnorderedDistinctPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomUnorderedDistinctPlan(@Nonnull Random r, double decay) {
         Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
-        return Pair.of(new RecordQueryUnorderedDistinctPlan(childPlan.getLeft(), expression), String.format("%s | UnorderedDistinct(%s)", childPlan.getRight(), expression));
+        return NonnullPair.of(new RecordQueryUnorderedDistinctPlan(childPlan.getLeft(), expression), String.format("%s | UnorderedDistinct(%s)", childPlan.getRight(), expression));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomSortPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+    private static NonnullPair<RecordQueryPlan, String> randomSortPlan(@Nonnull Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
         boolean reverse = r.nextBoolean();
-        return Pair.of(new RecordQuerySortPlan(childPlan.getLeft(), new RecordQuerySortKey(expression, reverse)), String.format("%s ORDER BY %s%s", childPlan.getRight(), expression, reverse ? " DESC" : ""));
+        return NonnullPair.of(new RecordQuerySortPlan(childPlan.getLeft(), new RecordQuerySortKey(expression, reverse)), String.format("%s ORDER BY %s%s", childPlan.getRight(), expression, reverse ? " DESC" : ""));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomTypeFilterPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+    private static NonnullPair<RecordQueryPlan, String> randomTypeFilterPlan(@Nonnull Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         int typeCount = r.nextInt(3) + 1;
         Set<String> types = new HashSet<>();
         for (int i = 0; i < typeCount; i++) {
             types.add(randomTypeName(r));
         }
-        return Pair.of(new RecordQueryTypeFilterPlan(childPlan.getLeft(), types), String.format("%s | %s", childPlan.getRight(), types));
+        return NonnullPair.of(new RecordQueryTypeFilterPlan(childPlan.getLeft(), types), String.format("%s | %s", childPlan.getRight(), types));
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomUnionOrIntersectionPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomUnionOrIntersectionPlan(@Nonnull Random r, double decay) {
         List<RecordQueryPlan> plans = new ArrayList<>();
         List<String> strings = new ArrayList<>();
         int planCount = r.nextInt(5) + 2;
         for (int i = 0; i < planCount; i++) {
             while (true) {
-                Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+                NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
                 try {
                     childPlan.getLeft().isReverse();
                     plans.add(childPlan.getLeft());
@@ -418,20 +419,20 @@ public class PlanStringRepresentationTest {
         double choice = r.nextDouble();
         boolean allSameReverse = plans.stream().allMatch(plan -> plan.isReverse() == plans.get(0).isReverse());
         if (!allSameReverse || choice < 0.2) {
-            return Pair.of(RecordQueryUnorderedUnionPlan.from(plans), "Unordered(" + String.join(" ∪ ", strings) + ")");
+            return NonnullPair.of(RecordQueryUnorderedUnionPlan.from(plans), "Unordered(" + String.join(" ∪ ", strings) + ")");
         } else if (choice < 0.6) {
             KeyExpression comparisonKey = Key.Expressions.field(randomFieldName(r));
-            return Pair.of(RecordQueryIntersectionPlan.from(plans, comparisonKey), String.join(" ∩ ", strings));
+            return NonnullPair.of(RecordQueryIntersectionPlan.from(plans, comparisonKey), String.join(" ∩ ", strings));
         } else {
             KeyExpression comparisonKey = Key.Expressions.field(randomFieldName(r));
             boolean showComparisonKey = r.nextBoolean();
             String delimiter = String.format(" ∪%s ", showComparisonKey ? comparisonKey : "");
-            return Pair.of(RecordQueryUnionPlan.from(plans, comparisonKey, showComparisonKey), String.join(delimiter, strings));
+            return NonnullPair.of(RecordQueryUnionPlan.from(plans, comparisonKey, showComparisonKey), String.join(delimiter, strings));
         }
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r, double decay) {
         // Generate a random plan, but use the decay argument to avoid creating trees with too many
         // levels (and potentially hitting the maximum stack depth). Every time a plan with
         // child plans is chosen, the decay parameter is decreased, which eventually ensures that
@@ -482,14 +483,14 @@ public class PlanStringRepresentationTest {
     }
 
     @Nonnull
-    private static Pair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r) {
         return randomPlanAndString(r, 1.0);
     }
 
     @RepeatedTest(500)
     void randomPlanRepresentation() {
         Random r = ThreadLocalRandom.current();
-        Pair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
+        NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         assertEquals(planAndString.getRight(), planAndString.getLeft().toString());
         assertEquals(planAndString.getRight(), PlanStringRepresentation.toString(planAndString.getLeft()));
     }
@@ -671,7 +672,7 @@ public class PlanStringRepresentationTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of this plan is not supported");
         }
     }

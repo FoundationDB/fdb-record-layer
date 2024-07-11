@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNotPredicate;
+import com.apple.foundationdb.record.planprotos.PNotPredicate;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -101,7 +101,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
@@ -151,7 +151,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
         return Optional.of(translationMap -> {
             final var childPredicates = childInjectCompensationFunction.applyCompensationForPredicate(translationMap);
-            return LinkedIdentitySet.of(not(AndPredicate.andOrTrue(childPredicates)));
+            return LinkedIdentitySet.of(not(AndPredicate.and(childPredicates)));
         });
     }
 
@@ -172,8 +172,8 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setNotPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setNotPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

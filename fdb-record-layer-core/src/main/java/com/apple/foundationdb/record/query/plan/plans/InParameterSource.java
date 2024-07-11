@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInParameterSource;
+import com.apple.foundationdb.record.planprotos.PInParameterSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
@@ -159,8 +159,8 @@ public class InParameterSource extends InSource {
 
     @Nonnull
     @Override
-    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PInSource.newBuilder().setInParameterSource(toInParameterSourceProto(serializationContext)).build();
+    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInSource.newBuilder().setInParameterSource(toInParameterSourceProto(serializationContext)).build();
     }
 
     @Nonnull

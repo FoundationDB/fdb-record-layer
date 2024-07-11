@@ -27,11 +27,13 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantPredicate;
+import com.apple.foundationdb.record.planprotos.PConstantPredicate;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
@@ -106,16 +108,18 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-        final ConstantPredicate that = (ConstantPredicate)other;
-        return Objects.equals(value, that.value);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> {
+                    final ConstantPredicate that = (ConstantPredicate)other;
+                    return Objects.equals(value, that.value);
+                });
     }
 
     @Override
@@ -162,8 +166,8 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setConstantPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setConstantPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull

@@ -858,7 +858,7 @@ public class CascadesPlanner implements QueryPlanner {
 
             rule.getMatcher()
                     .bindMatches(getConfiguration(), initialBindings, getBindable())
-                    .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, bindings, evaluationContext))
+                    .map(bindings -> new CascadesRuleCall(getContext(), rule, group, traversal, taskStack, bindings, evaluationContext))
                     .forEach(ruleCall -> {
                         if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {
                             throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call for " + rule + " of " + configuration.getMaxNumMatchesPerRuleCall() + " has been exceeded.");

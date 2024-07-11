@@ -28,11 +28,12 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PLiteralValue;
+import com.apple.foundationdb.record.planprotos.PLiteralValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -100,17 +101,17 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return false;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final LiteralValue<?> that = (LiteralValue<?>)other;
-        if (value == null && that.value == null) {
-            return true;
-        }
-        return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value));
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> {
+                    final LiteralValue<?> that = (LiteralValue<?>)other;
+                    if (value == null && that.value == null) {
+                        return true;
+                    }
+                    return Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, value, that.value));
+                });
     }
 
     @Override
@@ -140,9 +141,9 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
-        return RecordQueryPlanProto.PValue.newBuilder()
+        return PValue.newBuilder()
                 .setLiteralValue(specificValueProto)
                 .build();
     }

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -239,10 +238,9 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 false,
                                 partialMatch.getMatchCandidate(),
                                 baseRecordType,
-                                matchInfo.getConstraintMaybe().orElse(QueryPlanConstraint.tautology())));
+                                matchInfo.getConstraint()));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
                                                                 @Nonnull final PlanContext planContext,
@@ -260,7 +258,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
             if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
-                @SuppressWarnings("UnstableApiUsage") final AvailableFields.FieldData fieldData =
+                final AvailableFields.FieldData fieldData =
                         AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
                 if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
                     return Optional.empty();
@@ -294,7 +292,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         false,
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
-                        partialMatch.getMatchInfo().getConstraintMaybe().orElse(QueryPlanConstraint.tautology()));
+                        partialMatch.getMatchInfo().getConstraint());
 
         final RecordQueryCoveringIndexPlan coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 recordType.getName(),
@@ -344,7 +342,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
         final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath());
+            builder.addField(fieldName, fieldData.getSource(),
+                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
         }
         return true;
     }

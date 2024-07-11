@@ -60,6 +60,7 @@ import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -587,6 +588,8 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             final RecordCoreStorageException exception = assertThrows(RecordCoreStorageException.class,
                     () -> agile.set(key, Tuple.from(5).pack()));
             assertThat(exception.getMessage(), Matchers.containsString("already closed"));
+            assertNotNull(exception.getCause());
+            assertThat(exception.getCause().getMessage(), Matchers.containsString("Transaction not committed due to conflict with another transaction"));
 
             try (FDBRecordContext context = openContext()) {
                 assertEquals(Tuple.from(3), Tuple.fromBytes(context.ensureActive().get(key).join()));

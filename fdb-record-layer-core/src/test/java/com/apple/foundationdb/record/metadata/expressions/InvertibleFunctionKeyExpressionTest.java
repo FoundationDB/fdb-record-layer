@@ -107,7 +107,7 @@ public class InvertibleFunctionKeyExpressionTest {
         List<Long> values = List.of(-500L, -1L, 0L, 1L, 500L);
         for (long value : values) {
             EvaluationContext evaluationContext = EvaluationContext.forBindings(Bindings.newBuilder()
-                    .set("foo", String.format("i:%d", value))
+                    .set("foo", "i:" + value)
                     .build());
             assertEquals(value, invertedFunctionComparison.getComparand(null, evaluationContext));
             for (long comparisonValue : values) {
@@ -121,7 +121,7 @@ public class InvertibleFunctionKeyExpressionTest {
     void injectiveListComparison() {
         List<Long> longValues = List.of(-500L, -1L, 0L, 1L, 500L);
         List<String> wrappedValues = longValues.stream()
-                .map(i -> String.format("i:%d", i))
+                .map(i -> "i:" + i)
                 .collect(Collectors.toList());
         Comparisons.ListComparison comparison = new Comparisons.ListComparison(Comparisons.Type.IN, wrappedValues);
         Comparisons.InvertedFunctionComparison invertedFunctionComparison = Comparisons.InvertedFunctionComparison.from(asInvertible(WRAP_INT), comparison);

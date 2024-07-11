@@ -1548,14 +1548,10 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 final Quantifier explodeEntryQun = explodeEntryQun(outerQun, "key", "int_value");
 
                 // Create select where, group by other_id and key
-                final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
-                        Column.of(Optional.of("other_id"), FieldValue.ofFieldName(outerQun.getFlowedObjectValue(), "other_id")),
-                        Column.of(Optional.of("key"), FieldValue.ofFieldName(explodeEntryQun.getFlowedObjectValue(), "key"))
-                ));
+
                 final Quantifier selectWhereGroupBy = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                         .addQuantifier(outerQun)
                         .addQuantifier(explodeEntryQun)
-                        .addResultColumn(Column.unnamedOf(groupingValue))
                         .addResultColumn(Column.of(Optional.of(outerQun.getAlias().getId()), outerQun.getFlowedObjectValue()))
                         .addResultColumn(Column.of(Optional.of(explodeEntryQun.getAlias().getId()), explodeEntryQun.getFlowedObjectValue()))
                         .build()
@@ -1563,7 +1559,14 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                 // Aggregate int_value (by group)
                 final FieldValue aggregatedValue = FieldValue.ofFieldNames(selectWhereGroupBy.getFlowedObjectValue(), List.of(explodeEntryQun.getAlias().getId(), "int_value"));
-                final Quantifier groupBy = groupAggregateByKey(selectWhereGroupBy, new NumericAggregationValue.Sum.SumFn(), aggregatedValue);
+                final Value aggregateValue = (Value)new NumericAggregationValue.Sum.SumFn().encapsulate(List.of(aggregatedValue));
+                final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
+                        Column.of(Optional.of("other_id"), FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhereGroupBy.getFlowedObjectValue(), 0), "other_id")),
+                        Column.of(Optional.of("key"), FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhereGroupBy.getFlowedObjectValue(), 1), "key"))
+                ));
+                final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(aggregateValue)),
+                        GroupByExpression::nestedResults, selectWhereGroupBy);
+                final Quantifier groupBy = Quantifier.forEach(Reference.of(groupByExpression));
 
                 // Select both grouping keys plus the aggregate value
                 final Quantifier selectHaving = Quantifier.forEach(Reference.of(GraphExpansion.builder()
@@ -2014,12 +2017,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         final var selectWhereBuilder = GraphExpansion.builder()
                 .addQuantifier(outerQun)
                 .addAllQuantifiers(List.of(entryQuns));
-        final Quantifier keyQun = entryQuns[0];
-        final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
-                Column.unnamedOf(FieldValue.ofFieldNames(keyQun.getFlowedObjectValue(), List.of("key")))
-        ));
         selectWhereBuilder
-                .addResultColumn(Column.unnamedOf(groupingValue))
                 .addResultColumn(Column.of(Optional.of(outerQun.getAlias().getId()), outerQun.getFlowedObjectValue()));
         for (Quantifier entryQun : entryQuns) {
             selectWhereBuilder.addResultColumn(Column.of(Optional.of(entryQun.getAlias().getId()), entryQun.getFlowedObjectValue()));
@@ -2030,7 +2028,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private Quantifier groupAggregateByKey(@Nonnull Quantifier selectWhere, @Nonnull BuiltInFunction<AggregateValue> aggregate, @Nonnull Value argument) {
         final Value aggregateValue = (Value) aggregate.encapsulate(List.of(argument));
-        final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
+        final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(List.of(
+                Column.unnamedOf(FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 1), "key"))
+        ));
         final GroupByExpression groupBy = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(aggregateValue)),
                 GroupByExpression::nestedResults, selectWhere);
         return Quantifier.forEach(Reference.of(groupBy));
@@ -2051,6 +2051,6 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     public Reference unsorted(@Nonnull Quantifier qun) {
-        return Reference.of(new LogicalSortExpression(List.of(), false, qun));
+        return Reference.of(LogicalSortExpression.unsorted(qun));
     }
 }

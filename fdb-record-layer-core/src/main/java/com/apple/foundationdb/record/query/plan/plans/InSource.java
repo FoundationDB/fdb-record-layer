@@ -26,9 +26,11 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 
 import javax.annotation.Nonnull;
@@ -44,7 +46,7 @@ import java.util.Objects;
  * This class is more or less a physical counterpart of a {@link Quantifier} ranging over an {@link ExplodeExpression}.
  */
 @API(API.Status.INTERNAL)
-public abstract class InSource implements PlanHashable, PlanSerializable {
+public abstract class InSource implements PlanHashable, PlanSerializable, Typed {
     @SuppressWarnings("unchecked")
     private static final Comparator<Object> VALUE_COMPARATOR = Comparator.comparing(Comparable.class::cast);
 
@@ -64,6 +66,12 @@ public abstract class InSource implements PlanHashable, PlanSerializable {
     @Nonnull
     public String getBindingName() {
         return bindingName;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return Type.any();
     }
 
     public abstract boolean isSorted();

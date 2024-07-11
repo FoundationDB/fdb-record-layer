@@ -211,7 +211,8 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
         }
         
         final var conjunctedPredicate = AndPredicate.and(toBeDnfPredicates);
-        final var constantAliases = Sets.difference(conjunctedPredicate.getCorrelatedTo(), Quantifiers.aliases(selectExpression.getQuantifiers()));
+        final var constantAliases = Sets.difference(conjunctedPredicate.getCorrelatedTo(),
+                Quantifiers.aliases(selectExpression.getQuantifiers()));
 
         final var dnfPredicate =
                 Simplification.optimize(conjunctedPredicate, EvaluationContext.empty(), AliasMap.emptyMap(),

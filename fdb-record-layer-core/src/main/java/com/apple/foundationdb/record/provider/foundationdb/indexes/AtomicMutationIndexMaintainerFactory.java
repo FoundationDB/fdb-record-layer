@@ -90,7 +90,8 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                 if (!mutation.hasValues()) {
                     validateGrouping(0);
                     if (getGroupedCount() != 0) {
-                        throw new KeyExpression.InvalidExpressionException(String.format("%s index does not support non-group fields; use COUNT_NOT_NULL", index.getType()),
+                        throw new KeyExpression.InvalidExpressionException("index type does not support non-group fields; use COUNT_NOT_NULL",
+                                LogMessageKeys.INDEX_TYPE, index.getType(),
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
@@ -99,7 +100,8 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                 } else {
                     validateGrouping(1);
                     if (getGroupedCount() != 1) {
-                        throw new KeyExpression.InvalidExpressionException(String.format("%s index only supports single field", index.getType()),
+                        throw new KeyExpression.InvalidExpressionException("index type only supports single field",
+                                LogMessageKeys.INDEX_TYPE, index.getType(),
                                 LogMessageKeys.INDEX_NAME, index.getName(),
                                 LogMessageKeys.INDEX_KEY, index.getRootExpression());
                     }
@@ -110,7 +112,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                     validateNotVersion();
                 }
                 if (AtomicMutationIndexMaintainer.getClearWhenZero(index) && mutation.getCompareAndClearParam() == null) {
-                    throw new MetaDataException(String.format("%s index does not support clearWhenZero", index.getType()));
+                    throw new MetaDataException("index type does not support clearWhenZero").addLogInfo(LogMessageKeys.INDEX_TYPE, index.getType());
                 }
             }
 
@@ -132,7 +134,8 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                         case SINT64:
                             break;
                         default:
-                            throw new KeyExpression.InvalidExpressionException(String.format("%s index only supports integer field", index.getType()),
+                            throw new KeyExpression.InvalidExpressionException("index type only supports integer field",
+                                    LogMessageKeys.INDEX_TYPE, index.getType(),
                                     LogMessageKeys.INDEX_NAME, index.getName(),
                                     LogMessageKeys.INDEX_KEY, index.getRootExpression(),
                                     "record_type", recordType.getName());

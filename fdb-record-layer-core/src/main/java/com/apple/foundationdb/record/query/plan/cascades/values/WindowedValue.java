@@ -25,8 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PWindowedValue;
+import com.apple.foundationdb.record.planprotos.PWindowedValue;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
@@ -149,21 +150,18 @@ public abstract class WindowedValue extends AbstractValue {
         return semanticHashCode();
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final var otherWindowedValue = (WindowedValue)other;
-        return getName().equals(otherWindowedValue.getName());
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> getName().equals(((WindowedValue)other).getName()));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull

@@ -29,16 +29,18 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldPath.PResolvedAccessor;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFieldValue;
+import com.apple.foundationdb.record.planprotos.PFieldPath;
+import com.apple.foundationdb.record.planprotos.PFieldPath.PResolvedAccessor;
+import com.apple.foundationdb.record.planprotos.PFieldValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.google.auto.service.AutoService;
@@ -137,7 +139,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Nonnull
     @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
-        return new FieldValue(child, fieldPath);
+        return FieldValue.ofFieldsAndFuseIfPossible(child, fieldPath);
     }
 
     @Override
@@ -176,29 +178,25 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         }
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!ValueWithChild.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return ValueWithChild.super.equalsWithoutChildren(other)
+                .filter(ignored -> fieldPath.equals(((FieldValue)other).getFieldPath()));
+    }
 
-        final var that = (FieldValue)other;
-        return fieldPath.equals(that.fieldPath) &&
-                childValue.semanticEquals(that.childValue, equivalenceMap);
+    @Nonnull
+    @Override
+    public BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
+        // delegate to semanticEquals()
+        return semanticEquals(other, valueEquivalence);
     }
 
     @Override
-    public boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (other == null) {
-            return false;
-        }
-
-        if (!(other instanceof FieldValue)) {
-            return false;
-        }
-        final var otherFieldValue = (FieldValue)other;
-        return fieldPath.getFieldOrdinals().equals(otherFieldValue.getFieldPath().getFieldOrdinals()) &&
-                childValue.subsumedBy(otherFieldValue.childValue, equivalenceMap);
+    @Nonnull
+    public BooleanWithConstraint subsumedByWithoutChildren(@Nonnull final Value other) {
+        return super.subsumedByWithoutChildren(other)
+                .compose(ignored -> equalsWithoutChildren(other));
     }
 
     @Override
@@ -236,7 +234,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(childValue.getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -250,8 +248,8 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setFieldValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setFieldValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -268,7 +266,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         for (final var accessor : accessors) {
             final var fieldName = accessor.getName();
             SemanticException.check(currentType.isRecord(), SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
-                    String.format("field '%s' can only be resolved on records", fieldName == null ? "#" + accessor.getOrdinal() : fieldName));
+                    "field '" + (fieldName == null ? "#" + accessor.getOrdinal() : fieldName) + "' can only be resolved on records");
             final var recordType = (Type.Record)currentType;
             final var fieldNameFieldMap = Objects.requireNonNull(recordType.getFieldNameFieldMap());
             final Field field;

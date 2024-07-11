@@ -27,75 +27,58 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordTypeValue;
+import com.apple.foundationdb.record.planprotos.PRecordTypeValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A value which is unique for each record type produced by its quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
+public class RecordTypeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordType-Value");
 
     @Nonnull
-    private final CorrelationIdentifier alias;
+    private final Value in;
 
-    public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
-        this.alias = alias;
+    public RecordTypeValue(@Nonnull final Value in) {
+        this.in = in;
     }
 
-    @Nonnull
-    @Override
-    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
-        return new RecordTypeValue(targetAlias);
-    }
-
+    @SuppressWarnings("unchecked")
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final QueryResult binding = (QueryResult)context.getBinding(alias);
-
-        final var messageOptional = binding.getMessageMaybe();
-        if (!(binding instanceof Message)) {
+        final var inRecord = in.eval(store, context);
+        if (!(inRecord instanceof Message)) {
             return null;
         }
 
-        return messageOptional.map(message ->
-                        store.getRecordMetaData().getRecordType(message.getDescriptorForType().getName()).getRecordTypeKey())
-                .orElse(null);
-    }
-
-    @Override
-    @Nonnull
-    public CorrelationIdentifier getAlias() {
-        return alias;
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return QuantifiedValue.super.getCorrelatedToWithoutChildren();
+        return store.getRecordMetaData().getRecordType(((M)inRecord).getDescriptorForType().getName()).getRecordTypeKey();
     }
 
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
+    }
+
+    @Nonnull
+    @Override
+    public Value withChildren(final Iterable<? extends Value> newChildren) {
+        return new RecordTypeValue(Iterables.getOnlyElement(newChildren));
     }
 
     @Override
@@ -117,15 +100,7 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
-    }
-
-    @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedValue) {
-            return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
-        }
-        return false;
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -142,26 +117,36 @@ public class RecordTypeValue extends AbstractValue implements QuantifiedValue {
 
     @Override
     public String toString() {
-        return "recordType(" + alias + ")";
+        return "recordType(" + in + ")";
     }
 
     @Nonnull
     @Override
     public PRecordTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordTypeValue.newBuilder().setAlias(alias.getId()).build();
+        return PRecordTypeValue.newBuilder()
+                .setIn(in.toValueProto(serializationContext))
+                .build();
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
     @SuppressWarnings("unused")
     public static RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                             @Nonnull final PRecordTypeValue recordTypeValueProto) {
-        return new RecordTypeValue(CorrelationIdentifier.of(Objects.requireNonNull(recordTypeValueProto.getAlias())));
+        if (recordTypeValueProto.hasAlias()) {
+            return new RecordTypeValue(
+                    QuantifiedObjectValue.of(
+                            CorrelationIdentifier.of(Objects.requireNonNull(recordTypeValueProto.getAlias())),
+                            new Type.AnyRecord(true)));
+        } else {
+            return new RecordTypeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordTypeValueProto.getIn())));
+
+        }
     }
 
     /**

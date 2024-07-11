@@ -36,7 +36,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -122,7 +121,7 @@ public class GraphExpansion {
 
     @Nonnull
     public QueryPredicate asAndPredicate() {
-        return AndPredicate.andOrTrue(getPredicates());
+        return AndPredicate.and(getPredicates());
     }
 
     @Nonnull
@@ -195,37 +194,62 @@ public class GraphExpansion {
                         .collect(ImmutableList.toImmutableList());
 
         if (!placeholders.isEmpty()) {
-
-            // There may be placeholders appearing multiple times, potentially, with ranges, deduplicate them while preserving order since the
-            // order of parameters determines their sargability.
-            final var deDupPlaceholders = new ArrayList<>(placeholders.stream().collect(Collectors.toMap(PredicateWithValueAndRanges::getValue, v -> v, (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
-
-            // There may be placeholders in the current (local) expansion step that are equivalent to each other, but we
-            // don't know that yet.
+            //
+            // There may be placeholders appearing multiple times, potentially, with ranges. The list of placeholders
+            // determines the parameters of the match candidate and in turn the keys of the index. There is a direct
+            // correspondence between the position of the placeholder in the result placeholder and the position of the
+            // sargable key part in the index.
+            // There are two kinds of duplicates in the original list: First, there may be multiple placeholders using
+            // the same parameter alias, second, there may be the placeholders using the same value but different
+            // parameter aliases.
+            // In a first step, we need to combine the ranges of all duplicate placeholders (by parameter alias) into
+            // a list containing only the unique (and newly combined) placeholders. Then we need to modify the resulting
+            // placeholders such that for each set of duplicate placeholders (by value) in the list of result
+            // placeholders we replace each duplicate with the combined placeholder. That eliminates the duplicated
+            // parameter aliases.
+            //
+            // Example:
+            // placeholders:
+            //     ( ..... , x -> p0, x-> p1, y -> p2, x -> p0 & < 30, y -> p3, ... )
+            // resulting placeholders:
+            //     ( ..... , x -> p0 & < 30, x -> p0 & < 30, y -> p2, y -> p2 ... )
+            // Note that all three occurrences in the original placeholder list x -> ... are replaced by the combined
+            // placeholder thus eliminating the references to p1, p2 and p3 in the resulting list.
+            //
             final var localPredicates = ImmutableSet.copyOf(getPredicates());
-            final var resultPlaceHolders = Lists.newArrayList(deDupPlaceholders);
+            final var localValues =
+                    localPredicates.stream()
+                            .flatMap(predicate -> predicate.narrowMaybe(PredicateWithValueAndRanges.class).stream())
+                            .map(PredicateWithValueAndRanges::getValue)
+                            .collect(ImmutableList.toImmutableList());
+
+            final var uniquePlaceholders =
+                    ImmutableList.copyOf(placeholders.stream()
+                            .collect(Collectors.toMap(Placeholder::getParameterAlias, v -> v,
+                                    (left, right) -> left.withExtraRanges(right.getRanges()), LinkedHashMap::new)).values());
+
+            final var resultPlaceHolders = Lists.newArrayList(uniquePlaceholders);
             final var localPlaceHolderPairs =
-                    IntStream.range(0, deDupPlaceholders.size())
-                            .mapToObj(i -> NonnullPair.of(deDupPlaceholders.get(i), i))
-                            .filter(placeholderWithIndex -> localPredicates.stream()
-                                    .flatMap(predicate -> predicate.narrowMaybe(PredicateWithValueAndRanges.class).stream())
-                                    .anyMatch(localPredicate -> localPredicate.equalsValueOnly(placeholderWithIndex.getKey())))
+                    IntStream.range(0, uniquePlaceholders.size())
+                            .mapToObj(i -> NonnullPair.of(uniquePlaceholders.get(i), i))
+                            .filter(placeholderWithIndex -> localValues.contains(placeholderWithIndex.getKey().getValue()))
                             .collect(Collectors.toList());
 
             final ImmutableList.Builder<QueryPredicate> resultPredicates = new ImmutableList.Builder<>();
             for (final QueryPredicate queryPredicate : getPredicates()) {
                 if (queryPredicate instanceof Placeholder) {
                     final var localPlaceHolder = (Placeholder)queryPredicate;
-                    final var identities = AliasMap.identitiesFor(localPlaceHolder.getCorrelatedTo());
+                    final var identities = AliasMap.emptyMap();
                     final var iterator = localPlaceHolderPairs.iterator();
                     int foundAtOrdinal = -1;
                     while (iterator.hasNext()) {
                         final var currentPlaceholderPair = iterator.next();
-                        final var currentPlaceHolder = currentPlaceholderPair.getKey();
-                        if (localPlaceHolder.getValue().semanticEquals(currentPlaceHolder.getValue(), identities)) {
+                        final var currentPlaceholder = currentPlaceholderPair.getLeft();
+                        if (localPlaceHolder.getValue().semanticEquals(currentPlaceholder.getValue(), identities)) {
                             if (foundAtOrdinal < 0) {
                                 foundAtOrdinal = currentPlaceholderPair.getRight();
-                                resultPredicates.add(currentPlaceHolder);
+                                resultPredicates.add(currentPlaceholder);
+                                resultPlaceHolders.set(foundAtOrdinal, currentPlaceholder);
                             } else {
                                 resultPlaceHolders.set(currentPlaceholderPair.getRight(), resultPlaceHolders.get(foundAtOrdinal));
                             }

@@ -451,7 +451,7 @@ public class RangeSetTest {
                 byte[] key = new byte[]{(byte) i, 0x00};
                 Transaction tr = multi.get(i + 1);
                 boolean inARange = i % 2 != 0;
-                assertEquals(inARange, rs.contains(tr, key).join(), () -> String.format("key %s was in a range", ByteArrayUtil.printable(key)));
+                assertEquals(inARange, rs.contains(tr, key).join(), () -> "key " + ByteArrayUtil.printable(key) + " was in a range");
                 if (!inARange) {
                     // The check should conflict with the insert if (and only if) the key wasn't in a range
                     conflicts.add(i + 1);

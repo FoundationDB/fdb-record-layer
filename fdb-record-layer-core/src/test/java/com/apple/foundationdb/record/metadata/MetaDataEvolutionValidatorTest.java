@@ -859,7 +859,7 @@ public class MetaDataEvolutionValidatorTest {
             final int itr = i;
             final DescriptorProtos.FieldDescriptorProto.Label label = labels.get(itr);
             final String labelText = label.name().substring(label.name().indexOf('_') + 1).toLowerCase(Locale.ROOT);
-            final String errMsg = String.format("%s field is no longer %s", labelText, labelText);
+            final String errMsg = labelText + " field is no longer " + labelText;
             FileDescriptor updatedFile = mutateField("MySimpleRecord", "str_value_indexed", oldFile,
                     field -> field.setLabel(labels.get((itr + 1) % labels.size())));
             assertInvalid(errMsg, oldFile, updatedFile);

@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PVariadicFunctionValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue;
+import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue.PPhysicalOperator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -144,7 +143,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -162,8 +161,8 @@ public class VariadicFunctionValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setVariadicFunctionValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setVariadicFunctionValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -198,7 +197,9 @@ public class VariadicFunctionValue extends AbstractValue {
             }
         }
 
-        final PhysicalOperator physicalOperator = getOperatorMap().get(Pair.of((((ComparisonFn)builtInFunction).getComparisonFunction()), resultType.getTypeCode()));
+        final PhysicalOperator physicalOperator =
+                getOperatorMap()
+                        .get(NonnullPair.of((((ComparisonFn)builtInFunction).getComparisonFunction()), resultType.getTypeCode()));
         SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
         final ImmutableList.Builder<Value> promotedArgs = ImmutableList.builder();

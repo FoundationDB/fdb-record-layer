@@ -173,7 +173,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
             String fieldName = path[i];
             Descriptors.Descriptor messageDescriptor = message.getDescriptorForType();
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(fieldName);
-            assertNotNull(fieldDescriptor, () -> String.format("expected to find field %s in descriptor: %s", fieldName, messageDescriptor));
+            assertNotNull(fieldDescriptor, () -> "expected to find field " + fieldName + " in descriptor: " + messageDescriptor);
             Object field = message.getField(fieldDescriptor);
             if (i < path.length - 1) {
                 assertThat(field, Matchers.instanceOf(Message.class));
@@ -209,7 +209,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
 
         assertMatchesExactly(plan,
@@ -273,7 +273,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
         assertMatchesExactly(plan,
                 mapPlan(
@@ -308,7 +308,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 },
                 allowedIndexesOptional,
                 IndexQueryabilityFilter.TRUE,
@@ -337,7 +337,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -387,7 +387,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(reviewRatingValue, "reviewRating"));
 
                     final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
@@ -410,7 +410,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
         Assertions.assertTrue(isCompatible);
     }
-    
+
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testSimpleJoin() throws Exception {
         CascadesPlanner cascadesPlanner = setUp();
@@ -490,7 +490,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(reviewRatingValue, "reviewRating"));
 
                     final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
     }
 
@@ -954,7 +954,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restaurantNoValue, "restaurantNo"));
 
                     final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.DEFAULT,
@@ -1029,7 +1029,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restaurantNoValue, "restaurantNo"));
 
                     final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
 
         // TODO write a matcher when this plan becomes more stable
@@ -1057,7 +1057,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
 
         assertMatchesExactly(plan,

@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantObjectValue;
+import com.apple.foundationdb.record.planprotos.PConstantObjectValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -38,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -96,7 +96,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object o) {
-        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(o, AliasMap.emptyMap());
     }
 
     @Override
@@ -104,15 +104,11 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         return semanticHashCode();
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-
-        final var otherConstantObjectValue = (ConstantObjectValue)other;
-        return constantId.equals(otherConstantObjectValue.constantId);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> constantId.equals(((ConstantObjectValue)other).constantId));
     }
 
     @Override
@@ -138,11 +134,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         final var obj = context.dereferenceConstant(alias, constantId);
         if (obj == null) {
             Verify.verify(getResultType().isNullable());
-            return obj;
-        }
-        if (obj instanceof DynamicMessage) {
-            // TODO: run coercion for proper promotion, and if that fails then bailout.
-            return obj;
+            return null;
         }
         final var objType = Type.fromObject(obj);
         final var promotionNeeded = PromoteValue.isPromotionNeeded(objType, getResultType());
@@ -195,8 +187,8 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setConstantObjectValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setConstantObjectValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

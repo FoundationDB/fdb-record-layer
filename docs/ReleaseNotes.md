@@ -17,9 +17,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix flaky test - break loop into smaller commits [(Issue #2756)](https://github.com/FoundationDB/fdb-record-layer/issues/2756)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** FDBDirectoryLock won't fail if AgilityContext is flushed while closing [(Issue #2754)](https://github.com/FoundationDB/fdb-record-layer/issues/2754)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,65 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.523.0
+
+* **Feature** Support for basic arithmetic functions in added as default `FunctionKeyExpression`s with query support in both the old and Cascades planners [(Issue #2663)](https://github.com/FoundationDB/fdb-record-layer/issues/2663)
+
+### 3.4.522.0
+
+* **Feature** add Support for nested DynamicMessage in ConstantObjectValue [(Issue #2806)](https://github.com/FoundationDB/fdb-record-layer/issues/2806)
+
+### 3.4.521.0
+
+* **Performance** improve performance for index anding in AbstractDataAccessRule [(Issue #2804)](https://github.com/FoundationDB/fdb-record-layer/issues/2804)
+
+### 3.4.520.0
+
+
+### 3.4.519.0
+
+* **Breaking change** New the representation of aggregate plans [(Issue #2763)](https://github.com/FoundationDB/fdb-record-layer/issues/2763)
+
+### 3.4.518.0
+
+* **Bug fix** `TextCollatorRegistryICU.getTextCollator` should freeze the `Collator` [(Issue #2798)](https://github.com/FoundationDB/fdb-record-layer/issues/2798)
+* **Performance** Covering optimization with invertible index fields [(Issue #2801)](https://github.com/FoundationDB/fdb-record-layer/issues/2801)
+* **Feature** Add more complete direction control to `LogicalSortExpression` [(Issue #2796)](https://github.com/FoundationDB/fdb-record-layer/issues/2796)
+
+### 3.4.517.0
+
+* **Feature** Key expression support for reverse ordering and nulls last [(Issue #2722)](https://github.com/FoundationDB/fdb-record-layer/issues/2722)
+
+### 3.4.516.0
+
+* **Feature** OnlineIndexer / OnlineIndexScrubber: move the sync session lease length to Config [(Issue #2794)](https://github.com/FoundationDB/fdb-record-layer/issues/2794)
+
+### 3.4.515.0
+
+* **Performance** The index scrubber now attempts to take a transaction time limit into account when deciding whether to commit early [(Issue #2787)](https://github.com/FoundationDB/fdb-record-layer/issues/2787)
+* **Breaking change** Online indexer and index scrubber configuration has been extracted into its own top-level class [(PR #2788)](https://github.com/FoundationDB/fdb-record-layer/pull/2788)
+
+### 3.4.514.0
+
+* **Feature** Improve modeling of Ordering, OrderingPart [(Issue #2127)](https://github.com/FoundationDB/fdb-record-layer/issues/2127)
+
+### 3.4.513.0
+
+* **Bug fix** Fix out of bound exception with repartitioning [(Issue #2784)](https://github.com/FoundationDB/fdb-record-layer/issues/2784)
+* **Bug fix** Only log repartitioning records when there's repartitioning to do [(Issue #2782)](https://github.com/FoundationDB/fdb-record-layer/issues/2782)
+
+### 3.4.512.0
+
+* **Bug fix** Make exceptions from LuceneIndexMaintainer more verbose [(Issue #2768)](https://github.com/FoundationDB/fdb-record-layer/issues/2768)
+* **Feature** Merge partitions when they become too small [(Issue #2739)](https://github.com/FoundationDB/fdb-record-layer/issues/2739)
+* **Feature** Include cause with AgilityContext already closed exception [(Issue #2774)](https://github.com/FoundationDB/fdb-record-layer/issues/2774)
+
+### 3.4.511.0
+
+* **Bug fix** Fix flaky test - break loop into smaller commits [(Issue #2756)](https://github.com/FoundationDB/fdb-record-layer/issues/2756)
+* **Bug fix** FDBDirectoryLock won't fail if AgilityContext is flushed while closing [(Issue #2754)](https://github.com/FoundationDB/fdb-record-layer/issues/2754)
+* **Feature** Reproduce abandoned FileLock due to conflict issue [(Issue #2731)](https://github.com/FoundationDB/fdb-record-layer/issues/2731)
 
 ### 3.4.510.0
 

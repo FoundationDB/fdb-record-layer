@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PArrayCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPrimitiveCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPrimitiveCoercionBiFunction.PPhysicalOperator;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPromoteValue;
+import com.apple.foundationdb.record.planprotos.PArrayCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PPrimitiveCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PPrimitiveCoercionBiFunction.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PPromoteValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -52,6 +52,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -277,7 +278,7 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -295,8 +296,8 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setPromoteValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setPromoteValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -418,6 +419,15 @@ public class PromoteValue extends AbstractValue implements ValueWithChild, Value
             final var promoteToArray = (Type.Array)promoteToType;
             SemanticException.check(!inArray.isErased() && !promoteToArray.isErased(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return isPromotionNeeded(Verify.verifyNotNull(inArray.getElementType()), Verify.verifyNotNull(promoteToArray.getElementType()));
+        }
+        if (inType.isRecord() && promoteToType.isRecord()) {
+            final List<Type> inTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
+            final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) promoteToType).getElementTypes());
+            SemanticException.check(inTypeElements.size() == promoteToTypeElements.size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            for (int i = 0; i < inTypeElements.size(); i++) {
+                SemanticException.check(!isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i)), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            }
+            return false;
         }
         SemanticException.check(inType.isPrimitive() && promoteToType.isPrimitive() ||
                 inType.isPrimitive() && promoteToType.isEnum(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
