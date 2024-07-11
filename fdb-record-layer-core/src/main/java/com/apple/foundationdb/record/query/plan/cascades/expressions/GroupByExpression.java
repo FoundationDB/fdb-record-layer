@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -268,14 +270,30 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         final var candidateGroupByExpression = (GroupByExpression)candidateExpression;
 
-        // the grouping values are encoded directly in the underlying SELECT-WHERE, reaching this point means that the
-        // grouping values had exact match, so we don't need to check them.
-
         // check that the aggregate value is the same, and that the grouping value is the same.
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
         final var otherGroupingValue = candidateGroupByExpression.getGroupingValue();
-        if (aggregateValue.subsumedBy(otherAggregateValue, bindingAliasMap) && (groupingValue == null ? otherGroupingValue == null : groupingValue.subsumedBy(otherGroupingValue, bindingAliasMap))) {
-            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(), Optional.empty(), Optional.empty())
+
+        final var valueEquivalence =
+                ValueEquivalence.fromAliasMap(bindingAliasMap)
+                        .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
+
+        final var subsumedBy = aggregateValue.subsumedBy(otherAggregateValue, valueEquivalence)
+                .compose(ignored -> {
+                    if (groupingValue == null && otherGroupingValue == null) {
+                        return BooleanWithConstraint.alwaysTrue();
+                    }
+                    if (groupingValue == null || otherGroupingValue == null) {
+                        return BooleanWithConstraint.falseValue();
+                    }
+
+                    return groupingValue.subsumedBy(otherGroupingValue, valueEquivalence);
+                });
+
+        if (subsumedBy.isTrue()) {
+            return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
+                            PredicateMap.empty(), Optional.empty(),
+                            Optional.empty(), subsumedBy.getConstraint())
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }

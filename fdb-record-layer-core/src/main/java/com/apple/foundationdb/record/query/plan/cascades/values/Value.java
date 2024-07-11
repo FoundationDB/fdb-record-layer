@@ -637,43 +637,53 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         }
     }
 
+    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap aliasMap) {
+    default BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
         if (other == null) {
-            return false;
+            return BooleanWithConstraint.falseValue();
         }
 
         if (this == other) {
-            return true;
+            return BooleanWithConstraint.alwaysTrue();
         }
 
-        if (!subsumedByWithoutChildren(other, aliasMap)) {
-            return false;
+        if (subsumedByWithoutChildren(other).isFalse()) {
+            return BooleanWithConstraint.falseValue();
         }
 
         final Iterator<? extends Value> children = getChildren().iterator();
         final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
 
+        var subsumedBy = BooleanWithConstraint.alwaysTrue();
         while (children.hasNext()) {
             if (!otherChildren.hasNext()) {
-                return false;
+                return BooleanWithConstraint.falseValue();
             }
 
-            if (!children.next().subsumedBy(otherChildren.next(), aliasMap)) {
-                return false;
+            final var childSubsumedBy =
+                    children.next()
+                            .subsumedBy(otherChildren.next(), valueEquivalence);
+            if (childSubsumedBy.isFalse()) {
+                return BooleanWithConstraint.falseValue();
             }
+            subsumedBy = subsumedBy.composeWithOther(childSubsumedBy);
         }
 
-        return !otherChildren.hasNext();
+        if (!otherChildren.hasNext()) {
+            return subsumedBy;
+        }
+
+        return BooleanWithConstraint.falseValue();
     }
 
-    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default boolean subsumedByWithoutChildren(@Nonnull final Value other,
-                                              @Nonnull final AliasMap equivalenceMap) {
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default BooleanWithConstraint subsumedByWithoutChildren(@Nonnull final Value other) {
         if (this == other) {
-            return true;
+            return BooleanWithConstraint.alwaysTrue();
         }
 
-        return other.getClass() == getClass();
+        return BooleanWithConstraint.fromBoolean(other.getClass() == getClass());
     }
 }
