@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -136,10 +135,6 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         if (obj == null) {
             Verify.verify(getResultType().isNullable());
             return null;
-        }
-        if (obj instanceof DynamicMessage) {
-            // TODO: run coercion for proper promotion, and if that fails then bailout.
-            return obj;
         }
         final var objType = Type.fromObject(obj);
         final var promotionNeeded = PromoteValue.isPromotionNeeded(objType, getResultType());
