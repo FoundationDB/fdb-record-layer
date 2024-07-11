@@ -337,7 +337,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var resultType = groupByResultValue.getResultType();
         final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build().newMessageBuilder(resultType);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
-        final var constraintMaybe = partialMatch.getMatchInfo().getConstraintMaybe();
+        final var constraintMaybe = partialMatch.getMatchInfo().getConstraint();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
@@ -355,7 +355,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
                 groupByResultValue,
-                constraintMaybe.orElse(QueryPlanConstraint.tautology()));
+                constraintMaybe);
     }
 
     @Nonnull
