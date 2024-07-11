@@ -260,11 +260,11 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
     public static class LongArithmethicFunctionKeyExpressionFactory implements FunctionKeyExpression.Factory {
         @Nonnull
         private static final List<FunctionKeyExpression.Builder> BUILDERS = ImmutableList.<FunctionKeyExpression.Builder>builder()
-                .add(Builder.binaryFunction(FunctionNames.ADD, (l, r) -> l + r))
-                .add(Builder.bothFunction("sub", x -> -x, (l, r) -> l - r))
-                .add(Builder.bothFunction(FunctionNames.SUBTRACT, "sub", x -> -x, (l, r) -> l - r))
-                .add(Builder.binaryFunction("mul", (l, r) -> l * r))
-                .add(Builder.binaryFunction(FunctionNames.MULTIPLY, "mul", (l, r) -> l * r))
+                .add(Builder.binaryFunction(FunctionNames.ADD, Math::addExact))
+                .add(Builder.bothFunction("sub", x -> -x, Math::subtractExact))
+                .add(Builder.bothFunction(FunctionNames.SUBTRACT, "sub", Math::negateExact, Math::subtractExact))
+                .add(Builder.binaryFunction("mul", Math::multiplyExact))
+                .add(Builder.binaryFunction(FunctionNames.MULTIPLY, "mul", Math::multiplyExact))
                 .add(Builder.binaryFunction("div", (l, r) -> l / r))
                 .add(Builder.binaryFunction(FunctionNames.DIVIDE, "div", (l, r) -> l / r))
                 .add(Builder.binaryFunction(FunctionNames.MOD, (l, r) -> l % r))
