@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
@@ -51,6 +52,7 @@ import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCol
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.ExpressionFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -258,9 +260,17 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
         int typeCode = SqlTypeNamesSupport.getSqlTypeCode(typeName);
-        return new RowArray(
-                Arrays.stream(elements).collect(Collectors.toList()),
-                RelationalArrayMetaData.ofPrimitive(typeCode, DatabaseMetaData.columnNoNulls));
+        ArrayMetaData arrayMetaData = RelationalArrayMetaData.ofPrimitive(typeCode, DatabaseMetaData.columnNoNulls);
+        try {
+            if (typeCode == Types.STRUCT) {
+                Assert.that(elements.length != 0, ErrorCode.INTERNAL_ERROR, "Cannot determine the complete component type of array of struct since it has no elements!");
+                Assert.that(elements[0] instanceof RelationalStruct, ErrorCode.DATATYPE_MISMATCH, "Element of the array of struct is not of struct type!");
+                arrayMetaData = RelationalArrayMetaData.ofStruct(((RelationalStruct) elements[0]).getMetaData(), DatabaseMetaData.columnNoNulls);
+            }
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
+        }
+        return new RowArray(Arrays.stream(elements).collect(Collectors.toList()), arrayMetaData);
     }
 
     @Override

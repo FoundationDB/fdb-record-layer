@@ -349,7 +349,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             .setType(type.toTypeProto(serializationContext))
                             .setLiteralsTableIndex(i)
                             .setTokenIndex(orderedLiteral.getTokenIndex());
-                    argumentBuilder.setObject(LiteralsUtils.objectToliteralObjectProto(type, orderedLiteral.getLiteralObject()));
+                    argumentBuilder.setObject(LiteralsUtils.objectToLiteralObjectProto(type, orderedLiteral.getLiteralObject()));
                     if (orderedLiteral.isQueryLiteral()) {
                         // literal
                         compiledStatementBuilder.addExtractedLiterals(argumentBuilder.build());

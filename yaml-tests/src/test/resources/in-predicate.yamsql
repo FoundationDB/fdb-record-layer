@@ -173,5 +173,5 @@ test_block:
       -
         # Complex (STRUCT) left type matched against IN list
         - query: select a, e from ta where f in (34, 23)
-        - error: "XX000"
+        - error: "22000"
 ...

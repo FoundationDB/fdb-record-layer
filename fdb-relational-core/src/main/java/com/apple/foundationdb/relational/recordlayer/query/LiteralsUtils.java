@@ -23,25 +23,24 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.relational.api.SqlTypeSupport;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.continuation.LiteralObject;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.Lists;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.Array;
-import java.sql.Struct;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.CANNOT_CONVERT_TYPE;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
 
@@ -52,34 +51,29 @@ public final class LiteralsUtils {
 
     @Nonnull
     public static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
-        return resolveArrayTypeFromElementTypes(
-                objects.stream().map(o -> {
-                    if (o instanceof byte[]) {
-                        return Type.fromObject(ZeroCopyByteString.wrap((byte[]) o));
-                    } else if (o instanceof Struct || o instanceof Array) {
-                        throw new RelationalException("Array of complex types are not yet supported", CANNOT_CONVERT_TYPE)
-                                .toUncheckedWrappedException();
-                    } else {
-                        return Type.fromObject(o);
-                    }
-                }).collect(Collectors.toList()));
-    }
-
-    private static Type.Array resolveArrayTypeFromElementTypes(List<Type> types) {
-        Type elementType;
-        if (types.isEmpty()) {
-            elementType = Type.nullType();
-        } else {
-            // all values must have the same type.
-            final var distinctTypes = types.stream().filter(type -> type != Type.nullType()).distinct().collect(Collectors.toList());
-            Assert.thatUnchecked(distinctTypes.size() == 1, DATATYPE_MISMATCH, "could not determine type of array literal");
-            elementType = distinctTypes.get(0);
+        final var distinctTypes = objects.stream().filter(Objects::nonNull).map(SqlTypeSupport::getSqlTypeCodeFromObject).distinct().collect(Collectors.toList());
+        if (distinctTypes.isEmpty()) {
+            // has all nulls or is empty
+            return new Type.Array(Type.nullType());
         }
-        return new Type.Array(elementType);
+        Assert.thatUnchecked(distinctTypes.size() == 1, DATATYPE_MISMATCH, "could not determine type of array literal");
+        final var theType = distinctTypes.get(0);
+        if (theType != Types.STRUCT) {
+            return new Type.Array(Type.primitiveType(SqlTypeSupport.sqlTypeToRecordType(theType), false));
+        }
+        final var distinctStructMetadata = objects.stream().filter(Objects::nonNull).map(o -> {
+            try {
+                return ((RelationalStruct) o).getMetaData();
+            } catch (SQLException e) {
+                throw new RelationalException(e).toUncheckedWrappedException();
+            }
+        }).distinct().collect(Collectors.toList());
+        Assert.thatUnchecked(distinctStructMetadata.size() == 1, DATATYPE_MISMATCH, "Elements of struct array literal are not of identical shape!");
+        return new Type.Array(SqlTypeSupport.structMetadataToRecordType(distinctStructMetadata.get(0), false));
     }
 
     @Nonnull
-    public static LiteralObject objectToliteralObjectProto(@Nonnull final Type type, @Nullable final Object object) {
+    public static LiteralObject objectToLiteralObjectProto(@Nonnull final Type type, @Nullable final Object object) {
         final var builder = LiteralObject.newBuilder();
         if (object == null) {
             return builder.build();
@@ -92,7 +86,7 @@ public final class LiteralsUtils {
             final var array = (List<?>) object;
             final var arrayBuilder = LiteralObject.Array.newBuilder();
             for (final Object element : array) {
-                arrayBuilder.addElementObjects(objectToliteralObjectProto(elementType, element));
+                arrayBuilder.addElementObjects(objectToLiteralObjectProto(elementType, element));
             }
             builder.setArrayObject(arrayBuilder.build());
         } else {

@@ -38,7 +38,6 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -647,15 +646,66 @@ public class PreparedStatementTests {
     @Test
     void prepareInListWrongTypeInArray() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+
+            // IN list parameter is an array of Long, but has some non-Long elements.
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
                 ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{10L, "FOO"}));
                 RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
                         .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
             }
+
+            // IN list parameter is an array of Long, but has no Long elements.
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
                 ps.setArray(1, ddl.getConnection().createArrayOf("BIGINT", new Object[]{"FOO", "BAR"}));
                 RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
                         .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
+            }
+
+            // IN list parameter is an array of structs, but has no elements.
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE (rest_no, name) in ?")) {
+                RelationalAssertions.assertThrowsSqlException(() -> ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{})))
+                        .hasMessage("Cannot determine the complete component type of array of struct since it has no elements!")
+                        .hasErrorCode(ErrorCode.INTERNAL_ERROR);
+            }
+
+            // IN list parameter is an array of structs, but constituent is not a struct.
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE (rest_no, name) in ?")) {
+                RelationalAssertions.assertThrowsSqlException(() -> ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{100L})))
+                        .hasMessage("Element of the array of struct is not of struct type!")
+                        .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
+            }
+
+            // IN list parameter is an array of structs, but the shape of constituent structs are different.
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE (rest_no, name) in ?")) {
+                final var structA = ddl.getConnection().createStruct("na", new Object[]{10L, "a"});
+                final var structB = ddl.getConnection().createStruct("na", new Object[]{20L, "b", 100L, "c"});
+                ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{structA, structB}));
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasMessage("Elements of struct array literal are not of identical shape!")
+                        .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
+            }
+        }
+    }
+
+    @Test
+    void prepareInListOfTuple() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE (rest_no, name) in ?")) {
+                final var structA = ddl.getConnection().createStruct("na", new Object[]{1L, "mango & miso"});
+                final var structB = ddl.getConnection().createStruct("na", new Object[]{2L, "basil & brawn"});
+                ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{structA, structB}));
+
+                try (var rs = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(rs)
+                            .hasNextRow()
+                            .hasColumn("REST_NO", 2L)
+                            .hasNextRow()
+                            .hasColumn("REST_NO", 1L)
+                            .hasNoNextRow();
+                }
             }
         }
     }
