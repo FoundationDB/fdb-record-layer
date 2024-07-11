@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
@@ -39,6 +40,11 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {
+    @Nonnull
+    default Value toValue(@Nonnull Quantifier baseQuantifier, @Nonnull List<String> fieldNamePrefix) {
+        return toValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType(), fieldNamePrefix);
+    }
+
     @Nonnull
     Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Type baseType, @Nonnull List<String> fieldNamePrefix);
 
