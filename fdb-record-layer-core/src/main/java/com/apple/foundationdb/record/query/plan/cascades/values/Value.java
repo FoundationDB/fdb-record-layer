@@ -660,12 +660,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default BooleanWithConstraint subsumedByWithoutChildren(@Nonnull final Value other) {
-        if (this == other) {
-            return BooleanWithConstraint.alwaysTrue();
-        }
-
-        return BooleanWithConstraint.fromBoolean(other.getClass() == getClass());
+        return equalsWithoutChildren(other);
     }
 }
