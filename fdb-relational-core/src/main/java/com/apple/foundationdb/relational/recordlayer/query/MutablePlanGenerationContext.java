@@ -240,9 +240,10 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      */
     @Nonnull
     public <T> T withDisabledLiteralProcessing(@Nonnull Supplier<T> supplier) {
+        boolean oldShouldProcessLiteral = shouldProcessLiteral();
         setShouldProcessLiteral(false);
         final T result = supplier.get();
-        setShouldProcessLiteral(true);
+        setShouldProcessLiteral(oldShouldProcessLiteral);
         return result;
     }
 

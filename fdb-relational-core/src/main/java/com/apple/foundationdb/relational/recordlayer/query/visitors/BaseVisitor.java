@@ -1382,8 +1382,8 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Override
     @Nonnull
-    public Object visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
+        return expressionVisitor.visitBitExpressionAtom(ctx);
     }
 
     @Override

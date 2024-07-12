@@ -42,7 +42,6 @@ import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
 
@@ -84,9 +83,9 @@ public abstract class QueryConfig {
         return lineNumber;
     }
 
-    @Nonnull
+    @Nullable
     Object getVal() {
-        return Objects.requireNonNull(value);
+        return value;
     }
 
     @Nullable

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -68,7 +69,9 @@ import java.util.function.Consumer;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.relational.util.NullableArrayUtils.REPEATED_FIELD_NAME;
 
@@ -286,13 +289,65 @@ public class IndexTest {
     }
 
     @Test
-    void createIndexWithExpressionsInProjectionIsNotSupported() throws Exception {
+    void createIndexWithConstantArithmethicInProjectionIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE INDEX mv1 AS SELECT 5+1 FROM T1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
+        indexIs(stmt, function("add", concat(value(5), value(1))), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithFieldSumInProjectionIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a + b FROM T1";
+        indexIs(stmt, function("add", concat(field("A"), field("B"))), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithBitMaskInProjectionIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a & 4 FROM T1";
+        indexIs(stmt, function("bitand", concat(field("A"), value(4))), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithMultipleFunctionsInProjectionIsSupported() throws Exception {
+        String functions = "a & 2, a | 4, a ^ 8, b + c, b - c, b * c, b / c, b % c";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT " + functions + " FROM T1 ORDER BY " + functions;
+        indexIs(stmt, concat(
+                function("bitand", concat(field("A"), value(2))),
+                function("bitor", concat(field("A"), value(4))),
+                function("bitxor", concat(field("A"), value(8))),
+                function("add", concat(field("B"), field("C"))),
+                function("sub", concat(field("B"), field("C"))),
+                function("mul", concat(field("B"), field("C"))),
+                function("div", concat(field("B"), field("C"))),
+                function("mod", concat(field("B"), field("C")))
+        ), IndexTypes.VALUE);
+    }
+
+    @Test
+    void createIndexWithSomeFunctionsOnlyCoveringIsSupported() throws Exception {
+        String functions = "a & 2, a | 2, a ^ 2, b + c, b - c, b * c, b / c, b % c";
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT " + functions + " FROM T1 ORDER BY a & 2, b - c";
+        indexIs(stmt, new KeyWithValueExpression(concat(
+                function("bitand", concat(field("A"), value(2))),
+                function("sub", concat(field("B"), field("C"))),
+                function("bitor", concat(field("A"), value(2))),
+                function("bitxor", concat(field("A"), value(2))),
+                function("add", concat(field("B"), field("C"))),
+                function("mul", concat(field("B"), field("C"))),
+                function("div", concat(field("B"), field("C"))),
+                function("mod", concat(field("B"), field("C")))
+        ), 2), IndexTypes.VALUE);
     }
 
     @Test

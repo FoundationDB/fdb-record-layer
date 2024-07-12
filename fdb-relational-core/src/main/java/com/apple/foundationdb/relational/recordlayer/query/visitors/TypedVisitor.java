@@ -841,7 +841,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     @Nonnull
-    Object visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx);
+    Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx);
 
     @Override
     @Nonnull

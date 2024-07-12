@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;

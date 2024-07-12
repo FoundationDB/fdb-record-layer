@@ -295,11 +295,18 @@ public class AstNormalizerTests {
     private static void validateNotSameHash(@Nonnull final String query1,
                                             @Nonnull final String query2,
                                             @Nonnull PreparedParams preparedParams) throws RelationalException {
+        validateNotSameHash(query1, preparedParams, query2, preparedParams);
+    }
+
+    private static void validateNotSameHash(@Nonnull final String query1,
+                                            @Nonnull PreparedParams preparedParams1,
+                                            @Nonnull final String query2,
+                                            @Nonnull PreparedParams preparedParams2) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams1), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams2), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -881,6 +888,37 @@ public class AstNormalizerTests {
                 null,
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT));
+    }
+
+    @Test
+    void parseBitAtomExpressionsWithLiterals() throws Exception {
+        // In order to match literal values in indexes, we currently do not parse literals within
+        // a bit atom expression
+        validate("select a & 4 from t",
+                PreparedParams.empty(),
+                "select \"A\" & 4 from \"T\" ",
+                Map.of());
+        validate("select a & 2 from t",
+                PreparedParams.empty(),
+                "select \"A\" & 2 from \"T\" ",
+                Map.of());
+        validateNotSameHash("select a & 4 from t", "select a & 2 from t");
+    }
+
+    @Test
+    void parseBitAtomExpressionsWithParameters() throws Exception {
+        validate("select a & ?m from t",
+                PreparedParams.ofNamed(Map.of("m", 4L)),
+                "select \"A\" & 4L from \"T\" ",
+                Map.of());
+        validate("select a & ?m from t",
+                PreparedParams.ofNamed(Map.of("m", 2L)),
+                "select \"A\" & 2L from \"T\" ",
+                Map.of());
+        validateNotSameHash("select a & ?m from t",
+                PreparedParams.ofNamed(Map.of("m", 2)),
+                "select a & ?m from t",
+                PreparedParams.ofNamed(Map.of("m", 4)));
     }
 
     @Test

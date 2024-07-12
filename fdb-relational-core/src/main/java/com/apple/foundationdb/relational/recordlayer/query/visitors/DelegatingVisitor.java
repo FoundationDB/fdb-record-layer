@@ -1247,7 +1247,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Override
     @Nonnull
-    public Object visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
+    public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
         return getDelegate().visitBitExpressionAtom(ctx);
     }
 

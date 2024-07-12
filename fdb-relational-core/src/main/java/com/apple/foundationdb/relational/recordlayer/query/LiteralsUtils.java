@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.continuation.LiteralObject;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.common.collect.Lists;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;

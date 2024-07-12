@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;

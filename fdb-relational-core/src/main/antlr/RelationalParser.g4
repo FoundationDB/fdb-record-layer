@@ -1005,7 +1005,7 @@ expressionAtom
     | EXISTS '(' selectStatement ')'                                #existsExpressionAtom // done
     | '(' selectStatement ')'                                       #subqueryExpressionAtom // done (unsupported)
     | INTERVAL expression intervalType                              #intervalExpressionAtom // done (unsupported)
-    | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom // done (unsupported)
+    | left=expressionAtom bitOperator right=expressionAtom          #bitExpressionAtom // done
     | left=expressionAtom mathOperator right=expressionAtom         #mathExpressionAtom // done
     | left=expressionAtom jsonOperator right=expressionAtom         #jsonExpressionAtom // done (unsupported)
     ;

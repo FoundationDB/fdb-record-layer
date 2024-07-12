@@ -121,6 +121,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
      */
     private boolean allowLiteralAddition;
 
+    /**
+     * Controls whether literals are stripped from the canonical form of the query at all. By default, all
+     * literals are removed.
+     */
+    private boolean allowLiteralStripping;
+
     @Nonnull
     private final QueryHasherContext.Builder context;
 
@@ -158,6 +164,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
+        allowLiteralStripping = true;
         queryCachingFlags = EnumSet.noneOf(Result.QueryCachingFlags.class);
         queryOptions = Options.builder();
         this.caseSensitive = caseSensitive;
@@ -485,6 +492,17 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return ctx.packageBytes.accept(this);
     }
 
+    @Override
+    public Object visitBitExpressionAtom(RelationalParser.BitExpressionAtomContext ctx) {
+        // For now, the bit expressions need to avoid stripping literals in order to be matched
+        // against the
+        boolean oldAllowLiteralStripping = allowLiteralStripping;
+        allowLiteralStripping = false;
+        Object value = visitChildren(ctx);
+        allowLiteralStripping = oldAllowLiteralStripping;
+        return value;
+    }
+
     private void processArrayParameter(@Nonnull final Array param, @Nullable Integer unnamedParameterIndex,
                                        @Nullable String parameterName, final int tokenIndex) {
         try {
@@ -540,6 +558,19 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     private void processLiteral(@Nonnull final Object literal, final int tokenIndex,
                                 @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName) {
+        if (!allowLiteralStripping) {
+            if (literal instanceof Long) {
+                hashFunction.putLong((long) literal);
+                sqlCanonicalizer.append(literal).append("L");
+            } else if (literal instanceof Integer) {
+                hashFunction.putInt((int) literal);
+                sqlCanonicalizer.append(literal);
+            } else {
+                Assert.failUnchecked("Unable to process unstripped literal of type " + literal.getClass().getSimpleName());
+            }
+            sqlCanonicalizer.append(' ');
+            return;
+        }
         if (allowLiteralAddition) {
             context.addLiteral(new QueryExecutionContext.OrderedLiteral(Type.any(), literal, unnamedParameterIndex, parameterName, tokenIndex));
         }

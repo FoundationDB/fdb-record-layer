@@ -446,6 +446,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 .collect(ImmutableList.toImmutableList()));
     }
 
+    @Nonnull
+    @Override
+    public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
+        return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
+            final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
+            final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
+            return getDelegate().resolveFunction(ctx.bitOperator().getText(), left, right);
+        });
+    }
+
     @Override
     @Nonnull
     public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
