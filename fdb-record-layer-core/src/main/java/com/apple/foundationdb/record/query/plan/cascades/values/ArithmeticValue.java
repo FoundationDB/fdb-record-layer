@@ -147,11 +147,10 @@ public class ArithmeticValue extends AbstractValue {
     @Nonnull
     @Override
     public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
-        if (super.equalsWithoutChildren(other).isFalse()) {
-            return BooleanWithConstraint.falseValue();
-        }
-        ArithmeticValue otherArithmetic = (ArithmeticValue)other;
-        return BooleanWithConstraint.fromBoolean(operator.equals(otherArithmetic.operator));
+        return super.equalsWithoutChildren(other).compose(ignored -> {
+            ArithmeticValue otherArithmetic = (ArithmeticValue)other;
+            return BooleanWithConstraint.fromBoolean(operator.equals(otherArithmetic.operator));
+        });
     }
 
     @Override
