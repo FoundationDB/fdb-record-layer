@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -114,6 +115,13 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
         return resultType.getTypeCode() == Type.TypeCode.NULL;
+    }
+
+    @Nonnull
+    @Override
+    public BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
+        // delegate to semanticEquals()
+        return semanticEquals(other, valueEquivalence);
     }
 
     @Nonnull
