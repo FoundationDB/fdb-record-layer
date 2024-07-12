@@ -17,10 +17,10 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** `ArithmeticValue::semanticEquals` now includes the operator in its calculation [(Issue #2189)](https://github.com/FoundationDB/fdb-record-layer/issues/2189)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** subsumedBy is only looking at value type in most cases [(Issue #2818)](https://github.com/FoundationDB/fdb-record-layer/issues/2818)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,11 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.524.0
+
+* **Bug fix** `ArithmeticValue::semanticEquals` now includes the operator in its calculation [(Issue #2189)](https://github.com/FoundationDB/fdb-record-layer/issues/2189)
+* **Bug fix** subsumedBy is only looking at value type in most cases [(Issue #2818)](https://github.com/FoundationDB/fdb-record-layer/issues/2818)
 
 ### 3.4.523.0
 
