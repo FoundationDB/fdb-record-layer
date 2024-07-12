@@ -141,9 +141,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         if (querySpecificationContext.limitClause() != null) {
             Assert.thatUnchecked(getDelegate().isTopLevel(), ErrorCode.UNSUPPORTED_OPERATION, () -> "limit can only be set on top level");
-            // TODO (LIMIT is ignored in join queries)
-            Assert.thatUnchecked(Iterables.size(getDelegate().currentPlanFragmentBuilder.get().getLogicalOperators().getQuantifiers()) == 1,
-                    ErrorCode.UNSUPPORTED_OPERATION, () -> "limit works with single sources only");
             final var limitValue = Assert.castUnchecked(visitLimitClause(querySpecificationContext.limitClause()).getUnderlying(), LiteralValue.class);
             final var limit = Assert.castUnchecked(limitValue.getLiteralValue(), Number.class);
             getDelegate().setLimit(limit.intValue());

@@ -126,13 +126,4 @@ test_block:
       - result: [{13, 14}, {15, 16}]
       - result: [{17, 18}, {19, 20}]
       - result: []
-#    -
-#      # limit and offset values with continuation
-#      - query: select ta.* FROM ta LIMIT 2 OFFSET 1;
-#      - result: [{3, 4}, {5, 6}]
-#      - error: "XX000"
-    -
-      # Limit clause in case of multiple from elements.
-      - query: select * FROM ta as t1, ta as t2 LIMIT 1000;
-      - error: "0A000"
 ...
