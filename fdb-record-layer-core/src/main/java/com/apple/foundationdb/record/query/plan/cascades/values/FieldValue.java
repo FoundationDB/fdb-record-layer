@@ -193,13 +193,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     }
 
     @Override
-    @Nonnull
-    public BooleanWithConstraint subsumedByWithoutChildren(@Nonnull final Value other) {
-        return super.subsumedByWithoutChildren(other)
-                .compose(ignored -> equalsWithoutChildren(other));
-    }
-
-    @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, fieldPath);
     }
