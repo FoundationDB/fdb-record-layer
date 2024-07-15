@@ -28,26 +28,87 @@ import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 
 /**
  * Model for creating a lucene appropriate dataset with various configurations.
  */
 public class LuceneIndexDataModel {
 
+    final boolean isGrouped;
+    final boolean isSynthetic;
+    final boolean primaryKeySegmentIndexEnabled;
+    final int partitionHighWatermark;
+    final Random random;
+    final RandomTextGenerator textGenerator;
+    final Index index;
+    final Function<FDBRecordContext, FDBRecordStore> schemaSetup;
+    final Map<Tuple, Map<Tuple, Tuple>> ids;
+
+    public LuceneIndexDataModel(final Builder builder) {
+        random = builder.random;
+        textGenerator = builder.textGenerator;
+        isGrouped = builder.isGrouped;
+        isSynthetic = builder.isSynthetic;
+        primaryKeySegmentIndexEnabled = builder.primaryKeySegmentIndexEnabled;
+        partitionHighWatermark = builder.partitionHighWatermark;
+
+        final Map<String, String> options = new HashMap<>();
+        options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+        if (partitionHighWatermark > 0) {
+            options.put(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp");
+            options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark));
+        }
+
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
+        index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaData metadata = metaDataBuilder.build();
+        final StoreBuilderSupplier storeBuilderSupplier = builder.storeBuilderSupplier;
+        final KeySpacePath path = builder.path;
+        schemaSetup = context -> storeBuilderSupplier.get(context, metadata,  path).createOrOpen();
+        ids = new HashMap<>();
+    }
+
+    @Override
+    public String toString() {
+        return "LuceneIndexDataModel{" +
+                "isGrouped=" + isGrouped +
+                ", isSynthetic=" + isSynthetic +
+                ", primaryKeySegmentIndexEnabled=" + primaryKeySegmentIndexEnabled +
+                ", partitionHighWatermark=" + partitionHighWatermark +
+                '}';
+    }
+
+    static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
+                           final Map<Tuple, Map<Tuple, Tuple>> ids, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore) {
+        final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
+        final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
+        final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
+        long timestamp = start + countInGroup + random.nextInt(20) - 5;
+        final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
+        ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
+    }
+
     @Nonnull
-    static Tuple saveRecords(final FDBRecordStore recordStore,
-                             final boolean isSynthetic,
-                             final int group,
-                             final int countInGroup,
-                             final long timestamp,
-                             final RandomTextGenerator textGenerator,
-                             final Random random) {
+    static Tuple saveRecord(final FDBRecordStore recordStore,
+                            final boolean isSynthetic,
+                            final int group,
+                            final int countInGroup,
+                            final long timestamp,
+                            final RandomTextGenerator textGenerator,
+                            final Random random) {
         var parent = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
                 .setRecNo(1001L + countInGroup)
@@ -143,5 +204,62 @@ public class LuceneIndexDataModel {
         metaDataBuilder.getRecordType("MyChildRecord")
                 .setPrimaryKey(Key.Expressions.concatenateFields("group", "rec_no"));
         return metaDataBuilder;
+    }
+
+    public Integer nextInt(final int bound) {
+        return random.nextInt(bound);
+    }
+
+    static class Builder {
+        private final Random random;
+        private final StoreBuilderSupplier storeBuilderSupplier;
+        private final RandomTextGenerator textGenerator;
+        private final KeySpacePath path;
+        boolean isGrouped;
+        boolean isSynthetic;
+        boolean primaryKeySegmentIndexEnabled = true;
+        int partitionHighWatermark;
+        int repartitionCount;
+
+        public Builder(final long seed, StoreBuilderSupplier storeBuilderSupplier,
+                       TestKeySpacePathManagerExtension pathManager) {
+            this.random = new Random(seed);
+            this.storeBuilderSupplier = storeBuilderSupplier;
+            textGenerator = new RandomTextGenerator(random);
+            this.path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+        }
+
+        public Builder setIsGrouped(final boolean isGrouped) {
+            this.isGrouped = isGrouped;
+            return this;
+        }
+
+        public Builder setIsSynthetic(final boolean isSynthetic) {
+            this.isSynthetic = isSynthetic;
+            return this;
+        }
+
+        public Builder setPrimaryKeySegmentIndexEnabled(final boolean primaryKeySegmentIndexEnabled) {
+            this.primaryKeySegmentIndexEnabled = primaryKeySegmentIndexEnabled;
+            return this;
+        }
+
+        public Builder setPartitionHighWatermark(final int partitionHighWatermark) {
+            this.partitionHighWatermark = partitionHighWatermark;
+            return this;
+        }
+
+        public LuceneIndexDataModel build() {
+            return new LuceneIndexDataModel(this);
+        }
+    }
+
+    /**
+     * Factory for a {@link FDBRecordStore.Builder}.
+     */
+    @FunctionalInterface
+    public interface StoreBuilderSupplier {
+        FDBRecordStore.Builder get(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData,
+                                   @Nonnull final KeySpacePath path);
     }
 }
