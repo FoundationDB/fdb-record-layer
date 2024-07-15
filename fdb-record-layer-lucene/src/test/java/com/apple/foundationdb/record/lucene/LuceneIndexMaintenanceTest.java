@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TestRecordsGroupedParentChildProto;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -38,10 +37,7 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -161,9 +157,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 "options", options,
                 "seed", seed));
 
-        final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
-        Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
+        Index index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = getSchemaSetup(metaDataBuilder);
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -259,10 +255,16 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                       long seed) throws IOException {
         Random random = new Random(seed);
         final RandomTextGenerator textGenerator = new RandomTextGenerator(random);
+
         final Map<String, String> options = Map.of(
                 LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "parent.timestamp" : "timestamp",
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
+        Index index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        Function<FDBRecordContext, FDBRecordStore> schemaSetup = getSchemaSetup(metaDataBuilder);
+
         LOGGER.info(KeyValueLogMessage.of("Running randomizedRepartitionTest",
                 "isGrouped", isGrouped,
                 "isSynthetic", isSynthetic,
@@ -270,11 +272,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 "options", options,
                 "seed", seed,
                 "loopCount", loopCount));
-
-        final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
-        Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
-        Function<FDBRecordContext, FDBRecordStore> schemaSetup = getSchemaSetup(metaDataBuilder);
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -364,9 +361,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 "options", options,
                 "seed", seed));
 
-        final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
-        Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
+        Index index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
         Function<FDBRecordContext, FDBRecordStore> schemaSetup = getSchemaSetup(metaDataBuilder);
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -770,9 +767,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(1000),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
 
-        final RecordMetaDataBuilder metaDataBuilder = createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = createRootExpression(isGrouped, isSynthetic);
-        Index index = addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
+        Index index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
         final RecordMetaData metadata = metaDataBuilder.build();
         Random random = new Random(seed);
         final int repartitionCount = 2;
@@ -968,7 +965,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
                     final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
                     long timestamp = start + countInGroup + random.nextInt(20) - 5;
-                    final Tuple primaryKey = saveRecords(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
+                    final Tuple primaryKey = LuceneIndexDataModel.saveRecords(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
                     ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
                 }
                 commit(context);
@@ -977,17 +974,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             transactionCounter.incrementAndGet();
             i++;
         }
-    }
-
-    @Nonnull
-    private static RecordMetaDataBuilder createBaseMetaDataBuilder() {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
-                .setRecords(TestRecordsGroupedParentChildProto.getDescriptor());
-        metaDataBuilder.getRecordType("MyParentRecord")
-                .setPrimaryKey(Key.Expressions.concatenateFields("group", "rec_no"));
-        metaDataBuilder.getRecordType("MyChildRecord")
-                .setPrimaryKey(Key.Expressions.concatenateFields("group", "rec_no"));
-        return metaDataBuilder;
     }
 
     @Nonnull
@@ -1015,100 +1001,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(schemaSetup.apply(context)))
                     .validate(index, ids, isSynthetic ? "child_str_value:forth" : "text_value:about");
         }
-    }
-
-    @Nonnull
-    private static Tuple saveRecords(final FDBRecordStore recordStore,
-                                     final boolean isSynthetic,
-                                     final int group,
-                                     final int countInGroup,
-                                     final long timestamp,
-                                     final RandomTextGenerator textGenerator,
-                                     final Random random) {
-        var parent = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
-                .setGroup(group)
-                .setRecNo(1001L + countInGroup)
-                .setTimestamp(timestamp)
-                .setTextValue(isSynthetic ? "This is not the text that goes in lucene"
-                              : textGenerator.generateRandomText("about"))
-                .setIntValue(random.nextInt())
-                .setChildRecNo(1000L - countInGroup)
-                .build();
-        Tuple primaryKey;
-        if (isSynthetic) {
-            var child = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
-                    .setGroup(group)
-                    .setRecNo(1000L - countInGroup)
-                    .setStrValue(textGenerator.generateRandomText("forth"))
-                    .setOtherValue(random.nextInt())
-                    .build();
-            final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
-                    .getSyntheticRecordType("JoinChildren")
-                    .getRecordTypeKeyTuple();
-            primaryKey = Tuple.from(syntheticRecordTypeKey.getItems().get(0),
-                    recordStore.saveRecord(parent).getPrimaryKey().getItems(),
-                    recordStore.saveRecord(child).getPrimaryKey().getItems());
-        } else {
-            primaryKey = recordStore.saveRecord(parent).getPrimaryKey();
-        }
-        return primaryKey;
-    }
-
-    @Nonnull
-    private static Index addIndex(final boolean isSynthetic, final KeyExpression rootExpression, final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder) {
-        Index index;
-        index = new Index("joinNestedConcat", rootExpression, LuceneIndexTypes.LUCENE, options);
-
-        if (isSynthetic) {
-            final JoinedRecordTypeBuilder joinBuilder = metaDataBuilder.addJoinedRecordType("JoinChildren");
-            joinBuilder.addConstituent("parent", "MyParentRecord");
-            joinBuilder.addConstituent("child", "MyChildRecord");
-            joinBuilder.addJoin("parent", Key.Expressions.field("group"),
-                    "child", Key.Expressions.field("group"));
-            joinBuilder.addJoin("parent", Key.Expressions.field("child_rec_no"),
-                    "child", Key.Expressions.field("rec_no"));
-            metaDataBuilder.addIndex("JoinChildren", index);
-        } else {
-            metaDataBuilder.addIndex("MyParentRecord", index);
-        }
-        return index;
-    }
-
-    @Nonnull
-    private static KeyExpression createRootExpression(final boolean isGrouped, final boolean isSynthetic) {
-        ThenKeyExpression baseExpression;
-        KeyExpression groupingExpression;
-        if (isSynthetic) {
-            baseExpression = Key.Expressions.concat(
-                    Key.Expressions.field("parent")
-                            .nest(Key.Expressions.function(LuceneFunctionNames.LUCENE_STORED,
-                                    Key.Expressions.field("int_value"))),
-                    Key.Expressions.field("child")
-                            .nest(Key.Expressions.function(LuceneFunctionNames.LUCENE_TEXT,
-                                    Key.Expressions.field("str_value"))),
-                    Key.Expressions.field("parent")
-                            .nest(Key.Expressions.function(LuceneFunctionNames.LUCENE_SORTED,
-                                    Key.Expressions.field("timestamp")))
-            );
-            groupingExpression = Key.Expressions.field("parent").nest("group");
-        } else {
-            baseExpression = Key.Expressions.concat(
-                    Key.Expressions.function(LuceneFunctionNames.LUCENE_STORED,
-                            Key.Expressions.field("int_value")),
-                    Key.Expressions.function(LuceneFunctionNames.LUCENE_TEXT,
-                            Key.Expressions.field("text_value")),
-                    Key.Expressions.function(LuceneFunctionNames.LUCENE_SORTED,
-                            Key.Expressions.field("timestamp"))
-            );
-            groupingExpression = Key.Expressions.field("group");
-        }
-        KeyExpression rootExpression;
-        if (isGrouped) {
-            rootExpression = baseExpression.groupBy(groupingExpression);
-        } else {
-            rootExpression = baseExpression;
-        }
-        return rootExpression;
     }
 
 
