@@ -1018,13 +1018,13 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     @Nonnull
-    private Tuple saveRecords(final FDBRecordStore recordStore,
-                              final boolean isSynthetic,
-                              final int group,
-                              final int countInGroup,
-                              final long timestamp,
-                              final RandomTextGenerator textGenerator,
-                              final Random random) {
+    private static Tuple saveRecords(final FDBRecordStore recordStore,
+                                     final boolean isSynthetic,
+                                     final int group,
+                                     final int countInGroup,
+                                     final long timestamp,
+                                     final RandomTextGenerator textGenerator,
+                                     final Random random) {
         var parent = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
                 .setGroup(group)
                 .setRecNo(1001L + countInGroup)
