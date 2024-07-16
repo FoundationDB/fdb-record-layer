@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -94,9 +95,14 @@ public class FDBRecordStoreStateCacheEntry {
     @Nonnull
     static CompletableFuture<FDBRecordStoreStateCacheEntry> load(@Nonnull FDBRecordStore recordStore,
                                                                  @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck) {
+        // This is primarily needed because of https://github.com/apple/foundationdb/issues/11500 where the call to
+        // getMetaDataVersionStampAsync might never complete. In the tests we don't set a timeout on the futures, and
+        // thus the overall test times out, but in production situations, this should mostly make a difference, because
+        // "Batch GRV rate limit exceeded" is clearer than an asyncToSync timeout, on whatever eventual future depends
+        // on this.
         final CompletableFuture<byte[]> metaDataVersionStampFuture = recordStore.getContext().getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT);
-        return recordStore.loadRecordStoreStateAsync(existenceCheck)
-                .thenCombine(metaDataVersionStampFuture, (recordStoreState, metaDataVersionStamp) ->
+        return MoreAsyncUtil.combineAndFailFast(recordStore.loadRecordStoreStateAsync(existenceCheck),
+                metaDataVersionStampFuture, (recordStoreState, metaDataVersionStamp) ->
                         new FDBRecordStoreStateCacheEntry(recordStore.getSubspaceProvider(), recordStore.getSubspace(), recordStoreState.toImmutable(), metaDataVersionStamp));
     }
 }
