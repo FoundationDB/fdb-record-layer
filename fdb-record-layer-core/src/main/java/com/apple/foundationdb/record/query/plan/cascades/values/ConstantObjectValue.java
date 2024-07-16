@@ -119,13 +119,6 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Nonnull
     @Override
-    public BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
-        // delegate to semanticEquals()
-        return semanticEquals(other, valueEquivalence);
-    }
-
-    @Nonnull
-    @Override
     public Value with(@Nonnull final Type type) {
         Verify.verify(canResultInType(type));
         return ConstantObjectValue.of(alias, constantId, type);

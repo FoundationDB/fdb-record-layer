@@ -185,13 +185,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
                 .filter(ignored -> fieldPath.equals(((FieldValue)other).getFieldPath()));
     }
 
-    @Nonnull
-    @Override
-    public BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
-        // delegate to semanticEquals()
-        return semanticEquals(other, valueEquivalence);
-    }
-
     @Override
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, fieldPath);
