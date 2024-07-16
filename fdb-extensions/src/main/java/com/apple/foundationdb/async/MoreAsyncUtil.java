@@ -965,16 +965,12 @@ public class MoreAsyncUtil {
     public static <T, U, R> CompletableFuture<R> combineAndFailFast(CompletableFuture<T> future1,
                                                                     CompletableFuture<U> future2,
                                                                     BiFunction<T, U, R> combiner) {
-        return CompletableFuture.anyOf(future1, future2).thenCompose(vignore -> {
-            // We know at least one of them completed
-            if (future1.isDone() && future1.isCompletedExceptionally()) {
-                return future1.thenApply(vignore1 -> null);
-            }
-            if (future2.isDone() && future2.isCompletedExceptionally()) {
-                return future2.thenApply(vignore2 -> null);
-            }
-            return future1.thenCombine(future2, combiner);
-        });
+        // The lambda called within thenCompose is only called if one of the futures has succeeded, at which point
+        // we can use thenCombine.
+        // If neither has succeeded (yet) but one fails, then the anyOf future will complete exceptionally and
+        // thenCompose will not be executed.
+        return CompletableFuture.anyOf(future1, future2)
+                .thenCompose(vignore -> future1.thenCombine(future2, combiner));
     }
 
     /**
