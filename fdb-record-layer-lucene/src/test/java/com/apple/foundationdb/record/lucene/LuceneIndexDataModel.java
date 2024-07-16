@@ -38,6 +38,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 
@@ -91,9 +92,22 @@ public class LuceneIndexDataModel {
                 '}';
     }
 
+    public void deleteRecord(final FDBRecordContext context, final Tuple primaryKey) {
+        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+        recordStore.deleteRecord(primaryKey);
+    }
+
+    void saveRecords(int count, long start, FDBRecordContext context, final int group) {
+        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+        for (int j = 0; j < count; j++) {
+            LuceneIndexDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, group);
+        }
+    }
+
     static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                           final Map<Tuple, Map<Tuple, Tuple>> ids, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore) {
-        final int group = isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0; // irrelevant if !isGrouped
+                           final Map<Tuple, Map<Tuple, Tuple>> ids, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore, final int group) {
         final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
         final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;

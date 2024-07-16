@@ -77,6 +77,7 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
@@ -99,6 +100,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
@@ -656,8 +658,67 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
         LOG.trace("performOperation operation={}", operation);
-        return CompletableFuture.completedFuture(new IndexOperationResult() {
-        });
+        if (operation instanceof LuceneGetMetadataInfo) {
+            final LuceneGetMetadataInfo request = (LuceneGetMetadataInfo)operation;
+            if (request.isJustPartitionInfo()) {
+                if (partitioner.isPartitioningEnabled()) {
+                    return partitioner.getAllPartitionMetaInfo(request.getGroupingKey())
+                            .thenApply(partitionInfos -> new LuceneMetadataInfo(partitionInfos, Map.of()));
+                } else {
+                    return CompletableFuture.completedFuture(new LuceneMetadataInfo(List.of(), Map.of()));
+                }
+            } else {
+                if (partitioner.isPartitioningEnabled()) {
+                    return getLuceneInfoForAllPartitions(request);
+                } else {
+                    return getLuceneInfo(request.getGroupingKey(), null)
+                            .thenApply(luceneInfos -> new LuceneMetadataInfo(List.of(),
+                                    Map.of(0, luceneInfos)));
+
+                }
+            }
+        }
+
+        return super.performOperation(operation);
+    }
+
+    private CompletableFuture<IndexOperationResult> getLuceneInfoForAllPartitions(final LuceneGetMetadataInfo request) {
+        return partitioner.getAllPartitionMetaInfo(request.getGroupingKey())
+                .thenCompose(partitionInfos -> {
+                    Stream<LucenePartitionInfoProto.LucenePartitionInfo> infoStream = partitionInfos.stream();
+                    // There isn't a more efficient way to get partition info by id than loading it all, and
+                    // if you can't load it all and one partition's lucene index in a single transaction,
+                    // you won't be able to repartition
+                    if (request.getPartitionId() != null) {
+                        infoStream = infoStream.filter(info -> info.getId() == request.getPartitionId());
+                    }
+                    final List<CompletableFuture<Map.Entry<Integer, LuceneMetadataInfo.LuceneInfo>>> luceneInfos =
+                            infoStream.map(partitionInfo ->
+                                            getLuceneInfo(request.getGroupingKey(), partitionInfo.getId())
+                                                    .thenApply(luceneInfo -> Map.entry(partitionInfo.getId(), luceneInfo)))
+                                    .collect(Collectors.toList());
+                    return AsyncUtil.getAll(luceneInfos).thenApply(entries ->
+                            new LuceneMetadataInfo(partitionInfos,
+                                    entries.stream()
+                                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+                });
+    }
+
+
+    @SuppressWarnings("PMD.CloseResource") // the indexReader and directory are closed by the directoryManager
+    private CompletableFuture<LuceneMetadataInfo.LuceneInfo> getLuceneInfo(final Tuple groupingKey, final Integer partitionId) {
+        try {
+            final IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId);
+            final FDBDirectory directory = getDirectory(groupingKey, partitionId);
+            final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
+            return directory.listAllAsync()
+                    .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
+                            new LuceneMetadataInfo.LuceneInfo(
+                                    indexReader.numDocs(),
+                                    fileList, fieldInfosCount));
+        } catch (IOException e) {
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     @VisibleForTesting

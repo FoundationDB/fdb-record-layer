@@ -940,7 +940,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
                 recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int j = 0; j < docCount; j++) {
-                    LuceneIndexDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore);
+                    LuceneIndexDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0);
                 }
                 commit(context);
                 documentCount.addAndGet(docCount);
