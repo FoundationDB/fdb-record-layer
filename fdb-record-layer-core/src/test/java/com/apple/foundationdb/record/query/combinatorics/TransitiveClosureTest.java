@@ -222,4 +222,16 @@ class TransitiveClosureTest {
                         .build(),
                 transitiveClosure);
     }
+
+    @Test
+    void testPartialDependencies() {
+        final ImmutableSet<CorrelationIdentifier> set = ImmutableSet.of(of("a"), of("b"));
+        final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder =
+                ImmutableSetMultimap.builder();
+
+        builder.putAll(of("b"), of("b"));
+        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = builder.build();
+
+        assertThrows(IllegalArgumentException.class, () -> TransitiveClosure.transitiveClosure(set, dependsOnMap));
+    }
 }
