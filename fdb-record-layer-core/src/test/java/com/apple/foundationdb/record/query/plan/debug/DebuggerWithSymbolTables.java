@@ -269,8 +269,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private static void writeEventsDelimitedToFile(final List<PEvent> eventProtos) {
         try {
-            final var tempFile = File.createTempFile("events-", ".bin",
-                    new File(System.getProperty("java.io.tmpdir")));
+            final var tempFile = File.createTempFile("events-", ".bin");
             try (final var fos = new FileOutputStream(tempFile)) {
                 for (final var eventProto : eventProtos) {
                     eventProto.writeDelimitedTo(fos);
@@ -354,13 +353,12 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Nonnull
     public static DebuggerWithSymbolTables withSanityChecks() {
-        return new DebuggerWithSymbolTables(false, false);
-        //return new DebuggerWithSymbolTables(false, true, null);
+        return new DebuggerWithSymbolTables(false, false, null);
     }
 
     @Nonnull
     public static DebuggerWithSymbolTables withEventRecording() {
-        return new DebuggerWithSymbolTables(true, false);
+        return new DebuggerWithSymbolTables(true, false, null);
     }
 
     @Nonnull
