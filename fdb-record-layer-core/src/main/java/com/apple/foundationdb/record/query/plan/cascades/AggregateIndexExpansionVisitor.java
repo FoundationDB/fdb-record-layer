@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -51,6 +50,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,9 +59,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -179,7 +177,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                     // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
                     final var maybePlaceholder = baseExpansion.getPlaceholders()
                             .stream()
-                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
                             .findFirst();
                     if (maybePlaceholder.isEmpty()) {
                         predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));
@@ -191,32 +189,14 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             allExpansionsBuilder.add(predicateExpansionBuilder.build());
         }
 
-        // add an RCV column representing the grouping columns as the first result set column
-        // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
-        final var groupingValue = RecordConstructorValue.ofColumns(
-                baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount())
-                        .stream()
-                        .map(column -> {
-                            if (column.getValue() instanceof FieldValue) {
-                                final var fieldValueNameMaybe = ((FieldValue)column.getValue()).getLastFieldName();
-                                final var namedField = fieldValueNameMaybe.map(fieldValueName -> column.getField().withName(fieldValueName)).orElse(column.getField());
-                                if (column.getField() != namedField) {
-                                    return Column.of(namedField, column.getValue());
-                                }
-                            }
-                            return column;
-                        })
-                        .collect(Collectors.toUnmodifiableList()));
-
         // flow all underlying quantifiers in their own QOV columns.
         final var builder = GraphExpansion.builder();
         // we need to refer to the following column later on in GroupByExpression, but since its ordinal position is fixed, we can simply refer
         // to it using an ordinal FieldAccessor (we do the same in plan generation).
-        builder.addResultColumn(Column.unnamedOf(groupingValue));
         Stream.concat(Stream.of(baseQuantifier), baseExpansion.getQuantifiers().stream())
                 .forEach(qun -> {
                     final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-                    builder.addResultColumn(Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue));
+                    builder.addResultColumn(Column.unnamedOf(quantifiedValue));
                 });
         builder.addAllPlaceholders(baseExpansion.getPlaceholders());
         builder.addAllPredicates(baseExpansion.getPredicates());
@@ -229,41 +209,53 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     @Nonnull
     private Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
-            throw new UnsupportedOperationException(String.format("aggregate index is expected to contain exactly one aggregation, however it contains %d aggregations", groupingKeyExpression.getGroupedCount()));
+            throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
         final Value groupedValue = groupingKeyExpression.getGroupedCount() == 0
                                    ? EmptyValue.empty()
                                    : baseExpansion.getResultColumns().get(groupingKeyExpression.getGroupingCount()).getValue();
 
         // construct aggregation RCV
-        final Value arguments;
+        final Value argument;
         if (groupedValue instanceof EmptyValue) {
-            arguments = RecordConstructorValue.ofColumns(ImmutableList.of());
+            argument = RecordConstructorValue.ofColumns(ImmutableList.of());
         } else if (groupedValue instanceof FieldValue) {
-            FieldValue fieldValue = (FieldValue)groupedValue;
-            Value fieldChild = fieldValue.getChild();
-            FieldValue baseQuantifierReference;
-            if (fieldChild instanceof QuantifiedObjectValue) {
-                // Fields in the select-where have names given to them based on the quantifier alias.
-                // Choose the appropriate one based on the quantified object value associated with the child
-                CorrelationIdentifier baseAlias = ((QuantifiedObjectValue)fieldChild).getAlias();
-                baseQuantifierReference = FieldValue.ofFieldName(selectWhereQun.getFlowedObjectValue(), baseAlias.getId());
-            } else {
-                throw new RecordCoreException("unable to resolve base quantifier for grouped value")
+            final var aliasMap = AliasMap.identitiesFor(Sets.union(selectWhereQun.getCorrelatedTo(),
+                    groupedValue.getCorrelatedTo()));
+            final var result = selectWhereQun.getRangesOver().get().getResultValue()
+                    .pullUp(List.of(groupedValue), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+            if (!result.containsKey(groupedValue)) {
+                throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
             }
-            arguments = FieldValue.ofFields(selectWhereQun.getFlowedObjectValue(), baseQuantifierReference.getFieldPath().withSuffix(fieldValue.getFieldPath()));
+            argument = result.get(groupedValue);
         } else {
             throw new RecordCoreException("unable to plan group by with non-field value")
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
         }
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(arguments));
+        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(argument));
+
+        // add an RCV column representing the grouping columns as the first result set column
+        // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
+
+        final var groupingValues = baseExpansion.getResultColumns().subList(0, groupingKeyExpression.getGroupingCount())
+                .stream()
+                .map(Column::getValue)
+                .collect(ImmutableList.toImmutableList());
+        final var selectQunValue = selectWhereQun.getRangesOver().get().getResultValue();
+        final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(), groupingValues.stream().flatMap(v -> v.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet())));
+        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues, aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+        final var pulledUpGroupingValues = groupingValues.stream().map(groupingValue -> {
+            if (!pulledUpGroupingValuesMap.containsKey(groupingValue)) {
+                throw new RecordCoreException("could not pull grouping value " + groupingValue)
+                        .addLogInfo(LogMessageKeys.VALUE, groupingValue);
+            }
+            return pulledUpGroupingValuesMap.get(groupingValue);
+        }).collect(ImmutableList.toImmutableList());
 
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
-        final var groupingColsValue = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
-
-        if (groupingColsValue.getResultType() instanceof Type.Record &&
-                ((Type.Record)groupingColsValue.getResultType()).getFields().isEmpty()) {
+        final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
+        if (groupingColsValue.getResultType().getFields().isEmpty()) {
             return Quantifier.forEach(Reference.of(
                     new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                             GroupByExpression::nestedResults, selectWhereQun)));

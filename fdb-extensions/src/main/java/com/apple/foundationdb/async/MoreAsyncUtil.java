@@ -946,6 +946,34 @@ public class MoreAsyncUtil {
     }
 
     /**
+     * Combine the results of two futures, but fail fast if either future fails.
+     * <p>
+     *     This has the same behavior as {@link CompletableFuture#thenCombine}, except, if either future fails, it won't
+     *     wait for the other one to complete before completing the result with the failure.
+     * </p>
+     * @param future1 one future
+     * @param future2 another future
+     * @param combiner a function to combine the results of both {@code future1} and {@code future2} into a single result.
+     *
+     * @param <T> the result type for {@code future1}
+     * @param <U> the result type for {@code future2}
+     * @param <R> the result type for the returned future
+     *
+     * @return a future that fails with one of the exceptions from {@code future1} or {@code future2} if either of those
+     * failed, or the result of applying {@code combiner} to their results if both succeeded.
+     */
+    public static <T, U, R> CompletableFuture<R> combineAndFailFast(CompletableFuture<T> future1,
+                                                                    CompletableFuture<U> future2,
+                                                                    BiFunction<T, U, R> combiner) {
+        // The lambda called within thenCompose is only called if one of the futures has succeeded, at which point
+        // we can use thenCombine.
+        // If neither has succeeded (yet) but one fails, then the anyOf future will complete exceptionally and
+        // thenCompose will not be executed.
+        return CompletableFuture.anyOf(future1, future2)
+                .thenCompose(vignore -> future1.thenCombine(future2, combiner));
+    }
+
+    /**
      * A {@code Boolean} function that is always true.
      * @param <T> the type of the (ignored) argument to the function
      */

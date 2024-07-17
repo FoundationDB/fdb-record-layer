@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
@@ -77,7 +78,9 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
                                                                       final boolean remove,
                                                                       @Nonnull final IndexEntry indexEntry) {
         if (state.index.isUnique()) {
-            throw new MetaDataException(String.format("%s index %s does not support unique indexes", state.index.getType(), state.index.getName()));
+            throw new MetaDataException("index type does not support unique indexes")
+                    .addLogInfo(LogMessageKeys.INDEX_TYPE, state.index.getType())
+                    .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName());
         }
         final Tuple valueKey = indexEntry.getKey();
         final Tuple value = indexEntry.getValue();

@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexAggregateFunction;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PIndexAggregateFunction;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.protobuf.Descriptors;
 

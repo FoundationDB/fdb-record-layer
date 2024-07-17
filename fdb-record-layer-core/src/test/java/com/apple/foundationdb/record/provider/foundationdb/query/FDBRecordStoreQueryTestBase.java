@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
@@ -45,6 +44,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -66,6 +66,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -104,19 +105,22 @@ import static org.junit.jupiter.api.Assertions.fail;
  * A base class for common infrastructure used by tests in {@link com.apple.foundationdb.record.provider.foundationdb.query}.
  */
 public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase {
-    protected void setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
-                                          BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord)
-            throws Exception {
+    protected List<TestRecords1Proto.MySimpleRecord> setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
+                                                                            BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord) {
+        ImmutableList.Builder<TestRecords1Proto.MySimpleRecord> listBuilder = ImmutableList.builder();
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
 
             for (int i = 0; i < 100; i++) {
-                TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder();
-                buildRecord.accept(i, record);
-                recordStore.saveRecord(record.build());
+                TestRecords1Proto.MySimpleRecord.Builder recordBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                buildRecord.accept(i, recordBuilder);
+                TestRecords1Proto.MySimpleRecord rec = recordBuilder.build();
+                recordStore.saveRecord(rec);
+                listBuilder.add(rec);
             }
             commit(context);
         }
+        return listBuilder.build();
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
@@ -540,7 +544,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 rec.setFint32(TupleFieldsHelper.toProto(i));
             }
             if (i != 6) {
-                rec.setFstring(TupleFieldsHelper.toProto(String.format("s%d", i)));
+                rec.setFstring(TupleFieldsHelper.toProto("s" + i));
             }
             recordStore.saveRecord(rec.build());
         }
@@ -621,6 +625,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     @Nonnull
     protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull String... allowedIndexes) {
+        return planGraph(querySupplier, Bindings.EMPTY_BINDINGS, allowedIndexes);
+    }
+
+    @Nonnull
+    protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull Bindings bindings, @Nonnull String... allowedIndexes) {
         assertThat(planner, instanceOf(CascadesPlanner.class));
         final CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
         final Optional<Collection<String>> allowedIndexesOptional;
@@ -629,7 +638,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         } else {
             allowedIndexesOptional = Optional.empty();
         }
-        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.EMPTY);
+        final QueryPlanResult planResult = cascadesPlanner.planGraph(querySupplier, allowedIndexesOptional, IndexQueryabilityFilter.DEFAULT, EvaluationContext.forBindings(bindings));
         return verifySerialization(planResult.getPlan());
     }
 
@@ -643,11 +652,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     protected static RecordQueryPlan verifySerialization(@Nonnull final RecordQueryPlan plan) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        final RecordQueryPlanProto.PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
+        final PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
         final byte[] serializedPlan = planProto.toByteArray();
-        final RecordQueryPlanProto.PRecordQueryPlan parsedPlanProto;
+        final PRecordQueryPlan parsedPlanProto;
         try {
-            parsedPlanProto = RecordQueryPlanProto.PRecordQueryPlan.parseFrom(serializedPlan);
+            parsedPlanProto = PRecordQueryPlan.parseFrom(serializedPlan);
         } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
         }

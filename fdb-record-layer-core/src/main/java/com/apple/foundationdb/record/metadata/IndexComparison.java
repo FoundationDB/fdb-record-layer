@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -54,7 +55,7 @@ public abstract class IndexComparison {
         } else if (proto.hasNullComparison()) {
             return new NullComparison(proto.getNullComparison());
         }
-        throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison '%s'", proto));
+        throw new RecordCoreException("attempt to deserialize unsupported comparison").addLogInfo(LogMessageKeys.COMPARISON_VALUE, proto);
     }
 
     /**
@@ -72,7 +73,7 @@ public abstract class IndexComparison {
         } else if (comparison instanceof Comparisons.NullComparison) {
             return new NullComparison((Comparisons.NullComparison)comparison);
         } else {
-            throw new RecordCoreException(String.format("attempt to create PoJo index comparison from unsupported comparison '%s'", comparison));
+            throw new RecordCoreException("attempt to create PoJo index comparison from unsupported comparison").addLogInfo(LogMessageKeys.COMPARISON_VALUE, comparison);
         }
     }
 
@@ -160,7 +161,7 @@ public abstract class IndexComparison {
                     this.comparisonType = ComparisonType.IS_NULL;
                     break;
                 default:
-                    throw new RecordCoreException(String.format("attempt to construct PoJo index comparison from unsupported comparison type '%s'", comparison.getType()));
+                    throw new RecordCoreException("attempt to construct PoJo index comparison from unsupported comparison type").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparison.getType());
             }
             this.operand = comparison.getComparand(null, null);
         }
@@ -199,7 +200,7 @@ public abstract class IndexComparison {
                     comparisonType = ComparisonType.IS_NULL;
                     break;
                 default:
-                    throw new RecordCoreException(String.format("attempt to deserialize unsupported comparison type '%s'", proto.getType()));
+                    throw new RecordCoreException("attempt to deserialize unsupported comparison type").addLogInfo(LogMessageKeys.COMPARISON_TYPE, proto.getType());
             }
             this.comparisonType = comparisonType;
             this.operand = comparand;
@@ -245,7 +246,7 @@ public abstract class IndexComparison {
                     protoComparison = RecordMetaDataProto.ComparisonType.IS_NULL;
                     break;
                 default:
-                    throw new RecordCoreException(String.format("serialising comparison type '%s' is not supported", comparisonType));
+                    throw new RecordCoreException("serializing comparison type is not supported").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparisonType);
             }
             return RecordMetaDataProto.Comparison.newBuilder().setSimpleComparison(RecordMetaDataProto.SimpleComparison.newBuilder()
                             .setType(protoComparison)
@@ -284,7 +285,7 @@ public abstract class IndexComparison {
                     type = Comparisons.Type.IS_NULL;
                     break;
                 default:
-                    throw new RecordCoreException(String.format("serialising comparison type '%s' is not supported", comparisonType));
+                    throw new RecordCoreException("serializing comparison type is not supported").addLogInfo(LogMessageKeys.COMPARISON_TYPE, comparisonType);
             }
             return new Comparisons.SimpleComparison(type, operand);
         }

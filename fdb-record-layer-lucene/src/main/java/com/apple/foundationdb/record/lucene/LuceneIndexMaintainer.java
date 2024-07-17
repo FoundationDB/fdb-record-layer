@@ -445,6 +445,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
+        return update(oldRecord, newRecord, null);
+    }
+
+    @Nonnull
+    <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
+                                                       @Nullable FDBIndexableRecord<M> newRecord,
+                                                       @Nullable Integer destinationPartitionIdHint) {
         LOG.trace("update oldRecord={}, newRecord={}", oldRecord, newRecord);
 
         // Extract information for grouping from old and new records
@@ -470,26 +477,23 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             try {
                 return tryDelete(Objects.requireNonNull(oldRecord), t);
             } catch (IOException e) {
-                throw new RecordCoreException("Issue deleting", e)
-                        .addLogInfo("record", Objects.requireNonNull(oldRecord).getPrimaryKey());
+                throw LuceneExceptions.wrapException("Issue deleting", e, "record", Objects.requireNonNull(oldRecord).getPrimaryKey());
             }
         }).collect(Collectors.toList())).thenCompose(ignored ->
                 // update new
                 AsyncUtil.whenAll(newRecordFields.entrySet().stream().map(entry -> {
                     try {
                         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
-                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey()).thenApply(partitionId -> {
+                                partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint).thenApply(partitionId -> {
                                     try {
                                         writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
                                     } catch (IOException e) {
-                                        throw new RecordCoreException("Issue updating new index keys", e)
-                                                .addLogInfo("newRecord", newRecord.getPrimaryKey());
+                                        throw LuceneExceptions.wrapException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
                                     }
                                     return null;
                                 }));
                     } catch (IOException e) {
-                        throw new RecordCoreException("Issue deleting", e)
-                                .addLogInfo("record", Objects.requireNonNull(newRecord).getPrimaryKey());
+                        throw LuceneExceptions.wrapException("Issue updating", e, "record", Objects.requireNonNull(newRecord).getPrimaryKey());
                     }
                 }).collect(Collectors.toList())));
     }
@@ -543,8 +547,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     }
                     return countDeleted;
                 } catch (IOException e) {
-                    throw new RecordCoreException("Issue deleting", e)
-                            .addLogInfo("record", record.getPrimaryKey());
+                    throw LuceneExceptions.wrapException("Issue deleting", e, "record", record.getPrimaryKey());
                 }
             }
             return 0;

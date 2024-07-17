@@ -27,11 +27,12 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -40,6 +41,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
@@ -61,7 +65,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
@@ -78,8 +81,9 @@ import java.util.stream.Stream;
 /**
  * A scalar value type.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
+public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
     @Override
@@ -123,7 +127,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return nestedBuilder.build();
         });
     }
-
 
     /**
      * Returns a human-friendly textual representation of this {@link Value}.
@@ -317,38 +320,96 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
             return false;
         }
 
-        final Value otherValue = (Value)other;
-        if (!equalsWithoutChildren(otherValue, aliasMap)) {
-            return false;
-        }
-
-        final Iterator<? extends Value> children = getChildren().iterator();
-        final Iterator<? extends Value> otherChildren = otherValue.getChildren().iterator();
-
-        while (children.hasNext()) {
-            if (!otherChildren.hasNext()) {
-                return false;
-            }
-
-            if (!children.next().semanticEquals(otherChildren.next(), aliasMap)) {
-                return false;
-            }
-        }
-
-        return !otherChildren.hasNext();
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
-    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default boolean equalsWithoutChildren(@Nonnull final Value other,
-                                          @Nonnull final AliasMap equivalenceMap) {
+    /**
+     * Overriding method of {@link UsesValueEquivalence#semanticEquals(Object, ValueEquivalence)} that attempts to
+     * assert equivalence of {@code this} and {@code other} using the {@link ValueEquivalence} that was passed in.
+     * @param other the other object to compare this object to
+     * @param valueEquivalence the value equivalence
+     * @return a boolean monad {@link BooleanWithConstraint} that is either effectively {@code false} or {@code true}
+     *         under the assumption that a contained query plan constraint is satisfied
+     */
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default BooleanWithConstraint semanticEquals(@Nullable final Object other,
+                                                 @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return true;
+            return BooleanWithConstraint.alwaysTrue();
         }
 
-        return other.getClass() == getClass();
+        if (!(other instanceof Value)) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        final var thisOther = semanticEqualsTyped((Value)other, valueEquivalence);
+
+        Debugger.sanityCheck(() -> {
+            final var inverseValueEquivalenceMaybe = valueEquivalence.inverseMaybe();
+            Verify.verify(inverseValueEquivalenceMaybe.isPresent());
+            final var otherThis =
+                    ((Value)other).semanticEqualsTyped(this, inverseValueEquivalenceMaybe.get());
+            Verify.verify(thisOther.isTrue() == otherThis.isTrue());
+        });
+
+        if (thisOther.isFalse()) {
+            //
+            // By the looks of it, otherValue is not equal to this value. However, maybe it's already in the
+            // valueEquivalence.
+            //
+            return valueEquivalence.isDefinedEqual(this, (Value)other);
+        }
+
+        return thisOther;
     }
 
     @Nonnull
+    @Override
+    default BooleanWithConstraint semanticEqualsTyped(@Nonnull final Value other,
+                                                      @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren = equalsWithoutChildren(other);
+        if (equalsWithoutChildren.isFalse()) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        var constraint = equalsWithoutChildren;
+        final Iterator<? extends Value> children = getChildren().iterator();
+        final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
+
+        while (children.hasNext()) {
+            if (!otherChildren.hasNext()) {
+                return BooleanWithConstraint.falseValue();
+            }
+
+            final var isChildEquals =
+                    children.next().semanticEquals(otherChildren.next(), valueEquivalence);
+            if (isChildEquals.isFalse()) {
+                return BooleanWithConstraint.falseValue();
+            }
+
+            constraint = constraint.composeWithOther(isChildEquals);
+        }
+
+        if (otherChildren.hasNext()) {
+            // otherValue has more children, it cannot be equivalent
+            return BooleanWithConstraint.falseValue();
+        }
+
+        return constraint;
+    }
+
+    @Nonnull
+    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
+    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        if (this == other) {
+            return BooleanWithConstraint.alwaysTrue();
+        }
+
+        return other.getClass() == getClass() ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
+    }
+
     default boolean canResultInType(@Nonnull final Type type) {
         return false;
     }
@@ -367,11 +428,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nonnull
-    RecordQueryPlanProto.PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
+    PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final RecordQueryPlanProto.PValue valueProto) {
+                                @Nonnull final PValue valueProto) {
         return (Value)PlanSerialization.dispatchFromProtoContainer(serializationContext, valueProto);
     }
 
@@ -475,22 +536,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                                      @Nonnull final AliasMap aliasMap,
                                      @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                      @Nonnull final CorrelationIdentifier upperBaseAlias) {
-        //
-        // Construct an alias map for equivalences.
-        //
-        final var correlatedTos = Streams.stream(toBePulledUpValues)
-                .map(Correlated::getCorrelatedTo)
-                .collect(ImmutableList.toImmutableList());
-
-        final var correlatedToDifference = Sets.newHashSet(Sets.difference(getCorrelatedTo(), aliasMap.sources()));
-        correlatedTos.forEach(correlatedToDifference::retainAll);
-
-        final var equivalenceMap = aliasMap.toBuilder()
-                .identitiesFor(correlatedToDifference)
-                .build();
-
         final var resultPair =
-                Simplification.compute(this, toBePulledUpValues, equivalenceMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
+                Simplification.compute(this, toBePulledUpValues, aliasMap, constantAliases, PullUpValueRuleSet.ofPullUpValueRules());
         if (resultPair == null) {
             return ImmutableMap.of();
         }
@@ -500,7 +547,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         for (final var toBePulledUpValue : toBePulledUpValues) {
             final var compensation = matchedValuesMap.get(toBePulledUpValue);
             if (compensation != null) {
-                resultsMap.put(toBePulledUpValue, compensation.apply(QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
+                resultsMap.put(toBePulledUpValue,
+                        compensation.compensate(upperBaseAlias,
+                                QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
             }
         }
 
@@ -570,43 +619,48 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
     }
 
+    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default boolean subsumedBy(@Nullable final Value other, @Nonnull final AliasMap aliasMap) {
+    default BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
         if (other == null) {
-            return false;
+            return BooleanWithConstraint.falseValue();
         }
 
         if (this == other) {
-            return true;
+            return BooleanWithConstraint.alwaysTrue();
         }
 
-        if (!subsumedByWithoutChildren(other, aliasMap)) {
-            return false;
+        if (subsumedByWithoutChildren(other).isFalse()) {
+            return BooleanWithConstraint.falseValue();
         }
 
         final Iterator<? extends Value> children = getChildren().iterator();
         final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
 
+        var subsumedBy = BooleanWithConstraint.alwaysTrue();
         while (children.hasNext()) {
             if (!otherChildren.hasNext()) {
-                return false;
+                return BooleanWithConstraint.falseValue();
             }
 
-            if (!children.next().subsumedBy(otherChildren.next(), aliasMap)) {
-                return false;
+            final var childSubsumedBy =
+                    children.next()
+                            .subsumedBy(otherChildren.next(), valueEquivalence);
+            if (childSubsumedBy.isFalse()) {
+                return BooleanWithConstraint.falseValue();
             }
+            subsumedBy = subsumedBy.composeWithOther(childSubsumedBy);
         }
 
-        return !otherChildren.hasNext();
+        if (!otherChildren.hasNext()) {
+            return subsumedBy;
+        }
+
+        return BooleanWithConstraint.falseValue();
     }
 
-    @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default boolean subsumedByWithoutChildren(@Nonnull final Value other,
-                                              @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-
-        return other.getClass() == getClass();
+    @Nonnull
+    default BooleanWithConstraint subsumedByWithoutChildren(@Nonnull final Value other) {
+        return equalsWithoutChildren(other);
     }
 }

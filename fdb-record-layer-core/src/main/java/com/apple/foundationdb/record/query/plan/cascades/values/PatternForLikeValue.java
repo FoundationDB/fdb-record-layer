@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PPatternForLikeValue;
+import com.apple.foundationdb.record.planprotos.PPatternForLikeValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -138,7 +138,7 @@ public class PatternForLikeValue extends AbstractValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -150,7 +150,7 @@ public class PatternForLikeValue extends AbstractValue {
     @Nonnull
     @Override
     public PPatternForLikeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PPatternForLikeValue.newBuilder()
+        return PPatternForLikeValue.newBuilder()
                 .setPatternChild(patternChild.toValueProto(serializationContext))
                 .setEscapeChild(escapeChild.toValueProto(serializationContext))
                 .build();
@@ -158,13 +158,13 @@ public class PatternForLikeValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setPatternForLikeValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setPatternForLikeValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static PatternForLikeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final RecordQueryPlanProto.PPatternForLikeValue patternForLikeValueProto) {
+                                                @Nonnull final PPatternForLikeValue patternForLikeValueProto) {
         return new PatternForLikeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())));
     }

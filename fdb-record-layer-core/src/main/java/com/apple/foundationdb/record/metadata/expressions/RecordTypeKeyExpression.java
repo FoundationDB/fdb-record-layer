@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.HashUtils;
@@ -42,12 +44,12 @@ import java.util.List;
  * A key expression that indicates that a unique record type identifier should
  * be contained within the key. The unique value can be specified explicitly or generated automatically
  * from the corresponding field numbers in the union message descriptor.
- *
+ * <br>
  * It is important that the unique identifiers are stable. A record type's identifier should never change.
  * If it is automatically generated, that means that fields should never be removed / reused in the union
  * message descriptor, but at most deprecated. In that way, the lowest numbered field for a given type
  * will always be the same.
- *
+ * <br>
  * If the record type key appears at the start of every primary key, the record extent is divided by type,
  * as in other database systems.
  * @see com.apple.foundationdb.record.metadata.RecordType#getExplicitRecordTypeKey
@@ -116,8 +118,8 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
-        return new RecordTypeValue(baseAlias);
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType, @Nonnull final List<String> fieldNamePrefix) {
+        return new RecordTypeValue(QuantifiedObjectValue.of(baseAlias, new Type.AnyRecord(true)));
     }
 
     @Override

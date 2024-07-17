@@ -77,7 +77,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         final String[] replacementIndexNames = new String[replacementIndexes.length];
         for (int i = 0; i < replacementIndexes.length; i++) {
             final String replacementIndexName = replacementIndexes[i].getName();
-            newOptions.put(String.format("%s_%02d", IndexOptions.REPLACED_BY_OPTION_PREFIX, i), replacementIndexName);
+            newOptions.put(IndexOptions.REPLACED_BY_OPTION_PREFIX + "_" + i, replacementIndexName);
             replacementIndexNames[i] = replacementIndexName;
         }
         Index newIndex = new IndexWithOptions(index, newOptions, false);

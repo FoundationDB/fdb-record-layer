@@ -83,7 +83,7 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
                                  @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-        return GraphExpansion.ofPredicate(keyExpression.toValue(baseQuantifier.getAlias(), fieldNamePrefix).withComparison(comparison));
+        return GraphExpansion.ofPredicate(keyExpression.toValue(baseQuantifier, fieldNamePrefix).withComparison(comparison));
     }
 
     @Override

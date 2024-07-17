@@ -26,15 +26,15 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PComparisonKeyFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PComparisonKeyFunction.POnKeyExpression;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PComparisonKeyFunction.POnValues;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PComparisonKeyFunction;
+import com.apple.foundationdb.record.planprotos.PComparisonKeyFunction.POnKeyExpression;
+import com.apple.foundationdb.record.planprotos.PComparisonKeyFunction.POnValues;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -92,7 +92,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                 }
                 if (previousPushedValue == null) {
                     previousPushedValue = pushedValueOptional.get();
-                    equivalencesMap = AliasMap.identitiesFor(previousPushedValue.getCorrelatedTo());
+                    equivalencesMap = AliasMap.emptyMap();
                 } else {
                     if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
                         return Optional.empty();
@@ -120,7 +120,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
         final CorrelationIdentifier targetAlias = Quantifier.uniqueID();
 
         for (final Value value : values) {
-            final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(targetAlias));
+            final AliasMap equivalencesMap = AliasMap.emptyMap();
             @Nullable Value previousPushedValue = null;
 
             for (int i = 0; i < dependentFunctions.size(); i++) {

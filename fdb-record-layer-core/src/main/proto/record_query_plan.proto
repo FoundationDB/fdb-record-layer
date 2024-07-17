@@ -19,12 +19,13 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record;
+package com.apple.foundationdb.record.planprotos;
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/any.proto";
 import "record_metadata.proto";
 
 option java_outer_classname = "RecordQueryPlanProto";
+option java_multiple_files = true;
 
 //
 // Type system
@@ -356,8 +357,23 @@ message PArithmeticValue {
       MOD_DF = 88;
       MOD_DD = 89;
 
-      BITBUCKET_L = 90;
-      BITBUCKET_I = 91;
+      BITOR_II = 90;
+      BITOR_IL = 91;
+      BITOR_LI = 92;
+      BITOR_LL = 93;
+
+      BITAND_II = 94;
+      BITAND_IL = 95;
+      BITAND_LI = 96;
+      BITAND_LL = 97;
+
+      BITXOR_II = 98;
+      BITXOR_IL = 99;
+      BITXOR_LI = 100;
+      BITXOR_LL = 101;
+
+      BITBUCKET_L = 102;
+      BITBUCKET_I = 103;
   }
 
   optional PPhysicalOperator operator = 1;
@@ -398,7 +414,8 @@ message PEmptyValue {
 }
 
 message PExistsValue {
-  optional PQuantifiedObjectValue child = 1;
+  optional PQuantifiedObjectValue child = 1; // deprecated
+  optional string alias = 2;
 }
 
 message PFieldValue {
@@ -561,7 +578,8 @@ message PRecordConstructorValue {
 }
 
 message PRecordTypeValue {
-  optional string alias = 1;
+  optional string alias = 1; // deprecated
+  optional PValue in = 2;
 }
 
 message PRelOpValue {
@@ -1166,6 +1184,7 @@ message PIndexKeyValueToPartialRecord {
     optional PTupleSource source = 2;
     optional PCopyIfPredicate copy_if_predicate = 3;
     repeated int32 ordinal_path = 4;
+    optional string invertible_function = 5;
   }
 
   enum PTupleSource {

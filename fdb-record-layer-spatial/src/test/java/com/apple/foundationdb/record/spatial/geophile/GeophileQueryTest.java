@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
@@ -143,7 +144,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         } finally {
             context.close();
         }
-        LOGGER.info(String.format("Loaded %d cities", total));
+        LOGGER.info(KeyValueLogMessage.of("Loaded cities", "count", total));
     }
 
     protected void loadCountries(RecordMetaDataHook hook, int minPopulation) throws Exception {
@@ -173,7 +174,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             }
             commit(context);
         }
-        LOGGER.info(String.format("Loaded %d countries", total));
+        LOGGER.info(KeyValueLogMessage.of("Loaded countries", "count", total));
     }
 
     protected void loadCountryShapes(RecordMetaDataHook hook) throws Exception {
@@ -189,7 +190,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                         String[] split = line.split("\t");
                         FDBStoredRecord<Message> country = recordStore.loadRecord(Tuple.from(Integer.parseInt(split[0])));
                         if (country == null) {
-                            LOGGER.warn(String.format("country not found: %s", split[0]));
+                            LOGGER.warn(KeyValueLogMessage.of("country not found", "country", split[0]));
                             continue;
                         }
                         TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
@@ -252,7 +253,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         Bindings.Builder bindings = Bindings.newBuilder();
         FDBStoredRecord<Message> city = recordStore.loadRecord(Tuple.from(cityId));
         if (city == null) {
-            LOGGER.warn(String.format("city not found: %s", cityId));
+            LOGGER.warn(KeyValueLogMessage.of("city not found", "city", cityId));
         } else {
             TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
                     .mergeFrom(city.getRecord());
@@ -287,7 +288,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                 recordCursor.forEach(city -> {
                     TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
                             .mergeFrom(city.getRecord());
-                    LOGGER.debug(String.format("Scan found %s: %s", cityBuilder.getGeoNameId(), cityBuilder.getName()));
+                    LOGGER.debug(KeyValueLogMessage.of("Scan found", "geo_name_id", cityBuilder.getGeoNameId(), "city", cityBuilder.getName()));
                     scanResults.add(cityBuilder.getGeoNameId());
                 }).join();
                 continuation = recordCursor.getNext().getContinuation().toBytes();
@@ -303,7 +304,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             recordCursor.forEach(city -> {
                 TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
                         .mergeFrom(city.getRecord());
-                LOGGER.debug(String.format("Index found %s: %s", cityBuilder.getGeoNameId(), cityBuilder.getName()));
+                LOGGER.debug(KeyValueLogMessage.of("Index found", "geo_name_id", cityBuilder.getGeoNameId(), "city", cityBuilder.getName()));
                 indexResults.add(cityBuilder.getGeoNameId());
             }).join();
             int given = timer.getCount(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN);
@@ -321,7 +322,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             recordCursor.forEach(city -> {
                 TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
                         .mergeFrom(city.getRecord());
-                LOGGER.debug(String.format("Covering found %s: %s", cityBuilder.getGeoNameId(), cityBuilder.getName()));
+                LOGGER.debug(KeyValueLogMessage.of("Covering found", "geo_name_id", cityBuilder.getGeoNameId(), "city", cityBuilder.getName()));
                 coveringResults.add(cityBuilder.getGeoNameId());
             }).join();
             commit(context);
@@ -379,10 +380,16 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                 if (!contained) {
                     stats[2]++;
                 } else if (!countryBuilder.getCode().equals(cityBuilder.getCountry())) {
-                    LOGGER.warn(String.format("Code does not match: %s for %s <> %s for %s", countryBuilder.getCode(), countryBuilder.getName(), cityBuilder.getCountry(), cityBuilder.getName()));
+                    LOGGER.warn(KeyValueLogMessage.of("Code does not match",
+                            "country_code", countryBuilder.getCode(),
+                            "country_name", countryBuilder.getName(),
+                            "city_country", cityBuilder.getCountry(),
+                            "city", cityBuilder.getName()));
                     stats[1]++;
                 } else {
-                    LOGGER.debug(String.format("%s: %s", countryBuilder.getName(), cityBuilder.getName()));
+                    LOGGER.debug(KeyValueLogMessage.of("join result",
+                            "country_name", countryBuilder.getName(),
+                            "city", cityBuilder.getName()));
                     stats[0]++;
                 }
             }).join();
@@ -390,8 +397,11 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         } catch (CompletionException ex) {
             assertThat(Throwables.getRootCause(ex), allOf(Matchers.instanceOf(FDBException.class), hasProperty("code", equalTo(1007))));  // transaction_too_old
         } finally {
-            LOGGER.info(String.format("match = %d, no match = %d, no overlap = %d, invalid geometry = %d",
-                    stats[0], stats[1], stats[2], stats[3]));
+            LOGGER.info(KeyValueLogMessage.of("testJoin stats",
+                    "match", stats[0],
+                    "no_match", stats[1],
+                    "no_overlap", stats[2],
+                    "invalid_geometry", stats[3]));
         }
     }
 

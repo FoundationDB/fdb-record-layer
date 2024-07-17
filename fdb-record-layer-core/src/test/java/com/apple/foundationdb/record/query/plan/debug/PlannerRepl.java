@@ -56,6 +56,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -330,7 +331,7 @@ public class PlannerRepl implements Debugger {
                                final Consumer<Reference> referenceConsumer,
                                final Consumer<Quantifier> quantifierConsumer) {
         final State state = getCurrentState();
-        final String upperCasePotentialIdentifier = potentialIdentifier.toUpperCase();
+        final String upperCasePotentialIdentifier = potentialIdentifier.toUpperCase(Locale.ROOT);
         if (upperCasePotentialIdentifier.startsWith("EXP")) {
             @Nullable final RelationalExpression expression = lookupInCache(state.getExpressionCache(), upperCasePotentialIdentifier, "EXP");
             if (expression == null) {
@@ -382,7 +383,7 @@ public class PlannerRepl implements Debugger {
     }
 
     boolean isValidEntityName(@Nonnull final String identifier) {
-        final String lowerCase = identifier.toLowerCase();
+        final String lowerCase = identifier.toLowerCase(Locale.ROOT);
         if (!lowerCase.startsWith("exp") &&
                 !lowerCase.startsWith("ref") &&
                 !lowerCase.startsWith("qun")) {
@@ -640,7 +641,7 @@ public class PlannerRepl implements Debugger {
         if (words.size() <= wordIndex) {
             return Optional.empty();
         }
-        final String commandToken = words.get(wordIndex).toUpperCase();
+        final String commandToken = words.get(wordIndex).toUpperCase(Locale.ROOT);
         return Optional.ofNullable(commandsMap.get(commandToken));
     }
 
@@ -756,7 +757,7 @@ public class PlannerRepl implements Debugger {
                                      @Nonnull final Location location) {
             super(event -> event.getShorthand() == shorthand && (location == Location.ANY || event.getLocation() == location));
             this.shorthand = shorthand;
-            this.referenceName = referenceName == null ? null : referenceName.toLowerCase();
+            this.referenceName = referenceName == null ? null : referenceName.toLowerCase(Locale.ROOT);
             this.location = location;
         }
 
@@ -792,11 +793,11 @@ public class PlannerRepl implements Debugger {
         public void onList(final PlannerRepl plannerRepl) {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
-            plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             if (getReferenceName() != null) {
-                plannerRepl.printKeyValue("reference", getReferenceName().toLowerCase() + "; ");
+                plannerRepl.printKeyValue("reference", getReferenceName().toLowerCase(Locale.ROOT) + "; ");
             }
-            plannerRepl.printKeyValue("location", getLocation().name().toLowerCase());
+            plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT));
         }
 
         @Override
@@ -851,7 +852,7 @@ public class PlannerRepl implements Debugger {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", Shorthand.RULECALL + "; ");
-            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("expression", expressionName);
         }
 
@@ -904,7 +905,7 @@ public class PlannerRepl implements Debugger {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", Shorthand.RULECALL + "; ");
-            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("candidate", candidateName);
         }
 

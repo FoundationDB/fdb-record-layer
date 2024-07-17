@@ -22,7 +22,8 @@ package com.apple.foundationdb.record.query.plan.serialization;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PPlanReference;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -50,9 +51,9 @@ public class PlanSerializationTest {
                 QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true,
                         ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.of("aField"))))),
                 ImmutableList.of("aField"));
-        final RecordQueryPlanProto.PValue valueProto = fieldValue.toValueProto(PlanSerializationContext.newForCurrentMode());
+        final PValue valueProto = fieldValue.toValueProto(PlanSerializationContext.newForCurrentMode());
         final byte[] valueBytes = valueProto.toByteArray();
-        final RecordQueryPlanProto.PValue parsedValueProto = RecordQueryPlanProto.PValue.parseFrom(valueBytes);
+        final PValue parsedValueProto = PValue.parseFrom(valueBytes);
         final Value parsedValue = Value.fromValueProto(PlanSerializationContext.newForCurrentMode(), parsedValueProto);
         Verify.verify(parsedValue instanceof FieldValue);
         Assertions.assertEquals(fieldValue, parsedValue);
@@ -73,9 +74,9 @@ public class PlanSerializationTest {
                                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
                 QueryPlanConstraint.tautology());
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
-        final RecordQueryPlanProto.PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
+        final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
-        final RecordQueryPlanProto.PPlanReference parsedProto = RecordQueryPlanProto.PPlanReference.parseFrom(bytes);
+        final PPlanReference parsedProto = PPlanReference.parseFrom(bytes);
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
         Verify.verify(parsedPlan instanceof RecordQueryIndexPlan);

@@ -377,19 +377,19 @@ public class ExecuteProperties {
             components.add(isolationLevel.toString());
         }
         if (skip != 0) {
-            components.add(String.format("skip %d", skip));
+            components.add("skip " + skip);
         }
         if (rowLimit != ReadTransaction.ROW_LIMIT_UNLIMITED) {
-            components.add(String.format("rowLimit %d", rowLimit));
+            components.add("rowLimit " + rowLimit);
         }
         if (timeLimit != UNLIMITED_TIME) {
-            components.add(String.format("timeLimit %d ms", timeLimit));
+            components.add("timeLimit " + timeLimit + " ms");
         }
         if (failOnScanLimitReached) {
             components.add("fail on scan limit");
         }
         components.add(state.toString());
-        return String.format("ExecuteProperties(%s)", String.join(", ", components));
+        return "ExecuteProperties(" + String.join(", ", components) + ")";
     }
 
     /**

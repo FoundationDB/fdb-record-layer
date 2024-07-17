@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.JoinedRecordType;
@@ -579,7 +580,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 allDependencies.put(dependency.getName(), dependency);
                 getDependencies(dependency, allDependencies, excludedDependencies);
             } else if (!allDependencies.get(dependency.getName()).equals(dependency)) {
-                throw new MetaDataException(String.format("Dependency mismatch found for file %s", dependency.getName()));
+                throw new MetaDataException("Dependency mismatch found for file").addLogInfo(LogMessageKeys.VALUE, dependency.getName());
             }
         }
     }

@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PTimeWindowScanComparisons;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
+import com.apple.foundationdb.record.planprotos.PTimeWindowScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -130,8 +130,8 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PIndexScanParameters.newBuilder().setTimeWindowScanComparisons(toProto(serializationContext)).build();
+    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexScanParameters.newBuilder().setTimeWindowScanComparisons(toProto(serializationContext)).build();
     }
 
     @Nonnull

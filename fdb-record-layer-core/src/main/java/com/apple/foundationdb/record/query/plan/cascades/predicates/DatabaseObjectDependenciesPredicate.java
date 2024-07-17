@@ -29,13 +29,15 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PDatabaseObjectDependenciesPredicate;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PDatabaseObjectDependenciesPredicate.PUsedIndex;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredicate;
+import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredicate.PUsedIndex;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
@@ -126,18 +128,19 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap aliasMap) {
-        if (!super.equalsWithoutChildren(other, aliasMap)) {
-            return false;
-        }
-
-        final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =
-                (DatabaseObjectDependenciesPredicate)other;
-        return usedIndexes.equals(otherDatabaseObjectDependenciesPredicate.usedIndexes);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        return super.equalsWithoutChildren(other, valueEquivalence)
+                .filter(ignored -> {
+                    final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =
+                            (DatabaseObjectDependenciesPredicate)other;
+                    return usedIndexes.equals(otherDatabaseObjectDependenciesPredicate.usedIndexes);
+                });
     }
 
 
@@ -153,8 +156,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PQueryPredicate.newBuilder().setDatabaseObjectDependenciesPredicate(toProto(serializationContext)).build();
+    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PQueryPredicate.newBuilder().setDatabaseObjectDependenciesPredicate(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -169,8 +172,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     }
 
     @Nonnull
-    public static <M extends Message> DatabaseObjectDependenciesPredicate fromPlan(@Nonnull final RecordMetaData recordMetaData,
-                                                                                   @Nonnull final RecordQueryPlan plan) {
+    public static DatabaseObjectDependenciesPredicate fromPlan(@Nonnull final RecordMetaData recordMetaData,
+                                                               @Nonnull final RecordQueryPlan plan) {
         final List<String> usedIndexesNamesList = Lists.newArrayList(plan.getUsedIndexes());
         // we have to do this to get a proper stable order
         Collections.sort(usedIndexesNamesList);

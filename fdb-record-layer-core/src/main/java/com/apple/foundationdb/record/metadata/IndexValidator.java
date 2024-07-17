@@ -65,13 +65,15 @@ public class IndexValidator {
         if (key instanceof GroupingKeyExpression) {
             if (((GroupingKeyExpression) key).getGroupedCount() < minGrouped) {
                 throw new KeyExpression.InvalidExpressionException(
-                        String.format("%s index requires grouping at least %d fields", index.getType(), minGrouped),
+                        "index type requires grouping at least " + minGrouped + " fields",
+                        LogMessageKeys.INDEX_TYPE, index.getType(),
                         LogMessageKeys.INDEX_NAME, index.getName(),
                         LogMessageKeys.INDEX_KEY, key);
             }
         } else {
             throw new KeyExpression.InvalidExpressionException(
-                    String.format("%s index requires grouping", index.getType()),
+                    "index type requires grouping",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, key);
         }
@@ -81,7 +83,8 @@ public class IndexValidator {
         KeyExpression key = index.getRootExpression();
         if (key instanceof GroupingKeyExpression) {
             throw new KeyExpression.InvalidExpressionException(
-                    String.format("grouping not possible in %s index", index.getType()),
+                    "grouping not possible in index type",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, key);
         }
@@ -90,7 +93,8 @@ public class IndexValidator {
     protected void validateStoresRecordVersions(@Nonnull RecordMetaDataProvider metaDataProvider) {
         if (!metaDataProvider.getRecordMetaData().isStoreRecordVersions()) {
             throw new MetaDataException(
-                    String.format("%s index requires metadata store record version", index.getType()),
+                    "index type requires metadata store record version",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, index.getRootExpression());
         }
@@ -100,8 +104,8 @@ public class IndexValidator {
         KeyExpression key = index.getRootExpression();
         if (key.versionColumns() != 1) {
             throw new KeyExpression.InvalidExpressionException(
-                    String.format("there must be exactly 1 version entry in %s index",
-                            index.getType()),
+                    "there must be exactly 1 version entry in index",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, key);
         }
@@ -115,16 +119,16 @@ public class IndexValidator {
             KeyExpression groupingKey = grouping.getGroupingSubKey();
             if (groupingKey.versionColumns() != 0) {
                 throw new KeyExpression.InvalidExpressionException(
-                        String.format("there must be no version entries in grouping key in %s index",
-                                index.getType()),
+                        "there must be no version entries in grouping key in index",
+                        LogMessageKeys.INDEX_TYPE, index.getType(),
                         LogMessageKeys.INDEX_NAME, index.getName(),
                         LogMessageKeys.INDEX_KEY, key);
             }
             final KeyExpression groupedKey = grouping.getGroupedSubKey();
             if (groupedKey.versionColumns() != 1) {
                 throw new KeyExpression.InvalidExpressionException(
-                        String.format("there must be exactly 1 version entry in grouped key in %s index",
-                                index.getType()),
+                        "there must be exactly 1 version entry in grouped key in index",
+                        LogMessageKeys.INDEX_TYPE, index.getType(),
                         LogMessageKeys.INDEX_NAME, index.getName(),
                         LogMessageKeys.INDEX_KEY, key);
             }
@@ -133,8 +137,9 @@ public class IndexValidator {
 
     protected void validateNotUnique() {
         if (index.isUnique()) {
-            throw new MetaDataException(String.format(
-                    "%s index does not allow unique indexes", index.getType()),
+            throw new MetaDataException(
+                    "index type does not allow unique indexes",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, index.getRootExpression());
         }
@@ -144,7 +149,8 @@ public class IndexValidator {
         KeyExpression key = index.getRootExpression();
         if (key.versionColumns() > 0) {
             throw new KeyExpression.InvalidExpressionException(
-                    String.format("version key not possible in %s index", index.getType()),
+                    "version key not possible in index type",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, index.getRootExpression());
         }
@@ -154,7 +160,8 @@ public class IndexValidator {
         KeyExpression key = index.getRootExpression();
         if (key instanceof KeyWithValueExpression) {
             throw new KeyExpression.InvalidExpressionException(
-                    String.format("no value expression allowed in %s index", index.getType()),
+                    "no value expression allowed in index type",
+                    LogMessageKeys.INDEX_TYPE, index.getType(),
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_KEY, index.getRootExpression());
         }

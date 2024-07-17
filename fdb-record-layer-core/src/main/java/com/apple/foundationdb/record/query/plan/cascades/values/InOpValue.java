@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInOpValue;
+import com.apple.foundationdb.record.planprotos.PInOpValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -174,7 +174,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -188,8 +188,8 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setInOpValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setInOpValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -210,10 +210,10 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
-            SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
@@ -225,11 +225,26 @@ public class InOpValue extends AbstractValue implements BooleanValue {
                 // Incompatible types
                 SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
 
-                // Promote arg0 if the resultant type is different
+                // Promote arg0 if the resulting type is different
                 if (!arg0.getResultType().equals(maximumType)) {
                     return new InOpValue(PromoteValue.inject((Value)arg0, maximumType), (Value)arg1);
                 } else {
                     return new InOpValue((Value)arg0, PromoteValue.inject((Value)arg1, new Type.Array(maximumType)));
+                }
+            }
+
+            if (res0.isRecord()) {
+                // we cannot yet promote this properly
+                SemanticException.check(arrayElementType.isRecord(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                final var probeElementTypes = Objects.requireNonNull(((Type.Record)res0).getElementTypes());
+                final var inElementTypes = Objects.requireNonNull(((Type.Record)arrayElementType).getElementTypes());
+                for (int i = 0; i < inElementTypes.size(); i++) {
+                    final var probeElementType = probeElementTypes.get(i);
+                    final var inElementType = inElementTypes.get(i);
+                    SemanticException.check(probeElementType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                    SemanticException.check(inElementType.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                    SemanticException.check(probeElementType.getTypeCode() == inElementType.getTypeCode(),
+                            SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
                 }
             }
             return new InOpValue((Value)arg0, (Value)arg1);

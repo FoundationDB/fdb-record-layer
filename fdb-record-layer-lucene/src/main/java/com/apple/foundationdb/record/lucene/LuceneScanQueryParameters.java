@@ -23,21 +23,23 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanQueryParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
+import com.apple.foundationdb.record.planprotos.PLuceneScanQueryParameters;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +47,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,6 +62,7 @@ import java.util.Set;
 @API(API.Status.UNSTABLE)
 public class LuceneScanQueryParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Query");
+    public static final Logger LOGGER = LoggerFactory.getLogger(LuceneScanQueryParameters.class);
 
     @Nonnull
     final LuceneQueryClause query;
@@ -136,6 +141,13 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     @Nonnull
     @Override
     public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.build("LuceneScanQueryParameters binding")
+                    .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
+                    .addKeyAndValue(LogMessageKeys.QUERY, this.query)
+                    .toString());
+        }
+
         final LuceneQueryClause.BoundQuery boundQuery = query.bind(store, index, context);
         if (luceneQueryHighlightParameters != null) {
             luceneQueryHighlightParameters.query = boundQuery.getLuceneQuery();
@@ -243,8 +255,8 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PIndexScanParameters.newBuilder()
+    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexScanParameters.newBuilder()
                 .setAdditionalIndexScanParameters(PlanSerialization.protoObjectToAny(serializationContext, toProto(serializationContext)))
                 .build();
     }

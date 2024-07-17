@@ -23,23 +23,22 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneScanSpellCheckParameters;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
+import com.apple.foundationdb.record.planprotos.PLuceneScanSpellCheckParameters;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +50,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.planprotos.LuceneRecordQueryPlanProto.luceneScanSpellCheckParameters;
 
 /**
  * Scan parameters for making a {@link LuceneScanSpellCheck}.
@@ -192,9 +193,9 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PIndexScanParameters.newBuilder()
-                .setExtension(LuceneRecordQueryPlanProto.luceneScanSpellCheckParameters, toProto(serializationContext))
+    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PIndexScanParameters.newBuilder()
+                .setExtension(luceneScanSpellCheckParameters, toProto(serializationContext))
                 .build();
     }
 

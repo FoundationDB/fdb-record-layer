@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintena
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
@@ -40,6 +41,7 @@ import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.index.MergeTrigger;
 import org.apache.lucene.index.StandardDirectoryReaderOptimization;
 import org.apache.lucene.index.TieredMergePolicy;
+import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,14 +76,23 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile DirectoryReader writerReader;
 
-    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount, final AgilityContext agilityContext) {
+    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
         final Subspace subspace = state.indexSubspace.subspace(key);
         final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
         final Tuple sharedCacheKey = sharedCacheManager == null ? null :
                                      (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
         this.state = state;
         this.key = key;
-        this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext);
+        this.directory = new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize);
+        this.agilityContext = agilityContext;
+        this.mergeDirectoryCount = mergeDirectoryCount;
+    }
+
+    @VisibleForTesting
+    public FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory, Tuple key, int mergeDirectoryCount, final AgilityContext agilityContext) {
+        this.state = state;
+        this.key = key;
+        this.directory = directory;
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
     }
@@ -294,16 +305,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
-        if (writer != null) {
-            writer.close();
-            writer = null;
-            writerAnalyzerId = null;
-            if (writerReader != null) {
-                writerReader.close();
-                writerReader = null;
-            }
-        }
-        directory.close();
+        IOUtils.close(writer, writerReader, directory);
+        writer = null;
+        writerAnalyzerId = null;
+        writerReader = null;
     }
 
     public void mergeIndex(@Nonnull LuceneAnalyzerWrapper analyzerWrapper, final Exception exceptionAtCreation) throws IOException {

@@ -26,17 +26,16 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.AsyncBoolean;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -45,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -80,14 +80,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
             predicatesBuilder.add(QueryPredicate.fromQueryPredicateProto(serializationContext, recordQueryPredicatesFilterPlanProto.getPredicates(i)));
         }
         this.predicates = predicatesBuilder.build();
-        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
+        this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
     public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
-        this.conjunctedPredicate = AndPredicate.andOrTrue(this.predicates);
+        this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
     @Nonnull
@@ -239,8 +239,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setPredicatesFilterPlan(toProto(serializationContext)).build();
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder().setPredicatesFilterPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull

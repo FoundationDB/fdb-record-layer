@@ -165,7 +165,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      */
     @Nonnull
     public QueryComponent in(@Nonnull List<?> comparand) {
-        return withComparison(Comparisons.Type.IN, comparand);
+        return withComparison(new Comparisons.ListComparison(Comparisons.Type.IN, comparand));
     }
 
     /**

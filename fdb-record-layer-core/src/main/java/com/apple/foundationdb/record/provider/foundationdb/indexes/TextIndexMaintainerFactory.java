@@ -117,7 +117,9 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
                 } else {
                     Descriptors.FieldDescriptor textFieldDescriptor = fields.get(textFieldPosition);
                     if (!textFieldDescriptor.getType().equals(Descriptors.FieldDescriptor.Type.STRING)) {
-                        throw new KeyExpression.InvalidExpressionException(String.format("text index has non-string type %s as text field", textFieldDescriptor.getLiteJavaType()));
+                        throw new KeyExpression.InvalidExpressionException("text index has non-string type as text field")
+                                .addLogInfo(LogMessageKeys.EXPECTED_TYPE, Descriptors.FieldDescriptor.Type.STRING)
+                                .addLogInfo(LogMessageKeys.ACTUAL_TYPE, textFieldDescriptor.getLiteJavaType());
                     }
                     if (textFieldDescriptor.isRepeated()) {
                         throw new KeyExpression.InvalidExpressionException("text index does not allow a repeated field for text body");

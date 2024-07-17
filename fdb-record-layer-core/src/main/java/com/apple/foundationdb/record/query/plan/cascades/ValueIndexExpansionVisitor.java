@@ -141,7 +141,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                     // we check if the predicate value is a placeholder, if so, create a placeholder, otherwise, add it as a constraint.
                     final var maybePlaceholder = keyValueExpansion.getPlaceholders()
                             .stream()
-                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.identitiesFor(existingPlaceholder.getCorrelatedTo())))
+                            .filter(existingPlaceholder -> existingPlaceholder.getValue().semanticEquals(value, AliasMap.emptyMap()))
                             .findFirst();
                     if (maybePlaceholder.isEmpty()) {
                         predicateExpansionBuilder.addPredicate(PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.copyOf(valueRanges.get(value))));

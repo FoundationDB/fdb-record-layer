@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Expan
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -408,8 +410,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
-                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(), remainingValueComputationOptional, Optional.empty())
-                                .map(ImmutableList::of)
+                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
+                                remainingValueComputationOptional, Optional.empty(), QueryPlanConstraint.tautology())
+                        .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
                 return ImmutableList.of();
@@ -420,6 +423,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var localAliases = correlationOrder.getSet();
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
+
+        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
+                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
@@ -458,7 +464,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             }
 
             final Iterable<PredicateMapping> impliedMappingsForPredicate =
-                    predicate.findImpliedMappings(bindingAliasMap, candidateSelectExpression.getPredicates(), evaluationContext);
+                    predicate.findImpliedMappings(bindingValueEquivalence, candidateSelectExpression.getPredicates(),
+                            evaluationContext);
 
             predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
@@ -513,7 +520,8 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 return allParameterBindingMapOptional
                                         .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap,
                                                 allParameterBindingMap, predicateMap, PredicateMap.empty(),
-                                                remainingValueComputationOptional, Optional.empty()))
+                                                remainingValueComputationOptional, Optional.empty(),
+                                                QueryPlanConstraint.tautology()))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })
@@ -549,14 +557,14 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
-                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.andOrTrue(getPredicates())),
+                        getPredicates().isEmpty() ? ImmutableList.of() : ImmutableList.of("WHERE " + AndPredicate.and(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValue + " WHERE " + AndPredicate.andOrTrue(getPredicates());
+        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
     }
 
     /**

@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PConstantValue;
+import com.apple.foundationdb.record.planprotos.PConstantValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -98,14 +99,11 @@ public class ConstantValue extends AbstractValue implements LeafValue {
         return false;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final ConstantValue that = (ConstantValue)other;
-        return value.equals(that.value);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return LeafValue.super.equalsWithoutChildren(other)
+                .filter(ignored -> value.equals(((ConstantValue)other).value));
     }
 
     @Override
@@ -157,8 +155,8 @@ public class ConstantValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setConstantValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setConstantValue(toProto(serializationContext)).build();
     }
 
     @Nonnull

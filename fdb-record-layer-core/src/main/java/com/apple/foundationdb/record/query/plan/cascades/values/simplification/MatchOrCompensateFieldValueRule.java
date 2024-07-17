@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
@@ -43,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, Function<Value, Value>>, FieldValue> {
+public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, FieldValue> {
     @Nonnull
     private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
 
@@ -59,7 +58,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, Function<Value, Value>>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
         final var bindings = call.getBindings();
         final var fieldValue = bindings.get(rootMatcher);
 
@@ -68,7 +67,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
         final var matchedValuesMap =
                 resultPairFromChild == null ? null : resultPairFromChild.getRight();
 
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, Function<Value, Value>>();
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
 
         for (final var toBePulledUpValue : toBePulledUpValues) {
             if (toBePulledUpValue instanceof FieldValue) {
@@ -84,7 +83,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
                         final var pathSuffixOptional = FieldValue.stripFieldPrefixMaybe(toBePulledUpFieldValue.getFieldPath(), fieldValue.getFieldPath());
                         pathSuffixOptional.ifPresent(pathSuffix -> {
                             if (pathSuffix.isEmpty()) {
-                                newMatchedValuesMap.put(toBePulledUpValue, Function.identity());
+                                newMatchedValuesMap.put(toBePulledUpValue, PullUpCompensation.noCompensation());
                             } else {
                                 newMatchedValuesMap.put(toBePulledUpValue, new FieldValueCompensation(pathSuffix));
                             }

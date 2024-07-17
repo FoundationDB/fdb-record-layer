@@ -27,11 +27,12 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PArithmeticValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PArithmeticValue;
+import com.apple.foundationdb.record.planprotos.PArithmeticValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -143,9 +144,18 @@ public class ArithmeticValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
     }
 
+    @Nonnull
+    @Override
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other).filter(ignored -> {
+            ArithmeticValue otherArithmetic = (ArithmeticValue)other;
+            return operator.equals(otherArithmetic.operator);
+        });
+    }
+
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + leftChild + ", " + rightChild + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + leftChild + ", " + rightChild + ")";
     }
 
     @Override
@@ -157,7 +167,7 @@ public class ArithmeticValue extends AbstractValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -172,8 +182,8 @@ public class ArithmeticValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -205,7 +215,7 @@ public class ArithmeticValue extends AbstractValue {
         final Type type1 = arg1.getResultType();
         SemanticException.check(type1.isPrimitive(), SemanticException.ErrorCode.ARGUMENT_TO_ARITHMETIC_OPERATOR_IS_OF_COMPLEX_TYPE);
 
-        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.getDefault())).toJavaUtil();
+        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.ROOT)).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
         final PhysicalOperator physicalOperator =
@@ -280,8 +290,38 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
+     * The bitwise {@code or} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitOrFn extends BuiltInFunction<Value> {
+        public BitOrFn() {
+            super("bitor",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
      * The bitwise {@code and} function.
      */
+    @AutoService(BuiltInFunction.class)
+    public static class BitAndFn extends BuiltInFunction<Value> {
+        public BitAndFn() {
+            super("bitand",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
+     * The bitwise {@code xor} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitXorFn extends BuiltInFunction<Value> {
+        public BitXorFn() {
+            super("bitxor",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
     @AutoService(BuiltInFunction.class)
     public static class BitBucketFn extends BuiltInFunction<Value> {
         public BitBucketFn() {
@@ -299,6 +339,10 @@ public class ArithmeticValue extends AbstractValue {
         MUL("*"),
         DIV("/"),
         MOD("%"),
+
+        BITOR("|"),
+        BITAND("&"),
+        BITXOR("^"),
         BIT_BUCKET("bit_bucket")
         ;
 
@@ -414,6 +458,20 @@ public class ArithmeticValue extends AbstractValue {
         MOD_DF(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.FLOAT, TypeCode.DOUBLE, (l, r) -> (double)l % (float)r),
         MOD_DD(LogicalOperator.MOD, TypeCode.DOUBLE, TypeCode.DOUBLE, TypeCode.DOUBLE, (l, r) -> (double)l % (double)r),
 
+        BITOR_II(LogicalOperator.BITOR, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l | (int)r),
+        BITOR_IL(LogicalOperator.BITOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l | (long)r),
+        BITOR_LI(LogicalOperator.BITOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l | (int)r),
+        BITOR_LL(LogicalOperator.BITOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l | (long)r),
+
+        BITAND_II(LogicalOperator.BITAND, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l & (int)r),
+        BITAND_IL(LogicalOperator.BITAND, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l & (long)r),
+        BITAND_LI(LogicalOperator.BITAND, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l & (int)r),
+        BITAND_LL(LogicalOperator.BITAND, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l & (long)r),
+
+        BITXOR_II(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> (int)l ^ (int)r),
+        BITXOR_IL(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l ^ (long)r),
+        BITXOR_LI(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l ^ (int)r),
+        BITXOR_LL(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l ^ (long)r),
         BITBUCKET_L(LogicalOperator.BIT_BUCKET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
         BITBUCKET_I(LogicalOperator.BIT_BUCKET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
         ;

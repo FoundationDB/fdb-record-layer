@@ -28,15 +28,15 @@ import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -283,11 +283,11 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     Message toProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
-    RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext);
+    PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static RecordQueryPlan fromRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final RecordQueryPlanProto.PRecordQueryPlan recordQueryPlanProto) {
+                                                    @Nonnull final PRecordQueryPlan recordQueryPlanProto) {
         return (RecordQueryPlan)PlanSerialization.dispatchFromProtoContainer(serializationContext, recordQueryPlanProto);
     }
 }

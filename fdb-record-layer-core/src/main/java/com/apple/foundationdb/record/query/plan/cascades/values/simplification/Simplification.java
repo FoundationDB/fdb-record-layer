@@ -290,11 +290,12 @@ public class Simplification {
                                                                                       @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                                                                       @Nonnull final QueryPredicateComputationRuleSet<ARGUMENT, List<QueryPlanConstraint>> ruleSet) {
         final var resultsMap = new LinkedIdentityMap<QueryPredicate, Pair<QueryPredicate, List<QueryPlanConstraint>>>();
-        final var simplifiedPredicate = simplifyWithReExploration(root,
-                root,
-                resultsMap,
-                ruleSet,
-                (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
+        final var simplifiedPredicate =
+                simplifyWithReExploration(root,
+                        root,
+                        resultsMap,
+                        ruleSet,
+                        (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
         return simplifiedPredicate == root
                ? Pair.of(root, ImmutableList.of(QueryPlanConstraint.tautology()))
                : Verify.verifyNotNull(resultsMap.get(simplifiedPredicate));

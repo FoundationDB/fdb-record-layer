@@ -26,10 +26,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionBiFunction;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PCoercionTrieNode;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PTransformationTrieNode;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.planprotos.PCoercionBiFunction;
+import com.apple.foundationdb.record.planprotos.PCoercionTrieNode;
+import com.apple.foundationdb.record.planprotos.PTransformationTrieNode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -172,6 +172,39 @@ public class MessageHelpers {
             throw new Query.InvalidExpressionException("Missing field (#ord=" + fieldOrdinal + ")");
         }
         return message.getDescriptorForType().getFields().get(fieldOrdinal);
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public static boolean compareMessageEquals(@Nonnull Object o1, @Nonnull Object o2) {
+        if (!(o1 instanceof Message) || !(o2 instanceof Message)) {
+            return false;
+        }
+        MessageOrBuilder m1 = (MessageOrBuilder) o1;
+        MessageOrBuilder m2 = (MessageOrBuilder) o2;
+
+        if (m1.getDescriptorForType() == m2.getDescriptorForType()) {
+            return m1.equals(m2);
+        }
+
+        if (m1.getDescriptorForType().getFields().size() != m2.getDescriptorForType().getFields().size()) {
+            return false;
+        }
+        // compare FieldDescriptors one by one
+        for (int i = 1; i <= m1.getDescriptorForType().getFields().size(); i++) {
+            Descriptors.FieldDescriptor f1 = findFieldDescriptorOnMessage(m1, i);
+            Descriptors.FieldDescriptor f2 = findFieldDescriptorOnMessage(m2, i);
+            // do not support repeated or nested fields in the message
+            Verify.verify(!f1.isRepeated() && !f1.isMapField() && f1.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE);
+            Verify.verify(!f2.isRepeated() && !f2.isMapField() && f2.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE);
+            if (f1.getJavaType() == f2.getJavaType() && m1.getField(f1).equals(m2.getField(f2))) {
+                if (!m1.getField(f1).equals(m2.getField(f2))) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Nullable

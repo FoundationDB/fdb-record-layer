@@ -211,6 +211,7 @@ subprojects {
                 // exclude generated Protobuf classes
                 exclude "**/*Proto.java"
                 exclude "**/*ProtoV3.java"
+                exclude "com/apple/foundationdb/record/planprotos/*.java"
                 options.addBooleanOption('Xwerror', true)
                 options.addStringOption('source', '11')
                 options.with {

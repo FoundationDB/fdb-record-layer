@@ -27,22 +27,25 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PQuantifiedObjectValue;
+import com.apple.foundationdb.record.planprotos.PQuantifiedObjectValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -113,6 +116,29 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     @Override
+    public Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
+                                    @Nonnull final AliasMap aliasMap,
+                                    @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                    @Nonnull final CorrelationIdentifier upperBaseAlias) {
+        final var areSimpleReferences =
+                Streams.stream(toBePulledUpValues)
+                        .flatMap(toBePulledUpValue -> toBePulledUpValue.getCorrelatedTo().stream())
+                        .noneMatch(a -> !alias.equals(a) && constantAliases.contains(a));
+        if (areSimpleReferences) {
+            final var translationMap =
+                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(alias, upperBaseAlias));
+            final var translatedMapBuilder = ImmutableMap.<Value, Value>builder();
+            for (final var toBePulledUpValue : toBePulledUpValues) {
+                translatedMapBuilder.put(toBePulledUpValue, toBePulledUpValue.translateCorrelations(translationMap));
+            }
+            return translatedMapBuilder.build();
+        }
+
+        return super.pullUp(toBePulledUpValues, aliasMap, constantAliases, upperBaseAlias);
+    }
+
+    @Nonnull
+    @Override
     public String explain(@Nonnull final Formatter formatter) {
         return formatter.getQuantifierName(alias);
     }
@@ -141,7 +167,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
@@ -169,9 +195,9 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
-        return RecordQueryPlanProto.PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
+        return PValue.newBuilder().setQuantifiedObjectValue(specificValueProto).build();
     }
 
     @Nonnull

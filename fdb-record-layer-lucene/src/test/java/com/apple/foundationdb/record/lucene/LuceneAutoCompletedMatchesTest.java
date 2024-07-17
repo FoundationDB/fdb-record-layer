@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -41,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LuceneAutoCompletedMatchesTest {
     private static Analyzer getTestAnalyzer() {
-        return new StandardAnalyzer();
+        return new EmailCjkSynonymAnalyzer(EmailCjkSynonymAnalyzerFactory.MINIMAL_STOP_WORDS, 3, 3, 255, true, false, null);
     }
 
     @SuppressWarnings("unused") // used as argument source for parameterized test
@@ -61,6 +60,27 @@ class LuceneAutoCompletedMatchesTest {
     @MethodSource
     void searchForQua(String text, int numAdditionalTokens, List<String> expected) throws IOException {
         assertComputeAllMatches("qua", Collections.emptyList(), ImmutableSet.of("qua"), text, numAdditionalTokens, expected);
+    }
+
+    static Stream<Arguments> searchForCjk() {
+        return ImmutableList.of(
+                Arguments.of("世上无难事", "上无", ImmutableList.of("上"), "无", 0, ImmutableList.of("上无")),
+                Arguments.of("世上无难事 上无", "上无 ", ImmutableList.of("上", "无"), null, 2, ImmutableList.of("上无难事", "上无")),
+                Arguments.of("世上无难事 上无 english word", "上无 eng", ImmutableList.of("上", "无"), "eng", 1, ImmutableList.of("上无 english word")),
+                Arguments.of("世の中に難しいことなんてないよ の中に難し", "の中に", ImmutableList.of("の", "中"), "に", 3, ImmutableList.of("の中に難しい", "の中に難し")),
+                Arguments.of("世ノ中ニシイコトナンテナ", "シイコ", ImmutableList.of("シ", "イ"), "コ", 3, ImmutableList.of("シイコトナン")),
+                Arguments.of("世ノ中ニシイenglishコトナンテナ", "シイ", ImmutableList.of("シ"), "イ", 5, ImmutableList.of("シイenglishコトナン")),
+                Arguments.of("世ノ中 世の中に難しい", "世", ImmutableList.of(), "世", 3, ImmutableList.of("世ノ中 世", "世の中に")),
+                Arguments.of("세상에 english words 어려운 일은 없다", "english wor", ImmutableList.of("english"), "wor", 4, ImmutableList.of("english words 어려운 일")),
+                Arguments.of("세상에english words 어려운 일은 없다", "세상에english wor", ImmutableList.of("세상에english"), "wor", 4, ImmutableList.of("세상에english words 어려운 일")),
+                Arguments.of("세상에english words 어려운 일은 없다", "에english wor", ImmutableList.of("에english"), "wor", 4, ImmutableList.of()), // Hangul character is treated as alphanumeric here, since it's treated like other scripts' letters
+                Arguments.of("세상에 어려운 일은 없다", "어려", ImmutableList.of("어"), "려", 2, ImmutableList.of("어려운 일"))).stream();
+    }
+
+    @ParameterizedTest(name = "searchForCjk[text={1}]")
+    @MethodSource
+    void searchForCjk(String text, String query, List<String> expectedTokens, String expectedPrefix, int numAdditionalTokens, List<String> expected) throws IOException {
+        assertComputeAllMatchesForPhrase(query, expectedTokens, expectedPrefix, text, numAdditionalTokens, expected);
     }
 
     @SuppressWarnings("unused") // used as argument source for parameterized test
@@ -159,6 +179,8 @@ class LuceneAutoCompletedMatchesTest {
 
     @Test
     void autoCompleteMatchesWithStopWord() {
-        assertComputeAllMatchesForPhrase("United States of Ameri", List.of("united", "states", "of"), "ameri", "United States of America", 0, ImmutableList.of("United States of America"));
+        assertComputeAllMatchesForPhrase("United States of Ameri", List.of("united", "states"), "ameri", "United States of America", 0, ImmutableList.of("United States of America"));
+        assertComputeAllMatchesForPhrase("United States of", List.of("united", "states"), null, "United States of America", 1, ImmutableList.of("United States of America"));
+        assertComputeAllMatchesForPhrase("United States", List.of("united"), "states", "United States of America", 1, ImmutableList.of("United States of America"));
     }
 }

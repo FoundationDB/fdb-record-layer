@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -144,7 +144,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
             // keep a side structure to avoid re-computation of the combined orderings
             final var merge =
-                    Lists.<Pair<Ordering /* merged ordering */, Ordering /* current ordering */>>newArrayList();
+                    Lists.<Pair<Ordering.Union /* merged ordering */, Ordering /* current ordering */>>newArrayList();
             while (partitionsCrossProductIterator.hasNext()) {
                 final var partitions = partitionsCrossProductIterator.next();
 
@@ -174,13 +174,13 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
                 while (merge.size() < orderings.size()) {
                     if (merge.isEmpty()) {
-                        merge.add(Pair.of(orderings.get(0), orderings.get(0)));
+                        merge.add(Pair.of(Ordering.UNION.createFromOrdering(orderings.get(0)), orderings.get(0)));
                     } else {
                         final var lastMerged = merge.size() - 1;
                         final var mergedOrdering =
-                                Ordering.mergeOrderings(ImmutableList.of(merge.get(lastMerged).getKey(),
-                                        orderings.get(merge.size())),
-                                        Ordering::intersectEqualityBoundKeys, true);
+                                Ordering.merge(ImmutableList.of(merge.get(lastMerged).getKey(),
+                                                orderings.get(merge.size())),
+                                        Ordering.UNION, (left, right) -> true);
 
                         // make sure the common primary key parts are either bound through equality or they are part of the ordering
                         if (isPrimaryKeyCompatibleWithOrdering(commonPrimaryKeyValues, mergedOrdering)) {
@@ -195,7 +195,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                 }
 
                 if (merge.size() == orderings.size()) {
-                    final var mergedOrdering = merge.get(merge.size() - 1).getKey();
+                    final var unionOrdering = merge.get(merge.size() - 1).getKey();
 
                     //
                     // create new quantifiers
@@ -208,13 +208,20 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                     .collect(ImmutableList.toImmutableList());
 
                     final var enumeratedSatisfyingComparisonKeyValues =
-                            mergedOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
+                            unionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
 
                     for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
+                        final var directionalOrderingParts =
+                                unionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, ProvidedSortOrder.FIXED);
+                        final var comparisonDirectionOptional =
+                                Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, ImmutableList.copyOf(comparisonKeyValues), true));
+                        comparisonDirectionOptional.ifPresent(isReverse ->
+                                call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
+                                        ImmutableList.copyOf(comparisonKeyValues), isReverse,
+                                        true)));
                     }
                 }
             }
@@ -235,10 +242,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
     private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyValues,
                                                        @Nonnull final Ordering ordering) {
         final var orderingValues =
-                ordering.getOrderingSet().getSet()
-                        .stream()
-                        .map(OrderingPart::getValue)
-                        .collect(ImmutableSet.toImmutableSet());
+                ordering.getOrderingSet().getSet();
         for (final var primaryKeyValue : primaryKeyValues) {
             if (!orderingValues.contains(primaryKeyValue)) {
                 return false;

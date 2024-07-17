@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -51,8 +52,8 @@ import java.util.stream.Collectors;
 public class DebuggerWithSymbolTables implements Debugger {
     private static final Logger logger = LoggerFactory.getLogger(DebuggerWithSymbolTables.class);
 
+    private final boolean isSane;
     private final Deque<State> stateStack;
-
     @Nullable
     private String queryAsString;
     @Nullable
@@ -60,7 +61,8 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Nonnull
     private final Map<Object, Integer> singletonToIndexMap;
 
-    public DebuggerWithSymbolTables() {
+    private DebuggerWithSymbolTables(final boolean isSane) {
+        this.isSane = isSane;
         this.stateStack = new ArrayDeque<>();
         this.planContext = null;
         this.singletonToIndexMap = Maps.newHashMap();
@@ -78,7 +80,11 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public boolean isSane() {
-        return true;
+        //
+        // Report insanity here which then causes all sanity checks to be run which may be CPU-intensive. Deactivate
+        // this behavior by returning true if performance is measured.
+        //
+        return isSane;
     }
 
     @Override
@@ -192,7 +198,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     boolean isValidEntityName(@Nonnull final String identifier) {
-        final String lowerCase = identifier.toLowerCase();
+        final String lowerCase = identifier.toLowerCase(Locale.ROOT);
         if (!lowerCase.startsWith("exp") &&
                 !lowerCase.startsWith("ref") &&
                 !lowerCase.startsWith("qun")) {
@@ -262,6 +268,16 @@ public class DebuggerWithSymbolTables implements Debugger {
             t.printStackTrace();
             return Optional.empty();
         }
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withoutSanityChecks() {
+        return new DebuggerWithSymbolTables(true);
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withSanityChecks() {
+        return new DebuggerWithSymbolTables(false);
     }
 
     @FunctionalInterface

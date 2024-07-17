@@ -588,8 +588,9 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     @MethodSource("overlapAndRandomSeeds")
     void sumFiveHundredParallelBuild(boolean overlap, long seed) {
         final Random r = new Random(seed);
-        List<Message> records = LongStream.range(1L, 501L)
+        List<Message> records = LongStream.generate(r::nextLong)
                 .mapToObj(id -> randomOuterRecord(r, id))
+                .limit(500)
                 .collect(Collectors.toList());
         singleSumIndexRebuild(records, null, null, 5, overlap);
     }
@@ -615,8 +616,9 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     @MethodSource("overlapAndRandomSeeds")
     void simpleParallelTwoHundredRebuild(boolean overlap, long seed) {
         final Random r = new Random(seed);
-        List<Message> records = LongStream.range(0L, 200L)
+        List<Message> records = LongStream.generate(r::nextLong)
                 .mapToObj(id -> randomOuterRecord(r, id))
+                .limit(200)
                 .collect(Collectors.toList());
         singleValueIndexRebuild(records, null, null, 5, overlap);
     }
@@ -626,8 +628,9 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     @MethodSource("overlapAndRandomSeeds")
     void parallelBuildFiveHundredWithDeletesAndUpdates(boolean overlap, long seed) {
         final Random r = new Random(seed);
-        List<Message> records = LongStream.range(0L, 500L)
+        List<Message> records = LongStream.generate(r::nextLong)
                 .mapToObj(id -> randomOuterRecord(r, id))
+                .limit(500)
                 .collect(Collectors.toList());
 
         List<Message> recordsWhileBuilding = new ArrayList<>();
@@ -643,8 +646,9 @@ abstract class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildInd
     @MethodSource("randomSeeds")
     void parallelBuildSixHundredWithDeletesAndUpdatesFromIndex(long seed) {
         final Random r = new Random(seed);
-        List<Message> records = LongStream.range(0L, 600L)
+        List<Message> records = LongStream.generate(r::nextLong)
                 .mapToObj(id -> randomOuterRecord(r, id))
+                .limit(600)
                 .collect(Collectors.toList());
 
         List<Message> recordsWhileBuilding = new ArrayList<>();

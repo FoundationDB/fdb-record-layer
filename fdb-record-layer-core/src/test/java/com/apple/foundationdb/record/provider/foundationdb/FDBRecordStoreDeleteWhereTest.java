@@ -328,7 +328,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue(pathToDelete)));
             List<TestRecordsWithHeaderProto.MyRecord> remaining = queryMyRecords(RecordQuery.newBuilder().setRecordType("MyRecord").build());
             remaining.forEach(remainingRecord -> assertNotEquals(pathToDelete, remainingRecord.getHeader().getPath(),
-                    () -> String.format("record with path %s should have been deleted: %s", pathToDelete, remainingRecord)));
+                    () -> "record with path " + pathToDelete + " should have been deleted: " + remainingRecord));
             assertThat(remaining, containsInAnyOrder(saved.stream()
                     .filter(rec -> !rec.getHeader().getPath().equals(pathToDelete))
                     .map(Matchers::equalTo)
@@ -430,7 +430,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
 
             List<TestRecordsWithHeaderProto.MyRecord> remaining = queryMyRecords(RecordQuery.newBuilder().setRecordType("MyRecord").build());
             remaining.forEach(remainingRecord -> assertNotEquals(pathToDelete, remainingRecord.getHeader().getPath(),
-                    () -> String.format("record with path %s should have been deleted: %s", pathToDelete, remainingRecord)));
+                    () -> "record with path " + pathToDelete + " should have been deleted: " + remainingRecord));
             assertThat(remaining, containsInAnyOrder(saved.stream()
                     .filter(rec -> !rec.getHeader().getPath().equals(pathToDelete))
                     .map(Matchers::equalTo)
@@ -978,6 +978,6 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     private static Matcher<String> indexDoesNotSupportDeleteWhere(Index index) {
-        return containsString(String.format("deleteRecordsWhere not supported by index %s", index.getName()));
+        return containsString("deleteRecordsWhere not supported by index " + index.getName());
     }
 }

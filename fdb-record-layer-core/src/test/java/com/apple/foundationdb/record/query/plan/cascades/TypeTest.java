@@ -208,6 +208,14 @@ class TypeTest {
             listOfNullsAndNonNulls.add(null);
             listOfNullsAndNonNulls.add(42);
             listOfNullsAndNonNulls.add(43);
+
+            final var descriptor = TestRecords4Proto.ReviewerStats.getDescriptor();
+            final var actualMessage = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("school_name"), "blah")
+                    .setField(descriptor.findFieldByName("start_date"), 34343L)
+                    .setField(descriptor.findFieldByName("hometown"), "blah2")
+                    .build();
+
             return Stream.of(
 
                     // Typed objects
@@ -254,6 +262,13 @@ class TypeTest {
                     Arguments.of(List.of(List.of("foo"), List.of("foo")), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false)))),
                     Arguments.of(List.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())),
                             List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name()))), new Type.Array(new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))), false),
+
+                    // DynamicMessage
+                    Arguments.of(actualMessage, Type.Record.fromFields(List.of(
+                            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("start_date")),
+                            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("school_name")),
+                            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("hometown"))
+                    ))),
 
                     // Unsupported cases
                     Arguments.of(new int[] {1, 2, 3}, Type.any()), // primitive Arrays are not supported

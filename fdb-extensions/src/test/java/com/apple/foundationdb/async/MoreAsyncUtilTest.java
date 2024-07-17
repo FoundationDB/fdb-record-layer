@@ -22,13 +22,22 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,5 +111,62 @@ public class MoreAsyncUtilTest {
         CompletableFuture.allOf(futures).join();
         long end = System.currentTimeMillis();
         assertTrue(end - start >= 100, "Delay was not long enough");
+    }
+
+    enum FutureBehavior {
+        SucceedInstantly(true, false, CompletableFuture::completedFuture),
+        SucceedSlowly(true, false, result -> MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS)
+                .thenApply(vignore -> result)),
+        RunForever(false, false, result -> new CompletableFuture<>()),
+        FailInstantly(false, true, result -> {
+            final CompletableFuture<String> future = new CompletableFuture<>();
+            future.completeExceptionally(new RuntimeException(result));
+            return future;
+        }),
+        FailSlowly(false, true, result -> {
+            final CompletableFuture<String> future = new CompletableFuture<>();
+            MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS)
+                    .whenComplete((vignore, e) -> future.completeExceptionally(new RuntimeException(result)));
+            return future;
+        });
+
+        private final boolean succeeds;
+        private final boolean fails;
+        private final Function<String, CompletableFuture<String>> futureGenerator;
+
+        FutureBehavior(final boolean succeeds, final boolean fails,
+                       final Function<String, CompletableFuture<String>> futureGenerator) {
+            this.succeeds = succeeds;
+            this.fails = fails;
+            this.futureGenerator = futureGenerator;
+        }
+    }
+
+    public static Stream<Arguments> combineAndFailFast() {
+        return Arrays.stream(FutureBehavior.values())
+                .flatMap(future1 ->
+                        Arrays.stream(FutureBehavior.values())
+                                .map(future2 -> Arguments.of(future1, future2)));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void combineAndFailFast(FutureBehavior behavior1, FutureBehavior behavior2)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final CompletableFuture<String> future1 = behavior1.futureGenerator.apply("a");
+        final CompletableFuture<String> future2 = behavior2.futureGenerator.apply("b");
+        final CompletableFuture<String> future = MoreAsyncUtil.combineAndFailFast(future1, future2, (a, b) -> a + "-" + b);
+        final int getTimeoutSeconds = 1;
+        if (behavior1.succeeds && behavior2.succeeds) {
+            assertEquals("a-b", future.get(getTimeoutSeconds, TimeUnit.SECONDS));
+        } else if (behavior1.fails || behavior2.fails) {
+            final ExecutionException executionException = assertThrows(ExecutionException.class,
+                    () -> future.get(getTimeoutSeconds, TimeUnit.SECONDS));
+            assertEquals(RuntimeException.class, executionException.getCause().getClass());
+        } else {
+            assertThrows(TimeoutException.class, () -> future.get(getTimeoutSeconds, TimeUnit.SECONDS));
+        }
+
+
     }
 }

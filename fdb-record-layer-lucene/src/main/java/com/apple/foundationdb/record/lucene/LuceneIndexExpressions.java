@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.search.BooleanPointsConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -262,7 +263,7 @@ public class LuceneIndexExpressions {
                     if (oldConfig == null) {
                         result.put(key, valueConfig);
                     } else if (!oldConfig.equals(valueConfig)) {
-                        throw new RecordCoreException(String.format("The same key '%s' has two different points config types", key));
+                        throw new RecordCoreException("The same key has two different points config types").addLogInfo(LogMessageKeys.KEY, key);
                     }
                 }
             });
