@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PArithmeticValue.PPhysicalOperat
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -141,6 +142,15 @@ public class ArithmeticValue extends AbstractValue {
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
+    }
+
+    @Nonnull
+    @Override
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other).filter(ignored -> {
+            ArithmeticValue otherArithmetic = (ArithmeticValue)other;
+            return operator.equals(otherArithmetic.operator);
+        });
     }
 
     @Override

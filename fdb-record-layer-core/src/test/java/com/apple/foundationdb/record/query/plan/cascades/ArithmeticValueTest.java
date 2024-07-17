@@ -40,6 +40,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Optional;
@@ -262,6 +263,10 @@ class ArithmeticValueTest {
         }
     }
 
+    static Stream<BuiltInFunction<?>> binaryFunctions() {
+        return Stream.of(new ArithmeticValue.AddFn(), new ArithmeticValue.SubFn(), new ArithmeticValue.MulFn(), new ArithmeticValue.DivFn(), new ArithmeticValue.DivFn());
+    }
+
     @ParameterizedTest
     @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
     @ArgumentsSource(BinaryPredicateTestProvider.class)
@@ -279,6 +284,52 @@ class ArithmeticValueTest {
             Assertions.assertTrue(value instanceof ArithmeticValue);
             Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext);
             Assertions.assertEquals(result, actualValue);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("binaryFunctions")
+    void equalsWithSameArguments(BuiltInFunction<?> binaryFunction) {
+        final List<Value> arguments = List.of(LONG_1, LONG_2);
+        final Value value1 = (Value) binaryFunction.encapsulate(arguments);
+        binaryFunctions().forEach(otherFunction -> {
+            Value value2 = (Value) otherFunction.encapsulate(arguments);
+            boolean sameFunction = binaryFunction.getClass().equals(otherFunction.getClass());
+            Assertions.assertEquals(
+                    sameFunction,
+                    value1.semanticEquals(value2, AliasMap.emptyMap()),
+                    () -> (value1 + " and " + value2 + " should only be equal if the functions are equal")
+            );
+            Assertions.assertEquals(
+                    sameFunction,
+                    value1.semanticHashCode() == value2.semanticHashCode(),
+                    () -> (value1 + " and " + value2 + " should only have the same hash if the functions are equal")
+            );
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("binaryFunctions")
+    void equalsWithDifferentArguments(BuiltInFunction<?> binaryFunction) {
+        final List<Value> args1 = List.of(LONG_1, LONG_2);
+        final List<Value> args2 = List.of(LONG_1, F);
+        final List<Value> args3 = List.of(F, LONG_2);
+        final List<List<Value>> argsLists = List.of(args1, args2, args3);
+        for (int i = 0; i < argsLists.size(); i++) {
+            final Value value1 = (Value) binaryFunction.encapsulate(argsLists.get(i));
+            for (int j = 0; j < argsLists.size(); j++) {
+                final Value value2 = (Value) binaryFunction.encapsulate(argsLists.get(j));
+                Assertions.assertEquals(
+                        i == j,
+                        value1.semanticEquals(value2, AliasMap.emptyMap()),
+                        () -> (value1 + " and " + value2 + " should only be equal if the arguments are equal")
+                );
+                Assertions.assertEquals(
+                        i == j,
+                        value1.semanticHashCode() == value2.semanticHashCode(),
+                        () -> (value1 + " and " + value2 + " should only have the same hash if the arguments are equal")
+                );
+            }
         }
     }
 }
