@@ -232,6 +232,9 @@ class TransitiveClosureTest {
         builder.putAll(of("b"), of("b"));
         final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = builder.build();
 
-        assertThrows(IllegalArgumentException.class, () -> TransitiveClosure.transitiveClosure(set, dependsOnMap));
+        final SetMultimap<CorrelationIdentifier, CorrelationIdentifier> transitiveClosure = TransitiveClosure.transitiveClosure(set, dependsOnMap);
+        assertEquals(
+                ImmutableSetMultimap.<CorrelationIdentifier, CorrelationIdentifier>builder().build(),
+                transitiveClosure);
     }
 }

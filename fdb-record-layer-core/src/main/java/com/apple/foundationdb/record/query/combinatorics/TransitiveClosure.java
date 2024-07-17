@@ -85,6 +85,9 @@ public class TransitiveClosure {
             processed.add(current);
             final ImmutableSet<T> usingEntities = usedByMap.get(current);
             for (final T using : usingEntities) {
+                if (using.equals(current)) {
+                    continue;
+                }
                 final Integer newInDegree =
                         inDegreeMap.compute(using,
                                 (uE, inDegree) -> {
@@ -114,6 +117,9 @@ public class TransitiveClosure {
         set.forEach(element -> result.put(element, 0));
 
         for (final Map.Entry<T, T> entry : usedByMap.entries()) {
+            if (entry.getKey().equals(entry.getValue())) {
+                continue;
+            }
             result.compute(entry.getValue(), (t, v) -> Objects.requireNonNull(v) + 1);
         }
         return result;
