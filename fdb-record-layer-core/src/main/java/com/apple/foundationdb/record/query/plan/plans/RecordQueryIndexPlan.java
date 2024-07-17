@@ -529,7 +529,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexName, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted);
+        return Objects.hash(indexName, scanParameters, indexFetchMethod.name(), fetchIndexRecords.name(),
+                reverse, strictlySorted);
     }
 
     @Override

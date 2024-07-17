@@ -49,6 +49,11 @@ public class ObjectPlanHash implements PlanHashable, QueryHashable {
     }
 
     @Override
+    public int hashCode() {
+        return hashCode;
+    }
+
+    @Override
     public String toString() {
         return id.toString();
     }
