@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-@Timeout(value = 1, unit = TimeUnit.HOURS)
+@Timeout(value = 20, unit = TimeUnit.MINUTES)
 @Tag("SuperSlow")
 public @interface SuperSlow {
 }
