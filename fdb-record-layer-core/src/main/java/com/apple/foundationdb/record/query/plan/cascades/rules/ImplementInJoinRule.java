@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
@@ -163,7 +163,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     @SuppressWarnings("unchecked")
     private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
                                                                      @Nonnull final Set<CorrelationIdentifier> explodeAliases,
-                                                                     @Nonnull final IdentityBiMap<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
+                                                                     @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
                                                                      @Nonnull final Ordering innerOrdering,
                                                                      @Nonnull final RequestedOrdering requestedOrdering) {
         final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
@@ -172,7 +172,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         final var sourcesBuilder = ImmutableList.<InSource>builder();
         final var outerRequestedOrderingPartsBuilder = ImmutableList.<OrderingPart.RequestedOrderingPart>builder();
         final var innerBindingMap = innerOrdering.getBindingMap();
-        final var resultOrderingBindingMap  =
+        final var resultOrderingBindingMap =
                 HashMultimap.create(innerBindingMap);
 
         for (var i = 0; i < requestedOrderingParts.size() && !availableExplodeAliases.isEmpty(); i++) {
@@ -225,7 +225,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             //
             final var explodeQuantifier =
                     Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-            final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+            final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.get(explodeQuantifier));
 
             //
             // At this point we have a bound key expression that matches the requested order at this position,
@@ -310,7 +310,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             for (final var explodeAlias : availableExplodeAliases) {
                 final var explodeQuantifier =
                         Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-                final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+                final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.get(explodeQuantifier));
 
                 final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
@@ -342,16 +342,17 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         return sourcesBuilder.build();
     }
 
-    private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
-                                                                                                      @Nonnull final Set<ExplodeExpression> explodeExpressions) {
+    @Nonnull
+    private static Map<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
+                                                                                            @Nonnull final Set<ExplodeExpression> explodeExpressions) {
         final var resultMap =
-                IdentityBiMap.<Quantifier.ForEach,  ExplodeExpression>create();
+                new LinkedIdentityMap<Quantifier.ForEach,  ExplodeExpression>();
 
         for (final var quantifier : quantifiers) {
             final var rangesOver = quantifier.getRangesOver();
             for (final var explodeExpression : explodeExpressions) {
                 if (rangesOver.getMembers().contains(explodeExpression)) {
-                    resultMap.putUnwrapped(quantifier, explodeExpression);
+                    resultMap.put(quantifier, explodeExpression);
                     break; // only ever one match possible
                 }
             }

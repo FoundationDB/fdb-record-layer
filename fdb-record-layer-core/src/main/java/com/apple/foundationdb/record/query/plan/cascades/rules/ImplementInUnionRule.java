@@ -123,13 +123,14 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
 
         final var explodeExpressions = bindings.getAll(explodeExpressionMatcher);
-        final var quantifierToExplodeBiMap = computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
-        final var explodeToQuantifierBiMap = quantifierToExplodeBiMap.inverse();
+
+        Verify.verify(explodeExpressions.size() == explodeQuantifiers.size());
 
         final var sourcesBuilder = ImmutableList.<InSource>builder();
 
-        for (final var explodeExpression : explodeExpressions) {
-            final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
+        int i = 0;
+        for (final var explodeQuantifier : explodeQuantifiers) {
+            final var explodeExpression = explodeExpressions.get(i++);
             final Value explodeCollectionValue = explodeExpression.getCollectionValue();
 
             //
@@ -275,22 +276,5 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
 
         return ImmutableList.of(Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
-    }
-
-    private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
-                                                                                                      @Nonnull final Set<ExplodeExpression> explodeExpressions) {
-        final var resultMap =
-                IdentityBiMap.<Quantifier.ForEach,  ExplodeExpression>create();
-
-        for (final var quantifier : quantifiers) {
-            final var rangesOver = quantifier.getRangesOver();
-            for (final var explodeExpression : explodeExpressions) {
-                if (rangesOver.getMembers().contains(explodeExpression)) {
-                    resultMap.putUnwrapped(quantifier, explodeExpression);
-                    break; // only ever one match possible
-                }
-            }
-        }
-        return resultMap;
     }
 }
