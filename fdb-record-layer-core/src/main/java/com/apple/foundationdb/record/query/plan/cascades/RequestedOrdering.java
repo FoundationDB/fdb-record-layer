@@ -126,7 +126,7 @@ public class RequestedOrdering {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingParts(), getDistinctness());
+        return Objects.hash(getOrderingParts(), getDistinctness().name());
     }
 
     @Override
