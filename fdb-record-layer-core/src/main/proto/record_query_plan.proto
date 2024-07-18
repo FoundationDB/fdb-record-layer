@@ -240,6 +240,7 @@ message PValue {
     PIndexEntryObjectValue index_entry_object_value = 41;
     PToOrderedBytesValue to_ordered_bytes_value = 42;
     PFromOrderedBytesValue from_ordered_bytes_value = 43;
+    PCollateValue collate_value = 44;
   }
 }
 
@@ -893,6 +894,13 @@ message PVersionValue {
 message PWindowedValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
+}
+
+message PCollateValue {
+  optional string collator_registry = 1;
+  optional PValue string_child = 2;
+  optional PValue locale_child = 3;
+  optional PValue strength_child = 4;
 }
 
 //
