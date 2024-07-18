@@ -165,7 +165,7 @@ public class ChooseK {
                         currentOffset += 1;
                         currentLevel += 1;
                     } else {
-                        // back tracking -- need to clear out the state iterator
+                        // back tracking -- need to clear out the level's state
                         currentState.unbind();
                         currentOffset -= lastOffset;
                         currentLevel -= 1;

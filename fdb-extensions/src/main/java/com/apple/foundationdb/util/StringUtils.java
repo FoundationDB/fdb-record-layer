@@ -226,6 +226,9 @@ public class StringUtils {
             return source.equalsIgnoreCase(searchStr);
         } else {
             for (int i = 0; i <= source.length() - searchStr.length(); i++) {
+                // The "true" argument to regionMatches indicates that we are ignoring case. The
+                // underlying method should return true iff:
+                //     source.substring(i, searchStr.length()).equalsIgnoreCase(searchStr)
                 if (source.regionMatches(true, i, searchStr, 0, searchStr.length())) {
                     return true;
                 }
