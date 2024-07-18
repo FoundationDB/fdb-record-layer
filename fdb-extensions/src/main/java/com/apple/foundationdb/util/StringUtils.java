@@ -25,6 +25,7 @@ import com.google.common.base.Preconditions;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.PriorityQueue;
 
 /**
@@ -113,6 +114,23 @@ public class StringUtils {
             int nextIndex = source.indexOf(toReplace, index + 1);
             return nextIndex < 0 ? null : new Replacement(nextIndex, toReplace, replaceWith);
         }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final Replacement that = (Replacement)o;
+            return index == that.index && Objects.equals(toReplace, that.toReplace) && Objects.equals(replaceWith, that.replaceWith);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(index, toReplace, replaceWith);
+        }
     }
 
     /**
@@ -189,5 +207,29 @@ public class StringUtils {
             builder.append(source.substring(consumedSoFar));
         }
         return builder.toString();
+    }
+
+    /**
+     * Returns whether some substring of {@code source} contains {@code searchStr}, ignoring case.
+     * This uses the same criteria as {@link String#equalsIgnoreCase(String)} to determine if
+     * characters are equal ignoring case.
+     *
+     * @param source the source string
+     * @param searchStr the string to search through
+     * @return whether some substring of {@code source} is equal to {@code searchStr} ignoring case
+     */
+    public static boolean containsIgnoreCase(@Nonnull String source, @Nonnull String searchStr) {
+        if (source.length() < searchStr.length()) {
+            return false;
+        } else if (source.length() == searchStr.length()) {
+            return source.equalsIgnoreCase(searchStr);
+        } else {
+            for (int i = 0; i <= source.length() - searchStr.length(); i++) {
+                if (source.regionMatches(true, i, searchStr, 0, searchStr.length())) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

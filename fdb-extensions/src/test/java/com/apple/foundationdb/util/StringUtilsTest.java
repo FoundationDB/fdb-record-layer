@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.util;
 
+import com.apple.test.RandomizedTestUtils;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -183,12 +186,111 @@ public class StringUtilsTest {
     void replacements(final String source, final Map<String, String> replaceMap, final String expected) {
         final String sink = StringUtils.replaceEach(source, replaceMap);
         assertEquals(expected, sink, "Our implementation had mismatched replacement");
+    }
 
-        // String[] findArr = replaceMap.keySet().toArray(new String[0]);
-        // String[] replaceArr = new String[findArr.length];
-        // for (int i = 0; i < findArr.length; i++) {
-        //     replaceArr[i] = replaceMap.get(findArr[i]);
-        // }
-        // assertEquals(expected, org.apache.commons.lang3.StringUtils.replaceEach(source, findArr, replaceArr));
+    static Stream<Arguments> containsIgnoreCase() {
+        return Stream.of(
+                Arguments.of("hello", "", true),
+                Arguments.of("hello", "lo", true),
+                Arguments.of("hello", "Ll", true),
+                Arguments.of("hello", "lL", true),
+                Arguments.of("hello", "li", false),
+                Arguments.of("hello", "hello", true),
+                Arguments.of("hello", "hElLo", true),
+                Arguments.of("hello", "hElLos", false),
+
+                // Turkish İ/i and I/ı have special equivalency rules
+                Arguments.of("hayır", "ır", true),
+                Arguments.of("hayır", "ir", true),
+                Arguments.of("hayır", "IR", true),
+                Arguments.of("hayır", "İR", true),
+                Arguments.of("HAYIR", "ır", true),
+                Arguments.of("HAYIR", "ir", true),
+                Arguments.of("HAYIR", "IR", true),
+                Arguments.of("HAYIR", "İR", true),
+                Arguments.of("nasilsin", "sil", true),
+                Arguments.of("nasilsin", "sıl", true),
+                Arguments.of("nasilsin", "SİL", true),
+                Arguments.of("nasilsin", "SIL", true),
+                Arguments.of("NASİLSİN", "sil", true),
+                Arguments.of("NASİLSİN", "sıl", true),
+                Arguments.of("NASİLSİN", "SİL", true),
+                Arguments.of("NASİLSİN", "SIL", true),
+
+                // Greek
+                Arguments.of("Νάξος", "αξ", false), // tonos is checked during equality
+                Arguments.of("Νάξος", "άξ", true),
+                Arguments.of("Νάξος", "ΑΞ", false),
+                Arguments.of("Νάξος", "ΆΞ", true),
+                Arguments.of("Νάξος", "ος", true),
+                Arguments.of("Νάξος", "ΟΣ", true),
+                Arguments.of("Νάξος", "Οσ", true), // final sigma ς is equivalent to non-final σ
+                Arguments.of("Νάξος", "νΆΞΟσ", true),
+                Arguments.of("Νάξος", "Η νΆΞΟσ", false),
+                Arguments.of("η Νάξος", "νΆΞΟσ", true),
+
+                Arguments.of("你好", "好", true),
+                Arguments.of("你好", "你", true),
+                Arguments.of("你好", "你好", true),
+                Arguments.of("你好", "你好吗", false)
+        );
+    }
+
+    @ParameterizedTest(name = "containsIgnoreCase[source={0}, searchString={1}]")
+    @MethodSource
+    void containsIgnoreCase(@Nonnull String source, @Nonnull String searchString, boolean expected) {
+        assertEquals(expected, StringUtils.containsIgnoreCase(source, searchString),
+                () -> "string \"" + source + "\" should " + (expected ? "" : "not ") + "contain \"" + searchString + "\" ignoring case");
+    }
+
+    static Stream<Long> containsAllSubstringsIgnoreCase() {
+        return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195);
+    }
+
+    @ParameterizedTest(name = "containsAllSubstringsIgnoreCase[seed={0}]")
+    @MethodSource
+    void containsAllSubstringsIgnoreCase(long seed) {
+        final Random r = new Random(seed);
+        int length = r.nextInt(20) + 1;
+        char[] chars = new char[length];
+        for (int i = 0; i < chars.length; i++) {
+            char c;
+            // Construct a string of random characters. Prefer characters
+            // from scripts with both upper and lower cases
+            double choice = r.nextDouble();
+            if (choice < 0.4) {
+                // Random Latin (extended plane)
+                c = (char) r.nextInt(0x0250);
+            } else if (choice < 0.8) {
+                // Random Greek, Coptic, Cyrillic, or Armenian
+                c = (char) (r.nextInt((0x0590 - 0x0370)) + 0x0370);
+            } else {
+                // Random character
+                c = (char) r.nextInt(Character.MAX_CODE_POINT);
+            }
+            chars[i] = c;
+        }
+        String s = new String(chars);
+
+        for (int i = 0; i <= s.length(); i++) {
+            for (int j = i; j <= s.length(); j++) {
+                char[] substringChars = s.substring(i, j).toCharArray();
+                for (int k = 0; k < substringChars.length; k++) {
+                    char c = substringChars[k];
+                    if (r.nextBoolean()) {
+                        // Flip the case of a random assortment of characters
+                        if (Character.isUpperCase(c)) {
+                            substringChars[k] = Character.toLowerCase(c);
+                        } else if (Character.isLowerCase(c)) {
+                            substringChars[k] = Character.toUpperCase(c);
+                        }
+                    }
+                }
+
+                String substring = new String(substringChars);
+                assertTrue(StringUtils.containsIgnoreCase(s, substring),
+                        () -> "string \"" + s + "\" should contain substring \"" + substring + "\" ignoring case");
+            }
+        }
     }
 }
