@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -141,17 +140,17 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Arrays.asList(expected), actual);
     }
 
-    @Test
+    @DualPlannerTest
     public void sortOnlyUnicode() throws Exception {
         sortOnly(null, "Ampère", "Faraday", "Gauß", "Maxwell", "Stokes", "Ångström", "Ørsted");
     }
 
-    @Test
+    @DualPlannerTest
     public void sortOnlyDa() throws Exception {
         sortOnly("da_DK", "Ampère", "Faraday", "Gauß", "Maxwell", "Stokes", "Ørsted", "Ångström");
     }
 
-    @Test
+    @DualPlannerTest
     public void sortOnlyFr() throws Exception {
         if (CollateFunctionKeyExpressionFactoryJRE.FUNCTION_NAME.equals(collateFunctionName)) {
             // Does not recognize Ø as an accented O.
@@ -161,7 +160,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     public void noIndex() throws Exception {
         loadNames(NO_HOOK);
         final RecordQuery query = RecordQuery.newBuilder()
@@ -174,7 +173,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(expected, actual);
     }
 
-    @Test
+    @DualPlannerTest
     public void rangeScan() throws Exception {
         final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("da_DK")));
         final RecordMetaDataHook hook = md -> {
@@ -194,7 +193,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, indexScan("collated_name"));
     }
 
-    @Test
+    @DualPlannerTest
     public void coveringIndex() throws Exception {
         // Note how the name field needs to be repeated in the value because it can't be recovered from an index
         // entry after transformation to a collation key.
@@ -217,7 +216,7 @@ public abstract class FDBCollateQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, coveringIndexScan(indexScan("collated_name")));
     }
 
-    @Test
+    @DualPlannerTest
     public void compareParameter() throws Exception {
         final KeyExpression key = function(collateFunctionName, concat(NAME_FIELD, value("de_DE")));
         final RecordMetaDataHook hook = md -> {
