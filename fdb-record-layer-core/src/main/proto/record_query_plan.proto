@@ -237,6 +237,7 @@ message PValue {
     PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
+    PCollateValue collate_value = 41;
   }
 }
 
@@ -865,6 +866,13 @@ message PVersionValue {
 message PWindowedValue {
   repeated PValue partitioning_values = 1;
   repeated PValue argument_values = 2;
+}
+
+message PCollateValue {
+  optional string collator_registry = 1;
+  optional PValue string_child = 2;
+  optional PValue locale_child = 3;
+  optional PValue strength_child = 4;
 }
 
 //

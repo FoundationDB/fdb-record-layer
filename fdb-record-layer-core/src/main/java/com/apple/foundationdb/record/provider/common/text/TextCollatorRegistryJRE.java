@@ -56,6 +56,12 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     private TextCollatorRegistryJRE() {
     }
 
+    @Nonnull
+    @Override
+    public String getName() {
+        return "jre";
+    }
+
     @Override
     @Nonnull
     public TextCollator getTextCollator(int strength) {

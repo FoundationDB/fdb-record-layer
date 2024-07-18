@@ -23,13 +23,18 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 
@@ -38,6 +43,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * {@code COLLATE} function.
@@ -77,7 +83,7 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Nonnull
     private final TextCollatorRegistry collatorRegistry;
     @Nullable
-    private TextCollator invariableCollator;
+    private final TextCollator invariableCollator;
 
     protected CollateFunctionKeyExpression(@Nonnull TextCollatorRegistry collatorRegistry,
                                            @Nonnull String name, @Nonnull KeyExpression arguments) {
@@ -144,6 +150,11 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return locale == null ? collatorRegistry.getTextCollator(strength) : collatorRegistry.getTextCollator(locale, strength);
     }
 
+    @Nonnull
+    public TextCollatorRegistry getCollatorRegistry() {
+        return collatorRegistry;
+    }
+
     @Override
     public int getMinArguments() {
         return 1;
@@ -183,8 +194,14 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
                          @Nonnull final Type baseType,
                          @Nonnull final List<String> fieldNamePrefix) {
-        // TODO support this
-        throw new UnsupportedOperationException();
+        BuiltInFunction<?> builtInFunction = FunctionCatalog.resolve(getName(), arguments.getColumnSize())
+                .orElseThrow(() -> new RecordCoreArgumentException("unknown function", LogMessageKeys.FUNCTION, getName()));
+        final ScalarTranslationVisitor scalarTranslationVisitor = new ScalarTranslationVisitor(arguments);
+        scalarTranslationVisitor.push(ScalarTranslationVisitor.ScalarVisitorState.of(baseAlias, baseType, fieldNamePrefix));
+        final List<Value> argumentValues = arguments.normalizeKeyForPositions().stream()
+                .map(expr -> expr.expand(scalarTranslationVisitor))
+                .collect(Collectors.toList());
+        return (Value)builtInFunction.encapsulate(argumentValues);
     }
 
     @Nullable
