@@ -117,7 +117,7 @@ public class ChooseK {
 
                 //
                 // If nothing is bound yet, we are at the beginning and should start at level 0. Otherwise,
-                // we should unbind the last bound element and increment our current state to select
+                // we should begin at the last bound element and increment our current state to select
                 // the next one
                 //
                 int currentLevel = bound == 0 ? 0 : bound - 1;
@@ -127,7 +127,7 @@ public class ChooseK {
                 // We maintain an iterator through the different offsets for each level, which can be mapped
                 // to indexes in the original list. That's the state!
                 // The offset for levels greater than currentLevel may be unbound. The offsets
-                // for levels below current level must be bound to a valid level. The iterator for currentLevel
+                // for levels below current level must be bound to a valid element. The offset for currentLevel
                 // maybe either bound or unbound.
                 //
 
@@ -188,7 +188,7 @@ public class ChooseK {
             }
 
             private void unbind(final int level) {
-                // Mark this level as unbound reset all the levels after this one
+                // Mark this level as unbound and reset all the levels after this one
                 for (int i = level; i < numberOfElementsToChoose; i ++ ) {
                     LevelState currentPosition = state.get(i);
                     if (currentPosition.isBound()) {
@@ -218,7 +218,6 @@ public class ChooseK {
 
                 // reset all the following ones
                 for (int i = level + 1; i < numberOfElementsToChoose; i ++ ) {
-                    // either each level above is already unbound, or we need to update the current bound
                     final LevelState levelState = state.get(i);
                     if (levelState.isBound()) {
                         bound -= 1;

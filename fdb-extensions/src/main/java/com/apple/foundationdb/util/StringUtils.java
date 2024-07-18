@@ -161,6 +161,7 @@ public class StringUtils {
      * @return a string composed by replacing all occurrences of the {@code replaceMap} keys in {@code source}
      *     with their values
      */
+    @Nonnull
     public static String replaceEach(@Nonnull String source, @Nonnull Map<String, String> replaceMap) {
         if (source.isEmpty() || replaceMap.isEmpty()) {
             return source;

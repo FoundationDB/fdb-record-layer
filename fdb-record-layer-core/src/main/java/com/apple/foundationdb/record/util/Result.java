@@ -28,7 +28,13 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * todo.
+ * A struct representing the result of an operation, containing either the return value or an error.
+ * This type behaves like an "either" type. It should never be the case that both {@link #getValue()} and
+ * {@link #getError()} return {@code null}. Either the result was an error, in which case the value will be
+ * {@code null} and the error will be non-{@code null}, or the result was a success, in which case the error will
+ * be {@code null} and the value will be non-{@code null} <em>unless</em> the underlying operation returned
+ * {@code null}. Note that because the value can be {@code null} in the success case, it is advised that the user
+ * should either check the {@link #getError() error} value or call {@link #isSuccess()} instead of checking the value.
  *
  * @param <V> the type of a successful result
  * @param <E> the type of error from a failed result
@@ -45,30 +51,79 @@ public final class Result<V, E extends Throwable> {
         this.error = error;
     }
 
+    /**
+     * The value returned by the operation, if successful. If the
+     * operation was unsuccessful, this will return {@code null}. Note that
+     * it may also be {@code null} if the operation happened to return {@code null}.
+     *
+     * @return the value returned by the operation if successful or {@code null} otherwise
+     */
     @Nullable
     public V getValue() {
         return value;
     }
 
+    /**
+     * The error encountered by the operation, if not successful. If the
+     * operation was successful, this will return {@code null}.
+     *
+     * @return the error encountered by the operation if unsuccessful or {@code null} otherwise
+     */
     @Nullable
     public E getError() {
         return error;
     }
 
+    /**
+     * Whether the underlying result was successful or not. If it was, then
+     * {@link #getError()} should be {@code null}, and {@link #getValue()} will
+     * be {@code null} if and only if the underlying operation returned {@code null}.
+     * If it was not, then {@link #getError()} will be non-{@code null} and
+     * {@link #getValue()} will be {@code null}.
+     *
+     * @return whether the underlying result was a success
+     */
     public boolean isSuccess() {
-        return error != null;
+        return error == null;
     }
 
+    /**
+     * Create a successful result wrapping a value.
+     *
+     * @param value the value of the operation
+     * @param <V> the result's value type
+     * @param <E> the result's error type
+     * @return a new successful result wrapping the value
+     */
     @Nonnull
     public static <V, E extends Throwable> Result<V, E> success(@Nullable V value) {
         return new Result<>(value, null);
     }
 
+    /**
+     * Create an unsuccessful result wrapping an error.
+     *
+     * @param error the non-null error encountered by the operation
+     * @param <V> the result's value type
+     * @param <E> the result's error type
+     * @return a new unsuccessful result wrapping the error
+     */
     @Nonnull
     public static <V, E extends Throwable> Result<V, E> failure(@Nonnull E error) {
         return new Result<>(null, Objects.requireNonNull(error));
     }
 
+    /**
+     * Create a new result wrapping a value and an error. Note that it cannot
+     * be the case that both parameters are non-{@code null}. That case
+     * results in an {@link RecordCoreArgumentException}.
+     *
+     * @param value the value to associate with the result or {@code null} if unsuccessful
+     * @param error the error to associate with the result or {@code null} if successful
+     * @param <V> the type of value
+     * @param <E> the type of error
+     * @return a new result wrapping the value and error
+     */
     @Nonnull
     public static <V, E extends Throwable> Result<V, E> of(@Nullable V value, @Nullable E error) {
         if (value != null && error != null) {
