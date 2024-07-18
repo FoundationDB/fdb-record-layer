@@ -322,6 +322,9 @@ public class ArithmeticValue extends AbstractValue {
         }
     }
 
+    /**
+     * The bitwise {@code bitbucket} function.
+     */
     @AutoService(BuiltInFunction.class)
     public static class BitBucketFn extends BuiltInFunction<Value> {
         public BitBucketFn() {
