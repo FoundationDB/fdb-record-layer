@@ -50,7 +50,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -77,7 +76,7 @@ public class ArithmeticValue extends AbstractValue {
     private final Value rightChild;
 
     @Nonnull
-    private static final Supplier<Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator>> operatorMapSupplier =
+    private static final Supplier<Map<BinaryOperatorSignature, PhysicalOperator>> operatorMapSupplier =
             Suppliers.memoize(ArithmeticValue::computeOperatorMap);
 
     /**
@@ -195,7 +194,7 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     @Nonnull
-    private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> getOperatorMap() {
+    private static Map<BinaryOperatorSignature, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
@@ -220,17 +219,17 @@ public class ArithmeticValue extends AbstractValue {
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
 
         final PhysicalOperator physicalOperator =
-                getOperatorMap().get(Triple.of(logicalOperator, type0.getTypeCode(), type1.getTypeCode()));
+                getOperatorMap().get(new BinaryOperatorSignature(logicalOperator, type0.getTypeCode(), type1.getTypeCode()));
 
         Verify.verifyNotNull(physicalOperator, "unable to encapsulate arithmetic operation due to type mismatch(es)");
 
         return new ArithmeticValue(physicalOperator, (Value)arg0, (Value)arg1);
     }
 
-    private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> computeOperatorMap() {
-        final ImmutableMap.Builder<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<BinaryOperatorSignature, PhysicalOperator> computeOperatorMap() {
+        final ImmutableMap.Builder<BinaryOperatorSignature, PhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final PhysicalOperator operator : PhysicalOperator.values()) {
-            mapBuilder.put(Triple.of(operator.getLogicalOperator(), operator.getLeftArgType(), operator.getRightArgType()), operator);
+            mapBuilder.put(new BinaryOperatorSignature(operator.getLogicalOperator(), operator.getLeftArgType(), operator.getRightArgType()), operator);
         }
         return mapBuilder.build();
     }
@@ -541,6 +540,58 @@ public class ArithmeticValue extends AbstractValue {
         @Nonnull
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
+        }
+    }
+
+    static final class BinaryOperatorSignature {
+        @Nonnull
+        private final LogicalOperator logicalOperator;
+        @Nonnull
+        private final Type.TypeCode leftType;
+        @Nonnull
+        private final Type.TypeCode rightType;
+
+        BinaryOperatorSignature(@Nonnull LogicalOperator logicalOperator, @Nonnull Type.TypeCode leftType, @Nonnull Type.TypeCode rightType) {
+            this.logicalOperator = logicalOperator;
+            this.leftType = leftType;
+            this.rightType = rightType;
+        }
+
+        @Nonnull
+        public LogicalOperator getLogicalOperator() {
+            return logicalOperator;
+        }
+
+        @Nonnull
+        public Type.TypeCode getLeftType() {
+            return leftType;
+        }
+
+        @Nonnull
+        public Type.TypeCode getRightType() {
+            return rightType;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final BinaryOperatorSignature that = (BinaryOperatorSignature)o;
+            return logicalOperator == that.logicalOperator && leftType == that.leftType && rightType == that.rightType;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(logicalOperator, leftType, rightType);
+        }
+
+        @Override
+        public String toString() {
+            return logicalOperator + "(" + leftType + ", " + rightType + ")";
         }
     }
 

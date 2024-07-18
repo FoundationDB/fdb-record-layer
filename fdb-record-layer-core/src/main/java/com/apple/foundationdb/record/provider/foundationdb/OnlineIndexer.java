@@ -40,7 +40,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -726,11 +725,11 @@ public class OnlineIndexer implements AutoCloseable {
      *
      * @param minSplit not split if it cannot be split into at least <code>minSplit</code> ranges
      * @param maxSplit the maximum number of splits generated
-     * @return a list of split primary key ranges (the low endpoint is inclusive and the high endpoint is exclusive)
+     * @return a list of split primary key ranges
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
+    public List<TupleRange> splitIndexBuildRange(int minSplit, int maxSplit) {
         return getIndexerByRecordsOrThrow().splitIndexBuildRange(minSplit, maxSplit);
     }
 

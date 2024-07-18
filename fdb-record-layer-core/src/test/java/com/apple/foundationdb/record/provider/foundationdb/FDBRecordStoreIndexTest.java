@@ -77,7 +77,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Tag;
@@ -97,6 +96,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -2776,7 +2776,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize - 2, null, indexer); // to test splitting into fewer than the default number of split points
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize, null, indexer);
 
-        List<Pair<Tuple, Tuple>> oneRangePerSplit = getOneRangePerSplit(range, boundaryPrimaryKeys);
+        List<TupleRange> oneRangePerSplit = getOneRangePerSplit(range, boundaryPrimaryKeys);
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 1, oneRangePerSplit, indexer); // to test exactly one range for each split
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 2, oneRangePerSplit, indexer);
         checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, Integer.MAX_VALUE, oneRangePerSplit, indexer); // to test that integer overflow isn't a problem
@@ -2840,7 +2840,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         database.close();
     }
 
-    private List<Pair<Tuple, Tuple>> getOneRangePerSplit(TupleRange tupleRange, List<Tuple> boundaries) {
+    private List<TupleRange> getOneRangePerSplit(TupleRange tupleRange, List<Tuple> boundaries) {
         List<Tuple> newBoundaries = new ArrayList<>(boundaries);
         if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
             newBoundaries.add(0, tupleRange.getLow());
@@ -2849,17 +2849,17 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             newBoundaries.add(tupleRange.getHigh());
         }
 
-        List<Pair<Tuple, Tuple>> oneRangePerSplit = new ArrayList<>();
+        List<TupleRange> oneRangePerSplit = new ArrayList<>();
         for (int i = 0; i < newBoundaries.size() - 1; i++) {
-            oneRangePerSplit.add(Pair.of(newBoundaries.get(i), newBoundaries.get(i + 1)));
+            oneRangePerSplit.add(TupleRange.between(newBoundaries.get(i), newBoundaries.get(i + 1)));
         }
         return oneRangePerSplit;
     }
 
     private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
-                                           @Nullable List<Pair<Tuple, Tuple>> expectedSplitRanges,
+                                           @Nullable List<TupleRange> expectedSplitRanges,
                                            OnlineIndexer indexer) {
-        List<Pair<Tuple, Tuple>> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
+        List<TupleRange> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
 
         if (expectedSplitRanges != null) {
             assertEquals(expectedSplitRanges, splitRanges);
@@ -2873,9 +2873,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             // Make sure each endpoint is a valid primary key.
             splitRanges.forEach(range -> {
-                assertTrue(recordStore.recordExists(range.getLeft()));
-                assertTrue(recordStore.recordExists(range.getRight()));
-                recordStore.loadRecord(range.getRight());
+                assertTrue(recordStore.recordExists(Objects.requireNonNull(range.getLow())));
+                assertTrue(recordStore.recordExists(Objects.requireNonNull(range.getHigh())));
             });
 
             commit(context);

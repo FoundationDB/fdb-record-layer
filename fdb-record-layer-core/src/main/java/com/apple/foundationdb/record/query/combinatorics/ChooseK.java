@@ -22,12 +22,12 @@ package com.apple.foundationdb.record.query.combinatorics;
 
 import com.apple.foundationdb.annotation.API;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import org.apache.commons.lang3.tuple.MutablePair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,17 +56,54 @@ public class ChooseK {
         private final List<T> elements;
         private final int numberOfElementsToChoose;
 
+        /**
+         * Each "level" represents an element in the final combination. In particular, level {@code i}
+         * represents the {@code i}<sup>th</sup> element in the final combination.
+         */
+        private static final class LevelState {
+            private static final int UNBOUND = -1;
+
+            /**
+             * The offset separating this level from the previous position. If this is
+             * set to {@link #UNBOUND}, then the position has not yet been bound to a valid element.
+             */
+            private int offset = UNBOUND;
+            /**
+             * The maximum offset to update this level to.
+             */
+            private int maxOffset = UNBOUND;
+
+            public boolean isBound() {
+                return offset != UNBOUND;
+            }
+
+            public void bind(int offset, int maxOffset) {
+                Verify.verify(offset >= 1, "Position must be bound to an offset of at least 1");
+                this.offset = offset;
+                this.maxOffset = maxOffset;
+            }
+
+            public void unbind() {
+                this.offset = UNBOUND;
+                this.maxOffset = UNBOUND;
+            }
+
+            public boolean hasMore() {
+                return offset < maxOffset;
+            }
+        }
+
         private class ComplexIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
             // state
             private int bound;
-            private final List<MutablePair<Integer, Integer>> state;
+            private final List<LevelState> state;
             int currentOffset;
 
             private ComplexIterator() {
                 this.bound = 0;
                 this.state = Lists.newArrayListWithCapacity(numberOfElementsToChoose);
                 for (int i = 0; i < numberOfElementsToChoose; i ++) {
-                    this.state.add(MutablePair.of(-1, -1));
+                    this.state.add(new LevelState());
                 }
                 this.currentOffset = 0;
             }
@@ -79,59 +116,57 @@ public class ChooseK {
                 }
 
                 //
-                // If nothing is bound yet, we are at the beginning and should start at level 0, otherwise
-                // we conceptually start at the level of the finest granularity bound.
+                // If nothing is bound yet, we are at the beginning and should start at level 0. Otherwise,
+                // we should unbind the last bound element and increment our current state to select
+                // the next one
                 //
                 int currentLevel = bound == 0 ? 0 : bound - 1;
 
                 //
-                // For permutation of elements we return, we need to bind n elements (n == sources.size()).
-                // We maintain an iterator through the iterators over sources (that is stable) for each level up to
-                // currentLevel. That's the state!
-                // The iterator for levels greater than currentLevel may be null. The iterators
-                // for levels below current level must be on a valid element. The iterator for the currentLevel
-                // maybe null or a valid element.
+                // For a combination of elements we return, we need to bind n elements (n == numberOfElementsToChoose).
+                // We maintain an iterator through the different offsets for each level, which can be mapped
+                // to indexes in the original list. That's the state!
+                // The offset for levels greater than currentLevel may be unbound. The offsets
+                // for levels below current level must be bound to a valid level. The iterator for currentLevel
+                // maybe either bound or unbound.
                 //
 
                 //
-                // We also use an integer value "bound" that keep track of the level that is currently bound by iterators.
+                // We also use an integer value "bound" that keep track of the number of levels that are currently
+                // bound to valid values.
                 //
                 do {
                     final int lastOffset;
 
                     //
-                    // Set the currentIterator. That is the iterator at level currentLevel. If it is null,
-                    // we create a new iterator over the set.
+                    // Set the current level's state, that is, assign an offset for the current element.
+                    // If it is unbound, we start it over from the beginning; otherwise, we increment its
+                    // offset to move on to the next element.
                     //
-                    MutablePair<Integer, Integer> currentPair = state.get(currentLevel);
-                    if (currentPair.left == -1) {
-                        currentPair.left = 1;
-                        currentPair.right = elements.size() - currentOffset + 1;
-                        lastOffset = 0;
+                    LevelState currentState = state.get(currentLevel);
+                    if (currentState.isBound()) {
+                        unbind(currentLevel); // Mark this level as unbound and clear out greater levels
+                        lastOffset = currentState.offset;
+                        currentState.offset++;
                     } else {
-                        unbind(currentLevel);
-                        lastOffset = currentPair.left;
-                        currentPair.left++;
+                        currentState.bind(1, elements.size() - currentOffset + 1);
+                        lastOffset = 0;
                     }
 
                     //
-                    // Search currentLevel for a next item. Doing so may exhaust currentIterator in which case we
-                    // couldn't find another element on the current level.
-                    // In that case we need to abandon the current level and search on the level above (making that
-                    // level the current level). If we reach level -1 (i.e., we reach the end of the iterator at level 0
-                    // we are done.
-                    // If we do find an element not violating any constraints on the current level we conceptually
-                    // bind the element we found and continue on downward.
+                    // Search the current level for a next item. If the currentState has no more elements,
+                    // we need to abandon it and search the level above (making that level the current
+                    // level). If we reach level -1 (i.e., we reach the end of the iterator at level 0), we are done.
+                    // If we do find an element not violating any constraints on the current level we bind
+                    // the element we found and continue on downward.
                     //
-                    final boolean isDown = currentPair.left < currentPair.right;
-                    if (isDown) {
+                    if (currentState.hasMore()) {
                         bound += 1;
                         currentOffset += 1;
                         currentLevel += 1;
                     } else {
-                        // back tracking -- need to clear out the current iterator
-                        currentPair.left = -1;
-                        currentPair.right = -1;
+                        // back tracking -- need to clear out the state iterator
+                        currentState.unbind();
                         currentOffset -= lastOffset;
                         currentLevel -= 1;
                     }
@@ -144,8 +179,8 @@ public class ChooseK {
                 final ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
 
                 int resultOffset = 0;
-                for (final MutablePair<Integer, Integer> element : state) {
-                    resultOffset += element.left;
+                for (final LevelState position : state) {
+                    resultOffset += position.offset;
                     resultBuilder.add(elements.get(resultOffset - 1));
                 }
 
@@ -153,15 +188,13 @@ public class ChooseK {
             }
 
             private void unbind(final int level) {
-                // reset all the following ones
+                // Mark this level as unbound reset all the levels after this one
                 for (int i = level; i < numberOfElementsToChoose; i ++ ) {
-                    // either iterator is on a valid item or iterator is null
-                    MutablePair<Integer, Integer> currentPair = state.get(i);
-                    if (currentPair.left != -1) {
+                    LevelState currentPosition = state.get(i);
+                    if (currentPosition.isBound()) {
                         bound -= 1;
                         if (i > level) {
-                            currentPair.left = -1;
-                            currentPair.right = -1;
+                            currentPosition.unbind();
                         }
                     } else {
                         break;
@@ -179,19 +212,18 @@ public class ChooseK {
                     throw new IndexOutOfBoundsException();
                 }
 
-                if (state.get(level).left == -1) {
+                if (!state.get(level).isBound()) {
                     throw new UnsupportedOperationException("cannot skip/unbind as level is not bound at all");
                 }
 
                 // reset all the following ones
                 for (int i = level + 1; i < numberOfElementsToChoose; i ++ ) {
-                    // either iterator is on a valid item or iterator is null
-                    final MutablePair<Integer, Integer> pair = state.get(i);
-                    if (pair != null) {
+                    // either each level above is already unbound, or we need to update the current bound
+                    final LevelState levelState = state.get(i);
+                    if (levelState.isBound()) {
                         bound -= 1;
-                        currentOffset -= pair.left;
-                        pair.left = -1;
-                        pair.right = -1;
+                        currentOffset -= levelState.offset;
+                        levelState.unbind();
                     } else {
                         break;
                     }
