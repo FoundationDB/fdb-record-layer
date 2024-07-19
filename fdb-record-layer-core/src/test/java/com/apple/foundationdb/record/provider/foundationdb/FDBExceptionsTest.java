@@ -93,9 +93,9 @@ class FDBExceptionsTest {
         LoggableException ex = assertThrows(LoggableException.class, () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed));
         Map<String, Object> logInfo = ex.getLogInfo();
         assertTrue(logInfo.containsKey(LogMessageKeys.TIME_LIMIT.toString()));
-        Assertions.assertEquals((long)(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), 1L);
+        Assertions.assertEquals((long)(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), TimeUnit.MILLISECONDS.toNanos(1L));
         assertTrue(logInfo.containsKey(LogMessageKeys.TIME_UNIT.toString()));
-        Assertions.assertEquals(logInfo.get(LogMessageKeys.TIME_UNIT.toString()), TimeUnit.MILLISECONDS);
+        Assertions.assertEquals(logInfo.get(LogMessageKeys.TIME_UNIT.toString()), TimeUnit.NANOSECONDS);
     }
 
     @Test
