@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -98,6 +99,17 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public final GraphExpansion visitExpression(@Nonnull final KeyExpression keyExpression) {
+        if (keyExpression instanceof QueryableKeyExpression) {
+            final VisitorState state = getCurrentState();
+            Value value = ((QueryableKeyExpression)keyExpression).toValue(state.baseQuantifier, state.fieldNamePrefix);
+            value = state.registerValue(value);
+            final var column = Column.unnamedOf(value);
+            if (state.isKey()) {
+                return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
+            } else {
+                return GraphExpansion.ofResultColumn(column);
+            }
+        }
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 
