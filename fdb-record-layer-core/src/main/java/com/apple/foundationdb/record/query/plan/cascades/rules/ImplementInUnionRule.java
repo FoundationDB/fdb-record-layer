@@ -81,7 +81,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
-    @SuppressWarnings({"unchecked", "java:S135"})
+    @SuppressWarnings({"unchecked", "java:S135", "PMD.CompareObjectsWithEquals"})
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
