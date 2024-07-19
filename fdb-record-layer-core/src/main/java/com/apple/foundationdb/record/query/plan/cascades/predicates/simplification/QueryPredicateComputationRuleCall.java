@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRule;
 import com.apple.foundationdb.record.util.pair.Pair;
 
@@ -35,7 +34,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * A rule call implementation for the computation of a result while traversing {@link Value} trees.
+ * A rule call implementation for the computation of a result while traversing {@link QueryPredicate} trees.
  * @param <ARGUMENT> the type of the arguments to this rule call
  * @param <RESULT> the type of result this rule call produces
  */

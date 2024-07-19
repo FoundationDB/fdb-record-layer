@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -255,13 +254,10 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     public boolean containsInMemo(@Nonnull final RelationalExpression expression) {
-        final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
-        final Set<CorrelationIdentifier> otherCorrelatedTo = expression.getCorrelatedTo();
-
-        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(correlatedTo, otherCorrelatedTo);
-        final AliasMap identityMap = AliasMap.identitiesFor(commonUnbound);
-
-        return containsInMemo(expression, identityMap);
+        if (!getCorrelatedTo().equals(expression.getCorrelatedTo())) {
+            return false;
+        }
+        return containsInMemo(expression, AliasMap.emptyMap());
     }
 
     private boolean containsInMemo(@Nonnull final RelationalExpression expression,
@@ -273,7 +269,7 @@ public class Reference implements Correlated<Reference>, Typed {
                                    @Nonnull final AliasMap equivalenceMap,
                                    @Nonnull final Iterable<? extends RelationalExpression> membersToSearch) {
         for (final RelationalExpression member : membersToSearch) {
-            if (containsInMember(member, expression, equivalenceMap)) {
+            if (isMemoizedExpression(member, expression, equivalenceMap)) {
                 return true;
             }
         }
@@ -518,21 +514,19 @@ public class Reference implements Correlated<Reference>, Typed {
         return PlannerGraphProperty.show(renderSingleGroups, this);
     }
 
-    public static boolean containsInMember(@Nonnull final RelationalExpression expression,
-                                           @Nonnull final RelationalExpression otherExpression) {
-        final Set<CorrelationIdentifier> correlatedTo = expression.getCorrelatedTo();
-        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
+    public static boolean isMemoizedExpression(@Nonnull final RelationalExpression expression,
+                                               @Nonnull final RelationalExpression otherExpression) {
+        if (!expression.getCorrelatedTo().equals(otherExpression.getCorrelatedTo())) {
+            return false;
+        }
 
-        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(correlatedTo, otherCorrelatedTo);
-        final AliasMap identityMap = AliasMap.identitiesFor(commonUnbound);
-
-        return containsInMember(expression, otherExpression, identityMap);
+        return isMemoizedExpression(expression, otherExpression, AliasMap.emptyMap());
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static boolean containsInMember(@Nonnull final RelationalExpression member,
-                                            @Nonnull final RelationalExpression otherExpression,
-                                            @Nonnull final AliasMap equivalenceMap) {
+    private static boolean isMemoizedExpression(@Nonnull final RelationalExpression member,
+                                                @Nonnull final RelationalExpression otherExpression,
+                                                @Nonnull final AliasMap equivalenceMap) {
         if (member == otherExpression) {
             return true;
         }

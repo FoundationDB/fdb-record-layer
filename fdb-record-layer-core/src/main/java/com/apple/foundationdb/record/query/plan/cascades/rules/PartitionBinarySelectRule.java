@@ -97,7 +97,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
             final var correlatedTo = predicate.getCorrelatedTo();
             final var correlatedToRight = correlatedTo.contains(rightQuantifier.getAlias());
 
-            if (!correlatedToRight) {
+            if (!rightDependsOnLeft || !correlatedToRight) {
                 leftPredicatesBuilder.add(predicate);
             } else {
                 rightPredicatesBuilder.add(predicate);
