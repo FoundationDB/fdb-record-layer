@@ -625,19 +625,19 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
-                    return Pair.of(Math.addExact((int)pair1.getKey(), (int)pair2.getKey()), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                    // final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of(Math.addExact((int)pair1.getKey(), (int)s2), Math.addExact((long)pair1.getValue(), 1L));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
                     return (double)(Integer)pair.getKey() / (long)pair.getValue();
+                    // return (double) (Integer) s1 / (long) s2;
                 }),
         AVG_L(LogicalOperator.AVG, TypeCode.LONG, TypeCode.DOUBLE,
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
-                    return Pair.of(Math.addExact((long)pair1.getKey(), (long)pair2.getKey()), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                    return Pair.of(Math.addExact((long)pair1.getKey(), (long)s2), Math.addExact((long)pair1.getValue(), 1L));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
@@ -647,8 +647,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
-                    return Pair.of((float)pair1.getKey() + (float)pair2.getKey(), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                    return Pair.of((float)pair1.getKey() + (float)s2, Math.addExact((long)pair1.getValue(), 1L));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
@@ -658,8 +657,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
-                    return Pair.of((double)pair1.getKey() + (double)pair2.getKey(), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                    return Pair.of((double)pair1.getKey() + (double)s2, Math.addExact((long)pair1.getValue(), 1L));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;

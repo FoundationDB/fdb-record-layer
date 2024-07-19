@@ -163,32 +163,26 @@ class AggregateValueTest {
 
     @Test
     void testAvg() {
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(ints), 3.5D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longs), 3.5D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floats), 3.5D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doubles), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), ints, 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), longs, 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), floats, 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), doubles, 3.5D);
     }
 
     @Test
     void testAvgWithNulls() {
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsWithNulls), 3.6D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsWithNulls), 3.6D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsWithNulls), 3.6D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), intsWithNulls, 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), longsWithNulls, 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), floatsWithNulls, 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), doublesWithNulls, 3.6D);
     }
 
     @Test
     void testAvgOnlyNulls() {
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsOnlyNull), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsOnlyNull), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsOnlyNull), (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
-    }
-
-    private Object[] pairsForAvg(Object[] objects) {
-        return Arrays.stream(objects)
-                .map(object -> object == null ? null : Pair.of(object, 1L)) // left for the sum, right for the count
-                .toArray();
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), intsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), longsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
     }
 
     @Test
