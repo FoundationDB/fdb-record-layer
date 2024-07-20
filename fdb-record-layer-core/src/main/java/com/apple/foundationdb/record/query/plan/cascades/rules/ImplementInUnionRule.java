@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
@@ -58,7 +56,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -84,7 +81,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
-    @SuppressWarnings({"unchecked", "java:S135"})
+    @SuppressWarnings({"unchecked", "java:S135", "PMD.CompareObjectsWithEquals"})
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
@@ -123,13 +120,14 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
 
         final var explodeExpressions = bindings.getAll(explodeExpressionMatcher);
-        final var quantifierToExplodeBiMap = computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
-        final var explodeToQuantifierBiMap = quantifierToExplodeBiMap.inverse();
+
+        Verify.verify(explodeExpressions.size() == explodeQuantifiers.size());
 
         final var sourcesBuilder = ImmutableList.<InSource>builder();
 
-        for (final var explodeExpression : explodeExpressions) {
-            final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
+        int i = 0;
+        for (final var explodeQuantifier : explodeQuantifiers) {
+            final var explodeExpression = explodeExpressions.get(i++);
             final Value explodeCollectionValue = explodeExpression.getCollectionValue();
 
             //
@@ -275,22 +273,5 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
 
         return ImmutableList.of(Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
-    }
-
-    private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
-                                                                                                      @Nonnull final Set<ExplodeExpression> explodeExpressions) {
-        final var resultMap =
-                IdentityBiMap.<Quantifier.ForEach,  ExplodeExpression>create();
-
-        for (final var quantifier : quantifiers) {
-            final var rangesOver = quantifier.getRangesOver();
-            for (final var explodeExpression : explodeExpressions) {
-                if (rangesOver.getMembers().contains(explodeExpression)) {
-                    resultMap.putUnwrapped(quantifier, explodeExpression);
-                    break; // only ever one match possible
-                }
-            }
-        }
-        return resultMap;
     }
 }

@@ -53,6 +53,17 @@ public class ValueTestHelpers {
     }
 
     @Nonnull
+    public static RecordConstructorValue rcv2() {
+        final ImmutableList<Column<? extends Value>> columns =
+                ImmutableList.of(
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("name")),
+                                LiteralValue.ofScalar("fieldValueA")),
+                        Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("rest_no")),
+                                LiteralValue.ofScalar(42)));
+        return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Nonnull
     public static QuantifiedObjectValue qov() {
         final var resultType = rcv().getResultType();
         return QuantifiedObjectValue.of(Quantifier.current(), resultType);

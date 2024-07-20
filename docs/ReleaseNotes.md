@@ -17,9 +17,9 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** `Value` subsumption should default to semantic equality [(Issue #2825)](https://github.com/FoundationDB/fdb-record-layer/issues/2825)
+* **Bug fix** `Value` simplification is not constructing the top-level simplified expression correctly [(Issue #2837)](https://github.com/FoundationDB/fdb-record-layer/issues/2837)
+* **Bug fix** Memoization is not behaving correctly in some edge cases [(Issue #2836)](https://github.com/FoundationDB/fdb-record-layer/issues/2836)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
