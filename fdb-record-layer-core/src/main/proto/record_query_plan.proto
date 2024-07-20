@@ -806,6 +806,14 @@ message PBinaryRelOpValue {
       NEQ_BYU = 200;
       NEQ_BYBY = 201;
       NEQ_UBY = 202;
+      LT_BYU = 203;
+      LT_BYBY = 204;
+      LTE_BYU = 205;
+      LTE_BYBY = 206;
+      GT_BYU = 207;
+      GT_BYBY = 208;
+      GTE_BYU = 209;
+      GTE_BYBY = 210;
 
   }
   optional PRelOpValue super = 1;
