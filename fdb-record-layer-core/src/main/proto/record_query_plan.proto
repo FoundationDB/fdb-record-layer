@@ -933,12 +933,20 @@ message PComparison {
     PMultiColumnComparison multi_column_comparison = 8;
     PInvertedFunctionComparison inverted_function_comparison = 9;
     PRecordTypeComparison record_type_comparison = 10;
+    PConversionSimpleComparison conversion_simple_comparison = 11;
+    PConversionParameterComparison conversion_parameter_comparison = 12;
   }
 }
 
 message PSimpleComparison {
   optional PComparison.PComparisonType type = 1;
   optional PComparableObject object = 2;
+}
+
+message PConversionSimpleComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional PComparableObject object = 2;
+  optional KeyExpression conversion = 3;
 }
 
 message PComparableObject {
@@ -976,6 +984,13 @@ message PParameterComparison {
   optional PComparison.PComparisonType type = 1;
   optional string parameter = 2;
   optional PBindingKind internal = 3;
+}
+
+message PConversionParameterComparison {
+  optional PComparison.PComparisonType type = 1;
+  optional string parameter = 2;
+  optional PParameterComparison.PBindingKind internal = 3;
+  optional KeyExpression conversion = 4;
 }
 
 message PValueComparison {
