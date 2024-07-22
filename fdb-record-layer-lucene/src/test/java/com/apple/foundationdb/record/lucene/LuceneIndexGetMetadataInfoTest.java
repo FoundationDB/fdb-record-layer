@@ -61,7 +61,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @MethodSource("arguments")
     void getMetadata(boolean justPartitionInfo, boolean isGrouped) {
-        final LuceneIndexDataModel dataModel = new LuceneIndexDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
                 .setPartitionHighWatermark(-1) // disable partitioning
                 .setIsGrouped(isGrouped)
                 .build();
@@ -92,7 +92,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @MethodSource("arguments")
     void getMetadataPartitioned(boolean justPartitionInfo, boolean isGrouped) {
-        final LuceneIndexDataModel dataModel = new LuceneIndexDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
                 .setPartitionHighWatermark(10)
                 .setIsGrouped(isGrouped)
                 .build();
@@ -136,7 +136,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
 
     @Test
     void getMetadataAfterDelete() {
-        final LuceneIndexDataModel dataModel = new LuceneIndexDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(234097L, this::getStoreBuilder, pathManager)
                 .setPartitionHighWatermark(10)
                 .setIsGrouped(false)
                 .build();
@@ -200,7 +200,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
 
     private LuceneMetadataInfo getLuceneMetadataInfo(final boolean justPartitionInfo,
                                                      @Nonnull final Tuple groupingKey,
-                                                     @Nonnull final LuceneIndexDataModel dataModel,
+                                                     @Nonnull final LuceneIndexTestDataModel dataModel,
                                                      @Nullable final Integer partitionId) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = dataModel.schemaSetup.apply(context);
@@ -219,7 +219,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
         return segmentCount * 4 + 1;
     }
 
-    private void explicitMergeIndex(LuceneIndexDataModel dataModel) {
+    private void explicitMergeIndex(LuceneIndexTestDataModel dataModel) {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(dataModel.schemaSetup.apply(context));
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()

@@ -144,7 +144,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                    int repartitionCount,
                                    int minDocumentCount,
                                    long seed) throws IOException {
-        final LuceneIndexDataModel dataModel = new LuceneIndexDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
                 .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
@@ -246,7 +246,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                       int loopCount,
                       int maxTransactionsPerLoop,
                       long seed) throws IOException {
-        final LuceneIndexDataModel dataModel = new LuceneIndexDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
                 .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
@@ -335,7 +335,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     long seed,
                     boolean requireFailure) throws IOException {
 
-        final LuceneIndexDataModel dataModel = new LuceneIndexDataModel.Builder(seed, this::getStoreBuilder, pathManager)
+        final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
                 .setPrimaryKeySegmentIndexEnabled(primaryKeySegmentIndexEnabled)
@@ -746,9 +746,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(1000),
                 LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
 
-        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
-        Index index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexTestDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, isSynthetic);
+        Index index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
         final RecordMetaData metadata = metaDataBuilder.build();
         Random random = new Random(seed);
         final int repartitionCount = 2;
@@ -940,7 +940,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
                 recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 for (int j = 0; j < docCount; j++) {
-                    LuceneIndexDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0);
+                    LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, isGrouped ? random.nextInt(random.nextInt(10) + 1) : 0);
                 }
                 commit(context);
                 documentCount.addAndGet(docCount);

@@ -45,7 +45,7 @@ import java.util.function.Function;
 /**
  * Model for creating a lucene appropriate dataset with various configurations.
  */
-public class LuceneIndexDataModel {
+public class LuceneIndexTestDataModel {
 
     final boolean isGrouped;
     final boolean isSynthetic;
@@ -57,7 +57,7 @@ public class LuceneIndexDataModel {
     final Function<FDBRecordContext, FDBRecordStore> schemaSetup;
     final Map<Tuple, Map<Tuple, Tuple>> ids;
 
-    public LuceneIndexDataModel(final Builder builder) {
+    public LuceneIndexTestDataModel(final Builder builder) {
         random = builder.random;
         textGenerator = builder.textGenerator;
         isGrouped = builder.isGrouped;
@@ -72,9 +72,9 @@ public class LuceneIndexDataModel {
             options.put(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(partitionHighWatermark));
         }
 
-        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexDataModel.createBaseMetaDataBuilder();
-        final KeyExpression rootExpression = LuceneIndexDataModel.createRootExpression(isGrouped, isSynthetic);
-        index = LuceneIndexDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
+        final RecordMetaDataBuilder metaDataBuilder = LuceneIndexTestDataModel.createBaseMetaDataBuilder();
+        final KeyExpression rootExpression = LuceneIndexTestDataModel.createRootExpression(isGrouped, isSynthetic);
+        index = LuceneIndexTestDataModel.addIndex(isSynthetic, rootExpression, options, metaDataBuilder);
         final RecordMetaData metadata = metaDataBuilder.build();
         final StoreBuilderSupplier storeBuilderSupplier = builder.storeBuilderSupplier;
         final KeySpacePath path = builder.path;
@@ -102,7 +102,7 @@ public class LuceneIndexDataModel {
         FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
         for (int j = 0; j < count; j++) {
-            LuceneIndexDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, group);
+            LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, group);
         }
     }
 
@@ -263,8 +263,8 @@ public class LuceneIndexDataModel {
             return this;
         }
 
-        public LuceneIndexDataModel build() {
-            return new LuceneIndexDataModel(this);
+        public LuceneIndexTestDataModel build() {
+            return new LuceneIndexTestDataModel(this);
         }
     }
 
