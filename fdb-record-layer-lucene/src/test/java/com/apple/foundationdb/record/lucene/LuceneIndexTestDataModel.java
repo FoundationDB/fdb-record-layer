@@ -57,7 +57,7 @@ public class LuceneIndexTestDataModel {
     final Function<FDBRecordContext, FDBRecordStore> schemaSetup;
     final Map<Tuple, Map<Tuple, Tuple>> ids;
 
-    public LuceneIndexTestDataModel(final Builder builder) {
+    private LuceneIndexTestDataModel(final Builder builder) {
         random = builder.random;
         textGenerator = builder.textGenerator;
         isGrouped = builder.isGrouped;
@@ -107,7 +107,8 @@ public class LuceneIndexTestDataModel {
     }
 
     static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                           final Map<Tuple, Map<Tuple, Tuple>> ids, final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore, final int group) {
+                           final Map<Tuple, Map<Tuple, Tuple>> ids, final RandomTextGenerator textGenerator,
+                           final long start, final FDBRecordStore recordStore, final int group) {
         final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
         final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;
@@ -153,7 +154,8 @@ public class LuceneIndexTestDataModel {
     }
 
     @Nonnull
-    static Index addIndex(final boolean isSynthetic, final KeyExpression rootExpression, final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder) {
+    static Index addIndex(final boolean isSynthetic, final KeyExpression rootExpression,
+                          final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder) {
         Index index;
         index = new Index("joinNestedConcat", rootExpression, LuceneIndexTypes.LUCENE, options);
 

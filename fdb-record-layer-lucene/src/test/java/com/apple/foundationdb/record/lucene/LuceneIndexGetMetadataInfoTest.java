@@ -112,9 +112,9 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             // most recent is first
             final List<Integer> partitionIds = isGrouped ? List.of(0, 2, 1) : List.of(0, 5, 4, 3, 2, 1);
             assertEquals(partitionIds,
-                    partitionInfo.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getId).collect(Collectors.toList()));
+                    partitionInfo.stream().map(info -> info.getId()).collect(Collectors.toList()));
             assertEquals(partitionIds.stream().map(i -> 10).collect(Collectors.toList()),
-                    partitionInfo.stream().map(LucenePartitionInfoProto.LucenePartitionInfo::getCount).collect(Collectors.toList()));
+                    partitionInfo.stream().map(info -> info.getCount()).collect(Collectors.toList()));
             assertPartitionInfosHaveCorrectFromTo(partitionInfo);
             if (justPartitionInfo) {
                 assertEquals(Map.of(), result.getLuceneInfo());
@@ -126,7 +126,8 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                     assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(1)));
                     assertEquals(1, luceneInfo.getFieldInfoCount());
 
-                    final LuceneMetadataInfo resultForPartition = getLuceneMetadataInfo(justPartitionInfo, groupingKey, dataModel, partitionId);
+                    final LuceneMetadataInfo resultForPartition = getLuceneMetadataInfo(
+                            justPartitionInfo, groupingKey, dataModel, partitionId);
                     assertEquals(Set.of(partitionId), resultForPartition.getLuceneInfo().keySet());
                     assertEquals(luceneInfo, resultForPartition.getLuceneInfo().get(partitionId));
                 }
@@ -188,7 +189,8 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static void assertPartitionInfosHaveCorrectFromTo(final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo) {
+    private static void assertPartitionInfosHaveCorrectFromTo(
+            final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo) {
         for (int i = 0; i < partitionInfo.size(); i++) {
             final LucenePartitionInfoProto.LucenePartitionInfo info = partitionInfo.get(i);
             assertLessThan(info.getFrom(), info.getTo());
