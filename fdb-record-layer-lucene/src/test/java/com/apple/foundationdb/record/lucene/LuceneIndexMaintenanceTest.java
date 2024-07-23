@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreConcurrentTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
@@ -64,6 +65,7 @@ import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -112,6 +114,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Tag(Tags.RequiresFDB)
 public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexMaintenanceTest.class);
+
+    @BeforeEach
+    void setUp() {
+        fdb.setAsyncToSyncTimeout(waitEvent -> {
+            if (waitEvent == FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX) {
+                return org.apache.commons.lang3.tuple.Pair.of(30L, TimeUnit.SECONDS);
+            } else {
+                return org.apache.commons.lang3.tuple.Pair.of(7L, TimeUnit.SECONDS);
+            }
+        });
+    }
 
     static Stream<Arguments> configurationArguments() {
         // This has found situations that should have explicit tests:
