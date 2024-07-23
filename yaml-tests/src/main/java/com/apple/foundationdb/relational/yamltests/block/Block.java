@@ -94,7 +94,7 @@ public abstract class Block {
     void connectToDatabaseAndExecute(Consumer<RelationalConnection> consumer) {
         logger.debug("🚠 Connecting to database: `{}`", connectionURI);
         try (var connection = executionContext.getConnectionFactory().getNewConnection(connectionURI)) {
-            logger.debug("✅ Connected to database: `{}`", connection);
+            logger.debug("✅ Connected to database: `{}`", connectionURI);
             consumer.accept(connection);
         } catch (SQLException sqle) {
             throw executionContext.wrapContext(sqle,

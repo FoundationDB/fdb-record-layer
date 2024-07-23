@@ -58,7 +58,7 @@ public abstract class UnboundParameter implements Parameter  {
      */
     @Override
     @Nonnull
-    public String getString() {
+    public String getSqlText() {
         ensureBoundedness();
         return "";
     }
@@ -79,6 +79,11 @@ public abstract class UnboundParameter implements Parameter  {
         public Parameter bind(@Nonnull Random random) {
             var idx = random.ints(1, 0, items.size()).findFirst().orElseThrow();
             return items.get(idx).bind(random);
+        }
+
+        @Override
+        public String toString() {
+            return "unbounded:randomSet(" + items.stream().map(Object::toString).collect(Collectors.joining(", ")) + ")";
         }
     }
 
@@ -129,6 +134,11 @@ public abstract class UnboundParameter implements Parameter  {
                 return new PrimitiveParameter(random.ints(1, (int) lb, (int) ub).findFirst().orElseThrow());
             }
         }
+
+        @Override
+        public String toString() {
+            return "unbounded:randomRange(lowerBound: " + lowerBound + ", upperBound: " + upperBound + ")";
+        }
     }
 
     /**
@@ -157,6 +167,11 @@ public abstract class UnboundParameter implements Parameter  {
             return new ListParameter(IntStream.range(0, ((Number) sqlTypeMultiplicity).intValue())
                     .mapToObj(ignored -> element.bind(random))
                     .collect(Collectors.toList()));
+        }
+
+        @Override
+        public String toString() {
+            return "unbounded:elementMultiplicityList(element: " + element + ", multiplicity: " + multiplicity + ")";
         }
     }
 
@@ -201,6 +216,10 @@ public abstract class UnboundParameter implements Parameter  {
                         .collect(Collectors.toList()));
             }
         }
-    }
 
+        @Override
+        public String toString() {
+            return "unbounded:listRange(lowerBound: " + lowerBound + ", upperBound: " + upperBound + ")";
+        }
+    }
 }

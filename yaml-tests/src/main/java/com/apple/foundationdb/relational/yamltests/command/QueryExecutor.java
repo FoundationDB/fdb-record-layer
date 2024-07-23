@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.yamltests.command.parameterinjection.Parameter;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -146,7 +145,7 @@ public class QueryExecutor {
             int counter = 0;
             var paramList = new ArrayList<String>();
             for (var parameter : Objects.requireNonNull(parameters)) {
-                paramList.add(String.format(counter++ + " -> " + parameter.getString()));
+                paramList.add(String.format(counter++ + " -> " + parameter));
             }
             return query + " with parameters (" + String.join(", ", paramList) + ")";
         }

@@ -104,7 +104,6 @@ test_block:
     -
       - query: select * from ta where a in !! !in {[]} !! limit 1
       - result: []
-
 ---
 test_block:
   preset: single_repetition_ordered

@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -70,7 +70,7 @@ import java.util.stream.IntStream;
  *     <li>{@code connection_lifecycle}: Whether to use a new connection for each test or using one throughout.</li>
  * </ul>
  */
-@SuppressWarnings({"PMD.GuardLogStatement"})
+@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public final class TestBlock extends Block {
 
     private static final Logger logger = LogManager.getLogger(TestBlock.class);
@@ -296,7 +296,7 @@ public final class TestBlock extends Block {
 
         @Override
         public String toString() {
-            return String.format("mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s", mode, repetition, seed, checkCache, connectionLifecycle);
+            return String.format("mode: %s, repetition: %d, seed: %d, check_cache: %s, connection_lifecycle: %s, statement_type: %s", mode, repetition, seed, checkCache, connectionLifecycle, statementType);
         }
     }
 
@@ -340,7 +340,7 @@ public final class TestBlock extends Block {
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
             return new TestBlock(lineNumber, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error parsing the test block at " + lineNumber, TEST_BLOCK, lineNumber);
         }
     }
@@ -366,11 +366,12 @@ public final class TestBlock extends Block {
                 allExecutables.addAll(executableTestsWithCacheCheck);
                 executeInNonParallelizedMode(allExecutables);
             }
-            queryCommands.stream().map(QueryCommand::getMaybeExecutionError).filter(Objects::nonNull).findFirst().ifPresent(
+            // Check for the caught exceptions in each of the QueryCommands.
+            queryCommands.stream().map(QueryCommand::getMaybeExecutionThrowable).filter(Objects::nonNull).findFirst().ifPresent(
                     e -> maybeFailureException = executionContext.wrapContext(e,
                             () -> String.format("‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
                             String.format(TEST_BLOCK + " [%s] ", options), getLineNumber()));
-        } catch (Exception e) {
+        } catch (Throwable e) {
             maybeFailureException = executionContext.wrapContext(e,
                     () -> String.format("‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
                     String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
@@ -393,12 +394,24 @@ public final class TestBlock extends Block {
         }
     }
 
-    private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws InterruptedException {
+    /**
+     * Runs the collection of executables using a fixed thread pool {@link java.util.concurrent.ExecutorService}, on a
+     * thread that is not the main current, possibly multiple threads.
+     *
+     * @param testsToExecute collection of executables to execute.
+     * @throws InterruptedException thrown if the execution does not finish within a time-bound.
+     * @throws ExecutionException thrown if any the executable tasks complete exceptionally.
+     */
+    private void executeInParallelizedMode(Collection<Consumer<RelationalConnection>> testsToExecute) throws InterruptedException, ExecutionException {
         final var executorService = Executors.newFixedThreadPool(executionContext.getNumThreads());
-        testsToExecute.forEach(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t))));
+        final var futures = testsToExecute.stream().map(t -> executorService.submit(() -> executeInNonParallelizedMode(List.of(t)))).collect(Collectors.toList());
         executorService.shutdown();
         if (!executorService.awaitTermination(15, TimeUnit.MINUTES)) {
             throw new InterruptedException("Parallel executor did not terminate before the 15 minutes timeout.");
+        }
+        // Iterate through the futures to catch any uncaught errors/exceptions from the submitted tasks.
+        for (var future: futures) {
+            future.get();
         }
     }
 

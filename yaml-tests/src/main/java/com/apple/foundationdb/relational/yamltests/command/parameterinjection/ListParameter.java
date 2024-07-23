@@ -107,8 +107,13 @@ public class ListParameter implements Parameter {
 
     @Nonnull
     @Override
-    public String getString() {
+    public String getSqlText() {
         ensureBoundedness();
-        return "[" + values.stream().map(Parameter::getString).collect(Collectors.joining(", ")) + "]";
+        return "[" + values.stream().map(Parameter::getSqlText).collect(Collectors.joining(", ")) + "]";
+    }
+
+    @Override
+    public String toString() {
+        return getSqlText();
     }
 }

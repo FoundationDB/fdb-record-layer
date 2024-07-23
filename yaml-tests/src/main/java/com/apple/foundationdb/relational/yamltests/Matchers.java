@@ -20,14 +20,16 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.record.util.pair.ImmutablePair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import de.vandermeer.asciitable.AsciiTable;
@@ -228,7 +230,7 @@ public class Matchers {
     }
 
     @Nonnull
-    public static Object keyOrValue(@Nonnull final Map.Entry<?, ?> entry) {
+    public static Object valueElseKey(@Nonnull final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
             fail(String.format("encountered YAML-style 'null' which is not supported, consider using '%s' instead", CustomTag.NullPlaceholder.INSTANCE));
         }
@@ -285,30 +287,21 @@ public class Matchers {
 
     public static final class ResultSetMatchResult {
 
-        private static final ResultSetMatchResult SUCCESS = new ResultSetMatchResult(true, null, null);
+        private static final ResultSetMatchResult SUCCESS = new ResultSetMatchResult(true, null);
 
         private final boolean isSuccess;
 
         @Nullable
         private final String explanation;
 
-        @Nullable
-        private final ResultSetPrettyPrinter printer;
-
-        private ResultSetMatchResult(final boolean isSuccess, @Nullable final String explanation, @Nullable ResultSetPrettyPrinter printer) {
+        private ResultSetMatchResult(final boolean isSuccess, @Nullable final String explanation) {
             this.isSuccess = isSuccess;
             this.explanation = explanation;
-            this.printer = printer;
         }
 
         @Nullable
         public String getExplanation() {
             return explanation;
-        }
-
-        @Nullable
-        public ResultSetPrettyPrinter getResultSetPrinter() {
-            return printer;
         }
 
         public boolean isSuccess() {
@@ -319,8 +312,8 @@ public class Matchers {
             return SUCCESS;
         }
 
-        public static ResultSetMatchResult fail(@Nonnull final String explanation, @Nonnull ResultSetPrettyPrinter printer) {
-            return new ResultSetMatchResult(false, explanation, printer);
+        public static ResultSetMatchResult fail(@Nonnull final String explanation) {
+            return new ResultSetMatchResult(false, explanation);
         }
 
         @Override
@@ -339,12 +332,12 @@ public class Matchers {
 
             final var other = (ResultSetMatchResult) obj;
 
-            return Objects.equals(isSuccess, other.isSuccess) && Objects.equals(printer, other.printer) && Objects.equals(explanation, other.explanation);
+            return Objects.equals(isSuccess, other.isSuccess) && Objects.equals(explanation, other.explanation);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(isSuccess, explanation, printer);
+            return Objects.hash(isSuccess, explanation);
         }
     }
 
@@ -403,95 +396,97 @@ public class Matchers {
         }
     }
 
-    public static ResultSetMatchResult matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
-        final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
-
+    public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
         if (expected instanceof CustomTag.Ignore) {
-            return ResultSetMatchResult.success();
+            return ImmutablePair.of(ResultSetMatchResult.success(), null);
         }
-        if (expected == null && actual == null) {
-            return ResultSetMatchResult.success();
-        }
-        if (expected == null || actual == null) {
-            if (expected == null) {
-                return ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set", resultSetPrettyPrinter);
+        if (expected == null) {
+            if (actual == null) {
+                return ImmutablePair.of(ResultSetMatchResult.success(), null);
             } else {
-                return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set"), null);
             }
         }
-        if (expected instanceof CustomTag.StringContains) {
-            return ((CustomTag.StringContains) expected).matchWith(actual, resultSetPrettyPrinter);
+        if (actual == null) {
+            return ImmutablePair.of(ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set"), null);
         }
-        if (isMap(expected)) {
-            if (!actual.next()) {
-                return ResultSetMatchResult.fail("actual result set is empty", resultSetPrettyPrinter);
-            }
-            resultSetPrettyPrinter.newRow();
-            final var expectedMap = notNull(map(expected), "expected result set");
-            final var matchResult = matchMap(expectedMap, actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
-            if (!matchResult.equals(ResultSetMatchResult.SUCCESS)) {
-                printRemaining(actual, resultSetPrettyPrinter);
-            }
+        if (!isArray(expected)) {
+            final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
+            printRemaining(actual, resultSetPrettyPrinter);
+            return ImmutablePair.of(ResultSetMatchResult.fail("unknown format of expected result set"), resultSetPrettyPrinter);
+        }
+        if (isExpectedOrdered) {
+            return matchOrderedResultSet(actual, arrayList(expected));
         } else {
-            if (!isArray(expected)) {
-                printRemaining(actual, resultSetPrettyPrinter);
-                return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
+            return matchUnorderedResultSet(actual, HashMultiset.create(arrayList(expected)));
+        }
+    }
+
+    private static ImmutablePair<ResultSetMatchResult, ResultSetPrettyPrinter> matchOrderedResultSet(final RelationalResultSet actual, final List<?> expectedAsList) throws SQLException {
+        final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
+        var i = 1;
+        for (final var expectedRow : expectedAsList) {
+            if (!actual.next()) {
+                return ImmutablePair.of(ResultSetMatchResult.fail("result does not contain all expected rows."), null);
             }
-            final var expectedAsList = arrayList(expected);
-            if (isExpectedOrdered) {
-                for (final var expectedRow : expectedAsList) {
-                    if (!actual.next()) {
-                        return ResultSetMatchResult.fail("actual result set is empty", resultSetPrettyPrinter);
-                    }
-                    resultSetPrettyPrinter.newRow();
-                    if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
-                        printRemaining(actual, resultSetPrettyPrinter);
-                        return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
-                    }
-                    final var matchResult = matchMap(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
-                    if (!matchResult.equals(ResultSetMatchResult.success())) {
-                        printRemaining(actual, resultSetPrettyPrinter);
-                        return matchResult; // fail.
-                    }
-                }
-            } else {
-                // O(n^2) -- we all got M1s
-                final var expectedAsMultiSet = HashMultiset.create(expectedAsList);
-
-                while (actual.next()) {
-                    boolean found = false;
-                    for (final var expectedRow : expectedAsMultiSet) {
-                        resultSetPrettyPrinter.newRow();
-                        if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
-                            printRemaining(actual, resultSetPrettyPrinter);
-                            return ResultSetMatchResult.fail("unknown format of expected result set", resultSetPrettyPrinter);
-                        }
-                        final var matchResult = matchMap(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), resultSetPrettyPrinter, true);
-                        if (matchResult.equals(ResultSetMatchResult.success())) {
-                            found = true;
-                            expectedAsMultiSet.remove(expectedRow);
-                            break;
-                        }
-                    }
-
-                    if (!found) {
-                        printRemaining(actual, resultSetPrettyPrinter);
-                        return ResultSetMatchResult.fail("result row does not match any expected records", resultSetPrettyPrinter);
-                    }
-                }
-
-                if (!expectedAsMultiSet.isEmpty()) {
-                    return ResultSetMatchResult.fail("result does not contain all expected rows", resultSetPrettyPrinter);
-                }
+            if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
+                printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail("unknown format of expected result set"), resultSetPrettyPrinter);
+            }
+            final var matchResult = matchRow(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), i++);
+            if (!matchResult.equals(ResultSetMatchResult.success())) {
+                printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                return ImmutablePair.of(matchResult, resultSetPrettyPrinter); // fail.
             }
         }
-        final var expectedRowCount = resultSetPrettyPrinter.getRowCount();
-        final boolean thereWasRemaining = printRemaining(actual, resultSetPrettyPrinter);
-        if (thereWasRemaining) {
-            final var actualRowCount = resultSetPrettyPrinter.getRowCount();
-            return ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d rows, got %d.", expectedRowCount, actualRowCount), resultSetPrettyPrinter);
+        if (printRemaining(actual, resultSetPrettyPrinter)) {
+            final var leftActualRowCount = resultSetPrettyPrinter.getRowCount();
+            return ImmutablePair.of(ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d rows, got %d.", expectedAsList.size(), expectedAsList.size() + leftActualRowCount)), resultSetPrettyPrinter);
         }
-        return ResultSetMatchResult.success();
+        return ImmutablePair.of(ResultSetMatchResult.success(), null);
+    }
+
+    private static ImmutablePair<ResultSetMatchResult, ResultSetPrettyPrinter> matchUnorderedResultSet(final RelationalResultSet actual, final @Nonnull Multiset<?> expectedAsMultiSet) throws SQLException {
+        final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
+        var i = 1;
+        // O(n^2) -- we all got M1s
+        while (actual.next()) {
+            boolean found = false;
+            if (expectedAsMultiSet.isEmpty()) {
+                printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("too many rows in actual result set! expected %d rows, got %d.", i - 1, i - 1 + resultSetPrettyPrinter.getRowCount())), resultSetPrettyPrinter);
+            }
+            for (final var expectedRow : expectedAsMultiSet) {
+                if (!isMap(expectedRow)) { // I think it should be possible to expect a result set like: [[1,2,3], [4,5,6]]. But ok for now.
+                    printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                    return ImmutablePair.of(ResultSetMatchResult.fail("unknown format of expected result set"), resultSetPrettyPrinter);
+                }
+                final var matchResult = matchRow(map(expectedRow), actual.getMetaData().getColumnCount(), valueByName(actual), valueByIndex(actual), i);
+                if (matchResult.equals(ResultSetMatchResult.success())) {
+                    found = true;
+                    expectedAsMultiSet.remove(expectedRow);
+                    break;
+                }
+            }
+            if (!found) {
+                printCurrentAndRemaining(actual, resultSetPrettyPrinter);
+                return ImmutablePair.of(ResultSetMatchResult.fail(String.format("result row at %d does not match any expected records", i)), resultSetPrettyPrinter);
+            }
+            i++;
+        }
+        if (!expectedAsMultiSet.isEmpty()) {
+            return ImmutablePair.of(ResultSetMatchResult.fail("result does not contain all expected rows"), null);
+        }
+        return ImmutablePair.of(ResultSetMatchResult.success(), null);
+    }
+
+    public static void printCurrentAndRemaining(@Nonnull final RelationalResultSet resultSet, @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
+        final var colCount = resultSet.getMetaData().getColumnCount();
+        printer.newRow();
+        for (int i = 1; i <= colCount; i++) {
+            printer.addCell(resultSet.getObject(i));
+        }
+        printRemaining(resultSet, printer);
     }
 
     public static boolean printRemaining(@Nonnull final RelationalResultSet resultSet, @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
@@ -508,36 +503,37 @@ public class Matchers {
     }
 
     @Nonnull
+    private static ResultSetMatchResult matchRow(@Nonnull final Map<?, ?> expected,
+                                                 final int actualEntriesCount,
+                                                 @Nonnull final Function<String, Object> entryByNameAccessor,
+                                                 @Nonnull final Function<Integer, Object> entryByNumberAccessor,
+                                                 int rowNumber) throws SQLException {
+        final var expectedColCount = expected.entrySet().size();
+        if (actualEntriesCount != expectedColCount) {
+            return ResultSetMatchResult.fail(String.format("row cardinality mismatch at %d! expected a row comprising %d column(s), received %d column(s) instead.", rowNumber, expectedColCount, actualEntriesCount));
+        }
+        return matchMap(expected, actualEntriesCount, entryByNameAccessor, entryByNumberAccessor, rowNumber, "");
+    }
+
+    @Nonnull
     private static ResultSetMatchResult matchMap(@Nonnull final Map<?, ?> expected,
                                                  final int actualEntriesCount,
                                                  @Nonnull final Function<String, Object> entryByNameAccessor,
                                                  @Nonnull final Function<Integer, Object> entryByNumberAccessor,
-                                                 @Nonnull final ResultSetPrettyPrinter printer,
-                                                 boolean addCellToPrinter) throws SQLException {
+                                                 int rowNumber,
+                                                 @Nonnull String cellRef) throws SQLException {
         int counter = 1;
         final var expectedColCount = expected.entrySet().size();
         if (actualEntriesCount != expectedColCount) {
-            if (addCellToPrinter) {
-                for (int i = 1; i <= actualEntriesCount; i++) {
-                    printer.addCell(entryByNumberAccessor.apply(i));
-                }
-            }
-            return ResultSetMatchResult.fail(String.format("column mismatch! expected a row comprising %d column(s), received %d column(s) instead.", expectedColCount, actualEntriesCount), printer);
+            return ResultSetMatchResult.fail(String.format("! expected a row comprising %d column(s), received %d column(s) instead.", expectedColCount, actualEntriesCount));
         }
         for (final var entry : expected.entrySet()) {
-            final var expectedField = keyOrValue(entry);
+            final var expectedField = valueElseKey(entry);
             final var actualField = (entry.getValue() == null) ? entryByNumberAccessor.apply(counter) : entryByNameAccessor.apply(string(entry.getKey()));
-            final var matchResult = matchField(expectedField, actualField, printer);
+            final var currentCellRef = entry.getValue() == null ? "pos<" + counter + ">" : string(entry.getKey());
+            final var matchResult = matchField(expectedField, actualField, rowNumber, cellRef + (cellRef.isEmpty() ? "" : ".") + currentCellRef);
             if (!matchResult.equals(ResultSetMatchResult.success())) {
-                if (addCellToPrinter) {
-                    for (int i = counter; i <= actualEntriesCount; i++) {
-                        printer.addCell(entryByNumberAccessor.apply(i));
-                    }
-                }
                 return matchResult; // propagate failure.
-            }
-            if (addCellToPrinter) {
-                printer.addCell(actualField);
             }
             counter++;
         }
@@ -546,7 +542,8 @@ public class Matchers {
 
     private static ResultSetMatchResult matchField(@Nullable final Object expected,
                                                    @Nullable final Object actual,
-                                                   @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
+                                                   int rowNumber,
+                                                   @Nonnull String cellRef) throws SQLException {
         // the test does not care about the incoming value.
         if (expected instanceof CustomTag.Ignore) {
             return ResultSetMatchResult.success();
@@ -558,9 +555,9 @@ public class Matchers {
         }
         if (expectedIsNull || actual == null) {
             if (expectedIsNull) {
-                return ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set", printer);
+                return ResultSetMatchResult.fail("actual result set is non-NULL, expecting NULL result set");
             } else {
-                return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set", printer);
+                return ResultSetMatchResult.fail("actual result set is NULL, expecting non-NULL result set");
             }
         }
         if (expected instanceof CustomTag.NotNull) {
@@ -568,40 +565,40 @@ public class Matchers {
             return ResultSetMatchResult.success();
         }
         if (expected instanceof CustomTag.StringContains) {
-            return ((CustomTag.StringContains) expected).matchWith(actual, printer);
+            return ((CustomTag.StringContains) expected).matchWith(actual, rowNumber, cellRef);
         }
 
         // (nested) message
         if (expected instanceof Map<?, ?>) {
             if (!(actual instanceof RelationalStruct)) {
-                return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 to match a struct, got 🟡 instead.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
+                return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 to match a struct, got 🟡 instead.%n🟢 %s (Struct)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
             }
             final var struct = (RelationalStruct) (actual);
-            return matchMap(map(expected), struct.getAttributes().length, valueByName(struct), valueByIndex(struct), printer, false);
+            return matchMap(map(expected), struct.getAttributes().length, valueByName(struct), valueByIndex(struct), rowNumber, cellRef);
         }
 
         // (nested) array
         if (expected instanceof List<?>) {
             final var expectedArray = (List<?>) (expected);
             if (!(actual instanceof RelationalArray)) {
-                return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 to match an array, got 🟡 instead.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
+                return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 to match an array, got 🟡 instead.%n🟢 %s (Array)%n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
             }
             final var actualArray = (RelationalArray) (actual);
             final var actualArrayContent = actualArray.getResultSet();
             for (int i = 0; i < expectedArray.size(); i++) {
                 if (!actualArrayContent.next()) {
-                    return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
-                            printer.getRowCount(), expectedArray.size(), i, expected, actual), printer);
+                    return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 (containing %d array items) does not match 🟡 (containing %d array items).%n🟢 %s%n🟡 %s",
+                            rowNumber, cellRef, expectedArray.size(), i, expected, actual));
                 }
                 if (isMap(expectedArray.get(i))) {
                     final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getStructMetaData(2).getColumnCount(),
-                            valueByName(actualArrayContent.getStruct(2)), valueByIndex(actualArrayContent.getStruct(2)), printer, false);
+                            valueByName(actualArrayContent.getStruct(2)), valueByIndex(actualArrayContent.getStruct(2)), rowNumber, cellRef + "[" + i + "]");
                     if (!matchResult.equals(ResultSetMatchResult.success())) {
                         return matchResult; // propagate failure.
                     }
                 } else {
                     final var actualObject = actualArrayContent.getObject(2);
-                    final var matchResult = matchField(expectedArray.get(i), actualObject, printer);
+                    final var matchResult = matchField(expectedArray.get(i), actualObject, rowNumber, cellRef + "[" + i + "]");
                     if (!matchResult.equals(ResultSetMatchResult.success())) {
                         return matchResult; // propagate failure.
                     }
@@ -620,7 +617,7 @@ public class Matchers {
 
         // integer comparison (with possible promotion)
         if (expected instanceof Integer) {
-            return matchIntField((Integer) expected, actual, printer);
+            return matchIntField((Integer) expected, actual, rowNumber, cellRef);
         }
 
         if (expected instanceof String && actual instanceof byte[]) {
@@ -636,7 +633,7 @@ public class Matchers {
         if (Objects.equals(expected, actual)) {
             return ResultSetMatchResult.success();
         } else {
-            return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 does not match 🟡.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
+            return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (%s)%n🟡 %s (%s)", rowNumber, cellRef, expected, expected == null ? "NULL" : expected.getClass().getSimpleName(), actual, actual.getClass().getSimpleName()));
         }
     }
 
@@ -647,7 +644,7 @@ public class Matchers {
      * @return {@code true} if {@code expected} matches {@code actual}, otherwise {@code false}.
      */
     @Nonnull
-    private static ResultSetMatchResult matchIntField(@Nonnull final Integer expected, @Nonnull final Object actual, @Nonnull final ResultSetPrettyPrinter printer) {
+    private static ResultSetMatchResult matchIntField(@Nonnull final Integer expected, @Nonnull final Object actual, int rowNumber, @Nonnull String cellRef) {
         if (actual instanceof Integer) {
             if (Objects.equals(expected, actual)) {
                 return ResultSetMatchResult.success();
@@ -658,6 +655,6 @@ public class Matchers {
                 return ResultSetMatchResult.success();
             }
         }
-        return ResultSetMatchResult.fail(String.format("cell mismatch at row %d! expected 🟢 does not match 🟡.%n🟢 %s%n🟡 %s", printer.getRowCount(), expected, actual), printer);
+        return ResultSetMatchResult.fail(String.format("cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Integer) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
     }
 }

@@ -43,6 +43,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.concurrent.CompletableFuture;
 
+@SuppressWarnings({"PMD.AvoidCatchingThrowable"})
 public abstract class Command {
 
     public static final String COMMAND_LOAD_SCHEMA_TEMPLATE = "load schema template";
@@ -91,7 +92,7 @@ public abstract class Command {
     public final void execute(@Nonnull final RelationalConnection connection) {
         try {
             executeInternal(connection);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw executionContext.wrapContext(e, () -> "‼️ Error executing command at line " + getLineNumber(), "command", getLineNumber());
         }
     }

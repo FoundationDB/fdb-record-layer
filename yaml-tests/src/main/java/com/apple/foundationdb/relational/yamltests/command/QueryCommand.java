@@ -60,7 +60,7 @@ import java.util.stream.Collectors;
  *     how. A {@link QueryExecutor} is executed in order with all the available configs.</li>
  * </ul>
  */
-@SuppressWarnings({"PMD.GuardLogStatement"})
+@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
@@ -70,11 +70,11 @@ public final class QueryCommand extends Command {
     @Nonnull
     private final QueryInterpreter queryInterpreter;
     @Nonnull
-    private final AtomicReference<Throwable> maybeExecutionError = new AtomicReference<>();
+    private final AtomicReference<Throwable> maybeExecutionThrowable = new AtomicReference<>();
 
     @Nullable
-    public Throwable getMaybeExecutionError() {
-        return maybeExecutionError.get();
+    public Throwable getMaybeExecutionThrowable() {
+        return maybeExecutionThrowable.get();
     }
 
     @Nonnull
@@ -122,9 +122,9 @@ public final class QueryCommand extends Command {
             } else {
                 executeInternal(connection, checkCache, executor);
             }
-        } catch (Exception e) {
-            if (maybeExecutionError.get() == null) {
-                maybeExecutionError.set(executionContext.wrapContext(e,
+        } catch (Throwable e) {
+            if (maybeExecutionThrowable.get() == null) {
+                maybeExecutionThrowable.set(executionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at line " + getLineNumber(),
                         String.format("query [%s] ", executor), getLineNumber()));
             }

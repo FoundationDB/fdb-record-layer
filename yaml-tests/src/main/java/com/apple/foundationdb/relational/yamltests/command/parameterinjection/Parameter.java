@@ -42,7 +42,7 @@ import java.util.Random;
  *     <li>A JDBC-compliant SQL object that could be set as parameter to the query when executing using {@link java.sql.PreparedStatement} API.</li>
  *     <li>A constant that replaces snippet in the query itself using {@link java.sql.Statement} API.</li>
  * </ul>
- * The {@link Parameter#getSqlObject} and {@link Parameter#getString} are used respectively for the required conversion.
+ * The {@link Parameter#getSqlObject} and {@link Parameter#getSqlText} are used respectively for the required conversion.
  * <p>
  * The {@link Parameter} is not guaranteed to produce a literal value always, that is, they can be unbounded. See
  * {@link UnboundParameter} for more information. In case the parameter is unbounded, it first needs to be bound at
@@ -97,9 +97,9 @@ public interface Parameter {
     Object getSqlObject(@Nullable Connection connection) throws SQLException;
 
     /**
-     * Returns the {@link String} representation of the value of this parameter.
+     * Returns the {@link String} that is the textual SQL representation of the value of this parameter.
      * @return the string
      */
     @Nonnull
-    String getString();
+    String getSqlText();
 }

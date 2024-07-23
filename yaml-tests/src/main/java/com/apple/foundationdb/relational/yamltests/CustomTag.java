@@ -50,16 +50,16 @@ public abstract class CustomTag {
         }
 
         @Nonnull
-        public Matchers.ResultSetMatchResult matchWith(@Nonnull Object other, @Nonnull Matchers.ResultSetPrettyPrinter printer) {
+        public Matchers.ResultSetMatchResult matchWith(@Nonnull Object other, int rowNumber, @Nonnull String cellRef) {
             if (other instanceof String) {
                 final var otherStr = (String) other;
                 if (otherStr.contains(value)) {
                     return Matchers.ResultSetMatchResult.success();
                 } else {
-                    return Matchers.ResultSetMatchResult.fail(String.format("The string '%s' does not contain '%s'", otherStr, value), printer);
+                    return Matchers.ResultSetMatchResult.fail(String.format("String mismatch at row: %d cellRef: %s%n The string '%s' does not contain '%s'", rowNumber, cellRef, otherStr, value));
                 }
             } else {
-                return Matchers.ResultSetMatchResult.fail(String.format("expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other.toString(), other.getClass().getSimpleName()), printer);
+                return Matchers.ResultSetMatchResult.fail(String.format("expected to match against a %s value, however we got %s which is %s", String.class.getSimpleName(), other, other.getClass().getSimpleName()));
             }
         }
 

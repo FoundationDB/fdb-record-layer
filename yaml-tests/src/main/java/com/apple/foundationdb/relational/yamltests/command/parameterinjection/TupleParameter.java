@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 /**
  * {@link TupleParameter} is extension to {@link ListParameter} that differ with the parent in implementation of
- * {@link Parameter#getSqlObject} and {@link Parameter#getString}.
+ * {@link Parameter#getSqlObject} and {@link Parameter#getSqlText}.
  */
 public class TupleParameter extends ListParameter {
 
@@ -63,8 +63,8 @@ public class TupleParameter extends ListParameter {
 
     @Override
     @Nonnull
-    public String getString() {
+    public String getSqlText() {
         ensureBoundedness();
-        return "(" + getValues().stream().map(Parameter::getString).collect(Collectors.joining(", ")) + ")";
+        return "(" + getValues().stream().map(Parameter::getSqlText).collect(Collectors.joining(", ")) + ")";
     }
 }

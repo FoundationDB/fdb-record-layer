@@ -268,7 +268,7 @@ public final class QueryInterpreter {
     private static String adaptToSimpleStatement(@Nonnull String query, @Nonnull List<Pair<String, Parameter>> injections) {
         String adaptedString = query;
         for (var injection : injections) {
-            adaptedString = adaptedString.replace(injection.getLeft(), injection.getRight().getString());
+            adaptedString = adaptedString.replace(injection.getLeft(), injection.getRight().getSqlText());
         }
         return adaptedString;
     }

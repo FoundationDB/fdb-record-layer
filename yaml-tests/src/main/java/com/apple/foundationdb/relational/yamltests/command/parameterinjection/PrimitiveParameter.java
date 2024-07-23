@@ -38,7 +38,7 @@ public class PrimitiveParameter implements Parameter {
 
     @Nonnull
     @Override
-    public String getString() {
+    public String getSqlText() {
         if (object == null) {
             return "null";
         } else if (object instanceof String) {
@@ -63,5 +63,10 @@ public class PrimitiveParameter implements Parameter {
     @Override
     public Object getSqlObject(@Nullable Connection connection) {
         return object;
+    }
+
+    @Override
+    public String toString() {
+        return object == null ? "null" : object.toString();
     }
 }

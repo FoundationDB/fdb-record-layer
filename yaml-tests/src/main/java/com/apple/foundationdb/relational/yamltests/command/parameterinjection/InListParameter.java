@@ -65,11 +65,16 @@ public class InListParameter implements Parameter {
 
     @Override
     @Nonnull
-    public String getString() {
+    public String getSqlText() {
         ensureBoundedness();
         var values = ((ListParameter) parameter).getValues();
         // TODO (execute simple statement does not work with empty in-list)
         Assumptions.assumeTrue(!values.isEmpty(), "Empty inLists are not allowed in simple statements as they would evaluate to empty resultSet.");
-        return "(" + values.stream().map(Parameter::getString).collect(Collectors.joining(", ")) + ")";
+        return "(" + values.stream().map(Parameter::getSqlText).collect(Collectors.joining(", ")) + ")";
+    }
+
+    @Override
+    public String toString() {
+        return "inList(" + parameter + ")";
     }
 }

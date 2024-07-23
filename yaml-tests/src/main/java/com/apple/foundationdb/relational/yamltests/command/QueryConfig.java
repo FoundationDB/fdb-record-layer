@@ -54,7 +54,7 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
  *     <li>{@code checkError}: checks for the error.</li>
  * </ul>
  */
-@SuppressWarnings({"PMD.GuardLogStatement"})
+@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidCatchingThrowable"})
 public abstract class QueryConfig {
     private static final Logger logger = LogManager.getLogger(QueryConfig.class);
 
@@ -65,6 +65,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_COUNT = "count";
     public static final String QUERY_CONFIG_ERROR = "error";
     public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
+    public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
 
     @Nullable private final Object value;
     private final int lineNumber;
@@ -110,13 +111,13 @@ public abstract class QueryConfig {
     final void checkResult(@Nonnull Object actual, @Nonnull String queryDescription) {
         try {
             checkResultInternal(actual, queryDescription);
-        } catch (Exception e) {
-            throw executionContext.wrapContext(e,
-                    () -> "‼️Failed to test config at line " + getLineNumber(),
-                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at line " + getLineNumber(),
+                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+        } catch (Throwable e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️Failed to test config at line " + getLineNumber(),
                     String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         }
     }
@@ -124,13 +125,13 @@ public abstract class QueryConfig {
     final void checkError(@Nonnull SQLException actual, @Nonnull String queryDescription) {
         try {
             checkErrorInternal(actual, queryDescription);
-        } catch (Exception e) {
-            throw executionContext.wrapContext(e,
-                    () -> "‼️Failed to test config at line " + getLineNumber(),
-                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         } catch (AssertionFailedError e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️Check result failed in config at line " + getLineNumber(),
+                    String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
+        } catch (Throwable e) {
+            throw executionContext.wrapContext(e,
+                    () -> "‼️Failed to test config at line " + getLineNumber(),
                     String.format("config [%s: %s] ", getConfigName(), getVal()), getLineNumber());
         }
     }
@@ -173,16 +174,22 @@ public abstract class QueryConfig {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
-                if (!matchResult.equals(Matchers.ResultSetMatchResult.success())) {
-                    reportTestFailure("‼️ result mismatch at line " + getLineNumber() + ":\n" +
+                if (!matchResult.getLeft().equals(Matchers.ResultSetMatchResult.success())) {
+                    var toReport = "‼️ result mismatch at line " + getLineNumber() + ":\n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
-                            Matchers.notNull(matchResult.getExplanation(), "failure error message") + "\n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
-                            "↪ expected result:\n" +
-                            getValueString() + "\n" +
-                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
-                            "↩ actual result:\n" +
-                            Matchers.notNull(matchResult.getResultSetPrinter(), "failure error actual result set"));
+                            Matchers.notNull(matchResult.getLeft().getExplanation(), "failure error message") + "\n" +
+                            "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n";
+                    final var valueString = getValueString();
+                    if (!valueString.isEmpty()) {
+                        toReport += "↪ expected result:\n" +
+                                getValueString() + "\n";
+                    }
+                    if (matchResult.getRight() != null) {
+                        toReport += "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
+                                "↩ actual result left to be matched:\n" +
+                                Matchers.notNull(matchResult.getRight(), "failure error actual result set");
+                    }
+                    reportTestFailure(toReport);
                 } else {
                     logger.debug("✅ results match!");
                 }
@@ -338,7 +345,7 @@ public abstract class QueryConfig {
     }
 
     public static QueryConfig getNoCheckConfig(int lineNumber, @Nonnull YamlExecutionContext executionContext) {
-        return new QueryConfig(null, null, lineNumber, executionContext) {
+        return new QueryConfig(QUERY_CONFIG_NO_CHECKS, null, lineNumber, executionContext) {
             @Override
             void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
                 if (actual instanceof RelationalResultSet) {

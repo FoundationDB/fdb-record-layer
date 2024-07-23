@@ -46,6 +46,7 @@ import java.util.function.Consumer;
  * and errors to handled in the consumer. The rationale for this is that if the {@link SetupBlock} fails at step,
  * there is no guarantee **as of now** that some following {@link Block} can run independent of this failure.
  */
+@SuppressWarnings({"PMD.AvoidCatchingThrowable"})
 public class SetupBlock extends Block {
 
     public static final String SETUP_BLOCK = "setup";
@@ -59,7 +60,7 @@ public class SetupBlock extends Block {
     public void execute() {
         try {
             executeExecutables(executables);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️ Failed to execute all the setup steps in Setup block at " + getLineNumber(),
                     SETUP_BLOCK, getLineNumber());
@@ -85,7 +86,7 @@ public class SetupBlock extends Block {
                 }
                 return new ManualSetupBlock(lineNumber, executables, executionContext.inferConnectionURI(setupMap.getOrDefault(BLOCK_CONNECT, null)),
                         executionContext);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 throw executionContext.wrapContext(e, () -> "‼️ Error parsing the setup block at " + lineNumber, SETUP_BLOCK, lineNumber);
             }
         }
