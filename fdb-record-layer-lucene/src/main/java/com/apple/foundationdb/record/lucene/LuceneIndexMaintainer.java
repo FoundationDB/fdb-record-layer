@@ -661,6 +661,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (operation instanceof LuceneGetMetadataInfo) {
             final LuceneGetMetadataInfo request = (LuceneGetMetadataInfo)operation;
             if (request.isJustPartitionInfo()) {
+                // There isn't a more efficient way to get partition info by id than loading it all, and
+                // if you can't load it all and one partition's lucene index in a single transaction,
+                // you won't be able to repartition, so we always provide all the partition info.
                 if (partitioner.isPartitioningEnabled()) {
                     return partitioner.getAllPartitionMetaInfo(request.getGroupingKey())
                             .thenApply(partitionInfos -> new LuceneMetadataInfo(partitionInfos, Map.of()));
@@ -688,7 +691,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     Stream<LucenePartitionInfoProto.LucenePartitionInfo> infoStream = partitionInfos.stream();
                     // There isn't a more efficient way to get partition info by id than loading it all, and
                     // if you can't load it all and one partition's lucene index in a single transaction,
-                    // you won't be able to repartition
+                    // you won't be able to repartition, so we always provide all the partition info.
                     if (request.getPartitionId() != null) {
                         infoStream = infoStream.filter(info -> info.getId() == request.getPartitionId());
                     }

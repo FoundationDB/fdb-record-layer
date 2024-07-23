@@ -87,4 +87,13 @@ public class LuceneGetMetadataInfo extends IndexOperation {
     public boolean isJustPartitionInfo() {
         return justPartitionInfo;
     }
+
+    @Override
+    public String toString() {
+        return "LuceneGetMetadataInfo{" +
+                "groupingKey=" + groupingKey +
+                ", partitionId=" + partitionId +
+                ", justPartitionInfo=" + justPartitionInfo +
+                '}';
+    }
 }

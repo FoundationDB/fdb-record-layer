@@ -163,15 +163,17 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .build();
 
         // Generate random documents
-        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup, dataModel.nextInt(15) + 1, dataModel.ids, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup,
+                dataModel.nextInt(15) + 1, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator,
+                new AtomicInteger(), new AtomicInteger());
 
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
         new LuceneIndexTestValidator(() -> openContext(contextProps), dataModel.schemaSetup)
-                .validate(dataModel.index, dataModel.ids, isSynthetic ? "child_str_value:forth" : "text_value:about");
+                .validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
 
         if (isGrouped) {
-            validateDeleteWhere(isSynthetic, dataModel.ids, contextProps, dataModel.schemaSetup, dataModel.index);
+            validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
         }
     }
 
@@ -267,21 +269,21 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         for (int i = 0; i < loopCount; i++) {
             LOGGER.info(KeyValueLogMessage.of("ManyDocument loop",
                     "iteration", i,
-                    "groupCount", dataModel.ids.size(),
-                    "docCount", dataModel.ids.values().stream().mapToInt(Map::size).sum(),
-                    "docMinPerGroup", dataModel.ids.values().stream().mapToInt(Map::size).min(),
-                    "docMaxPerGroup", dataModel.ids.values().stream().mapToInt(Map::size).max()));
+                    "groupCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.size(),
+                    "docCount", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum(),
+                    "docMinPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).min(),
+                    "docMaxPerGroup", dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).max()));
             generateDocuments(isGrouped, isSynthetic, 1, dataModel.random,
-                    contextProps, dataModel.schemaSetup, dataModel.nextInt(maxTransactionsPerLoop - 1) + 1, dataModel.ids, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+                    contextProps, dataModel.schemaSetup, dataModel.nextInt(maxTransactionsPerLoop - 1) + 1, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
 
             explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
         }
 
         final LuceneIndexTestValidator luceneIndexTestValidator = new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)));
-        luceneIndexTestValidator.validate(dataModel.index, dataModel.ids, isSynthetic ? "child_str_value:forth" : "text_value:about");
+        luceneIndexTestValidator.validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about");
 
         if (isGrouped) {
-            validateDeleteWhere(isSynthetic, dataModel.ids, contextProps, dataModel.schemaSetup, dataModel.index);
+            validateDeleteWhere(isSynthetic, dataModel.groupingKeyToPrimaryKeyToPartitionKey, contextProps, dataModel.schemaSetup, dataModel.index);
         }
     }
 
@@ -354,7 +356,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         // Generate random documents
         final int transactionCount = dataModel.nextInt(15) + 10;
-        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup, transactionCount, dataModel.ids, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
+        generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup, transactionCount, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
 
         final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
         AtomicInteger waitCounts = new AtomicInteger();
@@ -404,7 +406,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 LOGGER.debug(KeyValueLogMessage.of("Validating",
                         "iteration", i));
                 new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(dataModel.schemaSetup.apply(context)))
-                        .validate(dataModel.index, dataModel.ids, isSynthetic ? "child_str_value:forth" : "text_value:about", !success);
+                        .validate(dataModel.index, dataModel.groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? "child_str_value:forth" : "text_value:about", !success);
                 LOGGER.debug(KeyValueLogMessage.of("Done Validating",
                         "iteration", i));
                 dbExtension.checkForOpenContexts(); // just in case the validation code leaks a context
@@ -412,7 +414,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         } finally {
             fdb.setAsyncToSyncTimeout(oldAsyncToSyncTimeout);
             if (LOGGER.isDebugEnabled()) {
-                dataModel.ids.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                dataModel.groupingKeyToPrimaryKeyToPartitionKey.entrySet().stream().sorted(Map.Entry.comparingByKey())
                         .forEach(entry -> LOGGER.debug(entry.getKey() + ": " + entry.getValue().keySet()));
             }
         }

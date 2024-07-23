@@ -73,7 +73,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             }
         }
 
-        final Set<Tuple> groupingKeys = isGrouped ? dataModel.ids.keySet() : Set.of(Tuple.from());
+        final Set<Tuple> groupingKeys = isGrouped ? dataModel.groupingKeys() : Set.of(Tuple.from());
         for (final Tuple groupingKey : groupingKeys) {
             final LuceneMetadataInfo result = getLuceneMetadataInfo(justPartitionInfo, groupingKey, dataModel, null);
             assertEquals(List.of(), result.getPartitionInfo());
@@ -82,7 +82,10 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             } else {
                 assertEquals(Set.of(0), result.getLuceneInfo().keySet());
                 final LuceneMetadataInfo.LuceneInfo luceneInfo = result.getLuceneInfo().get(0);
-                assertEquals(dataModel.ids.get(groupingKey).size(), luceneInfo.getDocumentCount());
+                assertEquals(dataModel.primaryKeys(groupingKey).size(), luceneInfo.getDocumentCount());
+                // When we save, we save all records for a group in a single transaction, so that will result in a
+                // single segment, but when the index is not grouped we have 5 transactions, which results in 5
+                // segments
                 assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(isGrouped ? 1 : 5)));
                 assertEquals(1, luceneInfo.getFieldInfoCount());
             }
@@ -105,7 +108,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             explicitMergeIndex(dataModel);
         }
 
-        final Set<Tuple> groupingKeys = isGrouped ? dataModel.ids.keySet() : Set.of(Tuple.from());
+        final Set<Tuple> groupingKeys = isGrouped ? dataModel.groupingKeys() : Set.of(Tuple.from());
         for (final Tuple groupingKey : groupingKeys) {
             final LuceneMetadataInfo result = getLuceneMetadataInfo(justPartitionInfo, groupingKey, dataModel, null);
             final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo = result.getPartitionInfo();
@@ -153,7 +156,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
         final Tuple groupingKey = Tuple.from();
 
         try (FDBRecordContext context = openContext()) {
-            final Tuple toDelete = dataModel.ids.get(groupingKey).keySet().stream().findFirst().orElseThrow();
+            final Tuple toDelete = dataModel.primaryKeys(groupingKey).stream().findFirst().orElseThrow();
             dataModel.deleteRecord(context, toDelete);
             commit(context);
         }
@@ -195,6 +198,12 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             final LucenePartitionInfoProto.LucenePartitionInfo info = partitionInfo.get(i);
             assertLessThan(info.getFrom(), info.getTo());
             if (i > 0) {
+                // partition infos come back with most-recent first, this means that the nth partitionInfo will be older
+                // than the n-1st, and thus the `to` on the current info should be less than the `from` on the `i-1`
+                // info, for example:
+                // partitionInfo.get(0) {from=8, to=10}
+                // partitionInfo.get(1) {from=5, to=7}
+                // partitionInfo.get(2) {from=1, to=4}
                 assertLessThan(info.getTo(), partitionInfo.get(i - 1).getFrom());
             }
         }
@@ -213,8 +222,8 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static void assertLessThan(final ByteString from, final ByteString to) {
-        assertThat(Tuple.fromBytes(from.toByteArray()), Matchers.lessThan(Tuple.fromBytes(to.toByteArray())));
+    private static void assertLessThan(final ByteString lesserOne, final ByteString greaterOne) {
+        assertThat(Tuple.fromBytes(lesserOne.toByteArray()), Matchers.lessThan(Tuple.fromBytes(greaterOne.toByteArray())));
     }
 
     private static int segmentCountToFileCount(final int segmentCount) {

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,10 +62,10 @@ public class LuceneMetadataInfo extends IndexOperationResult {
      */
     public static class LuceneInfo {
         private final int documentCount;
-        private final List<String> files;
+        private final Collection<String> files;
         private final int fieldInfoCount;
 
-        public LuceneInfo(final int documentCount, final List<String> files, final int fieldInfoCount) {
+        public LuceneInfo(final int documentCount, final Collection<String> files, final int fieldInfoCount) {
             this.documentCount = documentCount;
             this.files = files;
             this.fieldInfoCount = fieldInfoCount;
@@ -80,9 +81,10 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
         /**
          * The file listing from the directory.
+         *
          * @return the list of files in the directory
          */
-        public List<String> getFiles() {
+        public Collection<String> getFiles() {
             return files;
         }
 

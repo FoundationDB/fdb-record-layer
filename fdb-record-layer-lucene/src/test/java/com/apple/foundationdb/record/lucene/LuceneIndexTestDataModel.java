@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -55,7 +56,14 @@ public class LuceneIndexTestDataModel {
     final RandomTextGenerator textGenerator;
     final Index index;
     final Function<FDBRecordContext, FDBRecordStore> schemaSetup;
-    final Map<Tuple, Map<Tuple, Tuple>> ids;
+    /**
+     * A mapping from groupingKey to primary key to the partitioning key.
+     * <p>
+     *     The reason that the value of the inner map is the partitioning key is so that we can order them and then
+     *     slice to get the expected partitioning.
+     * </p>
+     */
+    final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey;
 
     private LuceneIndexTestDataModel(final Builder builder) {
         random = builder.random;
@@ -78,8 +86,12 @@ public class LuceneIndexTestDataModel {
         final RecordMetaData metadata = metaDataBuilder.build();
         final StoreBuilderSupplier storeBuilderSupplier = builder.storeBuilderSupplier;
         final KeySpacePath path = builder.path;
-        schemaSetup = context -> storeBuilderSupplier.get(context, metadata,  path).createOrOpen();
-        ids = new HashMap<>();
+        schemaSetup = context -> {
+            final FDBRecordStore store = storeBuilderSupplier.get(context, metadata, path).createOrOpen();
+            store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+            return store;
+        };
+        groupingKeyToPrimaryKeyToPartitionKey = new HashMap<>();
     }
 
     @Override
@@ -92,28 +104,37 @@ public class LuceneIndexTestDataModel {
                 '}';
     }
 
+    public Set<Tuple> groupingKeys() {
+        return groupingKeyToPrimaryKeyToPartitionKey.keySet();
+    }
+
+    public Set<Tuple> primaryKeys(Tuple groupingKey) {
+        return groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).keySet();
+    }
+
     public void deleteRecord(final FDBRecordContext context, final Tuple primaryKey) {
         FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
         recordStore.deleteRecord(primaryKey);
     }
 
     void saveRecords(int count, long start, FDBRecordContext context, final int group) {
         FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
         for (int j = 0; j < count; j++) {
-            LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, ids, textGenerator, start, recordStore, group);
+            LuceneIndexTestDataModel.saveRecord(isGrouped, isSynthetic, random, groupingKeyToPrimaryKeyToPartitionKey,
+                    textGenerator, start, recordStore, group);
         }
     }
 
     static void saveRecord(final boolean isGrouped, final boolean isSynthetic, final Random random,
-                           final Map<Tuple, Map<Tuple, Tuple>> ids, final RandomTextGenerator textGenerator,
-                           final long start, final FDBRecordStore recordStore, final int group) {
+                           final Map<Tuple, Map<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey,
+                           final RandomTextGenerator textGenerator, final long start, final FDBRecordStore recordStore,
+                           final int group) {
         final Tuple groupTuple = isGrouped ? Tuple.from(group) : Tuple.from();
-        final int countInGroup = ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
+        final int countInGroup = groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>()).size();
         long timestamp = start + countInGroup + random.nextInt(20) - 5;
         final Tuple primaryKey = saveRecord(recordStore, isSynthetic, group, countInGroup, timestamp, textGenerator, random);
-        ids.computeIfAbsent(groupTuple, key -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
+        groupingKeyToPrimaryKeyToPartitionKey.computeIfAbsent(groupTuple, key -> new HashMap<>())
+                .put(primaryKey, Tuple.from(timestamp).addAll(primaryKey));
     }
 
     @Nonnull

@@ -581,7 +581,7 @@ public class FDBDirectory extends Directory  {
         }
     }
 
-    public CompletableFuture<List<String>> listAllAsync() {
+    public CompletableFuture<Collection<String>> listAllAsync() {
         return getFileReferenceCacheAsync().thenApply(references -> List.copyOf(references.keySet()));
     }
 
