@@ -231,12 +231,13 @@ public final class IndexGenerator {
             // if the final result value contains nothing but the aggregation value, add the grouping values to it.
             final var groupBy = (GroupByExpression) maybeGroupBy.get();
             final var groupingValues = groupBy.getGroupingValue();
+            final var adjustResultValues = adjustGroupByFieldPaths(resultValues, groupBy);
             if (isSingleAggregation) {
                 if (groupingValues == null) {
-                    return resultValues;
+                    return adjustResultValues;
                 } else {
                     final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of()));
-                    return Stream.concat(resultValues.stream(), simplifiedGroupingValues).collect(toList());
+                    return Stream.concat(adjustResultValues.stream(), simplifiedGroupingValues).collect(toList());
                 }
             } else {
                 // Make sure the grouping values and the result values are consistent
@@ -260,11 +261,39 @@ public final class IndexGenerator {
                 if (simplifiedGroupingValues.hasNext()) {
                     Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping value absent from aggregate result value");
                 }
-                return resultValues;
+                return adjustResultValues;
             }
         } else {
             return resultValues;
         }
+    }
+
+    @Nonnull
+    private static List<Value> adjustGroupByFieldPaths(@Nonnull List<Value> resultValues,
+                                                       @Nonnull GroupByExpression groupByExpression) {
+        /*
+         * This strips the root of the field path from every FieldValue that is referencing an attribute from the
+         * underlying SELECT-WHERE expression.
+         * This is to enable the construction of a valid KeyExpression; it is valid because only single-sourced are
+         * currently allowed in aggregate indexes, in other words, there is no room for ambiguity, even after removing
+         * the root.
+         */
+        final var selectWhereQun = groupByExpression.getQuantifiers().get(0);
+        return resultValues.stream().map(resultValue -> resultValue.replace(value -> {
+            if (!(value instanceof FieldValue)) {
+                return value;
+            }
+            final FieldValue fieldValue = (FieldValue) value;
+            if (!(fieldValue.getChild() instanceof QuantifiedObjectValue)) {
+                return value;
+            }
+            final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue) fieldValue.getChild();
+            if (!quantifiedObjectValue.getAlias().equals(selectWhereQun.getAlias())) {
+                return value;
+            }
+            final var fieldAccessors = fieldValue.getFieldPath().getFieldAccessors();
+            return FieldValue.ofFields(fieldValue.getChild(), new FieldValue.FieldPath(fieldAccessors.subList(1, fieldAccessors.size())));
+        })).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull

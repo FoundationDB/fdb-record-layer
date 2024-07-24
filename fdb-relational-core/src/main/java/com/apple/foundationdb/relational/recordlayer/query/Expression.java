@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -184,6 +185,17 @@ public class Expression {
                 }
         ));
         return this.withUnderlying(pulledUpUnderlying);
+    }
+
+    @Nonnull
+    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
+            if (value instanceof ConstantObjectValue) {
+                final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
+                return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
+            }
+            return value;
+        }))));
     }
 
     @Override

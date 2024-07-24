@@ -89,6 +89,12 @@ public final class Star extends Expression {
         return null;
     }
 
+    @Nonnull
+    @Override
+    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+        return Expressions.of(expansion).dereferenced(literals);
+    }
+
     @Override
     public String toString() {
         return "* ≍" + (expansion.stream()

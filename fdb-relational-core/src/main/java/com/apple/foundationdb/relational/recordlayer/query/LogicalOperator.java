@@ -282,15 +282,16 @@ public class LogicalOperator {
                                                   @Nonnull Expressions groupByExpressions,
                                                   @Nonnull Expressions outputExpressions,
                                                   @Nonnull Optional<Expression> havingPredicate,
-                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
+                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+                                                  @Nonnull QueryExecutionContext.Literals literals) {
         final var aliasMap = AliasMap.identitiesFor(logicalOperators.getCorrelations());
         final var aggregates = Expressions.of(havingPredicate.map(outputExpressions::concat).orElse(outputExpressions)
                 .collectAggregateValues().stream().map(Expression::fromUnderlying).collect(ImmutableSet.toImmutableSet()));
         SemanticAnalyzer.validateGroupByAggregates(aggregates);
-        final var validSubExpressions = groupByExpressions.concat(aggregates);
+        final var validSubExpressions = groupByExpressions.dereferenced(literals).concat(aggregates.dereferenced(literals));
 
         for (final var expression : outputExpressions.expanded().concat(havingPredicate.map(Expressions::ofSingle).orElseGet(Expressions::empty))) {
-            Assert.thatUnchecked(SemanticAnalyzer.isComposableFrom(expression, validSubExpressions, aliasMap, outerCorrelations),
+            Assert.thatUnchecked(SemanticAnalyzer.isComposableFrom(expression.dereferenced(literals).getSingleItem(), validSubExpressions, aliasMap, outerCorrelations),
                     ErrorCode.GROUPING_ERROR,
                     () -> String.format("Invalid reference to non-grouping expression %s", expression));
         }

@@ -39,9 +39,11 @@ import com.google.protobuf.ByteString;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.function.Supplier;
 
@@ -113,6 +115,9 @@ public interface QueryExecutionContext {
         @Nonnull
         private final Stack<Multiset<OrderedLiteral>> current;
 
+        @Nonnull
+        private final Map<Object, OrderedLiteral> literalReverseLookup; // allowing null keys.
+
         private int arrayLiteralScopeCount;
         private int structLiteralScopeCount;
 
@@ -120,17 +125,20 @@ public interface QueryExecutionContext {
             this.literals = TreeMultiset.create(OrderedLiteral.COMPARATOR);
             current = new Stack<>();
             current.push(this.literals);
+            literalReverseLookup = new HashMap<>();
         }
 
         void addLiteral(@Nonnull final OrderedLiteral orderedLiteral) {
             if (orderedLiteral.getLiteralObject() instanceof byte[]) {
-                current.peek()
-                        .add(new OrderedLiteral(orderedLiteral.getType(),
-                                ByteString.copyFrom(((byte[]) orderedLiteral.getLiteralObject())),
-                                orderedLiteral.getUnnamedParameterIndex(), orderedLiteral.getParameterName(),
-                                orderedLiteral.getTokenIndex()));
+                final var byteOrderedLiteral = new OrderedLiteral(orderedLiteral.getType(),
+                        ByteString.copyFrom(((byte[]) orderedLiteral.getLiteralObject())),
+                        orderedLiteral.getUnnamedParameterIndex(), orderedLiteral.getParameterName(),
+                        orderedLiteral.getTokenIndex());
+                literalReverseLookup.putIfAbsent(byteOrderedLiteral.literalObject, byteOrderedLiteral);
+                current.peek().add(byteOrderedLiteral);
             } else {
                 Verify.verify(!current.peek().contains(orderedLiteral));
+                literalReverseLookup.putIfAbsent(orderedLiteral.literalObject, orderedLiteral);
                 current.peek().add(orderedLiteral);
             }
         }
@@ -147,6 +155,26 @@ public interface QueryExecutionContext {
 
         private void startComplexLiteral() {
             current.push(TreeMultiset.create(OrderedLiteral.COMPARATOR));
+        }
+
+        @Nonnull
+        public Optional<OrderedLiteral> getFirstValueDuplicateMaybe(@Nullable Object value) {
+            // if this is called while building a complex literal, bail out, since we do not support
+            // non-linear reference graphs at the moment.
+            if (current.size() > 1) {
+                return Optional.empty();
+            }
+            return Optional.of(literalReverseLookup.get(value));
+        }
+
+        @Nonnull
+        public Optional<OrderedLiteral> getFirstDuplicateOfTokenIdMaybe(@Nonnull String tokenId) {
+            // if this is called while building a complex literal, bail out, since we do not support
+            // non-linear reference graphs at the moment.
+            if (current.size() > 1) {
+                return Optional.empty();
+            }
+            return Optional.of(literalReverseLookup.get(literals.stream().filter(l -> l.getConstantId().equals(tokenId)).findFirst().orElseThrow().literalObject));
         }
 
         void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
@@ -172,6 +200,7 @@ public interface QueryExecutionContext {
                     parameterName, tokenIndex);
             if (shouldProcessLiterals) {
                 Verify.verify(!current.peek().contains(orderedLiteral));
+                literalReverseLookup.putIfAbsent(orderedLiteral.literalObject, orderedLiteral);
                 current.peek().add(orderedLiteral);
             }
             arrayLiteralScopeCount--;
@@ -198,9 +227,9 @@ public interface QueryExecutionContext {
                 i++;
             }
             Verify.verify(tokenIndex >= 0);
-
-            current.peek().add(new OrderedLiteral(type, messageBuilder.build(), unnamedParameterIndex, parameterName,
-                    tokenIndex));
+            final var orderedLiteral = new OrderedLiteral(type, messageBuilder.build(), unnamedParameterIndex, parameterName, tokenIndex);
+            literalReverseLookup.putIfAbsent(orderedLiteral.literalObject, orderedLiteral);
+            current.peek().add(orderedLiteral);
             structLiteralScopeCount--;
         }
 

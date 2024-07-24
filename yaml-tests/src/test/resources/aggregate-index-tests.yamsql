@@ -31,6 +31,9 @@ schema_template:
     create index mv9 as select col1, max(col2), col3 from T2 group by col1, col3 order by col1, max(col2), col3
     create index vi1 as select col1 from t1
     create index mv7 as select min_ever(col3) from t2
+    create table t3(id bigint, a bigint, b bigint, primary key(id))
+    create index mv10 as select a+3, max(b) from t3 group by a+3
+    create index mv11 as select a+b, b+10, min(b) from t3 group by a+b, b+10
 ---
 setup:
   steps:
@@ -58,6 +61,17 @@ setup:
                (7, 2, 1, 400),
                (8, 2, 1, 400),
                (9, 2, 1, 400)
+    - query: INSERT INTO T3
+        VALUES (1, 10, 3),
+               (2, 10, 3),
+               (3, 10, 500),
+               (4, 20, 2),
+               (5, 20, 200),
+               (6, 20, 2),
+               (7, 20, 2),
+               (8, 30, 6),
+               (9, 30, 900),
+               (10, 30, 6)
 ---
 test_block:
   tests:
@@ -158,7 +172,7 @@ test_block:
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 and max(col2) >= 1 order by max(col2) desc;
-      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [GREATER_THAN_OR_EQUALS promote(@c33 as LONG) && LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"
+      - explainContains: "AggregateIndexScan(Index(MV9 [EQUALS promote(@c13 as LONG), [GREATER_THAN_OR_EQUALS promote(@c13 as LONG) && LESS_THAN promote(@c25 as LONG)]] BY_GROUP REVERSE)"
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;
@@ -218,4 +232,16 @@ test_block:
       - query: select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;
       - explain: "map(AggregateIndexScan(Index(MV1 [[GREATER_THAN promote(@c19 as LONG) && LESS_THAN_OR_EQUALS promote(@c12 as LONG)]] BY_GROUP) -> [_0: [_0: KEY[0]], _1: [_0: VALUE[0]]])[($q6._1._0 as _0)])"
       - result: [{!l 15}]
+    -
+      - query: select max(b) as x1, a+3 as x2 from t3 group by a+3;
+      - explainContains: "AggregateIndexScan(Index(MV10 <,> BY_GROUP)"
+      - result: [{x1: 500, x2: 13}, {x1: 200, x2: 23}, {x1: 900, x2: 33}]
+    -
+      - query: select a+3 as x1, max(b) as x2 from t3 group by a+3;
+      - explainContains: "AggregateIndexScan(Index(MV10 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 500}, {x1: 23, x2: 200}, {x1: 33, x2: 900}]
+    -
+      - query: select a+b as x1, min(b) as x2 from t3 group by a+b, b+10;
+      - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
 ...

@@ -449,11 +449,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
-        return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
-            final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
-            final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
-            return getDelegate().resolveFunction(ctx.bitOperator().getText(), left, right);
-        });
+        final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
+        final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
+        return getDelegate().resolveFunction(ctx.bitOperator().getText(), left, right);
     }
 
     @Override

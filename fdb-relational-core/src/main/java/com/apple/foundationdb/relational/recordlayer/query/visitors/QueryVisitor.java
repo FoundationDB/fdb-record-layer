@@ -98,31 +98,28 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         var where = Optional.ofNullable(querySpecificationContext.fromClause().whereExpr() == null ?
                 null :
                 visitWhereExpr(querySpecificationContext.fromClause().whereExpr()));
-        var groupByExpressions = querySpecificationContext.groupByClause() == null ?
-                Expressions.empty() :
-                visitGroupByClause(querySpecificationContext.groupByClause());
-        var selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
+        Expressions selectExpressions;
         Optional<Pair<Boolean, Expressions>> orderByExpressions = Optional.empty();
-        if (!groupByExpressions.isEmpty() || Streams.stream(selectExpressions)
-                .anyMatch(expression -> !Iterables.isEmpty(Expression.Utils.filterUnderlyingAggregates(expression)))) {
+        if (querySpecificationContext.groupByClause() != null || hasAggregations(querySpecificationContext.selectElements())) {
             var outerCorrelations = getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations();
             final var selectWhere = LogicalOperator.generateSelectWhere(getDelegate().getLogicalOperators(), outerCorrelations, where, getDelegate().isForDdl());
             final var replacingFragment = LogicalPlanFragment.newBuilder().addLogicalOperator(selectWhere)
                     .withParent(getDelegate().currentPlanFragmentBuilder.get().getParentMaybe());
 
             getDelegate().currentPlanFragmentBuilder = Optional.of(replacingFragment);
-            groupByExpressions = querySpecificationContext.groupByClause() == null ?
+            final var groupByExpressions = querySpecificationContext.groupByClause() == null ?
                     Expressions.empty() :
                     visitGroupByClause(querySpecificationContext.groupByClause());
             selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
             outerCorrelations = getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations();
             where = Optional.ofNullable(querySpecificationContext.havingClause() == null ? null : visitHavingClause(querySpecificationContext.havingClause()));
+            final var literals = getDelegate().mutablePlanGenerationContext.getLiteralsBuilder();
             final var groupBy = LogicalOperator.generateGroupBy(getDelegate().getLogicalOperators(), groupByExpressions,
-                    selectExpressions, where, outerCorrelations);
+                    selectExpressions, where, outerCorrelations, literals);
             final var replacingFragment2 = LogicalPlanFragment.newBuilder().addLogicalOperator(groupBy)
                     .withParent(getDelegate().currentPlanFragmentBuilder.get().getParentMaybe());
 
-            selectExpressions = selectExpressions.expanded().pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
+            selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
             if (querySpecificationContext.orderByClause() != null) {
@@ -131,6 +128,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             }
             getDelegate().currentPlanFragmentBuilder = Optional.of(replacingFragment2);
         } else {
+            selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
             orderByExpressions = querySpecificationContext.orderByClause() == null ?
                     Optional.empty() :
                     Optional.of(visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions));
@@ -444,6 +442,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var orderByDirection = getDelegate().getSemanticAnalyzer().validateOrderByColumns(pairs);
         final var orderByExpressions = Expressions.of(pairs.stream().map(Pair::getLeft).collect(ImmutableList.toImmutableList()));
         return Pair.of(orderByDirection, orderByExpressions);
+    }
+
+    private boolean hasAggregations(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
+        return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                () -> Streams.stream(visitSelectElements(selectElementsContext))
+                        .anyMatch(expression -> !Iterables.isEmpty(Expression.Utils.filterUnderlyingAggregates(expression)))
+        );
     }
 
     @Nonnull

@@ -144,6 +144,17 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+        return Expressions.of(this.asList().stream().flatMap(e -> e.dereferenced(literals).asList().stream()).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    public Expression getSingleItem() {
+        Assert.thatUnchecked(asList().size() == 1, "invalid attempt to get single item");
+        return asList().get(0);
+    }
+
+    @Nonnull
     public Set<Value> collectAggregateValues() {
         final ImmutableSet.Builder<Value> resultBuilder = ImmutableSet.builder();
         for (final var expression : this) {

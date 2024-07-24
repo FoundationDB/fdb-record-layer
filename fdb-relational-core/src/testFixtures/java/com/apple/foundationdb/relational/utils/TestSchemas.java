@@ -75,4 +75,17 @@ public final class TestSchemas {
     public static String books() {
         return BOOKS_SCHEMAS;
     }
+
+    @Nonnull
+    private static final String SCORE_SCHEMA =
+            "CREATE TABLE score(id bigint, player string, game bigint, score bigint, playDuration bigint, primary key(id))" +
+                    "CREATE INDEX maxScoreByGame10 AS SELECT MAX(score), game + 10 FROM score GROUP BY game + 10" +
+                    "CREATE INDEX maxScoreByGame20 AS SELECT MAX(score), game + 20 FROM score GROUP BY game + 20" +
+                    "CREATE INDEX bitAndScore2 AS SELECT game & 2, MAX(score) FROM score GROUP BY game & 2" +
+                    "CREATE INDEX bitAndScore4 AS SELECT game & 4, MAX(score) FROM score GROUP BY game & 4";
+
+    @Nonnull
+    public static String score() {
+        return SCORE_SCHEMA;
+    }
 }

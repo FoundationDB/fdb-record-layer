@@ -116,7 +116,7 @@ public final class RecordLayerIndex implements Index  {
                 .setIndexType(index.getType())
                 .setTableName(tableName)
                 .setKeyExpression(index.getRootExpression())
-                .setPredicate(index.toProto().getPredicate())
+                .setPredicate(index.toProto().hasPredicate() ? index.toProto().getPredicate() : null)
                 .setOptions(index.getOptions())
                 .build();
     }

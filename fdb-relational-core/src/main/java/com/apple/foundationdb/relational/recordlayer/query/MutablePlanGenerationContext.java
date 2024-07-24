@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -41,6 +42,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -52,8 +54,8 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 
@@ -87,6 +89,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nullable
     private byte[] continuation;
 
+    @Nonnull
+    private final ImmutableList.Builder<QueryPredicate> equalityConstraints;
+
     public MutablePlanGenerationContext(@Nonnull PreparedParams preparedParams,
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
                                         int parameterHash) {
@@ -100,6 +105,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         offset = 0;
         forExplain = false;
         setContinuation(null);
+        equalityConstraints = ImmutableList.builder();
     }
 
     public void startArrayLiteral() {
@@ -131,6 +137,41 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         if (!literalsBuilder.isAddingComplexLiteral()) {
             constantObjectValues.add(constantObjectValue);
         }
+    }
+
+    @Nonnull
+    public Optional<OrderedLiteral> getFirstCovReference(@Nullable Object literal, int requestedTokenIndex, @Nonnull Type type) {
+        final var orderedLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal);
+        if (orderedLiteralMaybe.isEmpty()) {
+            return Optional.empty();
+        }
+        addEqualityConstraint(requestedTokenIndex, orderedLiteralMaybe.get().getTokenIndex(), type);
+        return orderedLiteralMaybe;
+    }
+
+    @Nonnull
+    public Optional<OrderedLiteral> getFirstDuplicate(@Nonnull String tokenId) {
+        final var firstDuplicateMaybe = literalsBuilder.getFirstDuplicateOfTokenIdMaybe(tokenId);
+        if (firstDuplicateMaybe.isEmpty()) {
+            return firstDuplicateMaybe;
+        }
+        final var firstDuplicate = firstDuplicateMaybe.get();
+        addEqualityConstraint(firstDuplicate.getConstantId(), tokenId, firstDuplicate.getType());
+        return firstDuplicateMaybe;
+    }
+
+    private void addEqualityConstraint(int leftTokenIndex, int rightTokenIndex, @Nonnull Type type) {
+        addEqualityConstraint(OrderedLiteral.constantId(leftTokenIndex), OrderedLiteral.constantId(rightTokenIndex), type);
+    }
+
+    private void addEqualityConstraint(@Nonnull String leftTokenId, @Nonnull String rightTokenId, @Nonnull Type type) {
+        if (leftTokenId.equals(rightTokenId)) {
+            return;
+        }
+        final var leftCov = ConstantObjectValue.of(Quantifier.constant(), leftTokenId, type);
+        final var rightCov = ConstantObjectValue.of(Quantifier.constant(), rightTokenId, type);
+        final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
+        equalityConstraints.add(equalityPredicate);
     }
 
     @Override
@@ -207,10 +248,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     public QueryPlanConstraint getLiteralReferencesConstraint() {
-        return QueryPlanConstraint.ofPredicates(constantObjectValues.stream()
-                .map(parameter -> new ValuePredicate(OfTypeValue.from(parameter),
-                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)))
-                .collect(Collectors.toList()));
+        final ImmutableList.Builder<QueryPredicate> predicateBuilder = ImmutableList.builder();
+        constantObjectValues.forEach(parameter -> predicateBuilder.add(new ValuePredicate(OfTypeValue.from(parameter),
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
+        predicateBuilder.addAll(equalityConstraints.build());
+        return QueryPlanConstraint.ofPredicates(predicateBuilder.build());
     }
 
     public void setForExplain(boolean forExplain) {
@@ -267,7 +309,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(),
                     literalValue.getResultType());
             addLiteralReference(result);
-            return result;
+            return ConstantObjectValue.of(Quantifier.constant(), getFirstCovReference(literal, tokenIndex, type).map(OrderedLiteral::getConstantId).orElse(orderedLiteral.getConstantId()),
+                    literalValue.getResultType());
         }
     }
 
@@ -277,7 +320,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         if (shouldProcessLiteral()) {
             addLiteralReference(result);
         }
-        return result;
+        return ConstantObjectValue.of(Quantifier.constant(), getFirstDuplicate(constantId).map(OrderedLiteral::getConstantId).orElse(constantId), type);
     }
 
     @Nonnull

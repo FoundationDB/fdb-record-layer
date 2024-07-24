@@ -892,33 +892,20 @@ public class AstNormalizerTests {
 
     @Test
     void parseBitAtomExpressionsWithLiterals() throws Exception {
-        // In order to match literal values in indexes, we currently do not parse literals within
-        // a bit atom expression
-        validate("select a & 4 from t",
-                PreparedParams.empty(),
-                "select \"A\" & 4 from \"T\" ",
-                Map.of());
-        validate("select a & 2 from t",
-                PreparedParams.empty(),
-                "select \"A\" & 2 from \"T\" ",
-                Map.of());
-        validateNotSameHash("select a & 4 from t", "select a & 2 from t");
+        validate(List.of("select a & 4 from t"), "select \"A\" & ? from \"T\" ",
+                List.of(Map.of(constantId(3), 4)));
+        validate(List.of("select a & 2 from t"), "select \"A\" & ? from \"T\" ",
+                List.of(Map.of(constantId(3), 2)));
     }
 
     @Test
     void parseBitAtomExpressionsWithParameters() throws Exception {
         validate("select a & ?m from t",
                 PreparedParams.ofNamed(Map.of("m", 4L)),
-                "select \"A\" & 4L from \"T\" ",
-                Map.of());
+                "select \"A\" & ?m from \"T\" ", Map.of(constantId(3), 4L));
         validate("select a & ?m from t",
                 PreparedParams.ofNamed(Map.of("m", 2L)),
-                "select \"A\" & 2L from \"T\" ",
-                Map.of());
-        validateNotSameHash("select a & ?m from t",
-                PreparedParams.ofNamed(Map.of("m", 2)),
-                "select a & ?m from t",
-                PreparedParams.ofNamed(Map.of("m", 4)));
+                "select \"A\" & ?m from \"T\" ", Map.of(constantId(3), 2L));
     }
 
     @Test

@@ -351,6 +351,15 @@ public class IndexTest {
     }
 
     @Test
+    void createAggregateIndexWithComplexGroupingExpressionCase1() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(p1 bigint, a bigint, b bigint, c bigint, primary key(p1)) " +
+                "CREATE INDEX mv1 AS SELECT a & 2, b + 3, MAX(b) FROM T1 GROUP BY a & 2, b + 3";
+        indexIs(stmt, field("B").groupBy(concat(function("bitand", concat(field("A"), value(2))),
+                function("add", concat(field("B"), value(3))))), IndexTypes.PERMUTED_MAX);
+    }
+
+    @Test
     void createSimpleValueIndex() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(p1 bigint, a1 bigint, primary key(p1)) " +
