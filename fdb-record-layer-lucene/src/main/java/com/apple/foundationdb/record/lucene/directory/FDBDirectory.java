@@ -354,6 +354,11 @@ public class FDBDirectory extends Directory  {
                 .map(keyValue -> NonnullPair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
     }
 
+    public CompletableFuture<Integer> getFieldInfosCount() {
+        return agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList())
+                .thenApply(List::size);
+    }
+
     public static boolean isSegmentInfo(String name) {
         return name.endsWith(SI_EXTENSION)
                && !name.startsWith(IndexFileNames.SEGMENTS)
@@ -574,6 +579,10 @@ public class FDBDirectory extends Directory  {
         } finally {
             agilityContext.recordEvent(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
+    }
+
+    public CompletableFuture<Collection<String>> listAllAsync() {
+        return getFileReferenceCacheAsync().thenApply(references -> List.copyOf(references.keySet()));
     }
 
     @VisibleForTesting
