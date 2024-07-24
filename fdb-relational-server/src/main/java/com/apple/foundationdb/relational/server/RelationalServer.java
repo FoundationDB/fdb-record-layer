@@ -25,9 +25,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.annotations.VisibleForTesting;
-import io.grpc.InternalGlobalInterceptors;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
@@ -55,7 +53,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 /**
@@ -268,10 +265,6 @@ public class RelationalServer implements Closeable {
         }
         int grpcPort = getPort(cli, grpcPortOption, GrpcConstants.DEFAULT_SERVER_PORT);
         int httpPort = getPort(cli, httpPortOption, DEFAULT_HTTP_PORT);
-        // Before starting up the server, turn off the global trace interceptors. W/o this, we get some classnotfound
-        // exceptions on startup. Enabling tracer interception is new; Classnotfound seems like unwanted behavior/bug.
-        InternalGlobalInterceptors.setInterceptorsTracers(Collections.emptyList(), Collections.emptyList(),
-                Collections.emptyList());
         new RelationalServer(grpcPort, httpPort).start().awaitTermination();
     }
 }
