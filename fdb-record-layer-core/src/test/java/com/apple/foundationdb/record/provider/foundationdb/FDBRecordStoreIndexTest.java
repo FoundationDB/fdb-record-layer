@@ -2710,7 +2710,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @SuppressWarnings("deprecation")
-    public void testBoundaryPrimaryKeysImpl() {
+    private void testBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setLocalityProvider(MockedLocalityUtil.instance());
         factory.clear();
@@ -2856,6 +2856,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         return oneRangePerSplit;
     }
 
+    @SuppressWarnings("deprecation") // test method of deprecated method
     private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
                                            @Nullable List<TupleRange> expectedSplitRanges,
                                            OnlineIndexer indexer) {

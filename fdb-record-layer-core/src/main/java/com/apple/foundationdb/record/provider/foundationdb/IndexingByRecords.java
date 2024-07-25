@@ -542,6 +542,7 @@ public class IndexingByRecords extends IndexingBase {
     }
 
     // support splitIndexBuildRange
+    @Deprecated
     @Nonnull
     public List<TupleRange> splitIndexBuildRange(int minSplit, int maxSplit) {
         TupleRange originalRange = getRunner().asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());

@@ -726,8 +726,10 @@ public class OnlineIndexer implements AutoCloseable {
      * @param minSplit not split if it cannot be split into at least <code>minSplit</code> ranges
      * @param maxSplit the maximum number of splits generated
      * @return a list of split primary key ranges
+     * @deprecated for removal to be replaced by {@linkplain IndexingMutuallyByRecords mutual indexing}
      */
-    @API(API.Status.EXPERIMENTAL)
+    @API(API.Status.DEPRECATED)
+    @Deprecated
     @Nonnull
     public List<TupleRange> splitIndexBuildRange(int minSplit, int maxSplit) {
         return getIndexerByRecordsOrThrow().splitIndexBuildRange(minSplit, maxSplit);
