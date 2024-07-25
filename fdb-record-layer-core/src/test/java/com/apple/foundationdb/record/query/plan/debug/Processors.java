@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.AdjustMa
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreExpressionEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeGroupEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.TransformEvent;
@@ -327,7 +328,7 @@ public class Processors {
             return AdjustMatchEvent.class;
         }
     }
-    
+
     /**
      * Processor for {@link OptimizeInputsEvent}.
      */
@@ -358,6 +359,30 @@ public class Processors {
         @Override
         public Class<OptimizeInputsEvent> getEventType() {
             return OptimizeInputsEvent.class;
+        }
+    }
+
+    /**
+     * Processor for {@link InsertIntoMemoEvent}.
+     */
+    @AutoService(Processor.class)
+    public static class InsertMemoProcessor implements Processor<InsertIntoMemoEvent> {
+        @Override
+        public void onDetail(final PlannerRepl plannerRepl, final InsertIntoMemoEvent event) {
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("description", event.getDescription());
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl, final InsertIntoMemoEvent event) {
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
+        }
+
+        @Override
+        public Class<InsertIntoMemoEvent> getEventType() {
+            return InsertIntoMemoEvent.class;
         }
     }
 }
