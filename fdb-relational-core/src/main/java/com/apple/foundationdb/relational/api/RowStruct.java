@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -40,9 +39,11 @@ import java.util.Collection;
 /**
  * Implementation of {@link RelationalStruct} that is backed by a {@link Row}.
  */
-public abstract class RowStruct implements RelationalStruct {
+public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalStruct {
 
     private final StructMetaData metaData;
+
+    protected boolean wasNull;
 
     protected RowStruct(StructMetaData metaData) {
         this.metaData = metaData;
@@ -67,6 +68,11 @@ public abstract class RowStruct implements RelationalStruct {
     }
 
     protected abstract Object getObjectInternal(int zeroBasedPosition) throws SQLException;
+
+    @Override
+    public boolean wasNull() {
+        return wasNull;
+    }
 
     @Override
     public boolean getBoolean(String columnLabel) throws SQLException {
@@ -230,7 +236,9 @@ public abstract class RowStruct implements RelationalStruct {
             final var elements = new ArrayList<>();
             for (final var t : coll) {
                 if (t instanceof Message) {
-                    elements.add(new MessageTuple((Message) t));
+                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
+                } else if (t instanceof ByteString) {
+                    elements.add(((ByteString) t).toByteArray());
                 } else {
                     elements.add(t);
                 }
@@ -248,7 +256,9 @@ public abstract class RowStruct implements RelationalStruct {
             final var coll = (Collection<?>) message.getField(fieldDescriptor);
             for (final var t : coll) {
                 if (t instanceof Message) {
-                    elements.add(new MessageTuple((Message) t));
+                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
+                } else if (t instanceof ByteString) {
+                    elements.add(((ByteString) t).toByteArray());
                 } else {
                     elements.add(t);
                 }

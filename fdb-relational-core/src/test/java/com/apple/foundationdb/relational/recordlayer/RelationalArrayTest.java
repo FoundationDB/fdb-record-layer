@@ -20,19 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
-
 import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -41,7 +38,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -131,11 +127,7 @@ public class RelationalArrayTest {
         insertQuery("INSERT INTO T (pk) VALUES (4)");
     }
 
-    private static Stream<Arguments> provideTypesForArrayTests() {
-        final var metadata = new RelationalStructMetaData(
-                FieldDescription.primitive("A", Types.INTEGER, DatabaseMetaData.columnNoNulls),
-                FieldDescription.primitive("B", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-        );
+    private static Stream<Arguments> provideTypesForArrayTests() throws SQLException {
         return Stream.of(
                 Arguments.of(2, 3, List.of(true, false), Types.BOOLEAN),
                 Arguments.of(4, 5, List.of(11, 22), Types.INTEGER),
@@ -144,7 +136,10 @@ public class RelationalArrayTest {
                 Arguments.of(10, 11, List.of(11.0, 22.0), Types.DOUBLE),
                 Arguments.of(12, 13, List.of("11", "22"), Types.VARCHAR),
                 Arguments.of(14, 15, List.of(new byte[]{49}, new byte[]{50}), Types.BINARY),
-                Arguments.of(16, 17, List.of(new ImmutableRowStruct(new ArrayRow(11, "11"), metadata), new ImmutableRowStruct(new ArrayRow(22, "22"), metadata)), Types.STRUCT)
+                Arguments.of(16, 17, List.of(
+                        EmbeddedRelationalStruct.newBuilder().addInt("A", 11).addString("B", "11").build(),
+                        EmbeddedRelationalStruct.newBuilder().addInt("A", 22).addString("B", "22").build()),
+                Types.STRUCT)
         );
     }
 

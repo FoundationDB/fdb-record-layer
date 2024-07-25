@@ -21,17 +21,13 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.ImmutableRowStruct;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.RowStruct;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import javax.annotation.Nonnull;
-import java.sql.DatabaseMetaData;
-import java.sql.Types;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -72,18 +68,21 @@ public final class DdlPermutationGenerator {
             return typeName + columnTypeDefinition(false);
         }
 
-        public Row getPermutation(String typeName) {
-            List<RowStruct> rows = new ArrayList<>();
+        public RelationalStruct getPermutation(String typeName) throws SQLException {
+            List<RelationalStruct> rows = new ArrayList<>();
             int colNum = 0;
             for (String col : columnTypes) {
                 int typeCode = SqlTypeSupport.recordTypeToSqlType(toRecordLayerType(col));
-                rows.add(new ImmutableRowStruct(new ArrayRow("COL" + colNum, typeCode), new RelationalStructMetaData("COLUMN",
-                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)
-                )));
+                rows.add(EmbeddedRelationalStruct.newBuilder()
+                        .addString("COLUMN_NAME", "COL" + colNum)
+                        .addInt("COLUMN_TYPE", typeCode)
+                        .build());
                 colNum++;
             }
-            return new ArrayRow(typeName, rows);
+            return EmbeddedRelationalStruct.newBuilder()
+                    .addString("TABLE_NAME", typeName)
+                    .addArray("COLUMNS", EmbeddedRelationalArray.newBuilder().addAll(rows.toArray()).build())
+                    .build();
         }
 
         public String getName() {

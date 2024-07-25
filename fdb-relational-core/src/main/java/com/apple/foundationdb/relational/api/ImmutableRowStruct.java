@@ -31,9 +31,8 @@ import java.util.Objects;
  * An implementation of {@link RelationalStruct} which is backed by a {@link Row} object.
  */
 public class ImmutableRowStruct extends RowStruct {
-    private final Row theRow;
 
-    private boolean wasNull;
+    private final Row theRow;
 
     public ImmutableRowStruct(@Nonnull Row theRow, @Nonnull StructMetaData metaData) {
         super(metaData);
@@ -53,11 +52,6 @@ public class ImmutableRowStruct extends RowStruct {
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
-    }
-
-    @Override
-    public boolean wasNull() {
-        return wasNull;
     }
 
     @Override

@@ -23,9 +23,8 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -36,16 +35,13 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
-import java.sql.Types;
-import java.util.ArrayList;
+import java.sql.SQLException;
 import java.util.Base64;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -341,9 +337,8 @@ public class AstNormalizerTests {
     }
 
     @Nonnull
-    private static java.sql.Array toArrayParameter(List<Object> elements) {
-        return new RowArray(
-                new ArrayList<>(elements), RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
+    private static java.sql.Array toArrayParameter(List<Object> elements) throws SQLException {
+        return EmbeddedRelationalArray.newBuilder().addAll(elements.toArray()).build();
     }
 
     @Test
@@ -735,7 +730,7 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void stripArrayLiteralWithPreparedParameters() throws RelationalException {
+    void stripArrayLiteralWithPreparedParameters() throws RelationalException, SQLException {
         java.sql.Array param = toArrayParameter(List.of("preparedValue1", "preparedValue2"));
         java.sql.Array namedParam = toArrayParameter(List.of("preparedValue3", "preparedValue4"));
         validate("select 'hello', 'wOrLd' from t1 where col1 in ? and col2 in ?param",

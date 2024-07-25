@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 /**
@@ -34,6 +35,14 @@ public interface RelationalArrayBuilder {
      * @return A 'built' {@link RelationalArray} instance.
      */
     RelationalArray build();
+
+    RelationalArrayBuilder addAll(@Nonnull Object... value) throws SQLException;
+
+    RelationalArrayBuilder addBytes(@Nonnull byte[] value) throws SQLException;
+
+    RelationalArrayBuilder addString(@Nonnull String value) throws SQLException;
+
+    RelationalArrayBuilder addLong(@Nonnull long value) throws SQLException;
 
     RelationalArrayBuilder addStruct(RelationalStruct struct) throws SQLException;
 }

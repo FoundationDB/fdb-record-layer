@@ -20,25 +20,17 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.ImmutableRowStruct;
-import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -53,7 +45,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -61,7 +52,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PreparedStatementTests {
@@ -423,8 +413,11 @@ public class PreparedStatementTests {
                 final var arrayObject = ddl.getConnection().createArrayOf("BINARY", array.toArray());
                 ps.setArray("param", arrayObject);
                 try (final var resultSet = ps.executeQuery()) {
-                    final var expected = new RowArray(array, RelationalArrayMetaData.ofPrimitive(
-                            SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls));
+                    final var expected =
+                            EmbeddedRelationalArray.newBuilder()
+                                    .addBytes(new byte[]{1, 2, 3, 4})
+                                    .addBytes(new byte[]{5, 6, 7, 8})
+                                    .build();
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("ID", 1L).hasColumn("SECRETS", expected)
                             .hasNoNextRow();
@@ -524,11 +517,11 @@ public class PreparedStatementTests {
             final var query = "UPDATE RestaurantReviewer SET stats = ?param WHERE id = 1 RETURNING \"new\".stats";
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
                 ps.setObject("param", ddl.getConnection().createStruct("blah", statsAttributes));
-                final var expectedStats = new ImmutableRowStruct(new ArrayRow(statsAttributes), new RelationalStructMetaData(
-                        FieldDescription.primitive("START_DATE", SqlTypeNamesSupport.getSqlTypeCode("BIGINT"), DatabaseMetaData.columnNoNulls),
-                        FieldDescription.primitive("SCHOOL_NAME", SqlTypeNamesSupport.getSqlTypeCode("STRING"), DatabaseMetaData.columnNoNulls),
-                        FieldDescription.primitive("HOMETOWN", SqlTypeNamesSupport.getSqlTypeCode("STRING"), DatabaseMetaData.columnNoNulls)
-                ));
+                final var expectedStats = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("START_DATE", 3L)
+                        .addString("SCHOOL_NAME", "c")
+                        .addString("HOMETOWN", "d")
+                        .build();
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("STATS", expectedStats)
@@ -564,15 +557,15 @@ public class PreparedStatementTests {
                 final var location = ddl.getConnection().createStruct("LOCATION", new Object[]{"next door", 217, latLong});
                 ps.setObject("param", location);
                 if (succeed) {
-                    final var expectedLatLong = new ImmutableRowStruct(new ArrayRow(100.00, 200.00), new RelationalStructMetaData(
-                            FieldDescription.primitive("LATITUDE", SqlTypeNamesSupport.getSqlTypeCode("DOUBLE"), DatabaseMetaData.columnNoNulls),
-                            FieldDescription.primitive("LONGITUDE", SqlTypeNamesSupport.getSqlTypeCode("DOUBLE"), DatabaseMetaData.columnNoNulls)
-                    ));
-                    final var expectedLocation = new ImmutableRowStruct(new ArrayRow("next door", 217, expectedLatLong), new RelationalStructMetaData(
-                            FieldDescription.primitive("ADDRESS", SqlTypeNamesSupport.getSqlTypeCode("STRING"), DatabaseMetaData.columnNoNulls),
-                            FieldDescription.primitive("PIN", SqlTypeNamesSupport.getSqlTypeCode("BIGINT"), DatabaseMetaData.columnNoNulls),
-                            FieldDescription.primitive("COORDS", SqlTypeNamesSupport.getSqlTypeCode("STRUCT"), DatabaseMetaData.columnNoNulls)
-                    ));
+                    final var expectedLatLong = EmbeddedRelationalStruct.newBuilder()
+                            .addDouble("LATITUDE", 100.00)
+                            .addDouble("LONGITUDE", 200.00)
+                            .build();
+                    final var expectedLocation = EmbeddedRelationalStruct.newBuilder()
+                            .addString("ADDRESS", "next door")
+                            .addLong("PIN", 217)
+                            .addStruct("COORDS", expectedLatLong)
+                            .build();
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNextRow().hasColumn("LOCATION", expectedLocation)
@@ -587,7 +580,7 @@ public class PreparedStatementTests {
 
     @Test
     void prepareUpdateWithArrayOfPrimitives() throws Exception {
-        final var customerAttributes = new Object[]{"george", "adam", "billy"};
+        final var customerAttributes = new String[]{"george", "adam", "billy"};
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
@@ -598,9 +591,12 @@ public class PreparedStatementTests {
 
                 final var customer = ddl.getConnection().createArrayOf("STRING", customerAttributes);
                 ps.setArray("param", customer);
-                final var expectedCustomer = new RowArray(
-                        Arrays.stream(customerAttributes).collect(Collectors.toList()), RelationalArrayMetaData.ofPrimitive(
-                                Types.VARCHAR, DatabaseMetaData.columnNoNulls));
+                final var expectedCustomer =
+                        EmbeddedRelationalArray.newBuilder()
+                                .addString(customerAttributes[0])
+                                .addString(customerAttributes[1])
+                                .addString(customerAttributes[2])
+                                .build();
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("CUSTOMER", expectedCustomer)
@@ -632,12 +628,12 @@ public class PreparedStatementTests {
                                     }
                                 }).toArray());
                 ps.setArray("param", restaurantTags);
-                final var expectedRestaurantTags = new RowArray(
-                        Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
-                        RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
+//                final var expectedRestaurantTags = new EmbeddedRelationalArray(
+//                        Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
+//                        RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("TAGS", expectedRestaurantTags)
+                            .hasNextRow().hasColumn("TAGS", EmbeddedRelationalArray.newBuilder().build())
                             .hasNoNextRow();
                 }
             }

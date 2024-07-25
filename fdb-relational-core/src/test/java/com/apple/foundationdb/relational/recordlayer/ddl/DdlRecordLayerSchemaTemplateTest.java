@@ -20,15 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -36,7 +34,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.DdlPermutationGenerator;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -47,10 +44,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.URI;
 import java.sql.Array;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -120,17 +115,8 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(createColumnStatement);
 
             try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
-                final List<?> expectedTables = List.of(table.getPermutation("TBL"));
-                final var expectedTableMetaData = RelationalArrayMetaData.ofStruct(
-                        new RelationalStructMetaData("TABLE",
-                                FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                                FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(
-                                        new RelationalStructMetaData("COLUMN",
-                                                FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                                                FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls)),
-                                        DatabaseMetaData.columnNoNulls))),
-                        DatabaseMetaData.columnNoNulls);
-                Array expectedTablesArr = new RowArray(expectedTables, expectedTableMetaData);
+                final List<RelationalStruct> expectedTables = List.of(table.getPermutation("TBL"));
+                Array expectedTablesArr = EmbeddedRelationalArray.newBuilder().addAll(expectedTables.toArray()).build();
 
                 ResultSetAssert.assertThat(rs)
                         .hasNextRow()

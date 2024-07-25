@@ -20,20 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -41,7 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
@@ -51,10 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opentest4j.AssertionFailedError;
 
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
@@ -102,10 +92,11 @@ public class UpdateTest {
     @Test
     void updateStructFieldWithContinuationTest() throws Exception {
         final var fieldToUpdate = "stats";
-        final var expectedValue = new ImmutableRowStruct(new ArrayRow(123L, "blah", "blah2"), new RelationalStructMetaData("REVIEWERSTATS",
-                FieldDescription.primitive("START_DATE", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                FieldDescription.primitive("SCHOOL_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                FieldDescription.primitive("HOMETOWN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
+        final var expectedValue = EmbeddedRelationalStruct.newBuilder()
+                .addLong("START_DATE", 123L)
+                .addString("SCHOOL_NAME", "blah")
+                .addString("HOMETOWN", "blah2")
+                .build();
         final Function<RelationalConnection, Object> updateValue = conn -> {
             try {
                 return conn.createStruct("ReviewerStats", new Object[]{123L, "blah", "blah2"});
@@ -119,10 +110,11 @@ public class UpdateTest {
     @Test
     void updateStructFieldVerifyCacheTest() throws Exception {
         final var fieldToUpdate = "stats";
-        final var expectedValue = new ImmutableRowStruct(new ArrayRow(123L, "blah", "blah2"), new RelationalStructMetaData("REVIEWERSTATS",
-                FieldDescription.primitive("START_DATE", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                FieldDescription.primitive("SCHOOL_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                FieldDescription.primitive("HOMETOWN", Types.VARCHAR, DatabaseMetaData.columnNoNulls)));
+        final var expectedValue = EmbeddedRelationalStruct.newBuilder()
+                .addLong("START_DATE", 123L)
+                .addString("SCHOOL_NAME", "blah")
+                .addString("HOMETOWN", "blah2")
+                .build();
         final Function<RelationalConnection, Object> updateValue = conn -> {
             try {
                 return conn.createStruct("ReviewerStats", new Object[]{123L, "blah", "blah2"});
@@ -144,8 +136,10 @@ public class UpdateTest {
                 throw new RuntimeException(e);
             }
         };
-        final var expectedValue = new RowArray(new ArrayList<>(array), RelationalArrayMetaData.ofPrimitive(
-                SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls));
+        final var expectedValue = EmbeddedRelationalArray.newBuilder()
+                .addBytes(array.get(0))
+                .addBytes(array.get(1))
+                .build();
         testUpdateWithContinuationInternal(fieldToUpdate, updateValue, expectedValue);
     }
 
@@ -160,9 +154,12 @@ public class UpdateTest {
                 throw new RuntimeException(e);
             }
         };
-        final var expectedValue = new RowArray(new ArrayList<>(array), RelationalArrayMetaData.ofPrimitive(
-                SqlTypeSupport.recordTypeToSqlType(Type.TypeCode.BYTES), DatabaseMetaData.columnNoNulls));
+        final var expectedValue = EmbeddedRelationalArray.newBuilder()
+                .addBytes(array.get(0))
+                .addBytes(array.get(1))
+                .build();
         testUpdateVerifyCacheInternal(fieldToUpdate, updateValue, expectedValue);
+
     }
 
     public void insertRecords(int numRecords) throws RelationalException, SQLException {

@@ -20,11 +20,10 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalArrayBuilder;
 
-public final class JDBCRelationalArray {
-    private JDBCRelationalArray() {
-    }
+public interface JDBCRelationalArray extends RelationalArray {
 
     /**
      * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalArray} builder.

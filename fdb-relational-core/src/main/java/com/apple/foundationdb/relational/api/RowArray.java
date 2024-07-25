@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
@@ -42,7 +41,7 @@ import java.util.stream.Collectors;
  *
  * This class is not thread-safe, and in general should <em>not</em> be used in concurrent environments.
  */
-public class RowArray implements RelationalArray {
+public class RowArray implements RelationalArray, EmbeddedRelationalArray {
 
     private final Supplier<List<Row>> rows;
     private final ArrayMetaData arrayMetaData;

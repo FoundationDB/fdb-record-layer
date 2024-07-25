@@ -28,21 +28,17 @@ import java.sql.SQLException;
  * The order in which columns are set is preserved and is the order in which fields are returned when accessed by
  * field/column index.
  */
-// RelationalStruct getters are for convenience during RelationalStruct building; their exercise will be rare.
 // TODO: Add positional add... we only have by column name currently. See if demand first.
-public interface RelationalStructBuilder extends RelationalStruct {
+public interface RelationalStructBuilder {
     /**
      * Build a {@link RelationalStruct}.
      * @return A 'built' RelationalStruct instance.
      */
     RelationalStruct build();
 
-    @Override
-    default StructMetaData getMetaData() throws SQLException {
-        throw new SQLException("No metadata available while type is under construction.");
-    }
-
     RelationalStructBuilder addBoolean(String fieldName, boolean b) throws SQLException;
+
+    RelationalStructBuilder addShort(String fieldName, short b) throws SQLException;
 
     RelationalStructBuilder addLong(String fieldName, long l) throws SQLException;
 
@@ -59,4 +55,6 @@ public interface RelationalStructBuilder extends RelationalStruct {
     RelationalStructBuilder addStruct(String fieldName, RelationalStruct struct) throws SQLException;
 
     RelationalStructBuilder addArray(String fieldName, RelationalArray array) throws SQLException;
+
+    RelationalStructBuilder addInt(String fieldName, int i) throws SQLException;
 }

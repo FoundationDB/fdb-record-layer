@@ -21,8 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.RowArray;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -33,7 +32,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -49,11 +47,8 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedList;
@@ -141,7 +136,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRow(insertedRecord);
-                    // explicitly test when nullable array is set to empty list, the RowArray object holds an empty iterable
+                    // explicitly test when nullable array is set to empty list, the RelationalArray object holds an empty iterable
                     Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
                     // explicitly test unset Nullable array is NULL
                     Assertions.assertNull(resultSet.getArray("TAGS"));
@@ -162,7 +157,7 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRow(insertedRecord);
-                    // explicitly test when a Non-nullable array is unset, the RowArray object holds an empty iterable
+                    // explicitly test when a Non-nullable array is unset, the RelationalArray object holds an empty iterable
                     Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
                     Assertions.assertEquals("[]", resultSet.getArray("TAGS").toString());
                     Assertions.assertEquals("[]", resultSet.getArray("CUSTOMER").toString());
@@ -626,10 +621,8 @@ public class StandardQueryTests {
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    final var col2Meta = RelationalArrayMetaData.ofPrimitive(Types.BIGINT, DatabaseMetaData.columnNullable);
-                    final var col3Meta = RelationalArrayMetaData.ofPrimitive(Types.BIGINT, DatabaseMetaData.columnNullable);
-                    Array expectedCol2 = new RowArray(List.of(128L), col2Meta);
-                    Array expectedCol3 = new RowArray(List.of(128L), col3Meta);
+                    Array expectedCol2 = EmbeddedRelationalArray.newBuilder().addLong(128L).build();
+                    Array expectedCol3 = EmbeddedRelationalArray.newBuilder().addLong(128L).build();
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .hasRowExactly(42L, expectedCol2, expectedCol3)
                             .hasNoNextRow();
@@ -878,9 +871,7 @@ public class StandardQueryTests {
 
     @Test
     void queryJavaCallSimulatecustomerFunction() throws Exception {
-        final var expectedMetadata = RelationalArrayMetaData.ofPrimitive(Types.BINARY, DatabaseMetaData.columnNoNulls);
-        final var array = List.of(ByteString.copyFrom(new byte[]{0xA, 0xB}));
-        final var expected = new RowArray(new ArrayList<>(array), expectedMetadata);
+        final var expected = EmbeddedRelationalArray.newBuilder().addBytes(new byte[]{0xA, 0xB}).build();
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bytes, b bytes array, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

@@ -29,8 +29,6 @@ public class MutableRowStruct extends RowStruct {
 
     private Row row;
 
-    private boolean wasNull;
-
     public MutableRowStruct(StructMetaData metaData) {
         super(metaData);
     }
@@ -56,10 +54,5 @@ public class MutableRowStruct extends RowStruct {
         } catch (InvalidColumnReferenceException e) {
             throw e.toSqlException();
         }
-    }
-
-    @Override
-    public boolean wasNull() {
-        return wasNull;
     }
 }

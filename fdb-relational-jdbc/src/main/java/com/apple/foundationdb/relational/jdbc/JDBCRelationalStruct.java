@@ -20,17 +20,16 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 
-public final class JDBCRelationalStruct {
-    private JDBCRelationalStruct() {
-    }
+public interface JDBCRelationalStruct extends RelationalStruct {
 
     /**
      * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalStruct} builder.
      * @return Builder for {@link com.apple.foundationdb.relational.api.RelationalStruct}.
      */
-    public static RelationalStructBuilder newBuilder() {
+    static RelationalStructBuilder newBuilder() {
         return new RelationalStructFacade.RelationalStructFacadeBuilder();
     }
 }

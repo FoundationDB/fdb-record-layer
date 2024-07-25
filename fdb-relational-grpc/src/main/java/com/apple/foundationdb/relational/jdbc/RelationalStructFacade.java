@@ -341,13 +341,8 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public boolean getBoolean(int oneBasedPosition) throws SQLException {
-            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getBoolean();
-        }
-
-        @Override
-        public boolean getBoolean(String fieldName) throws SQLException {
-            return getBoolean(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
+        public RelationalStructBuilder addShort(String fieldName, short b) throws SQLException {
+            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
         }
 
         @Override
@@ -359,38 +354,8 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public int getInt(int oneBasedPosition) throws SQLException {
-            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getInteger();
-        }
-
-        @Override
-        public int getInt(String fieldName) throws SQLException {
-            return getInt(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
-        }
-
-        @Override
-        public long getLong(int oneBasedPosition) throws SQLException {
-            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getLong();
-        }
-
-        @Override
-        public long getLong(String fieldName) throws SQLException {
-            return getLong(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
-        }
-
-        @Override
         public RelationalStructBuilder addFloat(String fieldName, float f) throws SQLException {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
-        public float getFloat(int oneBasedPosition) throws SQLException {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
-        public float getFloat(String fieldName) throws SQLException {
-            return getFloat(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
         }
 
         @Override
@@ -402,32 +367,11 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public double getDouble(int oneBasedPosition) throws SQLException {
-            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getDouble();
-        }
-
-        @Override
-        public double getDouble(String fieldName) throws SQLException {
-            return getDouble(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
-        }
-
-        @Override
         public RelationalStructBuilder addBytes(String fieldName, byte[] bytes) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.BINARY).build());
             this.listColumnBuilder.setColumn(offset, Column.newBuilder().setBinary(ByteString.copyFrom(bytes)).build());
             return this;
-        }
-
-        @Override
-        public byte[] getBytes(int oneBasedPosition) throws SQLException {
-            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getBinary()
-                    .toByteArray();
-        }
-
-        @Override
-        public byte[] getBytes(String fieldName) throws SQLException {
-            return getBytes(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
         }
 
         @Override
@@ -439,28 +383,8 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public String getString(int oneBasedPosition) throws SQLException {
-            return this.listColumnBuilder.getColumn(PositionalIndex.toProtobuf(oneBasedPosition)).getString();
-        }
-
-        @Override
-        public String getString(String fieldName) throws SQLException {
-            return getString(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
-        }
-
-        @Override
         public RelationalStructBuilder addObject(String fieldName, Object obj) throws SQLException {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
-        public Object getObject(int oneBasedPosition) throws SQLException {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
-        public Object getObject(String fieldName) throws SQLException {
-            return getBytes(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
         }
 
         @Override
@@ -474,16 +398,6 @@ class RelationalStructFacade implements RelationalStruct {
             this.listColumnBuilder
                     .addColumn(offset, Column.newBuilder().setStruct(relationalStructFacade.delegate).build());
             return this;
-        }
-
-        @Override
-        public RelationalStruct getStruct(int oneBasedPosition) throws SQLException {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
-        public RelationalStruct getStruct(String fieldName) throws SQLException {
-            return getStruct(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
         }
 
         @Override
@@ -502,17 +416,7 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalArray getArray(int oneBasedPosition) throws SQLException {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
-        public RelationalArray getArray(String fieldName) throws SQLException {
-            return getArray(PositionalIndex.toJDBC(getZeroBasedOffsetOrThrow(fieldName)));
-        }
-
-        @Override
-        public boolean wasNull() throws SQLException {
+        public RelationalStructBuilder addInt(String fieldName, int i) throws SQLException {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
         }
 

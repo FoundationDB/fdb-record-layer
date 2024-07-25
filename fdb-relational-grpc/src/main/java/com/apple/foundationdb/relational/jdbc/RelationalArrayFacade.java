@@ -219,6 +219,26 @@ class RelationalArrayFacade implements RelationalArray {
         }
 
         @Override
+        public RelationalArrayBuilder addAll(@Nonnull Object[] value) throws SQLException {
+            throw new SQLFeatureNotSupportedException();
+        }
+
+        @Override
+        public RelationalArrayBuilder addBytes(@Nonnull byte[] value) throws SQLException {
+            throw new SQLFeatureNotSupportedException();
+        }
+
+        @Override
+        public RelationalArrayBuilder addString(@Nonnull String value) throws SQLException {
+            throw new SQLFeatureNotSupportedException();
+        }
+
+        @Override
+        public RelationalArrayBuilder addLong(@Nonnull long value) throws SQLException {
+            throw new SQLFeatureNotSupportedException();
+        }
+
+        @Override
         public RelationalArrayBuilder addStruct(RelationalStruct struct) throws SQLException {
             final var structFacade = struct.unwrap(RelationalStructFacade.class);
             initOrCheckMetadata(structFacade.getDelegateMetadata());
