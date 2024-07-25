@@ -55,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.planprotos.LuceneRecordQueryPlanProto.luceneSpellCheckCopier;
 
@@ -415,6 +416,23 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             String value = (String) keyTuple.get(groupingColumnSize + 1);
             buildPartialRecord(kv.getIndex().getRootExpression(), recordDescriptor, recordBuilder, fieldName, value, groupingKey);
             return true;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof LuceneSpellCheckCopier)) {
+                return false;
+            }
+            final LuceneSpellCheckCopier that = (LuceneSpellCheckCopier)o;
+            return groupingColumnSize == that.groupingColumnSize;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(BASE_HASH, groupingColumnSize);
         }
 
         @Override

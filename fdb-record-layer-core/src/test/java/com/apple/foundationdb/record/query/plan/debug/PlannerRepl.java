@@ -461,7 +461,7 @@ public class PlannerRepl implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial());
+        this.stateStack.push(State.initial(false, null));
         this.breakPoints.clear();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;

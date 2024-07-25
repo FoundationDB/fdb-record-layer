@@ -91,7 +91,7 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
         int numTransactions = 8;
-        int numRecordsPerTransaction = 10;
+        int numRecordsPerTransaction = 6;
         for (int i = 0; i < numTransactions; i++) {
             int firstPrimaryKey = 200 + (i * numRecordsPerTransaction);
             int numValueUniqueOffset = 2000 - (i * numRecordsPerTransaction);

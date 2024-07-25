@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.google.auto.service.AutoService;
@@ -183,13 +182,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
         return ValueWithChild.super.equalsWithoutChildren(other)
                 .filter(ignored -> fieldPath.equals(((FieldValue)other).getFieldPath()));
-    }
-
-    @Nonnull
-    @Override
-    public BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
-        // delegate to semanticEquals()
-        return semanticEquals(other, valueEquivalence);
     }
 
     @Override

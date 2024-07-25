@@ -300,6 +300,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Override
     public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(KeyValueLogMessage.build("executeEntries")
+                    .addKeyAndValue(LogMessageKeys.INDEX_NAME, indexName)
+                    .toString());
+        }
+
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
@@ -529,7 +535,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexName, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted);
+        return Objects.hash(indexName, scanParameters, indexFetchMethod.name(), fetchIndexRecords.name(),
+                reverse, strictlySorted);
     }
 
     @Override

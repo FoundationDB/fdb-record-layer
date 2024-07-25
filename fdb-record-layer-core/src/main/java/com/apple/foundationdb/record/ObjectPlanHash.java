@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * This class implements a planHash for the member classes of the query plan.
@@ -46,6 +47,23 @@ public class ObjectPlanHash implements PlanHashable, QueryHashable {
     @Override
     public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
         return hashCode;
+    }
+
+    @Override
+    public int hashCode() {
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ObjectPlanHash)) {
+            return false;
+        }
+        final ObjectPlanHash that = (ObjectPlanHash)o;
+        return hashCode == that.hashCode && Objects.equals(id, that.id);
     }
 
     @Override
