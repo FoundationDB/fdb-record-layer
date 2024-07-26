@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;

@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
+
 import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -137,9 +138,9 @@ public class RelationalArrayTest {
                 Arguments.of(12, 13, List.of("11", "22"), Types.VARCHAR),
                 Arguments.of(14, 15, List.of(new byte[]{49}, new byte[]{50}), Types.BINARY),
                 Arguments.of(16, 17, List.of(
-                        EmbeddedRelationalStruct.newBuilder().addInt("A", 11).addString("B", "11").build(),
-                        EmbeddedRelationalStruct.newBuilder().addInt("A", 22).addString("B", "22").build()),
-                Types.STRUCT)
+                                EmbeddedRelationalStruct.newBuilder().addInt("A", 11).addString("B", "11").build(),
+                                EmbeddedRelationalStruct.newBuilder().addInt("A", 22).addString("B", "22").build()),
+                        Types.STRUCT)
         );
     }
 

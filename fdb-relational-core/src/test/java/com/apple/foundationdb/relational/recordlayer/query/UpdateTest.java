@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;

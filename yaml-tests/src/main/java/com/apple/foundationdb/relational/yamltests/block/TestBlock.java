@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -410,7 +411,7 @@ public final class TestBlock extends Block {
             throw new InterruptedException("Parallel executor did not terminate before the 15 minutes timeout.");
         }
         // Iterate through the futures to catch any uncaught errors/exceptions from the submitted tasks.
-        for (var future: futures) {
+        for (var future : futures) {
             future.get();
         }
     }

@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -628,9 +629,9 @@ public class PreparedStatementTests {
                                     }
                                 }).toArray());
                 ps.setArray("param", restaurantTags);
-//                final var expectedRestaurantTags = new EmbeddedRelationalArray(
-//                        Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
-//                        RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
+                //                final var expectedRestaurantTags = new EmbeddedRelationalArray(
+                //                        Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
+                //                        RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("TAGS", EmbeddedRelationalArray.newBuilder().build())

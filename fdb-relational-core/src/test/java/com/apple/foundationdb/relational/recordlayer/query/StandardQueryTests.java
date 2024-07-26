@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -1185,8 +1186,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
-                                ((EmbeddedRelationalStatement) statement)
-                                        .executeInternal("select * from t1 union select * from t1"))
+                        ((EmbeddedRelationalStatement) statement)
+                                .executeInternal("select * from t1 union select * from t1"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
             }
         }

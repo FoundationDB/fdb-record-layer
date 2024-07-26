@@ -89,7 +89,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             if (targetSqlType == Types.STRUCT) {
                 if (!(obj instanceof RelationalStruct)) {
                     throw new RelationalException(String.format("Expected object to be of type:STRUCT, but found type:%s",
-                            obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
+                                    obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
                             ErrorCode.DATATYPE_MISMATCH).toSqlException();
                 }
                 return addStruct(fieldName, (RelationalStruct) obj);
@@ -97,7 +97,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             if (targetSqlType == Types.ARRAY) {
                 if (!(obj instanceof RelationalArray)) {
                     throw new RelationalException(String.format("Expected object to be of type:ARRAY, but found type:%s",
-                            obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
+                                    obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
                             ErrorCode.DATATYPE_MISMATCH).toSqlException();
                 }
                 return addArray(fieldName, (RelationalArray) obj);

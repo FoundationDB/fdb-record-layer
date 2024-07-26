@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;

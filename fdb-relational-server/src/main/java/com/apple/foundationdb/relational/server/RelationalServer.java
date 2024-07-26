@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
