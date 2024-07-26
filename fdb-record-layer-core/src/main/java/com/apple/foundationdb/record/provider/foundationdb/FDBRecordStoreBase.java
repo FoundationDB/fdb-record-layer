@@ -556,7 +556,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     default FDBStoredRecord<M> saveRecord(@Nonnull final M rec) {
-        LOGGER.debug("saving record: {}", rec);
         return saveRecord(rec, (FDBRecordVersion)null);
     }
 

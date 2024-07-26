@@ -39,6 +39,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Test for {@link AsyncLockRegistry}.
+ */
 public class AsyncLockRegistryTest {
 
     @Nonnull
