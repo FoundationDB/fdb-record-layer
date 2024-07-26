@@ -32,13 +32,13 @@ import java.io.IOException;
  */
 public class LuceneExceptions {
     /**
-     * Copnvert the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
+     * Convert the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
      * @param message the exception's message to use; the cause's message will be appended to this one
      * @param ex the exception thrown by Lucene
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
      * @return the {@link RecordCoreException} that should be thrown
      */
-    public static RecordCoreException fromLucene(String message, IOException ex, Object... additionalLogInfo) {
+    public static RecordCoreException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
         if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
             return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex)
@@ -67,7 +67,7 @@ public class LuceneExceptions {
      * @param ex the exception thrown by FDB
      * @return the {@link IOException} that can be thrown through Lucene APIs
      */
-    public static IOException toLucene(Throwable ex) {
+    public static IOException toIoException(Throwable ex) {
         if (ex instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
             return new LuceneExceptions.LuceneTransactionTooOldException(ex);
         } else if (ex instanceof FDBDirectoryLockFactory.FDBDirectoryLockException) {

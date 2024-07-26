@@ -197,13 +197,13 @@ public class FDBDirectoryManager implements AutoCloseable {
                             LuceneLogMessageKeys.INDEX_PARTITION, partitionId));
                 }
             } catch (IOException e) {
-                throw LuceneExceptions.fromLucene("Lucene mergeIndex failed", e,
+                throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex failed", e,
                         LuceneLogMessageKeys.GROUP, groupingKey,
                         LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
             }
         } catch (IOException e) {
             // there was an IOException closing the index writer
-            throw LuceneExceptions.fromLucene("Lucene mergeIndex close failed", e,
+            throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex close failed", e,
                     LuceneLogMessageKeys.GROUP, groupingKey,
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
