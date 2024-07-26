@@ -128,7 +128,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
-        return getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().currentPlanFragmentBuilder.get());
+        return getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
     }
 
     @Override
@@ -165,7 +165,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var expression = Assert.castUnchecked(groupByItemContext.expression().accept(this), Expression.class);
         if (groupByItemContext.uid() != null) {
             final var name = visitUid(groupByItemContext.uid());
-            return expression.withName(name);
+            return expression.withName(name).asEphemeral();
         }
         return expression;
     }
@@ -335,7 +335,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var selectOperator = Assert.castUnchecked(ctx.selectStatement().accept(this), LogicalOperator.class);
         final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
         final var underlyingValue = new ExistsValue(asExistential.getQuantifier().getAlias());
-        getDelegate().currentPlanFragmentBuilder.orElseThrow().addLogicalOperator(asExistential);
+        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
         return Expression.ofUnnamed(underlyingValue);
     }
 
@@ -636,7 +636,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx.uid() != null) {
             final var id = visitUid(ctx.uid());
             if (ctx.STAR() == null) {
-                final var expression = getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().currentPlanFragmentBuilder.get());
+                final var expression = getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
                 final var resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
                 return expression.withUnderlying(resultValue);
             } else {
@@ -667,8 +667,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     @Nonnull
     public Expression visitArrayConstructor(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
-        final var stateMaybe = getStateMaybe();
-        final var targetTypeMaybe = stateMaybe.flatMap(LogicalPlanFragment.State::getTargetType);
+        final var maybeState = getStateMaybe();
+        final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
         if (targetTypeMaybe.isEmpty()) {
             return handleArray(ctx);
@@ -677,10 +677,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var arrayTargetType = Assert.castUnchecked(targetTypeMaybe.get(), Type.Array.class);
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(Assert.notNullUnchecked(arrayTargetType.getElementType()));
         try {
-            getDelegate().currentPlanFragmentBuilder.get().withState(newStateBuilder.build());
+            getDelegate().getCurrentPlanFragment().setState(newStateBuilder.build());
             return handleArray(ctx);
         } finally {
-            getDelegate().currentPlanFragmentBuilder.get().withState(stateMaybe);
+            getDelegate().getCurrentPlanFragment().setStateMaybe(maybeState);
         }
     }
 
@@ -702,9 +702,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                                         @Nullable Type.Record.Field targetField) {
         final var fieldType = targetField == null ? null : targetField.getFieldType();
         StringTrieNode reorderings = null;
-        final var stateMaybe = getStateMaybe();
-        if (targetField != null && stateMaybe.isPresent() && stateMaybe.get().getTargetTypeReorderings().isPresent()) {
-            reorderings = stateMaybe.get().getTargetTypeReorderings().get();
+        final var maybeState = getStateMaybe();
+        if (targetField != null && maybeState.isPresent() && maybeState.get().getTargetTypeReorderings().isPresent()) {
+            reorderings = maybeState.get().getTargetTypeReorderings().get();
         }
         final var targetFieldReorderings = (reorderings == null || reorderings.getChildrenMap() == null) ?
                 null :
@@ -718,10 +718,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             if (targetFieldReorderings != null && targetFieldReorderings.getChildrenMap() != null) {
                 newStateBuilder.withTargetTypeReorderings(targetFieldReorderings);
             }
-            getDelegate().currentPlanFragmentBuilder.get().withState(newStateBuilder.build());
+            getDelegate().getCurrentPlanFragment().setState(newStateBuilder.build());
             expression = Assert.castUnchecked(parserRuleContext.accept(this), Expression.class);
         } finally {
-            getDelegate().currentPlanFragmentBuilder.get().withState(stateMaybe);
+            getDelegate().getCurrentPlanFragment().setStateMaybe(maybeState);
         }
         Assert.notNullUnchecked(expression);
         if (fieldType == null) {
@@ -745,12 +745,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expressions parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
-        final var stateMaybe = getDelegate().currentPlanFragmentBuilder.get().getState();
-        if (stateMaybe.isEmpty() || stateMaybe.get().getTargetType().isEmpty()) {
+        final var maybeState = getStateMaybe();
+        if (maybeState.isEmpty() || maybeState.get().getTargetType().isEmpty()) {
             return parseRecordFields(providedColumnContexts, null);
         }
 
-        final var state = stateMaybe.get();
+        final var state = maybeState.get();
         final var targetType = Assert.castUnchecked(state.getTargetType().get(), Type.Record.class);
         final var elementFields = Assert.notNullUnchecked(targetType.getFields());
 
@@ -811,8 +811,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     Optional<LogicalPlanFragment.State> getStateMaybe() {
-        final var fragment = getDelegate().currentPlanFragmentBuilder;
-        return fragment.flatMap(LogicalPlanFragment.Builder::getState);
+        return getDelegate().getCurrentPlanFragmentMaybe().flatMap(LogicalPlanFragment::getStateMaybe);
     }
 
     @Nonnull

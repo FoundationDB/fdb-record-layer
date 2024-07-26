@@ -60,12 +60,16 @@ test_block:
       - query: select max(q.s) from nested group by r.v.z having r.v.z > 120
       - result: [{330}]
     -
+      - query: select max(q.s) from nested group by r.v.z as GRP having GRP > 120
+      - result: [{330}]
+    -
       - query: select max(id) from t1 group by col1 having min(id) > 0 and col1 = 20;
       - result: [{13}]
     -
       - query: select max(id) from t1 group by col1
       - result: [{5}, {13}]
 #    -
+#        # grouping by constant is not yet supported.
 #      - query: select sum(col2) from T1 group by 3;
 #      - result: [{!l 210}]
     -
@@ -75,31 +79,50 @@ test_block:
       - query: select ID from T1 group by col1;
       - error: "42803"
     -
-      # even if the column doesn't exist, we throw 42803 error code.
-      # TODO (Send 42703 SQL error code when projecting non-existing element)
-#      - query: select BLA from T1 group by col1;
-#      - error: "42803"
-#    -
+      - query: select BLA from T1 group by col1;
+      - error: "42703"
+    -
       - query: select col1 from T1 group by col1;
-      - result: [{!l 10}, {!l 20}]
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select col1 from T1 group by col1 AS Y;
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select Y from T1 group by col1 AS Y;
+      - result: [{Y: !l 10}, {Y: !l 20}]
     -
       - query: select * from (select col1 from T1) as X group by col1;
-      - result: [{!l 10}, {!l 20}]
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
+    -
+      - query: select * from (select col1 from T1) as X group by col1 AS Y;
+      - result: [{COL1: !l 10}, {COL1: !l 20}]
     -
       - query: select col1 as XX from T1 group by col1;
+      - result: [{XX: !l 10}, {XX: !l 20}]
+    -
+      # named group by columns resolution rule gives precedence to the SELECT
+      - query: select col1 as XX from T1 group by col1 AS YY;
+      - result: [{XX: !l 10}, {XX: !l 20}]
+    -
+      - query: select YY as XX from T1 group by col1 AS YY;
+      - result: [{XX: !l 10}, {XX: !l 20}]
+    -
+      - query: select x from T1 group by col1 as x;
       - result: [{!l 10}, {!l 20}]
     -
-    # TODO (Remove possibility of aliasing grouping column)
-#      - query: select x from T1 group by col1 as x;
-#      - result: [{!l 10}, {!l 20}]
-#    -
       - query: select col1 from (select col1 from t1) as x group by col1;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select y from (select col1 from t1) as x group by col1 as y;
       - result: [{!l 10}, {!l 20}]
     -
       - query: select col1 from (select col1 from t1) as x group by x.col1;
       - result: [{!l 10}, {!l 20}]
     -
       - query: select MAX(x.col1) from (select col1 from t1) as x group by x.col1;
+      - result: [{!l 10}, {!l 20}]
+    -
+      - query: select MAX(z) from (select col1 from t1) as x group by x.col1 as z;
       - result: [{!l 10}, {!l 20}]
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x group by x.col1;
@@ -121,10 +144,9 @@ test_block:
       - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
       - result: [{!l 3, 3.0}, {!l 9, 9.5}]
     -
-     # TODO (Send 42703 SQL error code when projecting non-existing element)
-#      - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
-#      - error: "42803"
-#    -
+      - query: select MAX(x.col2) from (select col1 from t1) as x group by x.col1;
+      - error: "42703"
+    -
       - query: select X.col2 from (select  col1, col2 from t1) as x group by x.col1;
       - error: "42803"
     -
@@ -139,10 +161,9 @@ test_block:
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
       - result: [{7.0}]
-#    -
-#      # TODO (Investigate issue with queries that fail when executing plan from cache due to mismatch in constraints list.)
-#      - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
-#      - result: [{!l 20}, {!l 30}]
+    -
+      - query: select x.col1 + 10 from (select col1 from t1) as x group by x.col1;
+      - result: [{!l 20}, {!l 30}]
     -
       - query: select x.col1 + x.col2 from (select col1, col2 from t1) as x group by x.col1;
       - error: "42803"
@@ -153,9 +174,15 @@ test_block:
       - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1) as Y where G > 5;
       - result: [{!l 10}]
     -
+      - query: select G + 4 from (select MIN(x.col2) as G from (select col1,col2 from t1) as x group by x.col1 as K) as Y where G > 5;
+      - result: [{!l 10}]
+    -
       - query: select COUNT(*) from T1;
       - result: [{!l 13}]
     -
       - query: select COUNT(col1) from T1;
       - result: [{!l 13}]
+    -
+      - query: select x from t1 group by col1 as x, col2 as x;
+      - error: "42702"
 ...

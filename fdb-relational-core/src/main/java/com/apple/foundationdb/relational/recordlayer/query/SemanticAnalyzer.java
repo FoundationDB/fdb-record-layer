@@ -222,7 +222,7 @@ public class SemanticAnalyzer {
         final var forEachOperators = operators.forEachOnly();
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
         if (optionalQualifier.isEmpty()) {
-            final var expansion = forEachOperators.getExpressions();
+            final var expansion = forEachOperators.getExpressions().nonEphemeral();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
@@ -233,7 +233,7 @@ public class SemanticAnalyzer {
                 .findFirst();
         if (logicalTableMaybe.isPresent()) {
             return Star.overQuantifier(optionalQualifier, logicalTableMaybe.get().getQuantifier().getFlowedObjectValue(),
-                    qualifier.getName(), logicalTableMaybe.get().getOutput());
+                    qualifier.getName(), logicalTableMaybe.get().getOutput().nonEphemeral());
         }
         // Case 2.1: represents a rare case where a logical operator contains a mix of columns that are qualified
         // differently.
@@ -251,17 +251,17 @@ public class SemanticAnalyzer {
         final var expression = resolveIdentifier(qualifier, forEachOperators);
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format("attempt to expand non-struct column %s", qualifier));
-        final var expressions = expandStructExpression(expression);
+        final var expressions = expandStructExpression(expression).nonEphemeral();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
 
     @Nonnull
     public Expression resolveIdentifier(@Nonnull Identifier identifier,
-                                        @Nonnull LogicalPlanFragment.Builder planFragment) {
+                                        @Nonnull LogicalPlanFragment planFragment) {
         // search throw all visible plan fragments:
         // - in each plan fragment, search operators left to right.
         // - if identifier is not resolve, go to parent plan fragment.
-        LogicalPlanFragment.Builder currentPlanFragment = planFragment;
+        LogicalPlanFragment currentPlanFragment = planFragment;
         var resolvedMaybe = resolveIdentifierMaybe(identifier, currentPlanFragment.getLogicalOperators());
         if (resolvedMaybe.isPresent()) {
             return resolvedMaybe.get();

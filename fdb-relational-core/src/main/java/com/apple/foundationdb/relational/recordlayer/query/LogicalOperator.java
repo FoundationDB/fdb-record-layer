@@ -118,6 +118,11 @@ public class LogicalOperator {
     }
 
     @Nonnull
+    public LogicalOperator withOutput(@Nonnull Expressions expressions) {
+        return LogicalOperator.newOperatorWithPreservedExpressionNames(getName(), output.concat(expressions), getQuantifier());
+    }
+
+    @Nonnull
     public LogicalOperator withQuantifier(@Nonnull Quantifier quantifier) {
         if (quantifier == getQuantifier()) {
             return this;
@@ -165,6 +170,13 @@ public class LogicalOperator {
     public static LogicalOperator newOperatorWithPreservedExpressionNames(@Nonnull Expressions output,
                                                                           @Nonnull Quantifier quantifier) {
         return new LogicalOperator(Optional.empty(), output, quantifier);
+    }
+
+    @Nonnull
+    public static LogicalOperator newOperatorWithPreservedExpressionNames(@Nonnull Optional<Identifier> name,
+                                                                          @Nonnull Expressions output,
+                                                                          @Nonnull Quantifier quantifier) {
+        return new LogicalOperator(name, output, quantifier);
     }
 
     @Nonnull

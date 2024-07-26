@@ -95,11 +95,10 @@ test_block:
       - query: select col1, sum(col2) from T1 group by col1 order by col1 desc;
       - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP REVERSE)"
       - result: [{!l 20, !l 76}, {!l 10, !l 15}]
-#    -
-#      # TODO (Investigate issue with queries that fail when executing plan from cache due to mismatch in constraints list.)
-#      - query: select col1, sum(col2) + 1 from T1 group by col1;
-#      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
-#      - result: [{!l 10, !l 16}, {!l 20, !l 77}]
+    -
+      - query: select col1, sum(col2) + 1 from T1 group by col1;
+      - explainContains: "AggregateIndexScan(Index(MV1 <,> BY_GROUP)"
+      - result: [{!l 10, !l 16}, {!l 20, !l 77}]
     -
        - query: select col1, max(col2) from T1 group by col1;
        - explainContains: "AggregateIndexScan(Index(MV8 <,> BY_GROUP)"
@@ -242,6 +241,14 @@ test_block:
       - result: [{x1: 13, x2: 500}, {x1: 23, x2: 200}, {x1: 33, x2: 900}]
     -
       - query: select a+b as x1, min(b) as x2 from t3 group by a+b, b+10;
+      - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
+    -
+      - query: select M as x1, min(b) as x2 from t3 group by a+b as M, b+10;
+      - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
+      - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
+    -
+      - query: select M as x1, min(b) as x2 from t3 group by a+b as M, b+10 as N;
       - explainContains: "AggregateIndexScan(Index(MV11 <,> BY_GROUP)"
       - result: [{x1: 13, x2: 3}, {x1: 22, x2: 2}, {x1: 36, x2: 6}, {220, 200}, {510, 500}, {930, 900}]
 ...

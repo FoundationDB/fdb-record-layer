@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -89,10 +91,25 @@ public final class Star extends Expression {
         return null;
     }
 
+    /**
+     * Replaces all the {@link ConstantObjectValue} objects with corresponding {@link LiteralValue}s of the star expansion.
+     *
+     * @param literals The array of literals.
+     *
+     * @return a new {@link Expressions} list where each {@link Expression} internal {@link Value} with {@link LiteralValue}s
+     * instead of any {@link ConstantObjectValue}s.
+     */
     @Nonnull
     @Override
     public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
         return Expressions.of(expansion).dereferenced(literals);
+    }
+
+    @Nonnull
+    @Override
+    public EphemeralExpression asEphemeral() {
+        Assert.failUnchecked("attempt to create an ephermeral expression from a star");
+        return null;
     }
 
     @Override

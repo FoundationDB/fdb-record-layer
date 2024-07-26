@@ -149,6 +149,11 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
+    public Expressions nonEphemeral() {
+        return Expressions.of(stream().filter(e -> !(e instanceof EphemeralExpression)).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
     public Expression getSingleItem() {
         Assert.thatUnchecked(asList().size() == 1, "invalid attempt to get single item");
         return asList().get(0);
@@ -193,6 +198,11 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public Iterable<Value> underlying() {
         return Streams.stream(this).map(Expression::getUnderlying).collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    public Stream<Expression> stream() {
+        return underlying.stream();
     }
 
     @Nonnull

@@ -77,7 +77,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     private final URI dbUri;
 
     @Nonnull
-    protected Optional<LogicalPlanFragment.Builder> currentPlanFragmentBuilder;
+    protected Optional<LogicalPlanFragment> currentPlanFragment;
 
     @Nonnull
     private final ExpressionVisitor expressionVisitor;
@@ -111,7 +111,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         this.ddlQueryFactory = ddlQueryFactory;
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.dbUri = dbUri;
-        this.currentPlanFragmentBuilder = Optional.empty();
+        this.currentPlanFragment = Optional.empty();
         this.caseSensitive = caseSensitive;
         this.expressionVisitor = ExpressionVisitor.of(this);
         this.identifierVisitor = IdentifierVisitor.of(this);
@@ -157,16 +157,37 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     LogicalOperators getLogicalOperators() {
-        return currentPlanFragmentBuilder.orElseThrow().getLogicalOperators();
+        return currentPlanFragment.orElseThrow().getLogicalOperators();
     }
 
     @Nonnull
     LogicalOperators getLogicalOperatorsIncludingOuter() {
-        return currentPlanFragmentBuilder.orElseThrow().getLogicalOperatorsIncludingOuter();
+        return currentPlanFragment.orElseThrow().getLogicalOperatorsIncludingOuter();
     }
 
     boolean isTopLevel() {
-        return !(currentPlanFragmentBuilder.isPresent() && currentPlanFragmentBuilder.get().hasParent());
+        return !(currentPlanFragment.isPresent() && currentPlanFragment.get().hasParent());
+    }
+
+    @Nonnull
+    LogicalPlanFragment pushPlanFragment() {
+        currentPlanFragment = Optional.of(currentPlanFragment.map(LogicalPlanFragment::addChild).orElse(LogicalPlanFragment.ofRoot()));
+        return currentPlanFragment.get();
+    }
+
+    void popPlanFragment() {
+        this.currentPlanFragment = currentPlanFragment.flatMap(LogicalPlanFragment::getParentMaybe);
+    }
+
+    @Nonnull
+    LogicalPlanFragment getCurrentPlanFragment() {
+        Assert.thatUnchecked(currentPlanFragment.isPresent());
+        return currentPlanFragment.get();
+    }
+
+    @Nonnull
+    Optional<LogicalPlanFragment> getCurrentPlanFragmentMaybe() {
+        return currentPlanFragment;
     }
 
     boolean isForDdl() {

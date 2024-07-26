@@ -82,6 +82,11 @@ public class LogicalOperators implements Iterable<LogicalOperator> {
     }
 
     @Nonnull
+    public LogicalOperators concat(@Nonnull LogicalOperator logicalOperator) {
+        return concat(LogicalOperators.ofSingle(logicalOperator));
+    }
+
+    @Nonnull
     public LogicalOperators concat(@Nonnull LogicalOperators other) {
         return new LogicalOperators(Iterables.concat(this, other));
     }

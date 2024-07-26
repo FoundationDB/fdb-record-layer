@@ -559,4 +559,29 @@ public class GroupByQueryTests {
         }
     }
 
+    @Test
+    void groupByWithNamedGroups() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
+                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertT1Record(statement, 2, 1, 1, 20);
+                insertT1Record(statement, 3, 1, 2, 5);
+                insertT1Record(statement, 4, 1, 2, 15);
+                insertT1Record(statement, 5, 1, 2, 5);
+                insertT1Record(statement, 6, 2, 1, 10);
+                insertT1Record(statement, 7, 2, 1, 40);
+                insertT1Record(statement, 8, 2, 1, 20);
+                insertT1Record(statement, 9, 2, 1, 90);
+                Assertions.assertTrue(statement.execute("SELECT X AS OK, b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a as X, b HAVING MIN(c) < 50"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasRowExactly(2L, 1L, 90L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
 }

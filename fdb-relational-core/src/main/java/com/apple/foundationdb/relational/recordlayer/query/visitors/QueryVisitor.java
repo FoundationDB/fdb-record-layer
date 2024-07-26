@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.EphemeralExpression;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -51,6 +52,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -92,7 +94,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     public LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext querySpecificationContext) {
         Assert.notNullUnchecked(querySpecificationContext.fromClause(), ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(getDelegate().currentPlanFragmentBuilder));
+        getDelegate().pushPlanFragment();
         querySpecificationContext.fromClause().accept(this);
 
         var where = Optional.ofNullable(querySpecificationContext.fromClause().whereExpr() == null ?
@@ -101,24 +103,29 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Expressions selectExpressions;
         Optional<Pair<Boolean, Expressions>> orderByExpressions = Optional.empty();
         if (querySpecificationContext.groupByClause() != null || hasAggregations(querySpecificationContext.selectElements())) {
-            var outerCorrelations = getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations();
-            final var selectWhere = LogicalOperator.generateSelectWhere(getDelegate().getLogicalOperators(), outerCorrelations, where, getDelegate().isForDdl());
-            final var replacingFragment = LogicalPlanFragment.newBuilder().addLogicalOperator(selectWhere)
-                    .withParent(getDelegate().currentPlanFragmentBuilder.get().getParentMaybe());
-
-            getDelegate().currentPlanFragmentBuilder = Optional.of(replacingFragment);
+            var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
+            var selectWhere = LogicalOperator.generateSelectWhere(getDelegate().getLogicalOperators(), outerCorrelations, where, getDelegate().isForDdl());
+            getDelegate().getCurrentPlanFragment().setOperator(selectWhere);
             final var groupByExpressions = querySpecificationContext.groupByClause() == null ?
                     Expressions.empty() :
                     visitGroupByClause(querySpecificationContext.groupByClause());
-            selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
-            outerCorrelations = getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations();
-            where = Optional.ofNullable(querySpecificationContext.havingClause() == null ? null : visitHavingClause(querySpecificationContext.havingClause()));
-            final var literals = getDelegate().mutablePlanGenerationContext.getLiteralsBuilder();
+
+            final List<Expression> aliasedGroupByColumns = groupByExpressions.stream().filter(expression ->
+                    expression instanceof EphemeralExpression).collect(ImmutableList.toImmutableList());
+            if (!aliasedGroupByColumns.isEmpty()) {
+                final var selectWhereWithExtraColumns = selectWhere.withOutput(Expressions.of(aliasedGroupByColumns));
+                getDelegate().getCurrentPlanFragment().setOperator(selectWhereWithExtraColumns);
+                selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
+                where = Optional.ofNullable(querySpecificationContext.havingClause() == null ? null : visitHavingClause(querySpecificationContext.havingClause()));
+                getDelegate().getCurrentPlanFragment().setOperator(selectWhere);
+            } else {
+                selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
+                where = Optional.ofNullable(querySpecificationContext.havingClause() == null ? null : visitHavingClause(querySpecificationContext.havingClause()));
+            }
+            outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
+            final var literals = getDelegate().getPlanGenerationContext().getLiteralsBuilder();
             final var groupBy = LogicalOperator.generateGroupBy(getDelegate().getLogicalOperators(), groupByExpressions,
                     selectExpressions, where, outerCorrelations, literals);
-            final var replacingFragment2 = LogicalPlanFragment.newBuilder().addLogicalOperator(groupBy)
-                    .withParent(getDelegate().currentPlanFragmentBuilder.get().getParentMaybe());
-
             selectExpressions = selectExpressions.dereferenced(literals).expanded().pullUp(Expression.ofUnnamed(groupBy.getQuantifier().getRangesOver().get().getResultValue()).dereferenced(literals).getSingleItem().getUnderlying(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier();
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
@@ -126,14 +133,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var resolvedOrderByExpressions = visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions);
                 orderByExpressions = Optional.of(Pair.of(resolvedOrderByExpressions.getLeft(), resolvedOrderByExpressions.getRight().expanded().pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), outerCorrelations).clearQualifier()));
             }
-            getDelegate().currentPlanFragmentBuilder = Optional.of(replacingFragment2);
+            getDelegate().getCurrentPlanFragment().setOperator(groupBy);
         } else {
             selectExpressions = visitSelectElements(querySpecificationContext.selectElements());
             orderByExpressions = querySpecificationContext.orderByClause() == null ?
                     Optional.empty() :
                     Optional.of(visitOrderByClauseForSelect(querySpecificationContext.orderByClause(), selectExpressions));
         }
-        final var outerCorrelations = getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations();
+        final var outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
         final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), where, orderByExpressions,
                 Optional.empty(), outerCorrelations, getDelegate().isTopLevel(), getDelegate().isForDdl());
 
@@ -144,7 +151,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             getDelegate().setLimit(limit.intValue());
         }
 
-        getDelegate().currentPlanFragmentBuilder = getDelegate().currentPlanFragmentBuilder.get().getParentMaybe();
+        getDelegate().popPlanFragment();
         return result;
     }
 
@@ -181,7 +188,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx) {
         for (final var tableSource : ctx.tableSource()) {
             final var logicalOperator = Assert.castUnchecked(tableSource.accept(this), LogicalOperator.class);
-            getDelegate().currentPlanFragmentBuilder.orElseThrow().addLogicalOperator(logicalOperator);
+            getDelegate().getCurrentPlanFragment().addOperator(logicalOperator);
         }
         return null;
     }
@@ -232,8 +239,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var table = visitTableName(ctx.tableName());
         final var tableType = getDelegate().getSemanticAnalyzer().getTable(table);
         final var targetType = Assert.castUnchecked(tableType, RecordLayerTable.class).getType();
-
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(getDelegate().currentPlanFragmentBuilder));
+        getDelegate().pushPlanFragment();
         // TODO (Refactor insert parse rules)
         // (yhatem) leave it like this until the old plan generator is removed.
         final var lookahead = ctx.insertStatementValue().start.getType();
@@ -249,12 +255,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             if (ctx.columns != null) {
                 stateBuilder.withTargetTypeReorderings(visitUidListWithNestingsInParens(ctx.columns));
             }
-            getDelegate().currentPlanFragmentBuilder.get().withState(stateBuilder.build());
+            getDelegate().getCurrentPlanFragment().setState(stateBuilder.build());
             insertSource = Assert.castUnchecked(ctx.insertStatementValue().accept(this), LogicalOperator.class);
         }
         final var resultingInsert = LogicalOperator.generateInsert(insertSource, tableType);
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(resultingInsert);
-
+        getDelegate().popPlanFragment();
         return resultingInsert;
     }
 
@@ -287,17 +292,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var tableType = Assert.castUnchecked(table, RecordLayerTable.class).getType();
         final var tableAccess = LogicalOperator.generateTableAccess(table, Optional.empty(), ImmutableSet.of(), semanticAnalyzer);
 
-        final var parentFragmentMaybe = getDelegate().currentPlanFragmentBuilder;
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(tableAccess);
+        getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
         final var updateSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(updateSource);
-
+        getDelegate().getCurrentPlanFragment().setOperator(updateSource);
         final var transformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
         for (final var updatedElementCtx : ctx.updatedElement()) {
             final var targetAndUpdateExpressions = visitUpdatedElement(updatedElementCtx).asList();
@@ -313,8 +314,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var updateQuantifier = Quantifier.forEach(Reference.of(updateExpression));
         final var resultingUpdate = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(updateQuantifier), updateQuantifier);
 
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(resultingUpdate);
+        getDelegate().getCurrentPlanFragment().setOperator(resultingUpdate);
 
         //        if (ctx.CONTINUATION() != null) {
         //            getDelegate().getPlanGenerationContext().setContinuation((byte[]) visit(ctx.continuationAtom()));
@@ -324,14 +324,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
                     Optional.empty(), Optional.empty(), Optional.empty(),
-                    getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations(), getDelegate().isTopLevel(), false);
-            getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-            getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(result);
+                    getDelegate().getCurrentPlanFragment().getOuterCorrelations(), getDelegate().isTopLevel(), false);
+            getDelegate().getCurrentPlanFragment().setOperator(result);
             return result;
         }
         final var result = LogicalOperator.generateSort(resultingUpdate, Optional.empty(), ImmutableSet.of(), Optional.empty());
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(result);
+        getDelegate().popPlanFragment();
         return result;
     }
 
@@ -344,9 +342,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var table = semanticAnalyzer.getTable(tableId);
         final var tableAccess = LogicalOperator.generateTableAccess(table, Optional.empty(), ImmutableSet.of(), semanticAnalyzer);
 
-        final var parentFragmentMaybe = getDelegate().currentPlanFragmentBuilder;
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(tableAccess);
+        getDelegate().pushPlanFragment().setOperator(tableAccess);
         final var output = Expressions.ofSingle(semanticAnalyzer.expandStar(Optional.empty(), getDelegate().getLogicalOperators()));
 
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
@@ -356,22 +352,19 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var deleteQuantifier = Quantifier.forEach(Reference.of(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(resultingDelete);
+        getDelegate().getCurrentPlanFragment().setOperator(resultingDelete);
 
         if (ctx.RETURNING() != null) {
             final var selectExpressions = visitSelectElements(ctx.selectElements());
             final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(),
                     Optional.empty(), Optional.empty(), Optional.empty(),
-                    getDelegate().currentPlanFragmentBuilder.get().build().getOuterCorrelations(), getDelegate().isTopLevel(), false);
-            getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-            getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(result);
+                    getDelegate().getCurrentPlanFragment().getOuterCorrelations(), getDelegate().isTopLevel(), false);
+            getDelegate().getCurrentPlanFragment().setOperator(result);
             return result;
         }
 
         final var result = LogicalOperator.generateSort(resultingDelete, Optional.empty(), ImmutableSet.of(), Optional.empty());
-        getDelegate().currentPlanFragmentBuilder = Optional.of(LogicalPlanFragment.newBuilder().withParent(parentFragmentMaybe));
-        getDelegate().currentPlanFragmentBuilder.get().addLogicalOperator(result);
+        getDelegate().popPlanFragment();
         return result;
     }
 

@@ -43,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
@@ -187,6 +188,14 @@ public class Expression {
         return this.withUnderlying(pulledUpUnderlying);
     }
 
+    /**
+     * Replaces all the {@link ConstantObjectValue} objects with corresponding {@link LiteralValue}s.
+     *
+     * @param literals The array of literals.
+     *
+     * @return a new {@link Expressions} list where each {@link Expression} internal {@link Value} with {@link LiteralValue}s
+     * instead of any {@link ConstantObjectValue}s.
+     */
     @Nonnull
     public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
         return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
@@ -196,6 +205,12 @@ public class Expression {
             }
             return value;
         }))));
+    }
+
+    @Nonnull
+    public EphemeralExpression asEphemeral() {
+        Verify.verify(getName().isPresent());
+        return new EphemeralExpression(getName().get(), getDataType(), getUnderlying());
     }
 
     @Override
