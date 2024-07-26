@@ -9,4 +9,19 @@
     <Match>
         <Source name="~.*/generated/.*" />
     </Match>
+
+    <!-- Ignore EI_EXPOSE_REP errors. There are a few too many false positives, often from collections, or from raw byte[] being used for performance. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP" />
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2" />
+    </Match>
+
+    <!-- Classes with errors thrown in the constructor can mean we have a partially constructed class in a finalizer (of a subclass as none of our classes use finalizers).
+       Ideally, we'd protect ourselves from this, either by changing the constructor so that it can't throw or by marking the class as final, but there are a few too many
+       classes in this state right now. -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
 </FindBugsFilter>

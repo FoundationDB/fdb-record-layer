@@ -37,40 +37,50 @@ import java.util.TreeMap;
  */
 @API(API.Status.MAINTAINED)
 public class KeyValueLogMessage {
+    @Nonnull
     private final long timestamp;
+    @Nonnull
     private final String staticMessage;
 
+    @Nonnull
     private final Map<String, String> keyValueMap;
 
     public static String of(@Nonnull final String staticMessage, @Nullable final Object... keysAndValues) {
-        return new KeyValueLogMessage(staticMessage, keysAndValues).toString();
+        return new KeyValueLogMessage(staticMessage, mapFromKeysAndValues(keysAndValues)).toString();
     }
 
     public static KeyValueLogMessage build(@Nonnull final String staticMessage, @Nullable final Object... keysAndValues) {
-        return new KeyValueLogMessage(staticMessage, keysAndValues);
+        return new KeyValueLogMessage(staticMessage, mapFromKeysAndValues(keysAndValues));
     }
 
-    private KeyValueLogMessage(@Nonnull final String staticMessage, @Nullable final Object[] keysAndValues) {
-        this.staticMessage = staticMessage;
-        this.timestamp = System.currentTimeMillis();
-        keyValueMap = new TreeMap<>();
+    private static Map<String, String> mapFromKeysAndValues(@Nullable Object[] keysAndValues) {
+        Map<String, String> keyValueMap = new TreeMap<>();
         if (keysAndValues != null) {
             for (int i = 0; i < (keysAndValues.length / 2) * 2; i += 2) {
-                addKeyValueImpl(keysAndValues[i + 0], keysAndValues[i + 1]);
+                addKeyValueImpl(keyValueMap, keysAndValues[i], keysAndValues[i + 1]);
             }
             if (keysAndValues.length % 2 == 1) {
                 throw new IllegalArgumentException("keys and values don't match");
             }
         }
+        return keyValueMap;
     }
 
-    private void addKeyValueImpl(@Nullable final Object key, @Nullable Object value) {
+    private KeyValueLogMessage(@Nonnull final String staticMessage, @Nonnull Map<String, String> keyValueMap) {
+        this.staticMessage = staticMessage;
+        this.timestamp = System.currentTimeMillis();
+        this.keyValueMap = keyValueMap;
+    }
+
+    private static void addKeyValueImpl(@Nonnull Map<String, String> keyValueMap, @Nullable final Object key, @Nullable Object value) {
         if (key == null) {
             throw new IllegalArgumentException("null key passed to KeyValueLogMessage"); // better to throw an exception rather than silently swallow the key
         }
-        if (keyValueMap != null) {
-            keyValueMap.put(sanitizeKey(key.toString()), sanitizeValue(Optional.ofNullable(value).orElse("null").toString()));
-        }
+        keyValueMap.put(sanitizeKey(key.toString()), sanitizeValue(Optional.ofNullable(value).orElse("null").toString()));
+    }
+
+    private void addKeyValueImpl(@Nullable final Object key, @Nullable Object value) {
+        addKeyValueImpl(keyValueMap, key, value);
     }
 
     public KeyValueLogMessage addKeysAndValues(@Nonnull final Map<?, ?> map) {

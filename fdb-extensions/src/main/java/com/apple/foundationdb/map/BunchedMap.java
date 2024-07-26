@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.map;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
@@ -28,15 +27,18 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncPeekCallbackIterator;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.AsyncPeekIterator;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.util.LogMessageKeys;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,8 +51,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * An implementation of a FoundationDB-backed map that bunches close keys together to minimize the
@@ -993,6 +993,24 @@ public class BunchedMap<K, V> {
     }
 
 
+    /**
+     * Overload of {@link #scanMulti(ReadTransaction, Subspace, SubspaceSplitter, byte[], byte[], byte[], int, boolean) scanMulti()}
+     * that provides a callback to run after each key is read. This hook can be used to interface with metrics collection.
+     *
+     * @param tr transaction to use when scanning the maps
+     * @param subspace subspace containing one or more maps
+     * @param splitter object to determine which map a given key is in
+     * @param subspaceStart inclusive starting suffix of <code>subspace</code> to start the scan
+     * @param subspaceEnd exclusive ending suffix of <code>subspace</code> to end the scan
+     * @param continuation continuation from previous scan (or <code>null</code> to start from the beginning)
+     * @param postReadCallback callback to execute after reading each key
+     * @param limit maximum number of entries to return
+     * @param reverse <code>true</code> if the entries should be returned in descending order or <code>false</code> otherwise
+     * @param <T> type of the tag of each map subspace
+     * @return an iterator over the entries in multiple maps
+     * @see #scanMulti(ReadTransaction, Subspace, SubspaceSplitter, byte[], byte[], byte[], int, Consumer, boolean)
+     */
+    @Nonnull
     public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
                                                           @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                           @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {

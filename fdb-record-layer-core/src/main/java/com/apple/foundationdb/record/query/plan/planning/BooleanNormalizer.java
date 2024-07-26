@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -85,6 +86,7 @@ public class BooleanNormalizer {
      * Obtain a normalizer with the default size limit {@link BooleanNormalizer#DEFAULT_SIZE_LIMIT}.
      * @return a normalizer with the default size limit
      */
+    @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
     @Nonnull
     public static BooleanNormalizer getDefaultInstance() {
         return DEFAULT;
@@ -95,6 +97,7 @@ public class BooleanNormalizer {
      * @param sizeLimit a limit on the size of DNF that this normalizer will produce
      * @return a normalizer with the given size limit
      */
+    @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
     @Nonnull
     public static BooleanNormalizer withLimit(int sizeLimit) {
         if (sizeLimit == DEFAULT_SIZE_LIMIT) {
@@ -116,6 +119,7 @@ public class BooleanNormalizer {
      * @param configuration a a planner configuration specifying the DNF limit that this normalizer will produce
      * @return a normalizer for the given planner configuration
      */
+    @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
     public static BooleanNormalizer forConfiguration(RecordQueryPlannerConfiguration configuration) {
         if (configuration.getComplexityThreshold() == DEFAULT_SIZE_LIMIT && !configuration.shouldCheckForDuplicateConditions() && !configuration.shouldNormalizeNestedFields()) {
             return DEFAULT;

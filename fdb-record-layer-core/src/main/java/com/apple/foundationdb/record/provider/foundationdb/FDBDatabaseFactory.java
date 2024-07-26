@@ -50,7 +50,7 @@ public abstract class FDBDatabaseFactory {
      */
     public static final int DEFAULT_DIRECTORY_CACHE_SIZE = 5000;
     /**
-     * Special value to set the transaction timeout to to indicate that transactions should use the system
+     * Special value to set the transaction timeout to indicate that transactions should use the system
      * default.
      *
      * @see #setTransactionTimeoutMillis(long)
