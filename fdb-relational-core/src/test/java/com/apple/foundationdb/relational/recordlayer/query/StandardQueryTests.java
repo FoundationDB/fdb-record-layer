@@ -1192,6 +1192,20 @@ public class StandardQueryTests {
         }
     }
 
+    @Test
+    void unionParenthesisIsNotSupported() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                RelationalAssertions.assertThrows(() ->
+                                ((EmbeddedRelationalStatement) statement)
+                                        .executeInternal("(select * from t1) union (select * from t1)"))
+                        .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
+            }
+        }
+    }
+
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private Message insertTypeConflictRecords(RelationalStatement s) throws SQLException {
