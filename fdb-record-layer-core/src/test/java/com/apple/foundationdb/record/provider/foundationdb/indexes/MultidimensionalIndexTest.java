@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
@@ -90,14 +91,16 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.IntConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -236,13 +239,13 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         return metaDataBuilder;
     }
 
-    public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final List<String> calendarNames, final int numSamples) throws Exception {
+    public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final List<String> calendarNames, final int numSamples)  {
         final Random random = new Random(seed);
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationCutOff = 30L * 60L; // meetings are at least 30 minutes long
         final long durationStandardDeviation = 60L * 60L;
         final long expirationStandardDeviation = 24L * 60L * 60L;
-        batch(hook, numSamples, 500, recNo -> {
+        final Function<Integer, CompletableFuture<FDBStoredRecord<Message>>> consumer = recNo -> {
             final String calendarName = calendarNames.get(random.nextInt(calendarNames.size()));
             final long startEpoch = (long)(random.nextGaussian() * epochStandardDeviation) + epochMean;
             final long endEpoch = startEpoch + durationCutOff + (long)(Math.abs(random.nextGaussian()) * durationStandardDeviation);
@@ -258,19 +261,23 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                             .setEndEpoch(endEpoch)
                             .setExpirationEpoch(expirationEpoch)
                             .build();
-            recordStore.saveRecord(record);
-        });
+            return recordStore.saveRecordAsync(record);
+        };
+        Assertions.assertDoesNotThrow(() -> batch(hook, numSamples, 500, consumer));
     }
 
-    private int batch(final RecordMetaDataHook hook, final int numRecords, final int batchSize, IntConsumer recordConsumer) throws Exception {
+    private <T> int batch(final RecordMetaDataHook hook, final int numRecords, final int batchSize, Function<Integer, CompletableFuture<T>> recordConsumer) throws Exception {
         int numRecordsCommitted = 0;
         while (numRecordsCommitted < numRecords) {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
                 int recNoInBatch;
+                final var futures = new ArrayList<CompletableFuture<T>>();
                 for (recNoInBatch = 0; numRecordsCommitted + recNoInBatch < numRecords && recNoInBatch < batchSize; recNoInBatch++) {
-                    recordConsumer.accept(numRecordsCommitted + recNoInBatch);
+                    futures.add(recordConsumer.apply(numRecordsCommitted + recNoInBatch));
                 }
+                // wait and then commit
+                AsyncUtil.whenAll(futures).get();
                 commit(context);
                 numRecordsCommitted += recNoInBatch;
                 logger.info("committed batch, numRecordsCommitted = {}", numRecordsCommitted);
@@ -330,7 +337,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             if (expirationEpoch != null) {
                 recordBuilder.setExpirationEpoch(expirationEpoch);
             }
-            recordStore.saveRecord(recordBuilder.build());
+            return recordStore.saveRecordAsync(recordBuilder.build());
         });
     }
 
@@ -343,7 +350,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 .collect(Collectors.toList());
         Collections.shuffle(recNos, random);
         final List<Integer> recNosToBeDeleted = recNos.subList(0, numDeletes);
-        batch(hook, recNosToBeDeleted.size(), 500, recNo -> recordStore.deleteRecord(Tuple.from(recNo)));
+        batch(hook, recNosToBeDeleted.size(), 500, recNo -> recordStore.deleteRecordAsync(Tuple.from(recNo)));
     }
 
     public void loadSpecificRecordsWithNullsAndMins(@Nonnull final RecordMetaDataHook hook) throws Exception {
@@ -402,7 +409,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                     .setEndEpoch(1L)
                     .setExpirationEpoch(2L)
                     .build();
-            recordStore.saveRecord(record);
+            return recordStore.saveRecordAsync(record);
         });
     }
 

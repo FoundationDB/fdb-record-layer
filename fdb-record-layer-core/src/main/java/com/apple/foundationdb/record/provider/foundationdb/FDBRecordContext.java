@@ -30,6 +30,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.AsyncLockRegistry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -165,6 +166,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<Object, Object> session = new LinkedHashMap<>();
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
+    @Nonnull
+    AsyncLockRegistry asyncLockRegistry = new AsyncLockRegistry();
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -1506,5 +1509,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }, executor)
                 .thenApply(vignore -> result);
+    }
+
+    public CompletableFuture<Void> getReadLock(@Nonnull AsyncLockRegistry.LockIdentifier identifier, CompletableFuture<Void> taskFuture) {
+        return asyncLockRegistry.getReadLock(identifier, taskFuture);
+    }
+
+    public CompletableFuture<Void> getWriteLock(@Nonnull AsyncLockRegistry.LockIdentifier identifier, CompletableFuture<Void> taskFuture) {
+        return asyncLockRegistry.getWriteLock(identifier, taskFuture);
     }
 }
