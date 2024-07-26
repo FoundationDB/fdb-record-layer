@@ -395,6 +395,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
     }
 
+    @Nonnull
+    @Override
+    public LogicalOperator visitUnionSelect(@Nonnull RelationalParser.UnionSelectContext ctx) {
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
+    }
+
     @Override
     @Nonnull
     public LogicalOperator visitUnionParenthesis(@Nonnull RelationalParser.UnionParenthesisContext ctx) {

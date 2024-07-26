@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
@@ -1173,6 +1174,20 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assert.that(!resultSet.next());
                 }
+            }
+        }
+    }
+
+    @Test
+    void unionIsNotSupported() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a string, b bigint, PRIMARY KEY(pk))";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                RelationalAssertions.assertThrows(() ->
+                                ((EmbeddedRelationalStatement) statement)
+                                        .executeInternal("select * from t1 union select * from t1"))
+                        .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
             }
         }
     }
