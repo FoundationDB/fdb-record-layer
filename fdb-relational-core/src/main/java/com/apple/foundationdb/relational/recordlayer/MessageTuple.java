@@ -44,7 +44,11 @@ public class MessageTuple extends AbstractRow {
         }
         Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
         if (fieldDescriptor.isRepeated() || message.hasField(fieldDescriptor)) {
-            return message.getField(message.getDescriptorForType().getFields().get(position));
+            final var field = message.getField(message.getDescriptorForType().getFields().get(position));
+            if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
+                return ((Descriptors.EnumValueDescriptor) field).getName();
+            }
+            return field;
         } else {
             return null;
         }

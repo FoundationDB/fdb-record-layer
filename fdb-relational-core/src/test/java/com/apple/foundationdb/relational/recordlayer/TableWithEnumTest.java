@@ -138,11 +138,9 @@ public class TableWithEnumTest {
             var assertion = ResultSetAssert.assertThat(resultSet);
             var pk = 1L;
             for (String suit : SUITS) {
-                final var enumVal = statement.getDataBuilder("CARD").getDescriptor()
-                        .findFieldByName("SUIT").getEnumType().findValueByName(suit);
                 for (var rank = 1L; rank < 14; rank++) {
                     assertion.hasNextRow();
-                    assertion.hasRowExactly(pk++, enumVal, rank);
+                    assertion.hasRowExactly(pk++, suit, rank);
                 }
             }
         }

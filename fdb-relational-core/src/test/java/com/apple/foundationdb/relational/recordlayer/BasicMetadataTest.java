@@ -115,7 +115,7 @@ public class BasicMetadataTest {
             while (tables.next()) {
                 retTableNames.add(tables.getString("TABLE_NAME"));
             }
-            assertThat(retTableNames).containsExactlyInAnyOrder("RESTAURANT", "RESTAURANT_REVIEWER");
+            assertThat(retTableNames).containsExactlyInAnyOrder("RESTAURANT", "RESTAURANT_REVIEWER", "RESTAURANT_MENU");
         }
     }
 

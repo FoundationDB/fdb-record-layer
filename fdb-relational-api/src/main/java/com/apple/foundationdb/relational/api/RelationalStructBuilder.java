@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 
 /**
@@ -48,13 +50,13 @@ public interface RelationalStructBuilder {
 
     RelationalStructBuilder addBytes(String fieldName, byte[] bytes) throws SQLException;
 
-    RelationalStructBuilder addString(String fieldName, String s) throws SQLException;
+    RelationalStructBuilder addString(String fieldName, @Nullable String s) throws SQLException;
 
-    RelationalStructBuilder addObject(String fieldName, Object obj) throws SQLException;
+    RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException;
 
-    RelationalStructBuilder addStruct(String fieldName, RelationalStruct struct) throws SQLException;
+    RelationalStructBuilder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException;
 
-    RelationalStructBuilder addArray(String fieldName, RelationalArray array) throws SQLException;
+    RelationalStructBuilder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException;
 
     RelationalStructBuilder addInt(String fieldName, int i) throws SQLException;
 }

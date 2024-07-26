@@ -36,6 +36,8 @@ import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -375,7 +377,7 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addString(String fieldName, String s) throws SQLException {
+        public RelationalStructBuilder addString(String fieldName, @Nullable String s) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.VARCHAR).build());
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setString(s).build());
@@ -383,12 +385,12 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addObject(String fieldName, Object obj) throws SQLException {
+        public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
         }
 
         @Override
-        public RelationalStructBuilder addStruct(String fieldName, RelationalStruct struct) throws SQLException {
+        public RelationalStructBuilder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException {
             // We're building. Must be a RelationalStructFacade instance of RelationalStruct when here. Unwrap.
             // This will allow us to access the backing data and metadata protobufs.
             // Insert the data portion of RelationalStruct here.
@@ -401,7 +403,7 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addArray(String fieldName, RelationalArray array) throws SQLException {
+        public RelationalStructBuilder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
             // We're building. Must be a RelationalArrayFacade instance of RelationalArray when here. Unwrap.
             // This will allow us to access the backing data and metadata protobufs.
             // Insert the data portion of RelationalStruct here.

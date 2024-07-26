@@ -30,28 +30,31 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
-import com.google.common.annotations.VisibleForTesting;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -168,71 +171,82 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     /**
      * Convert {@link RelationalStruct} to Record Layer {@link Message}.
+     * This is used to support {@link com.apple.foundationdb.relational.api.RelationalDirectAccessStatement#executeInsert} operation and
+     * should not be used for any other general purpose.
      */
-    @VisibleForTesting
-    static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
-        Type.Record record = Type.Record.fromDescriptor(descriptor);
+    @Nonnull
+    private static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        Map<String, Type.Record.Field> fieldMap = record.getFieldNameFieldMap();
         try {
             StructMetaData structMetaData = struct.getMetaData();
             for (int i = 1; i <= structMetaData.getColumnCount(); i++) {
                 String columnName = structMetaData.getColumnName(i);
-                Type.Record.Field field = fieldMap.get(columnName);
-                if (field == null) {
-                    throw new RelationalException(String.format("Column <%s> does not exist on table/struct <%s>",
-                            columnName, record.getName()), ErrorCode.UNDEFINED_COLUMN);
-                }
-                Descriptors.FieldDescriptor fd = builder.getDescriptorForType().findFieldByName(field.getFieldName());
-                // java.sql.Types, not cascades types.
+                Descriptors.FieldDescriptor fd = builder.getDescriptorForType().findFieldByName(columnName);
                 // TODO: Add type checking, nudging, and coercion at this point! Per bfines, good place to do it!
                 //  TODO (Add type checking, nudging, and coercion)
                 switch (structMetaData.getColumnType(i)) {
                     case Types.BOOLEAN:
-                        builder.setField(fd, struct.getBoolean(i));
+                    case Types.DOUBLE:
+                    case Types.FLOAT:
+                    case Types.INTEGER:
+                    case Types.BIGINT:
+                    case Types.VARCHAR:
+                        final var obj = struct.getObject(i);
+                        if (obj != null) {
+                            builder.setField(fd, obj);
+                        }
                         break;
                     case Types.BINARY:
-                        builder.setField(fd, struct.getBytes(i));
-                        break;
-                    case Types.DOUBLE:
-                        builder.setField(fd, struct.getDouble(i));
-                        break;
-                    case Types.FLOAT:
-                        builder.setField(fd, struct.getFloat(i));
-                        break;
-                    case Types.INTEGER:
-                        builder.setField(fd, struct.getInt(i));
-                        break;
-                    case Types.BIGINT:
-                        builder.setField(fd, struct.getLong(i));
-                        break;
-                    case Types.VARCHAR:
-                        builder.setField(fd, struct.getString(i));
+                        final var bytes = struct.getBytes(i);
+                        if (bytes != null) {
+                            builder.setField(fd, ByteString.copyFrom(bytes));
+                        }
                         break;
                     case Types.STRUCT:
                         var subStruct = struct.getStruct(i);
-                        builder.setField(fd, toDynamicMessage(subStruct, fd.getMessageType()));
+                        if (subStruct != null) {
+                            builder.setField(fd, toDynamicMessage(subStruct, fd.getMessageType()));
+                        }
                         break;
                     case Types.ARRAY:
-                        var subArray = struct.getArray(i);
-                        var arrayBuilder = DynamicMessage.newBuilder(fd.getMessageType());
-                        final var arrayItems = (Object[]) subArray.getArray();
-                        List<Descriptors.FieldDescriptor> innerFields = fd.getMessageType().getFields();
-                        if (innerFields != null && !innerFields.isEmpty()) {
-                            Descriptors.FieldDescriptor structFieldDescriptor = innerFields.get(0);
+                        var array = struct.getArray(i);
+                        // if the fieldDescriptor is repeatable, then it's an unwrapped array
+                        if (fd.isRepeated()) {
+                            final var arrayItems = (Object[]) (array == null ? new Object[]{} : array.getArray());
                             for (Object arrayItem : arrayItems) {
                                 Assert.thatUnchecked(arrayItem instanceof RelationalStruct, ErrorCode.INTERNAL_ERROR, "Direct Insertions using STRUCT do not support primitive arrays.");
-                                arrayBuilder.addRepeatedField(structFieldDescriptor,
-                                        toDynamicMessage((RelationalStruct) arrayItem, structFieldDescriptor.getMessageType()));
+                                builder.addRepeatedField(fd, toDynamicMessage((RelationalStruct) arrayItem, fd.getMessageType()));
+                            }
+                        } else {
+                            if (fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
+                                Assert.thatUnchecked(NullableArrayUtils.isWrappedArrayDescriptor(fd.getMessageType()));
+                                // wrap array in a struct and call toDynamicMessage again
+                                final var wrapper = new ImmutableRowStruct(new ArrayRow(array), new RelationalStructMetaData(
+                                        FieldDescription.array(NullableArrayUtils.REPEATED_FIELD_NAME, DatabaseMetaData.columnNullable, null)));
+                                builder.setField(fd, toDynamicMessage(wrapper, fd.getMessageType()));
+                            } else {
+                                Assert.failUnchecked("Field Type expected to be of Type ARRAY but is actually " + fd.getType());
                             }
                         }
-                        builder.setField(fd, arrayBuilder.build());
+                        break;
+                    case Types.OTHER:
+                        // if the type is not specific, try checking if it is an ENUM.
+                        // Since the JDBC specifications do not directly provide for ENUM type, we assume it to be defined
+                        // with ENUM value's string-representation having sql.Types OTHER
+                        if (fd.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
+                            final var enumValue = struct.getString(i);
+                            if (enumValue != null) {
+                                builder.setField(fd, fd.getEnumType().findValueByName(enumValue));
+                            }
+                        } else {
+                            Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format("Cannot interpret value in Column type OTHER for column <%s>",
+                                    columnName)));
+                        }
                         break;
                     default:
-                        // No handling of ENUMS.
-                        //programmer error
-                        throw new RelationalException(String.format("Internal Error:Unexpected Column type <%s> for column <%s>",
-                                structMetaData.getColumnType(i), field.getFieldName()), ErrorCode.INTERNAL_ERROR);
+                        Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format("Unexpected Column type <%s> for column <%s>",
+                                structMetaData.getColumnType(i), columnName)));
+                        break;
                 }
             }
         } catch (SQLException sqle) {

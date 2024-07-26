@@ -33,11 +33,14 @@ public final class TestSchemas {
 
     private static final String RESTAURANT_SCHEMA =
             "CREATE TYPE AS STRUCT Location (address string, latitude string, longitude string)" +
+                    "CREATE TYPE AS ENUM cuisine ('indian', 'british', 'mexican', 'japanese', 'korean')" +
                     "CREATE TYPE AS STRUCT restaurant_review (reviewer bigint, rating bigint)" +
                     "CREATE TYPE AS STRUCT restaurant_tag (tag string, weight bigint)" +
                     "CREATE TYPE AS STRUCT reviewer_stats (start_date bigint, school_name string, hometown string)" +
+                    "CREATE TYPE AS STRUCT item (name string, price float)" +
                     "CREATE TABLE restaurant (rest_no bigint, name string, location Location, reviews restaurant_review ARRAY, tags restaurant_tag array, customer string array, encoded_bytes bytes, PRIMARY KEY(rest_no))" +
                     "CREATE TABLE restaurant_reviewer (id bigint, name string, email string, stats reviewer_stats, PRIMARY KEY(id))" +
+                    "CREATE TABLE restaurant_menu(id bigint, rest_no bigint, cuisine cuisine, items item array not null, reviews restaurant_review ARRAY, primary key(id, rest_no))" +
                     "CREATE INDEX record_name_idx as select name from restaurant " +
                     "CREATE INDEX reviewer_name_idx as select name from restaurant_reviewer ";
 

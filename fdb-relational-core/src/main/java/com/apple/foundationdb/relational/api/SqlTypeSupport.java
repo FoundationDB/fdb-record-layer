@@ -96,7 +96,7 @@ public final class SqlTypeSupport {
                 return Types.BINARY;
             case ENUM:
                 //TODO(bfines) should be string?
-                return Types.JAVA_OBJECT;
+                return Types.OTHER;
             case RECORD:
                 return Types.STRUCT;
             case ARRAY:

@@ -20,26 +20,32 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -225,6 +231,70 @@ public class InsertTest {
                         .setField("REST_NO", 0)
                         .addRepeatedFields("CUSTOMER", customers)
                         .build()).hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
+            }
+        }
+    }
+
+    @Test
+    void canInsertNullableArray() throws SQLException, RelationalException {
+        final var itemMetadata = new RelationalStructMetaData(
+                FieldDescription.primitive("NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                FieldDescription.primitive("PRICE", Types.FLOAT, DatabaseMetaData.columnNullable)
+        );
+        final var itemsMetadata = RelationalArrayMetaData.ofStruct(itemMetadata, DatabaseMetaData.columnNoNulls);
+        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema("TEST_SCHEMA");
+            conn.beginTransaction();
+            try (RelationalStatement s = conn.createStatement()) {
+
+                // with nullable array as null
+                var restMenu = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addLong("REST_NO", 23L)
+                        .addObject("CUISINE", "japanese", Types.OTHER)
+                        .addArray("ITEMS", EmbeddedRelationalArray.newBuilder()
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("NAME", "katsu curry")
+                                        .addFloat("PRICE", 8.95f)
+                                        .build())
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("NAME", "karaage chicken")
+                                        .addFloat("PRICE", 7.5f)
+                                        .build())
+                                .build())
+                        .build();
+                s.executeInsert("RESTAURANT_MENU", List.of(restMenu), Options.NONE);
+                //now prove we can get them back out
+                try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT_MENU", new KeySet().setKeyColumns(Map.of("ID", 1L, "REST_NO", 23L)), Options.NONE)) {
+                    ResultSetAssert.assertThat(relationalResultSet)
+                            .hasNextRow()
+                            .hasColumn("ID", restMenu.getLong(1))
+                            .hasColumn("REST_NO", restMenu.getLong(2))
+                            .hasColumn("CUISINE", restMenu.getString(3))
+                            .hasColumn("ITEMS", restMenu.getArray(4))
+                            .hasColumn("REVIEWS", null)
+                            .hasNoNextRow();
+                }
+
+                // with non nullable array as empty
+                restMenu = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 2L)
+                        .addLong("REST_NO", 23L)
+                        .addObject("CUISINE", "japanese", Types.OTHER)
+                        .build();
+                s.executeInsert("RESTAURANT_MENU", List.of(restMenu), Options.NONE);
+
+                //now prove we can get them back out
+                try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT_MENU", new KeySet().setKeyColumns(Map.of("ID", 2L, "REST_NO", 23L)), Options.NONE)) {
+                    ResultSetAssert.assertThat(relationalResultSet)
+                            .hasNextRow()
+                            .hasColumn("ID", restMenu.getLong(1))
+                            .hasColumn("REST_NO", restMenu.getLong(2))
+                            .hasColumn("CUISINE", restMenu.getString(3))
+                            .hasColumn("ITEMS", EmbeddedRelationalArray.newBuilder(itemsMetadata).build())
+                            .hasColumn("REVIEWS", null)
+                            .hasNoNextRow();
+                }
             }
         }
     }

@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -115,7 +114,7 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(createColumnStatement);
 
             try (RelationalResultSet rs = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE " + table.getName())) {
-                final List<RelationalStruct> expectedTables = List.of(table.getPermutation("TBL"));
+                final var expectedTables = List.of(table.getPermutation("TBL"));
                 Array expectedTablesArr = EmbeddedRelationalArray.newBuilder().addAll(expectedTables.toArray()).build();
 
                 ResultSetAssert.assertThat(rs)

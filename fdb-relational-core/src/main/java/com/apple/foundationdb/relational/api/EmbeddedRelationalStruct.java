@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -77,24 +80,40 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         }
 
         @Override
-        public Builder addString(String fieldName, String s) throws SQLException {
+        public Builder addString(String fieldName, @Nullable String s) throws SQLException {
             return addPrimitive(fieldName, Types.VARCHAR, s);
         }
 
         @Override
-        public Builder addObject(String fieldName, Object obj) throws SQLException {
-            throw new SQLException("Not implemented");
+        public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException {
+            if (targetSqlType == Types.STRUCT) {
+                if (!(obj instanceof RelationalStruct)) {
+                    throw new RelationalException(String.format("Expected object to be of type:STRUCT, but found type:%s",
+                            obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
+                            ErrorCode.DATATYPE_MISMATCH).toSqlException();
+                }
+                return addStruct(fieldName, (RelationalStruct) obj);
+            }
+            if (targetSqlType == Types.ARRAY) {
+                if (!(obj instanceof RelationalArray)) {
+                    throw new RelationalException(String.format("Expected object to be of type:ARRAY, but found type:%s",
+                            obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
+                            ErrorCode.DATATYPE_MISMATCH).toSqlException();
+                }
+                return addArray(fieldName, (RelationalArray) obj);
+            }
+            return addPrimitive(fieldName, targetSqlType, obj);
         }
 
         @Override
-        public Builder addStruct(String fieldName, RelationalStruct struct) throws SQLException {
+        public Builder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException {
             fields.add(FieldDescription.struct(fieldName, DatabaseMetaData.columnNoNulls, struct.getMetaData()));
             elements.add(struct);
             return this;
         }
 
         @Override
-        public Builder addArray(String fieldName, RelationalArray array) throws SQLException {
+        public Builder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
             fields.add(FieldDescription.array(fieldName, DatabaseMetaData.columnNoNulls, array.getMetaData()));
             elements.add(array);
             return this;
@@ -105,7 +124,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             return addPrimitive(fieldName, Types.INTEGER, i);
         }
 
-        private Builder addPrimitive(@Nonnull String fieldName, int sqlType, @Nonnull Object o) {
+        private Builder addPrimitive(@Nonnull String fieldName, int sqlType, @Nullable Object o) {
             fields.add(FieldDescription.primitive(fieldName, sqlType, DatabaseMetaData.columnNoNulls));
             elements.add(o);
             return this;
