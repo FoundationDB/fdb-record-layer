@@ -37,10 +37,20 @@ import javax.annotation.Nonnull;
 @SuppressWarnings("serial")
 @API(API.Status.EXPERIMENTAL)
 public class BunchedMapException extends LoggableException {
+    /**
+     * Create a new exception with a static message.
+     * @param message error message
+     */
     public BunchedMapException(@Nonnull String message) {
         super(message);
     }
 
+    /**
+     * Create a new exception with a static message and cause.
+     *
+     * @param message error message
+     * @param cause cause
+     */
     public BunchedMapException(@Nonnull String message, @Nonnull Throwable cause) {
         super(message, cause);
     }

@@ -79,6 +79,19 @@ public class Main {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
+    /**
+     * Helper function to query for {@code Customer} records and extract their names.
+     * It uses a pattern where the caller provides a template "record store" builder (which
+     * contains the subspace within the database and its {@link RecordMetaData}) as
+     * well as a transaction handle, and this method attaches the transaction to the store
+     * template to open the store. It then executes the provided query and extracts result
+     * information, which it then returns.
+     *
+     * @param recordStoreBuilder template used to construct {@link FDBRecordStore}s
+     * @param cx transaction to use to connect to the database
+     * @param query query to perform to select {@code Customer} records
+     * @return names of all queried records
+     */
     public static List<String> readNames(FDBRecordStore.Builder recordStoreBuilder, FDBRecordContext cx, RecordQuery query) {
         List<String> names = new ArrayList<>();
         FDBRecordStore store = recordStoreBuilder.copyBuilder().setContext(cx).open();
@@ -99,6 +112,12 @@ public class Main {
         return names;
     }
 
+    /**
+     * Runs a set of sample operations against a database. This includes populating
+     * a record store with data and then running a number of queries against that data.
+     *
+     * @param args command line arguments (ignored)
+     */
     public static void main(String[] args) {
         // Get a database connection.
         FDBDatabase fdb = FDBDatabaseFactory.instance().getDatabase();

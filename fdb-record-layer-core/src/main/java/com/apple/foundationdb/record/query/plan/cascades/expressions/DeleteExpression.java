@@ -41,10 +41,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical version of {@link RecordQueryDeletePlan}.
+ * A logical version of {@link RecordQueryDeletePlan}. This is converted to a {@code RecordQueryDeletePlan}
+ * via the {@link com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule}
  *
- * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule which converts this
- *      to a {@link RecordQueryDeletePlan}
+ * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule
  */
 public class DeleteExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
     @Nonnull

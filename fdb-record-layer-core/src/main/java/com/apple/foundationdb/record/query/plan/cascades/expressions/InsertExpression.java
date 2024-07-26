@@ -45,9 +45,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical version of {@link RecordQueryInsertPlan}.
+ * A logical version of {@link RecordQueryInsertPlan}. This is converted to a {@code RecordQueryInsertPlan}
+ * via the {@link com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule}.
  *
- * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule which converts this to a {@link RecordQueryInsertPlan}
+ * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule
  */
 public class InsertExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
 

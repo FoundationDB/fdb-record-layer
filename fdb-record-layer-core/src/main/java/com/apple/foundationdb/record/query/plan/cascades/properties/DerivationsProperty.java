@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
@@ -749,6 +750,7 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
     /**
      * Cases class to capture the derivations that are being collected by the visitor.
      */
+    @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "False positive as this is not a singleton class")
     public static class Derivations {
         private static final Derivations EMPTY = new Derivations(ImmutableList.of(), ImmutableList.of());
 
