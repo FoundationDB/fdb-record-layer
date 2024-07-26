@@ -21,33 +21,84 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import org.apache.lucene.store.LockObtainFailedException;
 
 import java.io.IOException;
 
 /**
- * Utility class for converting Lucene Exceptions to Record layer ones.
+ * Utility class for converting Lucene Exceptions to/from Record layer ones.
  */
 public class LuceneExceptions {
     /**
-     * Wrap the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
+     * Copnvert the exception thrown by Lucene by a {@link RecordCoreException} that can be later interpreted by the higher levels.
      * @param message the exception's message to use; the cause's message will be appended to this one
      * @param ex the exception thrown by Lucene
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
      * @return the {@link RecordCoreException} that should be thrown
      */
-    public static RecordCoreException wrapException(String message, IOException ex, Object... additionalLogInfo) {
+    public static RecordCoreException fromLucene(String message, IOException ex, Object... additionalLogInfo) {
         if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
             return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex)
                     .addLogInfo(additionalLogInfo);
+        } else if (ex instanceof LuceneTransactionTooOldException) {
+            // Use the standard retryable exception
+            Throwable cause = ex.getCause();
+            // Normally that would wrap the actual transaction-too-long from FDB
+            if (cause instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
+                return (FDBExceptions.FDBStoreTransactionIsTooOldException)cause;
+            } else {
+                // Create a new wrapper without a cause
+                RecordCoreException result = new FDBExceptions.FDBStoreTransactionIsTooOldException(message + ": " + ex.getMessage(), null)
+                        .addLogInfo(additionalLogInfo);
+                result.addSuppressed(ex);
+                return result;
+            }
         }
 
         return new RecordCoreException(message + ": " + ex.getMessage(), ex)
                 .addLogInfo(additionalLogInfo);
     }
 
+    /**
+     * Convert an exception thrown by the lower levels to one that can be thrown by Lucene ({@link IOException}).
+     * @param ex the exception thrown by FDB
+     * @return the {@link IOException} that can be thrown through Lucene APIs
+     */
+    public static IOException toLucene(Throwable ex) {
+        if (ex instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
+            return new LuceneExceptions.LuceneTransactionTooOldException(ex);
+        } else if (ex instanceof FDBDirectoryLockFactory.FDBDirectoryLockException) {
+            return new LockObtainFailedException(ex.getMessage(), ex);
+        } else if (ex instanceof IOException) {
+            return (IOException)ex;
+        } else {
+            return new IOException(ex);
+        }
+    }
+
     private LuceneExceptions() {
+    }
+
+    /**
+     * A Wrapper around the transaction-too-old exception that gets thrown through Lucene as an IOException.
+     * Once received, it can be translated back into a {@link FDBExceptions.FDBStoreTransactionIsTooOldException}
+     */
+    public static class LuceneTransactionTooOldException extends IOException {
+        private static final long serialVersionUID = -1L;
+
+        public LuceneTransactionTooOldException(final String message) {
+            super(message);
+        }
+
+        public LuceneTransactionTooOldException(final Throwable cause) {
+            super(cause);
+        }
+
+        public LuceneTransactionTooOldException(final String message, final Throwable cause) {
+            super(message, cause);
+        }
     }
 }
