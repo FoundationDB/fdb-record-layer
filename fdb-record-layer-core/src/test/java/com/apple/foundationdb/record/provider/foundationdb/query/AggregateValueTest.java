@@ -104,6 +104,7 @@ class AggregateValueTest {
     @Test
     void testBitMap() {
         accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), new Object[]{0L, 1L, 2L, 0L}, Arrays.asList(0L, 1L, 2L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}, Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L)); // 111
         accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longs, Arrays.asList(longs)); // 1111110
         accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longsWithNulls, List.of(1L, 2L, 4L, 5L, 6L)); // 1110110
         accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longsOnlyNull, null);

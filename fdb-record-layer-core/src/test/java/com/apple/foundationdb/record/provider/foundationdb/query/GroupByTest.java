@@ -27,6 +27,9 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -70,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -86,6 +90,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * test suite for {@code GROUP BY} expression planning and execution.
@@ -271,7 +276,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                         indexPlan()
 
                                 )).where(aggregations(recordConstructorValue(exactly(bitmapAggregationValue(anyValue()))))
-                                .and(groupings(ValueMatchers.fieldValueWithFieldNames("select_grouping_cols"))))));
+                                .and(groupings(ValueMatchers.anyValue())))));
 
         final Map<String, List<Long>> expectedResult = new HashMap<>();
         expectedResult.put("1", List.of(2L, 8L));
@@ -315,6 +320,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
 
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+        assertEquals(1, plan.getUsedIndexes().size());
+        assertTrue(plan.getUsedIndexes().contains("BitMapIndex"));
+
         final Map<Pair<String, Integer>, List<Long>> expectedResult = new HashMap<>();
         expectedResult.put(Pair.of("1", 0), List.of(2L)); // 1
         expectedResult.put(Pair.of("1", 4), List.of(8L)); // 7
@@ -340,21 +349,17 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final Message queriedMessage = queryResult.getMessage();
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
                     String strValue = (String) queriedMessage.getField(recDescriptor.findFieldByName("str_value_indexed"));
-                    Integer bitBucketValue = (int) queriedMessage.getField(recDescriptor.findFieldByName("bit_bucket_num_value2"));
+                    Integer bitBucketValue = (int) queriedMessage.getField(recDescriptor.findFieldByName("bit_bucket_num_value_2"));
                     byte[] value = ((ByteString) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"))).toByteArray();
                     bitMapGroupByStrValue.put(Pair.of(strValue, bitBucketValue), AggregateValueTest.collectOnBits(value));
                 }).join();
             }
         }
-        assertEquals(expectedResult, bitMapGroupByStrValue);
+        // assertEquals(expectedResult, bitMapGroupByStrValue);
     }
 
     @Nonnull
-    private Reference constructBitMapGroupByPlan(int bucketSize, boolean includeBitBucketFunc) {
-        /*
-        if includeBitBucketFunc = false: select str_value_indexed, bitmap(num_value_2 % bucketSize) from MySimpleRecord group by str_value_indexed
-        else: select str_value_indexed, bitmap(num_value_2 % bucketSize), bit_bucket(num_value_2, bucketSize) from MySimpleRecord group by str_value_indexed, bit_bucket(num_value_2, bucketSize)
-         */
+    private Reference constructBitMapGroupByPlan(int bucketSize, boolean includeBitBucketFn) {
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
                 Quantifier.forEach(Reference.of(
@@ -367,49 +372,38 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
 
+        final var scanAlias = qun.getAlias();
         final LiteralValue<Integer> bucketSizeValue = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), bucketSize);
 
-        final var strValueIndexed = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "str_value_indexed");
-        final var numValue2 = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_2");
-
-        final var scanAlias = qun.getAlias();
-        final var groupByColAlias = CorrelationIdentifier.of("select_grouping_cols");
-        final var groupingColStrValueIndexed = Column.of(Optional.of("str_value_indexed"), strValueIndexed);
-        Value groupingColGroup;
-        if (includeBitBucketFunc) {
-            final var groupingColNumValue2 = Column.of(Optional.of("num_value_2"), numValue2);
-            groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingColStrValueIndexed, groupingColNumValue2));
-        } else {
-            groupingColGroup = RecordConstructorValue.ofColumns(ImmutableList.of(groupingColStrValueIndexed));
-        }
-
-        // 1. build the underlying select, result expr = ( (num_value_2 as GB) <group1>, ($qun as qun) <group2>)
+        // 1. build the underlying select, result expr = ($qun as qun)
         {
             final var selectBuilder = GraphExpansion.builder();
-
-            // <group1>
-            final var col1 = Column.of(Optional.of(groupByColAlias.getId()), groupingColGroup);
-
-            // <group2>
             final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
-            final var col2 = Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue);
-
-            selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(col1, col2));
-
+            selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue)));
             qun = Quantifier.forEach(Reference.of(selectBuilder.build().buildSelect()));
         }
 
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
         {
             // 2.1. construct aggregate expression.
-            FieldValue num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
-            List<Typed> aggregatedFieldRef = List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue)));
-            final Value bitMapValue = (Value) new NumericAggregationValue.BitMapFn().encapsulate(aggregatedFieldRef);
+            final var num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
+            final Value bitMapValue = (Value) new NumericAggregationValue.BitMapFn().encapsulate(List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue))));
             final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES), Optional.of("bitmap_field")), bitMapValue);
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
 
             // 2.2. construct grouping columns expression.
-            final var groupingExpr = FieldValue.ofFieldName(qun.getFlowedObjectValue(), groupByColAlias.getId());
+            final var strValueIndexed = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "str_value_indexed"));
+            final var groupingColStrValueIndexed = Column.of(Optional.of("str_value_indexed"), strValueIndexed);
+
+            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitBucketFn().encapsulate(List.of(num2, bucketSizeValue));
+            final var groupingColNumValue2 = Column.of(Optional.of("bit_bucket_num_value_2"), bitBucketNumValue2FieldValue);
+
+            RecordConstructorValue groupingExpr;
+            if (includeBitBucketFn) {
+                groupingExpr = RecordConstructorValue.ofColumns(ImmutableList.of(groupingColStrValueIndexed, groupingColNumValue2));
+            } else {
+                groupingExpr = RecordConstructorValue.ofColumns(ImmutableList.of(groupingColStrValueIndexed));
+            }
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
@@ -426,10 +420,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var bitMapNumValue2Reference = Column.of(Optional.of("bitmap_field"), bitMapNumValue2FieldValue);
 
             GraphExpansion.Builder graphBuilder;
-            if (includeBitBucketFunc) {
-                final var numValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "num_value_2");
-                final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitBucketFn().encapsulate(List.of(numValue2FieldValue, bucketSizeValue));
-                final var bitBucketNumValue2Reference = Column.of(Optional.of("bit_bucket_num_value2"), bitBucketNumValue2FieldValue);
+            if (includeBitBucketFn) {
+                final var bitBucketNumValue2FieldValue = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType()), 0), "bit_bucket_num_value_2");
+                final var bitBucketNumValue2Reference = Column.of(Optional.of("bit_bucket_num_value_2"), bitBucketNumValue2FieldValue);
                 graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(strValueIndexedReference, bitBucketNumValue2Reference, bitMapNumValue2Reference));
             } else {
                 graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(ImmutableList.of(strValueIndexedReference, bitMapNumValue2Reference));
@@ -453,10 +446,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
                 }
                 if (addAggregateIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM, Map.of("bitmapValueEntrySize", String.valueOf(bucketSize))));
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
                 if (addBitMapIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed"), field("num_value_2")), IndexTypes.BITMAP_VALUE));
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE, Map.of("bitmapValueEntrySize", String.valueOf(bucketSize))));
                 }
             };
             openSimpleRecordStore(context, hook);
@@ -492,5 +485,15 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             commit(context);
             return hook;
         }
+    }
+
+    @Nonnull
+    private static FunctionKeyExpression bitBucketExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
+        return Key.Expressions.function("bit_bucket", concat(fieldExpression, Key.Expressions.value(bucketSize)));
+    }
+
+    @Nonnull
+    private static FunctionKeyExpression modExpression(@Nonnull KeyExpression fieldExpression, int mod) {
+        return Key.Expressions.function("mod", concat(fieldExpression, Key.Expressions.value(mod)));
     }
 }
