@@ -47,10 +47,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}.
+ * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}. This
+ * is converted to {@code RecordQueryScanPlan} via the {@link ImplementPhysicalScanRule}.
  *
- * @see ImplementPhysicalScanRule which converts this
- *      to a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}
+ * @see ImplementPhysicalScanRule
  */
 public class PrimaryScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull

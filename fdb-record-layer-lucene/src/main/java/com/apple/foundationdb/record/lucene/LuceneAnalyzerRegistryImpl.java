@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.exact.ExactTokenAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
@@ -78,6 +79,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         return registry;
     }
 
+    @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Object is actually immutable")
     @Nonnull
     public static LuceneAnalyzerRegistry instance() {
         return INSTANCE;

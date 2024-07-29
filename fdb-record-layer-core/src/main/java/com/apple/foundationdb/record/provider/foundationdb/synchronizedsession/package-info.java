@@ -19,7 +19,7 @@
  */
 
 /**
- * Extends the {@link com.apple.foundationdb.synchronizedsession} package to support running operations in
+ * Extends the {@code com.apple.foundationdb.synchronizedsession} package to support running operations in
  * synchronized sessions with {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner}s
  * and {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}s.
  * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession

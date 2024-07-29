@@ -56,6 +56,8 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         return INSTANCE;
     }
 
+    @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR",
+            justification = "Singleton is optimization as base class has no state. Subclasses are allowed and may not be singletons")
     protected DynamicMessageRecordSerializer() {
     }
 

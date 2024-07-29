@@ -149,7 +149,7 @@ tasks.withType(Test) { theTask ->
         println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
     } 
     afterTest { descriptor, result ->
-        def duration = result.endTime - result.startTime
+        def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
         println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
         println()
     }

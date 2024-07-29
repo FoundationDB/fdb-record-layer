@@ -32,22 +32,12 @@ import javax.annotation.Nullable;
  * @param <N> node type class (self type)
  */
 public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> implements ChangeSet {
-    /**
-     * Previous change set in the chain of change sets. Can be {@code null} if there is no previous change set.
-     */
     @Nullable
     private final ChangeSet previousChangeSet;
 
-    /**
-     * The node this change set applies to.
-     */
     @Nonnull
     private final N node;
 
-    /**
-     * The level we should use when maintaining the node slot index. If {@code level < 0}, do not maintain the node slot
-     * index.
-     */
     private final int level;
 
     AbstractChangeSet(@Nullable final ChangeSet previousChangeSet, @Nonnull final N node, final int level) {
@@ -63,16 +53,29 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
         }
     }
 
+    /**
+     * Previous change set in the chain of change sets. Can be {@code null} if there is no previous change set.
+     * @return the previous change set in the chain of change sets
+     */
     @Nullable
     public ChangeSet getPreviousChangeSet() {
         return previousChangeSet;
     }
 
+    /**
+     * The node this change set applies to.
+     * @return the node this change set applies to
+     */
     @Nonnull
     public N getNode() {
         return node;
     }
 
+    /**
+     * The level we should use when maintaining the node slot index. If {@code level < 0}, do not maintain the node slot
+     * index.
+     * @return the level used when maintaing the node slot index
+     */
     public int getLevel() {
         return level;
     }

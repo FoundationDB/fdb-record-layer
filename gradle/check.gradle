@@ -69,7 +69,7 @@ quickCheck.dependsOn checkstyleMandatory
 apply plugin: 'com.github.spotbugs'
 
 spotbugs {
-//  toolVersion = '4.2.1' // (current default with plugin 4.6.1)
+    toolVersion = '4.8.6'
     ignoreFailures = false
     effort = 'max'
     excludeFilter = rootProject.file('gradle/codequality/spotbugs_exclude.xml')

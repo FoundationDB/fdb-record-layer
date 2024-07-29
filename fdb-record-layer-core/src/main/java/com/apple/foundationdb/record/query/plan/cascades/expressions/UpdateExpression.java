@@ -53,9 +53,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * A logical version of {@link RecordQueryUpdatePlan}.
+ * A logical version of {@link RecordQueryUpdatePlan}. This is converted to a {@code RecordQueryUpdatePlan}
+ * via the {@link com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule}.
  *
- * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule which converts this to a {@link RecordQueryUpdatePlan}
+ * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementUpdateRule
  */
 public class UpdateExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
 

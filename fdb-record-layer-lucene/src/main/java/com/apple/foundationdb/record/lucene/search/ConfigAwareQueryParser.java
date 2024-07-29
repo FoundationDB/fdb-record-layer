@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.search;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.DoublePoint;
@@ -191,6 +192,7 @@ public interface ConfigAwareQueryParser {
         }
     }
 
+    @SpotBugsSuppressWarnings(value = "FE_FLOATING_POINT_EQUALITY", justification = "Floating point values are special sentinel values")
     @Nonnull
     private Query newFloatRangeQuery(final String field, final boolean startInclusive, final boolean endInclusive, final Number start, final Number end) throws ParseException {
         float s = start.floatValue();
@@ -219,6 +221,7 @@ public interface ConfigAwareQueryParser {
         return FloatPoint.newRangeQuery(field, s, e);
     }
 
+    @SpotBugsSuppressWarnings(value = "FE_FLOATING_POINT_EQUALITY", justification = "Floating point values are special sentinel values")
     @Nonnull
     private Query newDoubleRangeQuery(final String field, final boolean startInclusive, final boolean endInclusive, final Number start, final Number end) throws ParseException {
         double s = start.doubleValue();
