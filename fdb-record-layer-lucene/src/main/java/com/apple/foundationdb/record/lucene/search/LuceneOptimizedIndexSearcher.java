@@ -157,7 +157,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                 } catch (InterruptedException e) {
                     throw new ThreadInterruptedException(e);
                 } catch (ExecutionException e) {
-                    throw LuceneExceptions.toIoException(e.getCause());
+                    throw LuceneExceptions.toIoException(e.getCause(), e);
                 } catch (WrapperException we) {
                     throw we.unwrap();
                 }

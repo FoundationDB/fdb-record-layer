@@ -18,7 +18,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 ### NEXT_RELEASE
 
 * **Bug fix** Lucene exception management [(Issue #2850)](https://github.com/FoundationDB/fdb-record-layer/issues/2850)
-* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** More Lucene Exception management [(Issue #2852)](https://github.com/FoundationDB/fdb-record-layer/issues/2852)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

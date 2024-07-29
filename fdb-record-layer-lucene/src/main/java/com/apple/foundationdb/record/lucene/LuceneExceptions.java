@@ -67,16 +67,22 @@ public class LuceneExceptions {
      * @param ex the exception thrown by FDB
      * @return the {@link IOException} that can be thrown through Lucene APIs
      */
-    public static IOException toIoException(Throwable ex) {
+    public static IOException toIoException(Throwable ex, Throwable suppressed) {
+        IOException result;
         if (ex instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
-            return new LuceneExceptions.LuceneTransactionTooOldException(ex);
+            result = new LuceneExceptions.LuceneTransactionTooOldException(ex);
         } else if (ex instanceof FDBDirectoryLockFactory.FDBDirectoryLockException) {
-            return new LockObtainFailedException(ex.getMessage(), ex);
+            result = new LockObtainFailedException(ex.getMessage(), ex);
         } else if (ex instanceof IOException) {
-            return (IOException)ex;
+            result = (IOException)ex;
         } else {
-            return new IOException(ex);
+            result = new IOException(ex);
         }
+
+        if (suppressed != null) {
+            result.addSuppressed(suppressed);
+        }
+        return result;
     }
 
     private LuceneExceptions() {
