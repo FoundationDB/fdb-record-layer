@@ -120,3 +120,11 @@ message MultidimensionalIndexScanContinuation {
     optional bytes lastHilbertValue = 1;
     optional bytes lastKey = 2;
 }
+
+message RecursiveContinuation {
+    message LevelCursor {
+        optional bytes continuation = 1;
+        optional bytes check_value = 2;
+    }
+    repeated LevelCursor levels = 1;
+}
