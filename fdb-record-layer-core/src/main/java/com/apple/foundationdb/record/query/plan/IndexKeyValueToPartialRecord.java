@@ -184,7 +184,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         @Nonnull
         @SuppressWarnings("unused")
-        PTupleSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PTupleSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
             switch (this) {
                 case KEY:
                     return PTupleSource.KEY;
@@ -199,8 +199,8 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         @Nonnull
         @SuppressWarnings("unused")
-        static TupleSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PTupleSource tupleSourceProto) {
+        public static TupleSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PTupleSource tupleSourceProto) {
             switch (tupleSourceProto) {
                 case KEY:
                     return KEY;

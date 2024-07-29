@@ -94,8 +94,7 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
                          @Nonnull final Type baseType,
                          @Nonnull final List<String> fieldNamePrefix) {
-        // TODO need inner Value for match and Ordering info from direction.
-        throw new UnsupportedOperationException();
+        // then(a, b, +(then(c, d))
     }
 
     @Nullable

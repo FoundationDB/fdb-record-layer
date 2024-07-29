@@ -1559,6 +1559,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                            .collect(Collectors.joining(", ")) + ">";
         }
 
+        @Nonnull
+        public static <T extends java.lang.Enum<T>> Enum forJavaEnum(@Nonnull final Class<T> enumClass) {
+            final var enumValuesBuilder = ImmutableList.<EnumValue>builder();
+            T[] enumConstants = enumClass.getEnumConstants();
+            for (int i = 0; i < enumConstants.length; i++) {
+                final var enumConstant = enumConstants[i];
+                enumValuesBuilder.add(new EnumValue(enumConstant.name(), i));
+            }
+            return new Enum(false, enumValuesBuilder.build(), null);
+        }
+
         private static Enum fromProtoValues(boolean isNullable, @Nonnull List<Descriptors.EnumValueDescriptor> values) {
             return new Enum(isNullable, enumValuesFromProto(values), null);
         }

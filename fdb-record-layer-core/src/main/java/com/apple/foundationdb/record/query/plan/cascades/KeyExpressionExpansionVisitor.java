@@ -139,10 +139,11 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                                 .withBase(childBase)
                                 .buildSelect();
                 final Quantifier childQuantifier = Quantifier.forEach(Reference.of(selectExpression));
-                final GraphExpansion.Sealed sealedChildExpansion =
-                        childExpansion.seal();
+                final GraphExpansion.Sealed sealedChildExpansion = childExpansion.seal();
                 return sealedChildExpansion
-                        .builderWithInheritedPlaceholders().pullUpQuantifier(childQuantifier).build();
+                        .builderWithInheritedPlaceholders()
+                        .pullUpQuantifier(childQuantifier)
+                        .build();
             case None:
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
                 column = Column.unnamedOf(value);
@@ -229,7 +230,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         int currentOrdinal = state.getCurrentOrdinal();
         for (KeyExpression child : thenKeyExpression.getChildren()) {
             final GraphExpansion graphExpansion = pop(child.expand(push(state.withCurrentOrdinal(currentOrdinal))));
-            currentOrdinal += graphExpansion.getResultColumns().size();
+            currentOrdinal += child.getColumnSize();
             expandedPredicatesBuilder.add(graphExpansion);
         }
         return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());

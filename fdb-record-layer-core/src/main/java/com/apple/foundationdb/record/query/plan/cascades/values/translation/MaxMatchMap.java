@@ -90,23 +90,23 @@ public class MaxMatchMap {
     }
 
     /**
-     * This produces a translation map comprising a single item which replaces {@code queryCorrelation}
-     * with the {@code queryResultValue} that is rewritten in terms of {@code candidateCorrelation} according
+     * This produces a translation map comprising a single item which replaces {@code queryAlias}
+     * with the {@code queryResultValue} that is rewritten in terms of {@code candidateAlias} according
      * this map of maximum matches between the {@code queryResultValue} and the {@code candidateResultValue}.
      *
-     * @param queryCorrelation The query correlation used as a translation source in the resulting translation
+     * @param queryAlias The query correlation used as a translation source in the resulting translation
      *                         map.
-     * @param candidateCorrelation The correlation, according to which, the {@code queryResultValue} will be rewritten.
-     * @return A single-item translation map comprising a replacement of {@code queryCorrelation} with the
-     * {@code queryResultValue} that is rewritten in terms of {@code candidateCorrelation} according this map of maximum
+     * @param candidateAlias The correlation, according to which, the {@code queryResultValue} will be rewritten.
+     * @return A single-item translation map comprising a replacement of {@code queryAlias} with the
+     * {@code queryResultValue} that is rewritten in terms of {@code candidateAlias} according this map of maximum
      * matches between the {@code queryResultValue} and the {@code candidateResultValue}.
      */
     @Nonnull
-    public TranslationMap pullUpTranslationMap(@Nonnull final CorrelationIdentifier queryCorrelation,
-                                               @Nonnull final CorrelationIdentifier candidateCorrelation) {
-        final var translatedQueryValue = translateQueryValue(candidateCorrelation);
+    public TranslationMap pullUpTranslationMap(@Nonnull final CorrelationIdentifier queryAlias,
+                                               @Nonnull final CorrelationIdentifier candidateAlias) {
+        final var translatedQueryValue = translateQueryValue(candidateAlias);
         return TranslationMap.builder()
-                .when(queryCorrelation).then((src, quantifiedValue) -> translatedQueryValue)
+                .when(queryAlias).then((src, quantifiedValue) -> translatedQueryValue)
                 .build();
     }
 
@@ -149,7 +149,7 @@ public class MaxMatchMap {
     }
 
     /**
-     * Calculates the maximum sub-{@link Value}s in {@code rewrittenQueryValue} that has an exact match in the
+     * Calculates the maximum sub-{@link Value}s in {@code queryResultValue} that has an exact match in the
      * {@code candidateValue}.
      *
      * @param queryResultValue the query result {@code Value}.

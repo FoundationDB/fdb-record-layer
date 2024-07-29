@@ -110,8 +110,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
 
-    public ValueIndexScanMatchCandidate(@Nonnull Index index,
-                                        @Nonnull Collection<RecordType> queriedRecordTypes,
+    public ValueIndexScanMatchCandidate(@Nonnull final Index index,
+                                        @Nonnull final Collection<RecordType> queriedRecordTypes,
                                         @Nonnull final Traversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
                                         @Nonnull final Type baseType,
