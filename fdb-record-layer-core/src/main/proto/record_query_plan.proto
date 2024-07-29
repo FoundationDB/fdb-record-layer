@@ -237,6 +237,9 @@ message PValue {
     PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
+    PIndexEntryObjectValue index_entry_object_value = 41;
+    PToOrderedBytesValue to_ordered_bytes_value = 42;
+    PFromOrderedBytesValue from_ordered_bytes_value = 43;
   }
 }
 
@@ -433,8 +436,27 @@ message PFirstOrDefaultValue {
   optional PValue on_empty_result_value = 2;
 }
 
+message PFromOrderedBytesValue {
+  optional PValue child = 1;
+  optional PDirection direction = 2;
+  optional PType result_type = 3;
+}
+
+enum PDirection {
+  ASC_NULLS_FIRST = 1;
+  ASC_NULLS_LAST = 2;
+  DESC_NULLS_FIRST = 3;
+  DESC_NULLS_LAST = 4;
+}
+
 message PIndexedValue {
   optional PType result_type = 1;
+}
+
+message PIndexEntryObjectValue {
+  optional PIndexKeyValueToPartialRecord.PTupleSource source = 1;
+  repeated int32 ordinal_path = 2;
+  optional PType result_type = 3;
 }
 
 message PIndexOnlyAggregateValue {  // abstract
@@ -791,6 +813,11 @@ message PBinaryRelOpValue {
 
 message PThrowsValue {
   optional PType result_type = 1;
+}
+
+message PToOrderedBytesValue {
+  optional PValue child = 1;
+  optional PDirection direction = 2;
 }
 
 message PUnaryRelOpValue {

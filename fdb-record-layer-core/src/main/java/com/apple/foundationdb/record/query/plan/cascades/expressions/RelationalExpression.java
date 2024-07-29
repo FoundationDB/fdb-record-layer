@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.IterableHelpers;
@@ -44,9 +43,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -55,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -692,30 +691,51 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * Helper method that can be called by sub classes to defer subsumption in a way that the particular expression
      * only matches if it is semantically equivalent.
      * @param candidateExpression the candidate expression
-     * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
+     * @param bindingAliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
      * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
      *        from one of the expressions below that quantifier
-     * @param maxMatchMap the max match map.
+     * @param translationMap the current translation map.
      * @return an iterable of {@link MatchInfo}s if semantic equivalence between this expression and the candidate
      *         expression can be established
      */
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     default Iterable<MatchInfo> exactlySubsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                                  @Nonnull final AliasMap aliasMap,
+                                                  @Nonnull final AliasMap bindingAliasMap,
                                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                  @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
-        if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, candidateExpression.getQuantifiers())) {
-            return ImmutableList.of();
-        }
+                                                  @Nonnull final TranslationMap translationMap) {
 
-        if (equalsWithoutChildren(candidateExpression, aliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
+        if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
+            return MatchInfo.tryFromMatchMap(partialMatchMap, Optional.empty())
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {
             return ImmutableList.of();
         }
+    }
+
+    @Nonnull
+    static TranslationMap pullUpAndComposeTranslationMaps(@Nonnull final RelationalExpression candidateExpression,
+                                                          @Nonnull final AliasMap bindingAliasMap,
+                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        if (true) {
+            return TranslationMap.empty();
+        }
+        final var candidateAliasesToQuantifierMap =
+                Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
+        var translationMapBuilder = TranslationMap.builder();
+        for (final var entry : partialMatchMap.entrySet()) {
+            final var quantifier = entry.getKey().get();
+            final var partialMatch = entry.getValue().get();
+            final var matchInfo = partialMatch.getMatchInfo();
+            final var maxMatchMap = matchInfo.getMaxMatchMapOptional().get();
+            final var candidateAlias =
+                    Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias()));
+            final var candidateQuantifier = candidateAliasesToQuantifierMap.get(candidateAlias);
+            if (!(candidateQuantifier instanceof Quantifier.Existential)) {
+                translationMapBuilder = translationMapBuilder.compose(maxMatchMap.pullUpTranslationMap(quantifier.getAlias(), candidateAlias));
+            }
+        }
+        return translationMapBuilder.build();
     }
 
     /**
@@ -727,6 +747,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     default Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         return Optional.empty();
+    }
+
+    default boolean isCompatiblyAndCompletelyBound(@Nonnull final AliasMap bindingAliasMap, @Nonnull final List<? extends Quantifier> candidateQuantifiers) {
+        return !hasUnboundQuantifiers(bindingAliasMap) &&
+                !hasIncompatibleBoundQuantifiers(bindingAliasMap, candidateQuantifiers);
     }
 
     default boolean hasUnboundQuantifiers(final AliasMap aliasMap) {
