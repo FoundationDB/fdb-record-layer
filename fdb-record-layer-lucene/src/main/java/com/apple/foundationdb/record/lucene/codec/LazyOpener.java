@@ -107,6 +107,9 @@ public class LazyOpener<T> {
                 // Runtime exception - just rethrow - for example, RecordCoreException, UncheckedIOException
                 cause.addSuppressed(e);
                 throw (RuntimeException)cause;
+            } else if (cause instanceof IOException) {
+                // Try to unwrap the cause for the IOException
+                throw LuceneExceptions.toRecordCoreException(cause.getMessage(), (IOException)cause);
             } else {
                 // Otherwise, wrap with generic RecordCoreException
                 throw new RecordCoreException(cause);
