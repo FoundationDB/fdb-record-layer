@@ -41,8 +41,7 @@ import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression
 import com.apple.foundationdb.record.metadata.expressions.SplitKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -1047,6 +1046,12 @@ public class KeyExpressionTest {
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -1098,8 +1103,14 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType, @Nonnull final List<String> fieldNamePrefix) {
-            throw new UnsupportedOperationException();
+        public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+            return visitor.visitExpression(this);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
 
         @Override
@@ -1157,8 +1168,14 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType, @Nonnull final List<String> fieldNamePrefix) {
-            throw new UnsupportedOperationException();
+        public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+            return visitor.visitExpression(this);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
 
         @Override
@@ -1224,6 +1241,12 @@ public class KeyExpressionTest {
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -1272,6 +1295,12 @@ public class KeyExpressionTest {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 }

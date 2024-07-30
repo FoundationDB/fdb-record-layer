@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.protobuf.Descriptors;
@@ -256,6 +257,9 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
+
+    @Nonnull
+    public abstract Value toValue(@Nonnull List<Value> argumentValues);
 
     @Override
     public boolean equals(Object o) {

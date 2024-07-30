@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -161,13 +162,30 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final VisitorState state = getCurrentState();
-        final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseQuantifier(), state.getFieldNamePrefix()));
+        final var baseQuantifier = state.getBaseQuantifier();
+        final var value = keyExpressionWithValue.toValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
         if (state.isKey()) {
             return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
         }
         return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
     }
-    
+
+    @Nonnull
+    @Override
+    public GraphExpansion visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+        final VisitorState state = getCurrentState();
+        // TODO just for now
+        final var baseQuantifier = state.getBaseQuantifier();
+        final var value =
+                state.registerValue(new ScalarTranslationVisitor(functionKeyExpression)
+                        .toResultValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType(),
+                                state.getFieldNamePrefix()));
+        if (state.isKey()) {
+            return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
+        }
+        return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
+    }
+
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
