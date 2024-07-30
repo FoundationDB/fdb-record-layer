@@ -75,6 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithCompari
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
@@ -837,6 +838,12 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Override
         public Derivations visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
             return derivationsFromSingleChild(sortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
+            throw new RecordCoreException("unsupported plan operator");
         }
 
         @Nonnull

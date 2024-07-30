@@ -1530,6 +1530,7 @@ message PRecordQueryPlan {
     PRecordQueryTableFunctionPlan table_function_plan = 37;
     PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
+    PRecordQueryRecursivePlan recursive_plan = 40;
   }
 }
 
@@ -2145,4 +2146,14 @@ message PRecursiveUnionQueryPlan {
 //
 message PRecordQueryTableFunctionPlan {
   optional PValue value = 1;
+}
+
+//
+// PRecordQueryRecursivePlan
+//
+message PRecordQueryRecursivePlan {
+  optional PPhysicalQuantifier root_quantifier = 1;
+  optional PPhysicalQuantifier child_quantifier = 2;
+  optional PValue result_value = 3;
+  optional bool inherit_record_properties = 4;
 }

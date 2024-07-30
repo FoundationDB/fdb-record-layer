@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
@@ -689,6 +690,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Override
         public Cardinalities visitRecordQuerySortPlan(@Nonnull final RecordQuerySortPlan querySortPlan) {
             return fromChild(querySortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecordQueryRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
+            return Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull
