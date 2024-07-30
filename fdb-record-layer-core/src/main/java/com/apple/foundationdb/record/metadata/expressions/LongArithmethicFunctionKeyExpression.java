@@ -126,7 +126,7 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<Value> argumentValues) {
+    public Value toValue(@Nonnull final  List<? extends Value> argumentValues) {
         Verify.verify(argumentValues.size() == arguments.getColumnSize());
         final BuiltInFunction<?> builtInFunction =
                 FunctionCatalog.resolve(valueFunctionName,

@@ -156,7 +156,8 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                 baseQuantifier,
                                 ImmutableList.of(),
                                 -1,
-                                0);
+                                0,
+                                false);
                 final var primaryKeyPartExpansion = pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
                 allExpansionsBuilder.add(primaryKeyPartExpansion);
                 primaryKeyAliasesBuilder.addAll(primaryKeyPartExpansion.getPlaceholderAliases());
@@ -284,7 +285,8 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                         innerBaseQuantifier,
                         ImmutableList.of(),
                         -1,
-                        0);
+                        0,
+                        false);
 
         final var partitioningAndArgumentExpansion =
                 pop(wholeKeyExpression.expand(push(initialState)));
