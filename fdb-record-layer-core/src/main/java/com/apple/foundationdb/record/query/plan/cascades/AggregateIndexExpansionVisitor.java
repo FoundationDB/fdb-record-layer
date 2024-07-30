@@ -151,7 +151,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
     @Nonnull
     private GraphExpansion constructBaseExpansion(@Nonnull final Quantifier.ForEach baseQuantifier) {
-        final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(), baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(), 0);
+        final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(),
+                baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(),
+                0, false);
         return pop(groupingKeyExpression.getWholeKey().expand(push(state)));
     }
 

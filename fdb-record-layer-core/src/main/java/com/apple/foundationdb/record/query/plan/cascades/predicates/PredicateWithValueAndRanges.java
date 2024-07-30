@@ -415,7 +415,9 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Override
     public String toString() {
-        return "(" + getValue() + " " + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||")) + ")";
+        return "(" + getValue() +
+                (ranges.isEmpty() ? "" : " " + ranges.stream().map(RangeConstraints::toString).collect(Collectors.joining("||"))) +
+                ")";
     }
 
     @Nonnull

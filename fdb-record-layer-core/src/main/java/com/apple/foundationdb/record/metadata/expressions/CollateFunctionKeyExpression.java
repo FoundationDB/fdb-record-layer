@@ -185,7 +185,7 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<Value> argumentValues) {
+    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
         // TODO support this
         throw new UnsupportedOperationException();
     }

@@ -321,7 +321,7 @@ public class VersionIndexTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -412,7 +412,7 @@ public class VersionIndexTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

@@ -128,7 +128,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -168,7 +168,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -208,7 +208,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -269,7 +269,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -300,7 +300,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -353,7 +353,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<Value> argumentValues) {
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

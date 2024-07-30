@@ -259,7 +259,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     }
 
     @Nonnull
-    public abstract Value toValue(@Nonnull List<Value> argumentValues);
+    public abstract Value toValue(@Nonnull List<? extends Value> argumentValues);
 
     @Override
     public boolean equals(Object o) {
