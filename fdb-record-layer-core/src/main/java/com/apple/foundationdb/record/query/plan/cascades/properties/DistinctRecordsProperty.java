@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -340,6 +341,12 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
         @Override
         public Boolean visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
             return distinctRecordsFromSingleChild(sortPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
+            return false;
         }
 
         @Nonnull

@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -564,6 +565,16 @@ public class PlanStringRepresentation implements RecordQueryPlanVisitor<PlanStri
         return visit(element.getChild())
                 .append(" ORDER BY ")
                 .append(element.getKey());
+    }
+
+    @Nonnull
+    @Override
+    public PlanStringRepresentation visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
+        return append("recursive(")
+                .visit(recursivePlan.getRootQuantifier().getRangesOverPlan())
+                .append(", ")
+                .visit(recursivePlan.getChildQuantifier().getRangesOverPlan())
+                .append(")");
     }
 
     @Nonnull

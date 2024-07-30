@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
@@ -618,6 +619,12 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitSortPlan(@Nonnull final RecordQuerySortPlan element) {
             // TODO
+            return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitRecursivePlan(@Nonnull final RecordQueryRecursivePlan recursivePlan) {
             return Ordering.empty();
         }
 

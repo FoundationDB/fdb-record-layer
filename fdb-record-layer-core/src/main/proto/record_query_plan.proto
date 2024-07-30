@@ -1192,6 +1192,7 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 30;
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
+    PRecordQueryRecursivePlan recursive_plan = 33;
   }
 }
 
@@ -1723,4 +1724,14 @@ message PRecordQueryUnionPlanBase {
 //
 message PRecordQueryUpdatePlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
+// PRecordQueryRecursivePlan
+//
+message PRecordQueryRecursivePlan {
+  optional PPhysicalQuantifier root_quantifier = 1;
+  optional PPhysicalQuantifier child_quantifier = 2;
+  optional PValue result_value = 3;
+  optional bool inherit_record_properties = 4;
 }
