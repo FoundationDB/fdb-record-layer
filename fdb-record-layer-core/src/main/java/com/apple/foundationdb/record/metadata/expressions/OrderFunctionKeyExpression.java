@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleOrdering;
@@ -91,10 +90,16 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
-                         @Nonnull final Type baseType,
-                         @Nonnull final List<String> fieldNamePrefix) {
-        // then(a, b, +(then(c, d))
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+        return visitor.visitExpression(this);
+    }
+
+    @Nonnull
+    @Override
+    public Value toValue(@Nonnull final List<Value> argumentValues) {
+        // then(a, b, +(then(c*, d*))
+        // then(a, nested(b*, +(then(c*, d*))  GraphExpansion: RC: +Value(QOV(qC), QOV(qD)) QUNS: bBase, qC, qD
+        return null;
     }
 
     @Nullable

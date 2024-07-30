@@ -72,6 +72,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -345,6 +346,12 @@ public class VersionIndexTest {
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -429,6 +436,12 @@ public class VersionIndexTest {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 

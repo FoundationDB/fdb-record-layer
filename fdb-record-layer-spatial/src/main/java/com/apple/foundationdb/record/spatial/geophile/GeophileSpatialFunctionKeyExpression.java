@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.geophile.z.Space;
 import com.geophile.z.SpatialObject;
 import com.geophile.z.spatialobject.d2.Point;
@@ -144,6 +145,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -187,6 +194,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 
@@ -233,6 +246,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -277,6 +296,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 }

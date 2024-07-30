@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
@@ -109,6 +110,12 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
     @Override
     public int getColumnSize() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public Value toValue(@Nonnull final List<Value> argumentValues) {
+        throw new UnsupportedOperationException("not implemented");
     }
 
     private static class Builder extends FunctionKeyExpression.Builder {
