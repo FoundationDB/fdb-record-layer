@@ -197,13 +197,13 @@ public class FDBDirectoryManager implements AutoCloseable {
                             LuceneLogMessageKeys.INDEX_PARTITION, partitionId));
                 }
             } catch (IOException e) {
-                throw LuceneExceptions.wrapException("Lucene mergeIndex failed", e,
+                throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex failed", e,
                         LuceneLogMessageKeys.GROUP, groupingKey,
                         LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
             }
         } catch (IOException e) {
             // there was an IOException closing the index writer
-            throw LuceneExceptions.wrapException("Lucene mergeIndex close failed", e,
+            throw LuceneExceptions.toRecordCoreException("Lucene mergeIndex close failed", e,
                     LuceneLogMessageKeys.GROUP, groupingKey,
                     LuceneLogMessageKeys.INDEX_PARTITION, partitionId);
         }
@@ -287,12 +287,16 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     private FDBDirectoryWrapper getDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId, final AgilityContext agilityContext) {
         final Tuple mapKey = getDirectoryKey(groupingKey, partitionId);
-        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext));
+        return createdDirectories.computeIfAbsent(mapKey, key -> new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize()));
     }
 
     public FDBDirectoryWrapper createDirectoryWrapper(@Nullable Tuple groupingKey, @Nullable Integer partitionId,
                                                       final AgilityContext agilityContext) {
-        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext);
+        return new FDBDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
+    }
+
+    private int getBlockCacheMaximumSize() {
+        return state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_BLOCK_CACHE_MAXIMUM_SIZE);
     }
 
     private static Tuple getDirectoryKey(final @Nullable Tuple groupingKey, final @Nullable Integer partitionId) {

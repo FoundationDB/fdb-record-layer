@@ -32,21 +32,21 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PComparison.PComparisonType;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInvertedFunctionComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PListComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PMultiColumnComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PNullComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.POpaqueEqualityComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PParameterComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PSimpleComparison;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PValueComparison;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.planprotos.PComparison;
+import com.apple.foundationdb.record.planprotos.PComparison.PComparisonType;
+import com.apple.foundationdb.record.planprotos.PInvertedFunctionComparison;
+import com.apple.foundationdb.record.planprotos.PListComparison;
+import com.apple.foundationdb.record.planprotos.PMultiColumnComparison;
+import com.apple.foundationdb.record.planprotos.PNullComparison;
+import com.apple.foundationdb.record.planprotos.POpaqueEqualityComparison;
+import com.apple.foundationdb.record.planprotos.PParameterComparison;
+import com.apple.foundationdb.record.planprotos.PSimpleComparison;
+import com.apple.foundationdb.record.planprotos.PValueComparison;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
@@ -54,10 +54,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -202,7 +207,7 @@ public class Comparisons {
         }
     }
 
-    @SuppressWarnings("rawtypes")
+    @Nullable
     public static Object toClassWithRealEquals(@Nullable Object obj) {
         if (obj == null) {
             return null;
@@ -242,7 +247,11 @@ public class Comparisons {
         if (value == null || comparand == null) {
             return null;
         } else {
-            return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            if (value instanceof Message) {
+                return MessageHelpers.compareMessageEquals(value, comparand);
+            } else {
+                return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            }
         }
     }
 
@@ -316,10 +325,16 @@ public class Comparisons {
         }
         if ((comparand instanceof List<?>)) {
             boolean hasNull = false;
-            value = toClassWithRealEquals(value);
+            value = (value instanceof Message) ? value : toClassWithRealEquals(value);
             for (Object comparandItem : (List<?>) comparand) {
-                if (value.equals(toClassWithRealEquals(comparandItem))) {
-                    return true;
+                if (value instanceof Message) {
+                    if (MessageHelpers.compareMessageEquals(value, comparandItem)) {
+                        return true;
+                    }
+                } else {
+                    if (toClassWithRealEquals(value).equals(toClassWithRealEquals(comparandItem))) {
+                        return true;
+                    }
                 }
                 hasNull |= comparandItem == null;
             }
@@ -741,7 +756,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, PlanSerializable {
+    public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -831,7 +846,15 @@ public class Comparisons {
 
         @Override
         default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
-            return this.equals(other);
+            return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("unused")
+        default BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other,
+                                                          @Nonnull final ValueEquivalence valueEquivalence) {
+            return this.equals(other) ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
         }
 
         @Override
@@ -847,11 +870,11 @@ public class Comparisons {
 
         @Nonnull
         @SuppressWarnings("unused")
-        RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
+        PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
 
         @Nonnull
         static Comparison fromComparisonProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final RecordQueryPlanProto.PComparison comparisonProto) {
+                                              @Nonnull final PComparison comparisonProto) {
             return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
         }
     }
@@ -986,7 +1009,7 @@ public class Comparisons {
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, toClassWithRealEquals(comparand));
+            return Objects.hash(type.name(), toClassWithRealEquals(comparand));
         }
 
         @Override
@@ -1030,8 +1053,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1179,11 +1202,23 @@ public class Comparisons {
 
         @Nonnull
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             if (isCorrelation()) {
-                final var aliasMap = translationMap.getAliasMapMaybe().orElseThrow(() -> new RecordCoreException("must have aliasMap"));
                 final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
-                final var translatedAlias = aliasMap.getTargetOrDefault(alias, alias);
+                final var quantifiedObjectValue = QuantifiedObjectValue.of(alias,
+                        com.apple.foundationdb.record.query.plan.cascades.typing.Type.any());
+
+                //
+                // Note that the following cast must work! If it does not we are in a bad spot and we should fail.
+                //
+                final var translatedQuantifiedObjectValue =
+                        (QuantifiedObjectValue)quantifiedObjectValue
+                                .translateCorrelations(translationMap);
+                if (quantifiedObjectValue == translatedQuantifiedObjectValue) {
+                    return this;
+                }
+                final var translatedAlias = translatedQuantifiedObjectValue.getAlias();
                 return new ParameterComparison(type,
                         Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
                         Bindings.Internal.CORRELATION,
@@ -1202,18 +1237,12 @@ public class Comparisons {
             return ImmutableSet.of(getAlias());
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || getClass() != other.getClass()) {
-                return false;
-            }
+        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             ParameterComparison that = (ParameterComparison) other;
             if (type != that.type) {
-                return false;
+                return BooleanWithConstraint.falseValue();
             }
 
             //
@@ -1222,14 +1251,19 @@ public class Comparisons {
             // graph.
             //
             if (isCorrelation() && that.isCorrelation()) {
-                return aliasMap.containsMapping(getAlias(), that.getAlias());
+                if (getAlias().equals(that.getAlias())) {
+                    return BooleanWithConstraint.alwaysTrue();
+                }
+                // This case should happen rather infrequently
+                return valueEquivalence.isDefinedEqual(getAlias(), that.getAlias());
             }
 
             if (!getParameter().equals(that.getParameter())) {
-                return false;
+                return BooleanWithConstraint.falseValue();
             }
             
-            return Objects.equals(relatedByEquality(), that.relatedByEquality());
+            return Objects.equals(relatedByEquality(), that.relatedByEquality())
+                   ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
         }
 
         @Nullable
@@ -1276,14 +1310,7 @@ public class Comparisons {
         @SpotBugsSuppressWarnings("EQ_UNUSUAL")
         @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
         public boolean equals(Object o) {
-            final AliasMap aliasMap;
-            if (isCorrelation()) {
-                final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
-                aliasMap = AliasMap.identitiesFor(ImmutableSet.of(alias));
-            } else {
-                aliasMap = AliasMap.emptyMap();
-            }
-            return semanticEquals(o, aliasMap);
+            return semanticEquals(o, AliasMap.emptyMap());
         }
 
         @Override
@@ -1347,8 +1374,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1493,21 +1520,15 @@ public class Comparisons {
             return getComparandValue();
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || getClass() != other.getClass()) {
-                return false;
-            }
+        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             final var that = (ValueComparison) other;
             if (type != that.type) {
-                return false;
+                return BooleanWithConstraint.falseValue();
             }
 
-            return comparandValue.semanticEquals(that.comparandValue, aliasMap);
+            return comparandValue.semanticEquals(that.comparandValue, valueEquivalence);
         }
 
         @Nullable
@@ -1540,7 +1561,7 @@ public class Comparisons {
         @SpotBugsSuppressWarnings("EQ_UNUSUAL")
         @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
         public boolean equals(Object o) {
-            return semanticEquals(o, AliasMap.identitiesFor(comparandValue.getCorrelatedTo()));
+            return semanticEquals(o, AliasMap.emptyMap());
         }
 
         @Override
@@ -1590,8 +1611,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1816,8 +1837,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -1962,8 +1983,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2072,8 +2093,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2319,7 +2340,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of comparison of this kind is not supported");
         }
     }
@@ -2403,7 +2424,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public String toString() {
-            return String.format("%s(%d) %s", getType().name(), maxDistance, typelessString());
+            return getType().name() + "(" + maxDistance + ") " + typelessString();
         }
     }
 
@@ -2517,7 +2538,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public String toString() {
-            return String.format("%s(%s) %s", getType().name(), strict ? "strictly" : "approximately", typelessString());
+            return getType().name() + "(" + (strict ? "strictly" : "approximately") + ") " + typelessString();
         }
     }
 
@@ -2591,17 +2612,11 @@ public class Comparisons {
             return inner.getCorrelatedTo();
         }
 
+        @Nonnull
         @Override
-        @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || getClass() != other.getClass()) {
-                return false;
-            }
-            MultiColumnComparison that = (MultiColumnComparison) other;
-            return this.inner.semanticEquals(that.inner, aliasMap);
+        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+            MultiColumnComparison that = (MultiColumnComparison)other;
+            return this.inner.semanticEquals(that.inner, valueEquivalence);
         }
 
         @Override
@@ -2653,7 +2668,7 @@ public class Comparisons {
         @SpotBugsSuppressWarnings("EQ_UNUSUAL")
         @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
         public boolean equals(final Object o) {
-            return semanticEquals(o, AliasMap.identitiesFor(inner.getCorrelatedTo()));
+            return semanticEquals(o, AliasMap.emptyMap());
         }
 
         @Override
@@ -2671,8 +2686,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -2870,8 +2885,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
         }
 
         @Nonnull

@@ -160,7 +160,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final VisitorState state = getCurrentState();
-        final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseQuantifier().getAlias(), state.getFieldNamePrefix()));
+        final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseQuantifier(), state.getFieldNamePrefix()));
         if (state.isKey()) {
             return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
         }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -58,11 +59,13 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         try {
             clazz = Class.forName(functionName);
         } catch (ClassNotFoundException e) {
-            throw new RecordCoreException(String.format("could not find function '%s'", functionName), e);
+            throw new RecordCoreException("could not find function", e).addLogInfo(LogMessageKeys.FUNCTION, functionName);
         }
         // sanity / security check
         if (!UdfFunction.class.isAssignableFrom(clazz)) {
-            throw new RecordCoreException(String.format("expecting '%s' to be a subclass of '%s'", clazz.getName(), UdfFunction.class.getSimpleName()));
+            throw new RecordCoreException("expecting class to be a subclass of '" + UdfFunction.class.getSimpleName() + "'")
+                    .addLogInfo(LogMessageKeys.EXPECTED, UdfFunction.class.getSimpleName())
+                    .addLogInfo(LogMessageKeys.ACTUAL, clazz.getName());
         }
 
         // the class must have parameterless constructor
@@ -70,7 +73,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
             final Constructor<?> constructor = clazz.getDeclaredConstructor();
             return (Value)((UdfFunction)constructor.newInstance()).encapsulate(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList()));
         } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(String.format("could not instantiate call-site from '%s'", clazz.getName()), e);
+            throw new RecordCoreException("could not instantiate call-site from '" + clazz.getName() + "'", e);
         }
     }
 }

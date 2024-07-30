@@ -85,6 +85,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -114,7 +115,7 @@ import static org.apache.lucene.codecs.lucene86.Lucene86SegmentInfoFormat.SI_EXT
 public class FDBDirectory extends Directory  {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
     public static final int DEFAULT_BLOCK_SIZE = 1_024;
-    public static final int DEFAULT_MAXIMUM_SIZE = 1024;
+    public static final int DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE = 1024;
     public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
     public static final int DEFAULT_INITIAL_CAPACITY = 128;
     private static final int SEQUENCE_SUBSPACE = 0;
@@ -190,12 +191,19 @@ public class FDBDirectory extends Directory  {
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext) {
         this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
-                DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
+                DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
+    }
+
+    public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
+                        @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
+                        boolean deferDeleteToCompoundFile, AgilityContext agilityContext, int blockCacheMaximumSize) {
+        this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext,
+                DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, blockCacheMaximumSize, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
     private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
-                         int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel,
+                         int blockSize, final int initialCapacity, final int blockCacheMaximumSize, final int concurrencyLevel,
                          boolean deferDeleteToCompoundFile) {
         this.agilityContext = agilityContext;
         this.indexOptions = indexOptions == null ? Collections.emptyMap() : indexOptions;
@@ -213,8 +221,9 @@ public class FDBDirectory extends Directory  {
         this.blockCache = CacheBuilder.newBuilder()
                 .concurrencyLevel(concurrencyLevel)
                 .initialCapacity(initialCapacity)
-                .maximumSize(maximumSize)
+                .maximumSize(blockCacheMaximumSize)
                 .recordStats()
+                .removalListener(notification -> cacheRemovalCallback())
                 .build();
         this.fileSequenceCounter = new AtomicLong(-1);
         this.compressionEnabled = Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
@@ -225,6 +234,10 @@ public class FDBDirectory extends Directory  {
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
+    }
+
+    private void cacheRemovalCallback() {
+        agilityContext.increment(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE);
     }
 
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
@@ -339,6 +352,11 @@ public class FDBDirectory extends Directory  {
                 agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList()))
                 .stream()
                 .map(keyValue -> NonnullPair.of(fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0), keyValue.getValue()));
+    }
+
+    public CompletableFuture<Integer> getFieldInfosCount() {
+        return agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList())
+                .thenApply(List::size);
     }
 
     public static boolean isSegmentInfo(String name) {
@@ -471,6 +489,7 @@ public class FDBDirectory extends Directory  {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.PreserveStackTrace")
     private CompletableFuture<byte[]> readBlock(@Nonnull IndexInput requestingInput, @Nonnull String fileName,
                                                 @Nullable FDBLuceneFileReference reference, int block) {
         if (LOGGER.isTraceEnabled()) {
@@ -481,27 +500,32 @@ public class FDBDirectory extends Directory  {
         }
         if (reference == null) {
             CompletableFuture<byte[]> exceptionalFuture = new CompletableFuture<>();
-            exceptionalFuture.completeExceptionally(new RecordCoreArgumentException(String.format("No reference with name %s was found", fileName)));
+            exceptionalFuture.completeExceptionally(new RecordCoreArgumentException("No reference with for file name was found").addLogInfo(LogMessageKeys.EXPECTED, fileName));
             return exceptionalFuture;
         }
         final long id = reference.getId();
-        return agilityContext.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.asMap().computeIfAbsent(ComparablePair.of(id, block), ignore -> {
-                    if (sharedCache == null) {
-                        return readData(id, block);
-                    }
-                    final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
-                    if (fromShared != null) {
-                        agilityContext.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_HITS);
-                        return CompletableFuture.completedFuture(fromShared);
-                    } else {
-                        agilityContext.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
-                        return readData(id, block).thenApply(data -> {
-                            sharedCache.putBlockIfAbsent(id, block, data);
-                            return data;
-                        });
-                    }
+        try {
+            return agilityContext.instrument(LuceneEvents.Events.LUCENE_READ_BLOCK, blockCache.get(ComparablePair.of(id, block), () -> {
+                if (sharedCache == null) {
+                    return readData(id, block);
                 }
-                ));
+                final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
+                if (fromShared != null) {
+                    agilityContext.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_HITS);
+                    return CompletableFuture.completedFuture(fromShared);
+                } else {
+                    agilityContext.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
+                    return readData(id, block).thenApply(data -> {
+                        sharedCache.putBlockIfAbsent(id, block, data);
+                        return data;
+                    });
+                }
+                    }
+            ));
+        } catch (ExecutionException e) {
+            // This would happen when the cache.get() fails to execute the lambda (not when the block's future is joined)
+            throw new RecordCoreException(e.getCause());
+        }
     }
 
     private CompletableFuture<byte[]> readData(long id, int block) {
@@ -555,6 +579,10 @@ public class FDBDirectory extends Directory  {
         } finally {
             agilityContext.recordEvent(LuceneEvents.Events.LUCENE_LIST_ALL, System.nanoTime() - startTime);
         }
+    }
+
+    public CompletableFuture<Collection<String>> listAllAsync() {
+        return getFileReferenceCacheAsync().thenApply(references -> List.copyOf(references.keySet()));
     }
 
     @VisibleForTesting

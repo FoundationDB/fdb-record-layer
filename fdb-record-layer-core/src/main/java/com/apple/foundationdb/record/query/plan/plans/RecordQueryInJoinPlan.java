@@ -30,18 +30,20 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInJoinPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryInJoinPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -116,7 +118,13 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                             return getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), bindingValue),
                                     innerContinuation, executeProperties.clearSkipAndLimit());
                         },
-                        outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
+                        outerObject -> {
+                            if (outerObject instanceof DynamicMessage) {
+                                return ((DynamicMessage) outerObject).toByteArray();
+                            } else {
+                                return Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack();
+                            }
+                        },
                         continuation,
                         store.getPipelineSize(PipelineOperation.IN_JOIN))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
@@ -152,6 +160,21 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        final var resultType = inSource.getResultType();
+
+        if (!resultType.isAny()) {
+            final var resultTypesBuilder = ImmutableSet.<Type>builder();
+            resultTypesBuilder.addAll(RecordQueryPlanWithChild.super.getDynamicTypes());
+            resultTypesBuilder.add(resultType);
+            return resultTypesBuilder.build();
+        } else {
+            return RecordQueryPlanWithChild.super.getDynamicTypes();
+        }
     }
 
     @Nonnull

@@ -28,14 +28,15 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexOnlyAggregateValue.PPhysicalOperator;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PMaxEverLongValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PMinEverLongValue;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.planprotos.PIndexOnlyAggregateValue;
+import com.apple.foundationdb.record.planprotos.PIndexOnlyAggregateValue.PPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PMaxEverLongValue;
+import com.apple.foundationdb.record.planprotos.PMinEverLongValue;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -153,7 +154,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     @Override
     public String toString() {
-        return operator.name().toLowerCase(Locale.getDefault()) + "(" + child + ")";
+        return operator.name().toLowerCase(Locale.ROOT) + "(" + child + ")";
     }
 
     @Override
@@ -166,14 +167,11 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
         return semanticHashCode();
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-
-        return other.getClass() == getClass() && ((IndexOnlyAggregateValue)other).operator.equals(operator);
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> operator.equals(((IndexOnlyAggregateValue)other).operator));
     }
 
     @Nonnull
@@ -188,7 +186,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     /**
@@ -222,7 +220,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
             Verify.verify(arguments.size() == 1);
             final Typed arg0 = arguments.get(0);
             final Type type0 = arg0.getResultType();
-            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MIN_EVER_LONG));
+            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, "only numeric types allowed in " + IndexTypes.MIN_EVER_LONG + " aggregation operation");
             return new MinEverLongValue(PhysicalOperator.MIN_EVER_LONG, (Value)arg0);
         }
 
@@ -242,8 +240,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setMinEverLongValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setMinEverLongValue(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -302,7 +300,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
             Verify.verify(arguments.size() == 1);
             final Typed arg0 = arguments.get(0);
             final Type type0 = arg0.getResultType();
-            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, String.format("only numeric types allowed in %s aggregation operation", IndexTypes.MAX_EVER_LONG));
+            SemanticException.check(type0.isNumeric(), SemanticException.ErrorCode.UNKNOWN, "only numeric types allowed in " + IndexTypes.MAX_EVER_LONG + " aggregation operation");
             return new MaxEverLongValue(PhysicalOperator.MAX_EVER_LONG, (Value)arg0);
         }
 
@@ -322,8 +320,8 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setMaxEverLongValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setMaxEverLongValue(toProto(serializationContext)).build();
         }
 
         @Nonnull

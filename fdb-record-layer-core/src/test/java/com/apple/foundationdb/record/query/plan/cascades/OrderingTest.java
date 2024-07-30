@@ -22,16 +22,22 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.SetMultimap;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -41,374 +47,558 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.cascades.OrderingPart.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class OrderingTest {
     @Test
     void testOrdering() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
 
-        final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
+        final var requestedOrdering = new RequestedOrdering(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
         final var providedOrdering =
-                new Ordering(
-                        ImmutableSetMultimap.of(b.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                                c, ProvidedSortOrder.ASCENDING),
                         ImmutableList.of(a, c),
                         false);
 
-        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.enumerateSatisfyingOrderings(requestedOrdering));
+        final var satisfyingOrderings =
+                ImmutableList.copyOf(providedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering));
         assertEquals(1, satisfyingOrderings.size());
 
         final var satisfyingOrdering = satisfyingOrderings.get(0);
-        assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering);
+        assertEquals(requested(a, b, RequestedSortOrder.ANY, c), satisfyingOrdering);
     }
 
     @Test
     void testOrdering2() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
 
-        final var requestedOrdering = new RequestedOrdering(ImmutableList.of(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
+        final var requestedOrdering = new RequestedOrdering(requested(a, b, c), RequestedOrdering.Distinctness.NOT_DISTINCT);
 
         final var providedOrdering =
-                new Ordering(
-                        ImmutableSetMultimap.of(a.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
-                                b.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                                b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                                c, ProvidedSortOrder.ASCENDING),
                         ImmutableList.of(c),
                         false);
 
-        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.enumerateSatisfyingOrderings(requestedOrdering));
+        final var satisfyingOrderings = ImmutableList.copyOf(providedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering));
         assertEquals(1, satisfyingOrderings.size());
 
         final var satisfyingOrdering = satisfyingOrderings.get(0);
-        assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering);
+        assertEquals(requested(a, RequestedSortOrder.ANY, b, RequestedSortOrder.ANY, c), satisfyingOrdering);
     }
 
     @Test
     void testMergeKeys() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var bindingMap =
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING);
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(b, a));
+        final var leftOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        leftPartialOrder, false);
 
         final var rightPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, a));
+        final var rightOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        rightPartialOrder, false);
 
-        final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
+        final var mergedOrdering =
+                Ordering.merge(leftOrdering, rightOrdering, Ordering.UNION, false);
 
-        assertEquals(
-                // note there is no b -> c here
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, a)),
-                mergedPartialOrder);
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        // note there is no b -> c here
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, a)),
+                        false);
+
+        assertEquals(expectedOrdering, mergedOrdering);
     }
 
     @Test
     void testMergeKeys2() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var bindingMap =
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING);
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, b, b, a));
+        final var leftOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        leftPartialOrder, false);
 
         final var rightPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, b, b, a));
+        final var rightOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        rightPartialOrder, false);
 
-        final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
+        final var mergedOrdering =
+                Ordering.merge(leftOrdering, rightOrdering, Ordering.UNION, false);
 
-        assertEquals(
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b)),
-                mergedPartialOrder);
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b)),
+                        false);
+
+        assertEquals(expectedOrdering, mergedOrdering);
     }
 
     @Test
     void testMergeKeys3() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var bindingMap =
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING);
 
         final var leftPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(c, b, b, a));
+        final var leftOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        leftPartialOrder, false);
 
         final var rightPartialOrder =
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c),
                         ImmutableSetMultimap.of(a, b, b, c));
+        final var rightOrdering =
+                Ordering.ofOrderingSet(bindingMap,
+                        rightPartialOrder, false);
 
-        final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
+        final var mergedOrdering =
+                Ordering.merge(leftOrdering, rightOrdering, Ordering.UNION, false);
 
-        assertEquals(PartiallyOrderedSet.empty(), mergedPartialOrder);
+        assertEquals(Ordering.empty(), mergedOrdering);
     }
 
     @Test
     void testPullUp1() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
-        final var rcv2 = rcvWrapper("a", "b", "c");
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = of(ValueTestHelpers.field(qov, "ap"));
-        final var bp = of(ValueTestHelpers.field(qov, "bp"));
-        final var cp = of(ValueTestHelpers.field(qov, "cp"));
-        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
-        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a));
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
+
+        final var rcv2 = select("a", "b", "c");
+        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var bp = ValueTestHelpers.field(qovCurrent, "bp");
+        final var cp = ValueTestHelpers.field(qovCurrent, "cp");
+
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
+                                bp, ProvidedSortOrder.ASCENDING,
+                                cp, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap, bp, cp), ImmutableSetMultimap.of(bp, ap)),
+                        false);
         assertEquals(
-                PartiallyOrderedSet.of(ImmutableSet.of(ap, bp, cp), ImmutableSetMultimap.of(bp, ap)),
-                result.getOrderingSet());
+                expectedOrdering,
+                pulledUpOrdering);
     }
 
     @Test
     void testPullUp2() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var d = of(ValueTestHelpers.field(rcv, "d"));
-        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, d, c));
-        final var rcv2 = rcvWrapper("a", "b", "c");
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = of(ValueTestHelpers.field(qov, "ap"));
-        final var bp = of(ValueTestHelpers.field(qov, "bp"));
-        final var cp = of(ValueTestHelpers.field(qov, "cp"));
-        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
-        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
-        assertEquals(
-                PartiallyOrderedSet.of(ImmutableSet.of(ap, bp, cp), ImmutableSetMultimap.of(bp, ap)),
-                result.getOrderingSet());
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, d, c));
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
+
+        final var rcv2 = select("a", "b", "c");
+        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var bp = ValueTestHelpers.field(qovCurrent, "bp");
+        final var cp = ValueTestHelpers.field(qovCurrent, "cp");
+
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
+                                bp, ProvidedSortOrder.ASCENDING,
+                                cp, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap, bp, cp), ImmutableSetMultimap.of(bp, ap)),
+                        false);
+
+        assertEquals(expectedOrdering, pulledUpOrdering);
     }
 
     @Test
     void testPullUp3() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c")); // a <- b <- c
-        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b));
-        final var rcv2 = rcvWrapper("b", "c");
-        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
-        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
-        assertEquals(
-                PartiallyOrderedSet.of(ImmutableSet.of(), ImmutableSetMultimap.of()),
-                result.getOrderingSet());
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c"); // a <- b <- c
+        final var innerOrderedSet = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b));
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
+
+        final var rcv2 = select("b", "c");
+        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+
+        assertEquals(Ordering.empty(), pulledUpOrdering);
     }
 
     @Test
     void testPullUp4() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var d = of(ValueTestHelpers.field(rcv, "d"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
         // a <- b <- c
         //   <- d
-        final var innerOrder = PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b, d, a));
-        final var rcv2 = rcvWrapper("a", "d");
-        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
-        final var ap = of(ValueTestHelpers.field(qov, "ap"));
-        final var dp = of(ValueTestHelpers.field(qov, "dp"));
-        final var ordering = new Ordering(ImmutableSetMultimap.of(), innerOrder, false);
-        final var result = ordering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
-        assertEquals(
-                PartiallyOrderedSet.of(ImmutableSet.of(ap, dp), ImmutableSetMultimap.of(dp, ap)),
-                result.getOrderingSet());
+        final var innerOrderedSet =
+                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b, d, a));
+        final var innerOrdering =
+                Ordering.ofOrderingSet(bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
+
+        final var rcv2 = select("a", "d");
+        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+
+        final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
+        final var ap = ValueTestHelpers.field(qovCurrent, "ap");
+        final var dp = ValueTestHelpers.field(qovCurrent, "dp");
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(bindingMap(ap, ProvidedSortOrder.ASCENDING,
+                                dp, ProvidedSortOrder.ASCENDING),
+                        PartiallyOrderedSet.of(ImmutableSet.of(ap, dp), ImmutableSetMultimap.of(dp, ap)),
+                        false);
+
+        assertEquals(expectedOrdering, pulledUpOrdering);
     }
 
     @Test
     void testMergePartialOrdersNAry() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var d = of(ValueTestHelpers.field(rcv, "d"));
-        final var e = of(ValueTestHelpers.field(rcv, "e"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
 
+        final var abcdBindingMap =
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING);
         final var one =
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
-                        ImmutableSetMultimap.of(c, b, b, a));
+                Ordering.ofOrderingSet(abcdBindingMap,
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
+                                ImmutableSetMultimap.of(c, b, b, a)), false);
 
         final var two =
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
-                        ImmutableSetMultimap.of(c, b, b, a));
+                Ordering.ofOrderingSet(abcdBindingMap,
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
+                                ImmutableSetMultimap.of(c, b, b, a)), false);
 
         final var three =
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
-                        ImmutableSetMultimap.of(c, a, b, a));
+                Ordering.ofOrderingSet(abcdBindingMap,
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d),
+                                ImmutableSetMultimap.of(c, a, b, a)), false);
 
+        final var abcdeBindingMap =
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, ProvidedSortOrder.ASCENDING,
+                        e, ProvidedSortOrder.ASCENDING);
         final var four =
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e),
-                        ImmutableSetMultimap.of(c, a, b, a));
+                Ordering.ofOrderingSet(abcdeBindingMap,
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e),
+                                ImmutableSetMultimap.of(c, a, b, a)), false);
 
+        final var mergedOrdering =
+                Ordering.merge(ImmutableList.of(one, two, three, four),
+                        Ordering.UNION, (left, right) -> false);
 
-        final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(ImmutableList.of(one, two, three, four));
+        final var expectedOrdering =
+                Ordering.ofOrderingSet(abcdBindingMap,
+                        PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b)), false);
 
-        assertEquals(
-                PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b)),
-                mergedPartialOrder);
+        assertEquals(expectedOrdering, mergedOrdering);
     }
 
     @Test
     void testCommonOrdering() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var d = of(ValueTestHelpers.field(rcv, "d"));
-        final var e = of(ValueTestHelpers.field(rcv, "e"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var d = ValueTestHelpers.field(qov, "d");
+        final var e = ValueTestHelpers.field(qov, "e");
 
-        final var one = new Ordering(
-                ImmutableSetMultimap.of(d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var one = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
                 ImmutableList.of(a, b, c),
                 false);
 
-        final var two = new Ordering(
-                ImmutableSetMultimap.of(d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var two = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
                 ImmutableList.of(a, b, c),
                 false);
 
-        final var three = new Ordering(
-                ImmutableSetMultimap.of(d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var three = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
                 ImmutableList.of(a, b, c),
                 false);
 
-        final var four = new Ordering(
-                ImmutableSetMultimap.of(
-                        d.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
-                        e.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var four = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, ProvidedSortOrder.ASCENDING,
+                        d, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        e, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
                 ImmutableList.of(a, b, c),
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two, three, four), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.merge(ImmutableList.of(one, two, three, four), Ordering.UNION,
+                        (left, right) -> false);
 
         final var requestedOrdering = new RequestedOrdering(
-                ImmutableList.of(a, b, c),
+                requested(a, b, c),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        final var satisfyingOrderingsIterable = mergedOrdering.enumerateSatisfyingOrderings(requestedOrdering);
+        final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
                 Iterables.getOnlyElement(satisfyingOrderingsIterable);
-        assertEquals(ImmutableList.of(a, b, c, d), onlySatisfyingOrdering);
+        assertEquals(requested(a, b, c, d, RequestedSortOrder.ANY), onlySatisfyingOrdering);
     }
 
     @Test
     void testCommonOrdering2() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var x = of(ValueTestHelpers.field(rcv, "x"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var x = ValueTestHelpers.field(qov, "x");
 
-        final var one = new Ordering(
-                ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var one = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        x, ProvidedSortOrder.ASCENDING),
                 ImmutableList.of(a, b, x),
                 false);
 
-        final var two = new Ordering(
-                ImmutableSetMultimap.of(b.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var two = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        c, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
                 ImmutableList.of(a, c, x),
                 false);
 
+
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.merge(ImmutableList.of(one, two), Ordering.UNION, (left, right) -> false);
 
         var requestedOrdering = new RequestedOrdering(
-                ImmutableList.of(a, b, c, x),
+                requested(a, b, c, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        final var satisfyingOrderingsIterable = mergedOrdering.enumerateSatisfyingOrderings(requestedOrdering);
+        final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
                 Iterables.getOnlyElement(satisfyingOrderingsIterable);
 
-        assertEquals(ImmutableList.of(a, b, c, x), onlySatisfyingOrdering);
+        assertEquals(requested(a, b, c, x), onlySatisfyingOrdering);
     }
 
     @Test
     void testCommonOrdering3() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var x = of(ValueTestHelpers.field(rcv, "x"));
+        final var qov = ValueTestHelpers.rcv();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var x = ValueTestHelpers.field(qov, "x");
 
-        final var one = new Ordering(
-                ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var one = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        x, ProvidedSortOrder.ASCENDING),
                 ImmutableList.of(a, b, x),
                 false);
 
-        final var two = new Ordering(
-                ImmutableSetMultimap.of(b.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var two = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        c, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
                 ImmutableList.of(a, c, x),
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.merge(ImmutableList.of(one, two), Ordering.UNION, (left, right) -> false);
 
         final var requestedOrdering = new RequestedOrdering(
-                ImmutableList.of(a, c, b, x),
+                requested(a, c, b, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        final var satisfyingOrderingsIterable = mergedOrdering.enumerateSatisfyingOrderings(requestedOrdering);
+        final var satisfyingOrderingsIterable = mergedOrdering.enumerateCompatibleRequestedOrderings(requestedOrdering);
         final var onlySatisfyingOrdering =
                 Iterables.getOnlyElement(satisfyingOrderingsIterable);
 
-        assertEquals(ImmutableList.of(a, c, b, x), onlySatisfyingOrdering);
+        assertEquals(requested(a, c, b, x), onlySatisfyingOrdering);
     }
 
     @Test
     void testCommonOrdering4() {
-        final var rcv = ValueTestHelpers.rcv();
-        final var a = of(ValueTestHelpers.field(rcv, "a"));
-        final var b = of(ValueTestHelpers.field(rcv, "b"));
-        final var c = of(ValueTestHelpers.field(rcv, "c"));
-        final var x = of(ValueTestHelpers.field(rcv, "x"));
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+        final var x = ValueTestHelpers.field(qov, "x");
 
-        final var one = new Ordering(
-                ImmutableSetMultimap.of(c.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var one = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, ProvidedSortOrder.ASCENDING,
+                        c, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        x, ProvidedSortOrder.ASCENDING),
                 ImmutableList.of(a, b, x),
                 false);
 
-        final var two = new Ordering(
-                ImmutableSetMultimap.of(b.getValue(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+        final var two = Ordering.ofOrderingSequence(
+                bindingMap(a, ProvidedSortOrder.ASCENDING,
+                        b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                        c, ProvidedSortOrder.ASCENDING,
+                        x, ProvidedSortOrder.ASCENDING),
                 ImmutableList.of(a, c, x),
                 false);
 
         final var mergedOrdering =
-                Ordering.mergeOrderings(ImmutableList.of(one, two), Ordering::intersectEqualityBoundKeys, false);
+                Ordering.merge(ImmutableList.of(one, two), Ordering.UNION, (left, right) -> false);
 
         var requestedOrdering = new RequestedOrdering(
-                ImmutableList.of(a, b, x),
+                requested(a, b, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
         assertFalse(mergedOrdering.satisfies(requestedOrdering));
     }
 
     @Nonnull
-    private static RecordConstructorValue rcvWrapper(@Nonnull final String... projection) {
+    private static RecordConstructorValue select(@Nonnull final String... projection) {
 
-        final var rcv = ValueTestHelpers.rcv();
+        final var rcv = ValueTestHelpers.qov();
         final List<Column<? extends Value>> columns = Arrays.stream(projection)
                 .map(field -> FieldValue.ofFieldName(rcv, field))
                 .map(field -> Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of(field.getLastFieldName().orElseThrow() + "p")), field))
                 .collect(Collectors.toList());
         // create a bunch of aliases
         return RecordConstructorValue.ofColumns(columns);
+    }
+
+    @Nonnull
+    private static SetMultimap<Value, Binding> bindingMap(@Nonnull final Object... valueObjectPairs) {
+        final var resultBindingMap = ImmutableSetMultimap.<Value, Binding>builder();
+        int i;
+        for (i = 0; i < valueObjectPairs.length;) {
+            if (valueObjectPairs[i] instanceof Value) {
+                final var value = (Value)valueObjectPairs[i];
+                if (valueObjectPairs[i + 1] instanceof Comparisons.Comparison) {
+                    resultBindingMap.put(value, Binding.fixed((Comparisons.Comparison)valueObjectPairs[i + 1]));
+                    i += 2;
+                } else if (valueObjectPairs[i + 1] instanceof ProvidedSortOrder) {
+                    resultBindingMap.put(value, Binding.sorted((ProvidedSortOrder)valueObjectPairs[i + 1]));
+                    i += 2;
+                } else {
+                    throw new IllegalArgumentException("unknown binding object");
+                }
+            } else {
+                final var orderingPart = (OrderingPart<?>)valueObjectPairs[i];
+                if (i + 1 < valueObjectPairs.length && valueObjectPairs[i + 1] instanceof Comparisons.Comparison) {
+                    resultBindingMap.put(orderingPart.getValue(), Binding.fixed((Comparisons.Comparison)valueObjectPairs[i + 1]));
+                    i += 2;
+                } else {
+                    resultBindingMap.put(orderingPart.getValue(), Binding.sorted((ProvidedSortOrder)orderingPart.getSortOrder()));
+                    i += 1;
+                }
+            }
+        }
+        Verify.verify(i == valueObjectPairs.length);
+        return resultBindingMap.build();
+    }
+
+    @Nonnull
+    private static List<RequestedOrderingPart> requested(@Nonnull final Object... objects) {
+        final var resultRequestedOrderingParts = ImmutableList.<RequestedOrderingPart>builder();
+        int i;
+        for (i = 0; i < objects.length;) {
+            final var value = (Value)objects[i];
+            final RequestedSortOrder requestedSortOrder;
+            if (i + 1 < objects.length && objects[i + 1] instanceof RequestedSortOrder) {
+                requestedSortOrder = (RequestedSortOrder)objects[i + 1];
+                i += 2;
+            } else {
+                requestedSortOrder = RequestedSortOrder.ASCENDING;
+                i += 1;
+            }
+            resultRequestedOrderingParts.add(new RequestedOrderingPart(value, requestedSortOrder));
+        }
+        Verify.verify(i == objects.length);
+
+        return resultRequestedOrderingParts.build();
     }
 }

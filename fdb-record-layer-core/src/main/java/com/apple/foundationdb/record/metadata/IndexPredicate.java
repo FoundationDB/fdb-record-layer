@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -109,7 +110,7 @@ public abstract class IndexPredicate {
         } else if (proto.hasValuePredicate()) {
             return new ValuePredicate(proto.getValuePredicate());
         } else {
-            throw new RecordCoreException(String.format("attempt to deserialize not supported predicate '%s'", proto));
+            throw new RecordCoreException("attempt to deserialize unsupported predicate").addLogInfo(LogMessageKeys.VALUE, proto);
         }
     }
 
@@ -133,7 +134,7 @@ public abstract class IndexPredicate {
         } else if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate) {
             return new ValuePredicate((com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate)queryPredicate);
         } else {
-            throw new RecordCoreException(String.format("attempt to construct index predicate PoJo fro unsupported query predicate '%s'", queryPredicate));
+            throw new RecordCoreException("attempt to construct index predicate PoJo from unsupported query predicate").addLogInfo(LogMessageKeys.VALUE, queryPredicate);
         }
     }
 
@@ -216,7 +217,7 @@ public abstract class IndexPredicate {
         @Nonnull
         @Override
         public QueryPredicate toPredicate(@Nonnull final Value value) {
-            return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.andOrTrue(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
+            return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.and(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
 
         @Override
@@ -300,7 +301,7 @@ public abstract class IndexPredicate {
             } else if (predicate == com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.NULL) {
                 this.value = ConstantValue.NULL;
             }
-            throw new RecordCoreException(String.format("could not create a PoJo constant index predicate from '%s'", predicate));
+            throw new RecordCoreException("could not create a PoJo constant index predicate").addLogInfo(LogMessageKeys.VALUE, predicate);
         }
 
         public ConstantPredicate(@Nonnull final RecordMetaDataProto.ConstantPredicate proto) {
@@ -315,7 +316,7 @@ public abstract class IndexPredicate {
                     this.value = ConstantValue.NULL;
                     break;
                 default:
-                    throw new RecordCoreException(String.format("attempt to deserialize unknown constant predicate value '%s'", proto.getValue()));
+                    throw new RecordCoreException("attempt to deserialize unknown constant predicate value").addLogInfo(LogMessageKeys.VALUE, proto.getValue());
             }
         }
 
@@ -339,7 +340,7 @@ public abstract class IndexPredicate {
                     protoValue = RecordMetaDataProto.ConstantPredicate.ConstantValue.NULL;
                     break;
                 default:
-                    throw new RecordCoreException(String.format("attempt to serialize unsupported value '%s'", value));
+                    throw new RecordCoreException("attempt to serialize unsupported value").addLogInfo(LogMessageKeys.VALUE, value);
             }
             return RecordMetaDataProto.Predicate.newBuilder()
                     .setConstantPredicate(RecordMetaDataProto.ConstantPredicate.newBuilder()
@@ -359,7 +360,7 @@ public abstract class IndexPredicate {
                 case NULL:
                     return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.NULL;
                 default:
-                    throw new RecordCoreException(String.format("attempt to serialize unsupported value '%s'", this.value));
+                    throw new RecordCoreException("attempt to serialize unsupported value").addLogInfo(LogMessageKeys.VALUE, this.value);
             }
         }
 
@@ -440,8 +441,8 @@ public abstract class IndexPredicate {
         }
 
         public ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto) {
-            Verify.verify(proto.getValueCount() > 0, String.format("attempt to deserialize %s without value", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
-            Verify.verify(proto.hasComparison(), String.format("attempt to deserialize %s without comparison", com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate.class));
+            Verify.verify(proto.getValueCount() > 0, "attempt to deserialize %s without value", ValuePredicate.class.getSimpleName());
+            Verify.verify(proto.hasComparison(), "attempt to deserialize %s without comparison", ValuePredicate.class.getSimpleName());
             this.fieldPath = ImmutableList.copyOf(proto.getValueList());
             this.comparison = IndexComparison.fromProto(proto.getComparison());
         }

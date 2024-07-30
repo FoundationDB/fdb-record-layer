@@ -21,26 +21,40 @@
 package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
+import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
@@ -51,8 +65,10 @@ import java.util.stream.Collectors;
 public class DebuggerWithSymbolTables implements Debugger {
     private static final Logger logger = LoggerFactory.getLogger(DebuggerWithSymbolTables.class);
 
+    private final boolean isSane;
+    private final boolean isRecordEvents;
+    private final Iterable<PEvent> prerecordedEventProtoIterable;
     private final Deque<State> stateStack;
-
     @Nullable
     private String queryAsString;
     @Nullable
@@ -60,7 +76,12 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Nonnull
     private final Map<Object, Integer> singletonToIndexMap;
 
-    public DebuggerWithSymbolTables() {
+    private DebuggerWithSymbolTables(final boolean isSane, final boolean isRecordEvents,
+                                     @Nullable final String prerecordedEventsFileName) {
+        this.isSane = isSane;
+        this.isRecordEvents = isRecordEvents;
+        this.prerecordedEventProtoIterable = prerecordedEventsFileName == null
+                                      ? null : eventProtosFromFile(prerecordedEventsFileName);
         this.stateStack = new ArrayDeque<>();
         this.planContext = null;
         this.singletonToIndexMap = Maps.newHashMap();
@@ -78,7 +99,11 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public boolean isSane() {
-        return true;
+        //
+        // Report insanity here which then causes all sanity checks to be run which may be CPU-intensive. Deactivate
+        // this behavior by returning true if performance is measured.
+        //
+        return isSane;
     }
 
     @Override
@@ -192,7 +217,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     boolean isValidEntityName(@Nonnull final String identifier) {
-        final String lowerCase = identifier.toLowerCase();
+        final String lowerCase = identifier.toLowerCase(Locale.ROOT);
         if (!lowerCase.startsWith("exp") &&
                 !lowerCase.startsWith("ref") &&
                 !lowerCase.startsWith("qun")) {
@@ -227,8 +252,65 @@ public class DebuggerWithSymbolTables implements Debugger {
                     "query", Objects.requireNonNull(queryAsString).substring(0, Math.min(queryAsString.length(), 30)),
                     "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
                     "ticks", state.getCurrentTick()));
+
+            final var eventProtos = state.getEventProtos();
+            if (eventProtos != null) {
+                writeEventsDelimitedToFile(eventProtos);
+            }
+
+            final var prerecordedEventProtoIterator = state.getPrerecordedEventProtoIterator();
+            if (prerecordedEventProtoIterator != null) {
+                Verify.verify(!prerecordedEventProtoIterator.hasNext(),
+                        "There are more prerecorded events, there are only " + state.getEvents().size() + " actual events.");
+            }
         }
         reset();
+    }
+
+    private static void writeEventsDelimitedToFile(final List<PEvent> eventProtos) {
+        try {
+            final var tempFile = File.createTempFile("events-", ".bin");
+            try (final var fos = new FileOutputStream(tempFile)) {
+                for (final var eventProto : eventProtos) {
+                    eventProto.writeDelimitedTo(fos);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Nonnull
+    private static Iterable<PEvent> eventProtosFromFile(@Nonnull final String fileName) {
+        return () -> readEventsDelimitedFromFile(fileName);
+    }
+
+    @SuppressWarnings("resource")
+    @Nonnull
+    private static Iterator<PEvent> readEventsDelimitedFromFile(@Nonnull final String fileName) {
+        final var file = new File(fileName);
+        final FileInputStream fis;
+        try {
+            fis = new FileInputStream(file);
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return new AbstractIterator<>() {
+            @Nullable
+            @Override
+            protected PEvent computeNext() {
+                try {
+                    final var event = PEvent.parseDelimitedFrom(fis);
+                    if (event == null) {
+                        fis.close();
+                        return endOfData();
+                    }
+                    return event;
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
     }
 
     @Override
@@ -242,7 +324,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial());
+        this.stateStack.push(State.initial(isRecordEvents, prerecordedEventProtoIterable));
         this.planContext = null;
         this.queryAsString = null;
     }
@@ -261,6 +343,49 @@ public class DebuggerWithSymbolTables implements Debugger {
             logger.warn("unable to get " + actionName + ": " + t.getMessage());
             t.printStackTrace();
             return Optional.empty();
+        }
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withoutSanityChecks() {
+        return new DebuggerWithSymbolTables(true, false, null);
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withSanityChecks() {
+        return new DebuggerWithSymbolTables(false, false, null);
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withEventRecording() {
+        return new DebuggerWithSymbolTables(true, false, null);
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withRerecordEvents() {
+        return new DebuggerWithSymbolTables(true, true, null);
+    }
+
+    @Nonnull
+    public static DebuggerWithSymbolTables withPrerecordedEvents(@Nonnull final String fileName) {
+        return new DebuggerWithSymbolTables(true, true, fileName);
+    }
+
+    public static void printForEachExpression(@Nonnull final Reference root) {
+        forEachExpression(root, expression -> {
+            System.out.println("expression: " +
+                    Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
+                    "hashCodeWithoutChildren: " + expression.hashCodeWithoutChildren() + "explain: " + expression);
+        });
+    }
+
+    public static void forEachExpression(@Nonnull final Reference root, @Nonnull final Consumer<RelationalExpression> consumer) {
+        final var references = ReferencesAndDependenciesProperty.evaluate(root);
+        final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
+        for (final var reference : referenceList) {
+            for (final var member : reference.getMembers()) {
+                consumer.accept(member);
+            }
         }
     }
 

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -63,6 +64,7 @@ public class PassThroughRecordStoreStateCache implements FDBRecordStoreStateCach
         // Do nothing.
     }
 
+    @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Object is not actually mutable")
     @Nonnull
     public static PassThroughRecordStoreStateCache instance() {
         return INSTANCE;

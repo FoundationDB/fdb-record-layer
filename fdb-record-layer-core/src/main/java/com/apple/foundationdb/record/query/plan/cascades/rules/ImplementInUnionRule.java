@@ -24,35 +24,38 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -78,7 +81,7 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 
-    @SuppressWarnings({"unchecked", "java:S135"})
+    @SuppressWarnings({"unchecked", "java:S135", "PMD.CompareObjectsWithEquals"})
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
@@ -117,29 +120,34 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         }
 
         final var explodeExpressions = bindings.getAll(explodeExpressionMatcher);
-        final var quantifierToExplodeBiMap = computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
-        final var explodeToQuantifierBiMap = quantifierToExplodeBiMap.inverse();
+
+        Verify.verify(explodeExpressions.size() == explodeQuantifiers.size());
 
         final var sourcesBuilder = ImmutableList.<InSource>builder();
 
-        for (final var explodeExpression : explodeExpressions) {
-            final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
+        int i = 0;
+        for (final var explodeQuantifier : explodeQuantifiers) {
+            final var explodeExpression = explodeExpressions.get(i++);
             final Value explodeCollectionValue = explodeExpression.getCollectionValue();
 
             //
             // Create the source for the in-union plan
             //
             final InSource inSource;
+            final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
             if (explodeCollectionValue instanceof LiteralValue<?>) {
                 final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                 if (literalValue instanceof List<?>) {
-                    inSource = new InValuesSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), (List<Object>)literalValue);
+                    inSource = new InValuesSource(bindingName, (List<Object>)literalValue);
                 } else {
                     return;
                 }
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
-                inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                inSource = new InParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
+            } else if (explodeCollectionValue.isConstant()) {
+                inSource = new InComparandSource(bindingName,
+                        new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue));
             } else {
                 return;
             }
@@ -151,72 +159,119 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions =
                 PlanPartition.rollUpTo(
-                        innerReference.getPlanPartitions()
-                                .stream()
-                                .filter(planPartition -> planPartition.getAttributeValue(StoredRecordProperty.STORED_RECORD) &&
-                                                         planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent())
-                                .collect(ImmutableList.toImmutableList()),
+                        innerReference.getPlanPartitions(),
                         OrderingProperty.ORDERING);
 
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
 
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
-            final var filteredEqualityBoundValueMap =
-                    Multimaps.filterEntries(providedOrdering.getEqualityBoundValueMap(),
-                            expressionComparisonEntry -> {
-                                final var comparison = expressionComparisonEntry.getValue();
-                                if (comparison.getType() != Comparisons.Type.EQUALS || !(comparison instanceof Comparisons.ParameterComparison)) {
-                                    return true;
-                                }
-                                final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                                return !parameterComparison.isCorrelation() ||
-                                       !explodeAliases.containsAll(parameterComparison.getCorrelatedTo());
-                            });
-            final var inUnionOrdering =
-                    Ordering.ofUnnormalized(filteredEqualityBoundValueMap, providedOrdering.getOrderingSet(), providedOrdering.isDistinct());
 
             for (final var requestedOrdering : requestedOrderings) {
-                final var equalityBoundValuesBuilder = ImmutableSet.<Value>builder();
-                for (final var expressionComparisonEntry : providedOrdering.getEqualityBoundValueMap().entries()) {
-                    final var comparison = expressionComparisonEntry.getValue();
-                    if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
-                        final var parameterComparison = (Comparisons.ParameterComparison)comparison;
-                        if (parameterComparison.isCorrelation() && explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                            equalityBoundValuesBuilder.add(expressionComparisonEntry.getKey());
-                        }
-                    }
+                if (requestedOrdering.isPreserve()) {
+                    continue;
+                }
+                
+                final var valueRequestedSortOrderMap = requestedOrdering.getValueRequestedSortOrderMap();
+                final var adjustedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+                for (final var entry : providedOrdering.getBindingMap().asMap().entrySet()) {
+                    final var value = entry.getKey();
+                    adjustedBindingMapBuilder.putAll(value,
+                            adjustBindings(entry.getValue(), explodeAliases, valueRequestedSortOrderMap.get(value)));
                 }
 
+                final var adjustedBindingsMap = adjustedBindingMapBuilder.build();
+
+                final var inUnionOrdering =
+                        Ordering.UNION.createOrdering(adjustedBindingsMap, providedOrdering.getOrderingSet(),
+                                providedOrdering.isDistinct());
+
                 for (final var satisfyingComparisonKeyValues : inUnionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering)) {
-                    //
-                    // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
-                    //
-                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
-                    call.yieldExpression(RecordQueryInUnionPlan.from(newInnerQuantifier,
-                                    inSources,
-                                    ImmutableList.copyOf(satisfyingComparisonKeyValues),
-                                    attemptFailedInJoinAsUnionMaxSize,
-                                    CORRELATION));
+                    final var directionalOrderingParts =
+                            inUnionOrdering.directionalOrderingParts(satisfyingComparisonKeyValues,
+                                    valueRequestedSortOrderMap, OrderingPart.ProvidedSortOrder.FIXED);
+                    final var comparisonDirectionOptional = Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
+
+                    if (comparisonDirectionOptional.isPresent()) {
+                        //
+                        // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
+                        //
+                        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
+                        call.yieldExpression(
+                                RecordQueryInUnionPlan.from(newInnerQuantifier,
+                                        inSources,
+                                        ImmutableList.copyOf(satisfyingComparisonKeyValues),
+                                        comparisonDirectionOptional.get(),
+                                        attemptFailedInJoinAsUnionMaxSize,
+                                        CORRELATION));
+                    }
                 }
             }
         }
     }
 
-    private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
-                                                                                                      @Nonnull final Set<ExplodeExpression> explodeExpressions) {
-        final var resultMap =
-                IdentityBiMap.<Quantifier.ForEach,  ExplodeExpression>create();
+    /**
+     * Method that adjusts bindings that refer to the explode-aliases (the in-sources).
+     * @param bindings original bindings for a value
+     * @param explodeAliases a set of explode-aliases
+     * @param requestedSortOrder a requested sort order
+     * @return an iterable of bindings, either the input or adjusted if there is a singular fixed binding referring
+     *         to an explode-alias.
+     */
+    @Nonnull
+    private static Iterable<Binding> adjustBindings(@Nonnull final Collection<Binding> bindings,
+                                                    @Nonnull final Set<CorrelationIdentifier> explodeAliases,
+                                                    @Nullable final RequestedSortOrder requestedSortOrder) {
+        final var sortOrder = Ordering.sortOrder(bindings);
 
-        for (final var quantifier : quantifiers) {
-            final var rangesOver = quantifier.getRangesOver();
-            for (final var explodeExpression : explodeExpressions) {
-                if (rangesOver.getMembers().contains(explodeExpression)) {
-                    resultMap.putUnwrapped(quantifier, explodeExpression);
-                    break; // only ever one match possible
-                }
-            }
+        if (sortOrder.isDirectional()) {
+            return ImmutableList.of(Binding.sorted(sortOrder));
         }
-        return resultMap;
+
+        Debugger.sanityCheck(() -> Verify.verify(Ordering.areAllBindingsFixed(bindings)));
+        if (Ordering.hasMultipleFixedBindings(bindings)) {
+            return bindings;
+        }
+
+        final var binding = Ordering.fixedBinding(bindings);
+        final var comparison = binding.getComparison();
+
+        if (comparison.getType() != Comparisons.Type.EQUALS) {
+            return bindings;
+        }
+
+        if (comparison instanceof Comparisons.ParameterComparison) {
+            final var parameterComparison = (Comparisons.ParameterComparison)comparison;
+            if (!parameterComparison.isCorrelation() ||
+                    !explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
+                return bindings;
+            }
+        } else if (comparison instanceof Comparisons.ValueComparison) {
+            final var valueComparison = (Comparisons.ValueComparison)comparison;
+            if (!explodeAliases.containsAll(valueComparison.getCorrelatedTo())) {
+                return bindings;
+            }
+        } else {
+            return bindings;
+        }
+
+        //
+        // This binding can be promoted into a directional binding as it is currently bound by the source of
+        // the in-union.
+        //
+
+        //
+        // If we cannot infer the requested order we will defer that decision by indicating to choose the sort
+        // order when we enumerate the comparison keys.
+        //
+        if (requestedSortOrder == null || requestedSortOrder == RequestedSortOrder.ANY) {
+            return ImmutableList.of(Binding.choose());
+        }
+
+        if (!requestedSortOrder.isDirectional()) {
+            return bindings;
+        }
+
+        return ImmutableList.of(Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
     }
 }

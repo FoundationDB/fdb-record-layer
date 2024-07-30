@@ -571,7 +571,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "number"));
                 var select = Quantifier.forEach(Reference.of(outerGraphBuilder.build().buildSelect()));
 
-                return Reference.of(new LogicalSortExpression(List.of(), false, select));
+                return Reference.of(LogicalSortExpression.unsorted(select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
@@ -608,9 +608,9 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static void assertInVersionOrder(List<? extends FDBRecord<?>> records) {
         FDBRecordVersion lastVersion = null;
-        for (FDBRecord<?> record : records) {
-            FDBRecordVersion nextVersion = record.getVersion();
-            assertNotNull(nextVersion, () -> String.format("version for record with primary key %s should not be null", record.getPrimaryKey()));
+        for (FDBRecord<?> rec : records) {
+            FDBRecordVersion nextVersion = rec.getVersion();
+            assertNotNull(nextVersion, () -> "version for record with primary key " + rec.getPrimaryKey() + " should not be null");
             if (lastVersion != null) {
                 assertThat(nextVersion, greaterThan(lastVersion));
             }

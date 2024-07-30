@@ -41,10 +41,20 @@ public class BunchedSerializationException extends BunchedMapException {
     @Nullable
     private Object value;
 
+    /**
+     * Create a new exception with a static message.
+     * @param message error message
+     */
     public BunchedSerializationException(@Nonnull String message) {
         super(message);
     }
 
+    /**
+     * Create a new exception with a static message and cause.
+     *
+     * @param message error message
+     * @param cause cause
+     */
     public BunchedSerializationException(@Nonnull String message, @Nonnull Throwable cause) {
         super(message, cause);
     }

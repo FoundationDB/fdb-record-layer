@@ -25,23 +25,30 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -74,7 +81,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  *
  * The transformation cannot be done for a class of predicates that contain an IN within incompatible
- * constructs such as {@link com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate} as the
+ * constructs such as {@link NotPredicate} as the
  * transformed expression.
  *
  * <pre>
@@ -148,23 +155,36 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 final var comparison = valuePredicate.getComparison();
                 Verify.verify(comparison.getType() == Comparisons.Type.IN);
                 final ExplodeExpression explodeExpression;
+                final Quantifier.ForEach newQuantifier;
+
                 if (comparison instanceof Comparisons.ValueComparison) {
                     final var comparisonValue = (Comparisons.ValueComparison)comparison;
                     Verify.verify(comparisonValue.getComparandValue().getResultType().isArray());
+                    Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
+                    Verify.verify(arrayElementType != null);
                     explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
+                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    if (arrayElementType.isRecord()) {
+                        transformedPredicates.addAll(createSimpleEqualities(value, newQuantifier));
+                    } else {
+                        transformedPredicates.add(new ValuePredicate(value,
+                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
+                    }
                 } else if (comparison instanceof Comparisons.ListComparison) {
                     final var listComparison = (Comparisons.ListComparison)comparison;
                     explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
+                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    transformedPredicates.add(new ValuePredicate(value,
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
+
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
                     explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(elementType)));
+                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    transformedPredicates.add(new ValuePredicate(value,
+                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
-
-                final Quantifier.ForEach newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
-                transformedPredicates.add(
-                        new ValuePredicate(value,
-                                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                 transformedQuantifiers.add(newQuantifier);
             } else {
                 transformedPredicates.add(predicate);
@@ -176,5 +196,24 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
         call.yieldExpression(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build()));
+    }
+
+    /**
+     * This method creates an equality predicate for all constituent parts of a tuple.
+     */
+    @Nonnull
+    private static List<QueryPredicate> createSimpleEqualities(@Nonnull final Value value,
+                                                               @Nonnull final Quantifier.ForEach newQuantifier) {
+        List<Value> valueChildren = ImmutableList.copyOf(value.getChildren());
+        List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
+        Verify.verify(valueChildren.size() == comparandValueChildren.size());
+        final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
+        for (int i = 0; i < valueChildren.size(); i++) {
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
+            Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
+            Verify.verify(currentQueryPredicate.isPresent());
+            resultsBuilder.add(currentQueryPredicate.get());
+        }
+        return resultsBuilder.build();
     }
 }

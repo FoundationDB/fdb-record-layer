@@ -22,15 +22,12 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto;
-import com.apple.foundationdb.record.LuceneRecordQueryPlanProto.PLuceneSpellCheckCopier;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PIndexKeyValueToPartialRecord.PCopier;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -38,6 +35,8 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopier;
+import com.apple.foundationdb.record.planprotos.PLuceneSpellCheckCopier;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -56,6 +55,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+
+import static com.apple.foundationdb.record.planprotos.LuceneRecordQueryPlanProto.luceneSpellCheckCopier;
 
 /**
  * A utility class to build a partial record for an auto-complete suggestion value, with grouping keys if there exist.
@@ -417,6 +419,23 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof LuceneSpellCheckCopier)) {
+                return false;
+            }
+            final LuceneSpellCheckCopier that = (LuceneSpellCheckCopier)o;
+            return groupingColumnSize == that.groupingColumnSize;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(BASE_HASH, groupingColumnSize);
+        }
+
+        @Override
         public int planHash(@Nonnull final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, groupingColumnSize);
         }
@@ -433,7 +452,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         @Override
         public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PCopier.newBuilder()
-                    .setExtension(LuceneRecordQueryPlanProto.luceneSpellCheckCopier, toProto(serializationContext))
+                    .setExtension(luceneSpellCheckCopier, toProto(serializationContext))
                     .build();
         }
 

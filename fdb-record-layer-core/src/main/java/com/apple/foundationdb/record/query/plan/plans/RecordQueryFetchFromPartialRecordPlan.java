@@ -31,9 +31,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PFetchIndexRecords;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.planprotos.PFetchIndexRecords;
+import com.apple.foundationdb.record.planprotos.PRecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -43,8 +43,8 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -232,7 +232,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH.planHash(PlanHashable.CURRENT_FOR_CONTINUATION), fetchIndexRecords);
+        return Objects.hash(BASE_HASH, fetchIndexRecords.name());
     }
 
     @Override
@@ -272,8 +272,8 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     @Override
-    public RecordQueryPlanProto.PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PRecordQueryPlan.newBuilder().setFetchFromPartialRecordPlan(toProto(serializationContext)).build();
+    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryPlan.newBuilder().setFetchFromPartialRecordPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
@@ -365,7 +365,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<RecordQueryPlanProto.PRecordQueryFetchFromPartialRecordPlan, RecordQueryFetchFromPartialRecordPlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryFetchFromPartialRecordPlan, RecordQueryFetchFromPartialRecordPlan> {
         @Nonnull
         @Override
         public Class<PRecordQueryFetchFromPartialRecordPlan> getProtoMessageClass() {

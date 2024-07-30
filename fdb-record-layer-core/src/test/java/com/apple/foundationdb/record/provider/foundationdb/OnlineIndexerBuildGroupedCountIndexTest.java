@@ -213,7 +213,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(policyBuilder.build())
                 .setLimit(10)
                 .setMaxRetries(Integer.MAX_VALUE)
-                .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100)
+                .setRecordsPerSecond(OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100)
                 .build()) {
             CompletableFuture<?> buildFuture = indexer.buildIndexAsync(true);
             recordsAfter = updater.update(recordsBefore, otherRecordsBefore);

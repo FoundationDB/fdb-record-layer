@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -33,6 +35,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -53,10 +56,20 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
         for (final QueryPredicate predicate : getPredicates()) {
             final Set<Type> typesForPredicate =
                     predicate.fold(p -> {
+                        final var typesBuilder = ImmutableSet.<Type>builder();
                         if (p instanceof PredicateWithValue) {
-                            return ((PredicateWithValue)p).getValue().getDynamicTypes();
+                            typesBuilder.addAll(Objects.requireNonNull(((PredicateWithValue)p).getValue()).getDynamicTypes());
                         }
-                        return ImmutableSet.<Type>of();
+                        if (p instanceof PredicateWithComparisons) {
+                            final var comparisons = ((PredicateWithComparisons)p).getComparisons();
+                            for (final var comparison : comparisons) {
+                                if (comparison instanceof Comparisons.ValueComparison) {
+                                    typesBuilder.addAll(comparison.getValue().getDynamicTypes());
+                                }
+                            }
+                        }
+
+                        return typesBuilder.build();
                     }, (thisTypes, childTypeSets) -> {
                         final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
                         for (final Set<Type> childTypes : childTypeSets) {

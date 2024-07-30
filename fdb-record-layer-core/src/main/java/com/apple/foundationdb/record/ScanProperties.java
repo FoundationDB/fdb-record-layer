@@ -144,7 +144,9 @@ public class ScanProperties {
 
     @Override
     public String toString() {
-        return String.format("ScanProperties(%s, direction: %s, streaming mode: %s)",
-                executeProperties, reverse ? "reverse" : "forward", cursorStreamingMode);
+        return "ScanProperties(" + executeProperties
+                + ", direction: " + (reverse ? "reverse" : "forward")
+                + ", streaming mode: " + cursorStreamingMode
+                + ")";
     }
 }

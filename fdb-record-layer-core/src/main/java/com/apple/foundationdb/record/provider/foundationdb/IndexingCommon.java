@@ -57,12 +57,10 @@ public class IndexingCommon {
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
     @Nonnull private final AtomicLong totalRecordsScanned;
-    private final boolean useSynchronizedSession;
     private final boolean trackProgress;
-    private final long leaseLengthMillis;
 
-    @Nonnull public OnlineIndexer.Config config; // this item may be modified on the fly
-    @Nullable private final Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader;
+    @Nonnull OnlineIndexOperationConfig config; // this item may be modified on the fly
+    @Nullable private final Function<OnlineIndexOperationConfig, OnlineIndexOperationConfig> configLoader;
     private int configLoaderInvocationCount = 0;
 
     @Nonnull private Collection<RecordType> allRecordTypes;
@@ -94,18 +92,14 @@ public class IndexingCommon {
                    @Nonnull FDBRecordStore.Builder recordStoreBuilder,
                    @Nonnull List<Index> targetIndexes,
                    @Nullable Collection<RecordType> allRecordTypes,
-                   @Nullable UnaryOperator<OnlineIndexer.Config> configLoader,
-                   @Nonnull OnlineIndexer.Config config,
-                   boolean trackProgress,
-                   boolean useSynchronizedSession,
-                   long leaseLengthMillis) {
-        this.useSynchronizedSession = useSynchronizedSession;
+                   @Nullable UnaryOperator<OnlineIndexOperationConfig> configLoader,
+                   @Nonnull OnlineIndexOperationConfig config,
+                   boolean trackProgress) {
         this.runner = runner;
         this.configLoader = configLoader;
         this.config = config;
         this.trackProgress = trackProgress;
         this.recordStoreBuilder = recordStoreBuilder;
-        this.leaseLengthMillis = leaseLengthMillis;
 
         this.totalRecordsScanned = new AtomicLong(0);
         this.targetIndexContexts = new ArrayList<>(targetIndexes.size());
@@ -145,10 +139,6 @@ public class IndexingCommon {
 
     public UUID getUuid() {
         return uuid;
-    }
-
-    public boolean shouldUseSynchronizedSession() {
-        return useSynchronizedSession;
     }
 
     public List<Object> indexLogMessageKeyValues() {
@@ -284,10 +274,6 @@ public class IndexingCommon {
 
     public int getConfigLoaderInvocationCount() {
         return configLoaderInvocationCount;
-    }
-
-    public long getLeaseLengthMillis() {
-        return leaseLengthMillis;
     }
 
     public boolean loadConfig() {

@@ -45,7 +45,7 @@ class IndexKeyValueToPartialRecordTest {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private static final IndexKeyValueToPartialRecord plan = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
-            .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.of(0))
+            .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.of(0), null)
             .build();
 
     @Nonnull
@@ -63,7 +63,7 @@ class IndexKeyValueToPartialRecordTest {
         try {
             descriptorWithNewField = Descriptors.FileDescriptor.buildFrom(fileProto, new Descriptors.FileDescriptor[] {});
         } catch (Descriptors.DescriptorValidationException e) {
-            throw new RuntimeException(String.format("Could not construct descriptor from synthetic descriptor proto for %s", originalDescriptor.getName()), e);
+            throw new RuntimeException("Could not construct descriptor from synthetic descriptor proto for " + originalDescriptor.getName(), e);
         }
         return descriptorWithNewField.findMessageTypeByName(descriptorWithNewFieldProto.getName());
     }

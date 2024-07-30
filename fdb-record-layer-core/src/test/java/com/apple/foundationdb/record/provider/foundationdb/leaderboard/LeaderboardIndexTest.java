@@ -1296,7 +1296,7 @@ public class LeaderboardIndexTest {
     }
 
     protected Runnable parallelThread(FDBRecordStore.Builder builder, int n, int count) {
-        final String player = String.format("player-%d", n);
+        final String player = "player-" + n;
         final Random r = new Random();
         final Leaderboards privateLeaderboards = new FlatLeaderboards();
         return () -> {
@@ -1304,7 +1304,7 @@ public class LeaderboardIndexTest {
                 int score = r.nextInt(1000000);
                 int pass = i;
                 fdb.run(metrics, null, context -> {
-                    context.ensureActive().options().setDebugTransactionIdentifier(String.format("t-%d-%d", n, pass));
+                    context.ensureActive().options().setDebugTransactionIdentifier("t-" + n + "-" + pass);
                     context.ensureActive().options().setLogTransaction();
                     privateLeaderboards.recordStore = builder.setContext(context).build();
                     privateLeaderboards.addScores(player, "game-1", score, 10100, 0);

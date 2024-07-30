@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayDeque;
 import java.util.Iterator;
 
 /**
@@ -74,7 +75,7 @@ public class TestRuleExecution {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getMembers()) {
             final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
-                    .map(bindings -> new CascadesRuleCall(context, rule, group, Traversal.withRoot(group), bindings, evaluationContext))
+                    .map(bindings -> new CascadesRuleCall(context, rule, group, Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
                     .iterator();
             while (ruleCalls.hasNext()) {
                 ruleCalls.next().run();

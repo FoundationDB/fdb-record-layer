@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.TestRecordsUnsigned5Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.TestTwoUnionsProto;
 import com.apple.foundationdb.record.TestUnionDefaultNameProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
@@ -67,8 +68,10 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -289,7 +292,8 @@ public class RecordMetaDataBuilderTest {
 
         MetaDataException e = assertThrows(MetaDataException.class, () ->
                 RecordMetaData.newBuilder().setRecords(recordMetaData.toProto(dependencies)));
-        assertEquals("Dependency test_records_1.proto not found", e.getMessage());
+        assertEquals("Dependency not found", e.getMessage());
+        assertThat(e.getLogInfo(), hasEntry(LogMessageKeys.VALUE.toString(), "test_records_1.proto"));
         RecordMetaDataBuilder builder4 = RecordMetaData.newBuilder()
                 .addDependencies(dependencies)
                 .setRecords(recordMetaData.toProto(dependencies));
@@ -591,7 +595,8 @@ public class RecordMetaDataBuilderTest {
                 .enableCounterBasedSubspaceKeys()
                 .setRecords(TestRecords1Proto.getDescriptor())
                 .setSubspaceKeyCounter(3L));
-        assertEquals("Subspace key counter must be set to a value greater than its current value (3)", e.getMessage());
+        assertEquals("Subspace key counter must be set to a value greater than its current value", e.getMessage());
+        assertThat(e.getLogInfo(), both(hasEntry(LogMessageKeys.EXPECTED.toString(), (Object) "greater than 3")).and(hasEntry(LogMessageKeys.ACTUAL.toString(), 3L)));
 
         // Set to a random number
         long randomCounter = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE - 10);

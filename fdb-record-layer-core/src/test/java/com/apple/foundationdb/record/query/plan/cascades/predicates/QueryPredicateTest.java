@@ -24,16 +24,21 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.DefaultQueryPredicateRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithCnfRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.QueryPredicateWithDnfRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -43,9 +48,12 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.List;
+
 import static com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate.not;
 import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.field;
 import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.rcv;
+import static com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers.rcv2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -124,7 +132,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
     };
@@ -144,7 +152,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
     };
@@ -164,7 +172,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
     };
@@ -317,5 +325,50 @@ public class QueryPredicateTest {
         final var cnfPredicatePair = Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithCnfRuleSet.ofComputationRules());
         final var dnfPredicatePair = Simplification.optimize(cnfPredicatePair.getLeft(), EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules());
         assertTrue(dnfPredicatePair.getLeft().equals(predicate));
+    }
+
+    @Test
+    void simplifyPredicateTestRemovalRedundantSubPredicates() {
+        final var rcv = rcv2();
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var name = field(qov, "name");
+        final var rest_no = field(qov, "rest_no");
+        // (c1 + c2 > rest_no AND c1 + c2 > rest_no) OR name = 'foo'
+        final var c1 = ConstantObjectValue.of( Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT));
+        final var c2 = ConstantObjectValue.of( Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.INT));
+        final var restnoGtC1PlusC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN,
+                (Value)new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
+        final var nameEqFoo = new ValuePredicate(name, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("foo")));
+        final var predicate = or(and(restnoGtC1PlusC2, restnoGtC1PlusC2), nameEqFoo);
+        final var expectedSimplifiedPredicate = or(restnoGtC1PlusC2, nameEqFoo);
+        final var simplifiedPredicate =
+                Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
+        assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
+    }
+
+    @Test
+    void simplifyPredicateTestRemovalRedundantDeepSubPredicates() {
+        final var rcv = rcv2();
+        final var qov = QuantifiedObjectValue.of(Quantifier.current(), rcv.getResultType());
+        final var name = field(qov, "name");
+        final var rest_no = field(qov, "rest_no");
+
+        // c1 < rest_no AND ((c1 + c2 < rest_no AND c1 + c2 < rest_no) OR name = 'foo') AND c2 < rest_no
+        final var c1 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT));
+        final var c2 = ConstantObjectValue.of(Quantifier.constant(), "2", Type.primitiveType(Type.TypeCode.INT));
+        final var restnoGtC1PlusC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN,
+                (Value)new ArithmeticValue.AddFn().encapsulate(List.of(c1, c2))));
+        final var nameEqFoo = new ValuePredicate(name, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("foo")));
+        final var restnoGtC1 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, c1));
+        final var restnoGtC2 = new ValuePredicate(rest_no, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, c2));
+
+        final var predicate = and(restnoGtC1, or(and(restnoGtC1PlusC2, restnoGtC1PlusC2), nameEqFoo), restnoGtC2);
+        final var expectedSimplifiedPredicate = or(and(restnoGtC1, restnoGtC1PlusC2, restnoGtC2), and(restnoGtC1, nameEqFoo, restnoGtC2));
+
+        final var simplifiedPredicate =
+                Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
+        assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
     }
 }

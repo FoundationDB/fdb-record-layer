@@ -104,6 +104,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
         return impl;
     }
 
+    @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Returned static object is mutable to allow caching database objects")
     @Nonnull
     public static FDBDatabaseFactoryImpl instance() {
         return INSTANCE;

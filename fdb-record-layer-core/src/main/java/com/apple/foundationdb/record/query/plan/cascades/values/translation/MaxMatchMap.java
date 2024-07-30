@@ -106,7 +106,7 @@ public class MaxMatchMap {
                                                @Nonnull final CorrelationIdentifier candidateCorrelation) {
         final var translatedQueryValue = translateQueryValue(candidateCorrelation);
         return TranslationMap.builder()
-                .when(queryCorrelation).then(candidateCorrelation, (src, tgt, quantifiedValue) -> translatedQueryValue)
+                .when(queryCorrelation).then((src, quantifiedValue) -> translatedQueryValue)
                 .build();
     }
 
@@ -116,7 +116,7 @@ public class MaxMatchMap {
         final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
                 candidateResultValue.pullUp(mapping.values(),
-                        AliasMap.identitiesFor(candidateResultValue.getCorrelatedTo()),
+                        AliasMap.emptyMap(),
                         ImmutableSet.of(), candidateCorrelation);
         //
         // We now have the right side pulled up, specifically we have a map from each candidate value below,
@@ -136,7 +136,7 @@ public class MaxMatchMap {
                     final var candidatePart = entry.getValue();
                     final var pulledUpdateCandidatePart = pulledUpCandidateSide.get(candidatePart);
                     if (pulledUpdateCandidatePart == null) {
-                        throw new RecordCoreException(String.format("could not pull up %s", candidatePart));
+                        throw new RecordCoreException("could not pull up candidate part").addLogInfo("candidate_part", candidatePart);
                     }
                     return Map.entry(boundEquivalence.wrap(queryPart), pulledUpdateCandidatePart);
                 }).collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));

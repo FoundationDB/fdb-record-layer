@@ -20,14 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
@@ -38,11 +41,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
 
@@ -61,6 +68,9 @@ class State {
     @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
 
     @Nonnull private final List<Debugger.Event> events;
+    @Nullable private final List<PEvent> eventProtos;
+    @Nullable private final Iterable<PEvent> prerecordedEventProtoIterable;
+    @Nullable private Iterator<PEvent> prerecordedEventProtoIterator;
 
     @Nonnull private final Map<Class<? extends Debugger.Event>, Stats> eventClassStatsMap;
 
@@ -71,8 +81,8 @@ class State {
     private int currentTick;
     private long startTs;
 
-    public static State initial() {
-        return new State();
+    public static State initial(final boolean isRecordEvents, @Nullable Iterable<PEvent> prerecordedEventProtoIterable) {
+        return new State(isRecordEvents, prerecordedEventProtoIterable);
     }
 
     public static State copyOf(final State source) {
@@ -97,6 +107,8 @@ class State {
                 copyQuantifierCache,
                 copyInvertedQuantifierCache,
                 Lists.newArrayList(source.getEvents()),
+                source.eventProtos == null ? null : Lists.newArrayList(source.eventProtos),
+                source.prerecordedEventProtoIterable,
                 Maps.newLinkedHashMap(source.eventClassStatsMap),
                 Maps.newLinkedHashMap(source.plannerRuleClassStatsMap),
                 new ArrayDeque<>(source.eventProfilingStack),
@@ -104,7 +116,7 @@ class State {
                 source.getStartTs());
     }
 
-    private State() {
+    private State(final boolean isRecordEvents, @Nullable final Iterable<PEvent> prerecordedEventProtoIterable) {
         this(Maps.newHashMap(),
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
@@ -113,6 +125,8 @@ class State {
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
                 Lists.newArrayList(),
+                isRecordEvents ? Lists.newArrayList() : null,
+                prerecordedEventProtoIterable,
                 Maps.newLinkedHashMap(),
                 Maps.newLinkedHashMap(),
                 new ArrayDeque<>(),
@@ -128,6 +142,8 @@ class State {
                   @Nonnull final Cache<Integer, Quantifier> quantifierCache,
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
                   @Nonnull final List<Debugger.Event> events,
+                  @Nullable final List<PEvent> eventProtos,
+                  @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
                   @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, Stats> eventClassStatsMap,
                   @Nonnull final LinkedHashMap<Class<? extends CascadesRule<?>>, Stats> plannerRuleClassStatsMap,
                   @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
@@ -141,6 +157,10 @@ class State {
         this.quantifierCache = quantifierCache;
         this.invertedQuantifierCache = invertedQuantifierCache;
         this.events = events;
+        this.eventProtos = eventProtos;
+        this.prerecordedEventProtoIterable = prerecordedEventProtoIterable;
+        this.prerecordedEventProtoIterator = prerecordedEventProtoIterable == null
+                                             ? null : prerecordedEventProtoIterable.iterator();
         this.eventClassStatsMap = eventClassStatsMap;
         this.plannerRuleClassStatsMap = plannerRuleClassStatsMap;
         this.eventProfilingStack = eventProfilingStack;
@@ -186,6 +206,16 @@ class State {
     @Nonnull
     public List<Debugger.Event> getEvents() {
         return events;
+    }
+
+    @Nullable
+    public List<PEvent> getEventProtos() {
+        return eventProtos;
+    }
+
+    @Nullable
+    public Iterator<PEvent> getPrerecordedEventProtoIterator() {
+        return prerecordedEventProtoIterator;
     }
 
     public int getCurrentTick() {
@@ -235,6 +265,16 @@ class State {
     @SuppressWarnings("unchecked")
     public void addCurrentEvent(@Nonnull final Debugger.Event event) {
         events.add(event);
+        if (eventProtos != null || prerecordedEventProtoIterator != null) {
+            final var currentEventProto = event.toEventProto();
+            if (prerecordedEventProtoIterator != null) {
+                verifyCurrentEventProto(currentEventProto);
+            }
+            if (eventProtos != null) {
+                eventProtos.add(currentEventProto);
+            }
+        }
+
         currentTick = events.size() - 1;
         final long currentTsInNs = System.nanoTime();
 
@@ -281,6 +321,30 @@ class State {
                 break;
             default:
                 updateCounts(event);
+        }
+    }
+
+    private void verifyCurrentEventProto(final PEvent currentEventProto) {
+        Objects.requireNonNull(prerecordedEventProtoIterator);
+        Verify.verify(prerecordedEventProtoIterator.hasNext(),
+                "ran out of prerecorded events");
+        final var expectedProto = prerecordedEventProtoIterator.next();
+        if (!currentEventProto.equals(expectedProto)) {
+            System.err.println("Mismatch found between prerecorded event and this event!");
+            System.err.println("The following events prior to this event did match:");
+            if (eventProtos != null) {
+                for (int i = 0; i < eventProtos.size(); i++) {
+                    final var oldEventProto = eventProtos.get(i);
+                    System.err.println(i + ": " + oldEventProto.getDescription() + "; " + oldEventProto.getShorthand());
+                }
+            }
+
+            System.err.println();
+            System.err.println("The following event did not match:");
+            System.err.println("Expected: " + expectedProto);
+            System.err.println("Actual: " + currentEventProto);
+            prerecordedEventProtoIterator = null;
+            throw new RecordCoreException("Planning event does not match prerecorded event");
         }
     }
 
@@ -383,7 +447,7 @@ class State {
     @Nonnull
     private String formatNsInMicros(final long ns) {
         final long micros = TimeUnit.NANOSECONDS.toMicros(ns);
-        return String.format("%,d", micros);
+        return String.format(Locale.ROOT, "%,d", micros);
     }
 
     private static class Stats {

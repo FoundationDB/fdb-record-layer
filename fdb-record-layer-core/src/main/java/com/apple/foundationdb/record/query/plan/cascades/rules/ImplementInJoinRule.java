@@ -21,14 +21,16 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -41,10 +43,13 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.SortedInComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.google.common.collect.HashMultimap;
@@ -136,11 +141,8 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 final ImmutableList<InSource> sources =
-                        getInSourcesForRequestedOrdering(explodeAliasToQuantifierMap,
-                                explodeAliases,
-                                quantifierToExplodeBiMap,
-                                providedOrdering,
-                                requestedOrdering);
+                        getInSourcesForRequestedOrdering(explodeAliasToQuantifierMap, explodeAliases,
+                                quantifierToExplodeBiMap, providedOrdering, requestedOrdering);
                 if (sources.isEmpty()) {
                     continue;
                 }
@@ -161,28 +163,31 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
     @SuppressWarnings("unchecked")
     private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
                                                                      @Nonnull final Set<CorrelationIdentifier> explodeAliases,
-                                                                     @Nonnull final IdentityBiMap<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
+                                                                     @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
                                                                      @Nonnull final Ordering innerOrdering,
                                                                      @Nonnull final RequestedOrdering requestedOrdering) {
         final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
 
         final var requestedOrderingParts = requestedOrdering.getOrderingParts();
         final var sourcesBuilder = ImmutableList.<InSource>builder();
-        final var outerOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
-        final var innerEqualityBoundValueMap = innerOrdering.getEqualityBoundValueMap();
-        final var resultOrderingEqualityBoundValueMap  =
-                HashMultimap.create(innerEqualityBoundValueMap);
+        final var outerRequestedOrderingPartsBuilder = ImmutableList.<OrderingPart.RequestedOrderingPart>builder();
+        final var innerBindingMap = innerOrdering.getBindingMap();
+        final var resultOrderingBindingMap =
+                HashMultimap.create(innerBindingMap);
 
         for (var i = 0; i < requestedOrderingParts.size() && !availableExplodeAliases.isEmpty(); i++) {
             final var requestedOrderingPart = requestedOrderingParts.get(i);
-            final var comparisons = innerEqualityBoundValueMap.get(requestedOrderingPart.getValue());
-            if (comparisons.isEmpty()) {
+            final var requestedOrderingValue = requestedOrderingPart.getValue();
+            final var innerBindings = innerBindingMap.get(requestedOrderingValue);
+
+            if (innerBindings.isEmpty() || Ordering.sortOrder(innerBindings).isDirectional()) {
                 return ImmutableList.of();
             }
 
-            final var comparisonsCorrelatedTo = comparisons.stream()
-                    .flatMap(comparison -> comparison.getCorrelatedTo().stream())
-                    .collect(ImmutableSet.toImmutableSet());
+            final var comparisonsCorrelatedTo =
+                    innerBindings.stream()
+                            .flatMap(binding -> binding.getComparison().getCorrelatedTo().stream())
+                            .collect(ImmutableSet.toImmutableSet());
 
             if (comparisonsCorrelatedTo.size() > 1) {
                 return ImmutableList.of();
@@ -220,7 +225,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             //
             final var explodeQuantifier =
                     Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-            final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+            final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.get(explodeQuantifier));
 
             //
             // At this point we have a bound key expression that matches the requested order at this position,
@@ -229,29 +234,38 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
             final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
+            final var requestedSortOrder =
+                    requestedOrderingPart.getDirectionalSortOrderOrDefault(RequestedSortOrder.ASCENDING);
+
             final InSource inSource;
+            final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
             if (explodeCollectionValue instanceof LiteralValue<?>) {
                 final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                 if (literalValue instanceof List<?>) {
                     inSource = new SortedInValuesSource(
-                            CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                            bindingName,
                             (List<Object>)literalValue,
-                            requestedOrderingPart.isReverse());
+                            requestedSortOrder.isReverse());
                 } else {
                     return ImmutableList.of();
                 }
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
-                inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                inSource = new SortedInParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId(),
-                        requestedOrderingPart.isReverse());
+                        requestedSortOrder.isReverse());
+            } else if (explodeCollectionValue.isConstant()) {
+                inSource = new SortedInComparandSource(
+                        bindingName,
+                        new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue),
+                        requestedSortOrder.isReverse());
             } else {
                 return ImmutableList.of();
             }
             availableExplodeAliases.remove(explodeAlias);
             sourcesBuilder.add(inSource);
 
-            resultOrderingEqualityBoundValueMap.removeAll(requestedOrderingPart.getValue());
-            outerOrderingPartsBuilder.add(requestedOrderingPart);
+            resultOrderingBindingMap.removeAll(requestedOrderingValue);
+            outerRequestedOrderingPartsBuilder.add(requestedOrderingPart);
         }
 
         if (availableExplodeAliases.isEmpty()) {
@@ -259,20 +273,33 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             // All available explode aliases have been depleted. Create an ordering and check against the requested
             // ordering.
             //
-            final var outerOrderingParts = outerOrderingPartsBuilder.build();
-            final var outerOrderingValues = outerOrderingParts.stream().map(OrderingPart::getValue).collect(ImmutableSet.toImmutableSet());
-            final var outerOrderingSet =
-                    PartiallyOrderedSet.<OrderingPart>builder()
-                            .addListWithDependencies(outerOrderingParts)
-                            .build();
-            final var outerOrdering = new Ordering(ImmutableSetMultimap.of(), outerOrderingSet, true);
+            final var outerReuqestedOrderingParts = outerRequestedOrderingPartsBuilder.build();
+            final var outerOrderingValuesBuilder = ImmutableList.<Value>builder();
+            final var outerOrderingBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
+            for (final var outerRequestedOrderingPart : outerReuqestedOrderingParts) {
+                final var outerOrderingValue = outerRequestedOrderingPart.getValue();
+                outerOrderingValuesBuilder.add(outerOrderingValue);
+                final var requestedSortOrder = outerRequestedOrderingPart.getDirectionalSortOrderOrDefault(RequestedSortOrder.ASCENDING);
+                outerOrderingBindingMapBuilder.put(outerOrderingValue,
+                        Binding.sorted(requestedSortOrder.toProvidedSortOrder()));
+            }
+
+            final var outerOrderingValues = outerOrderingValuesBuilder.build();
+            final var outerOrdering = Ordering.ofOrderingSequence(outerOrderingBindingMapBuilder.build(),
+                    outerOrderingValues, true);
 
             final var filteredInnerOrderingSet =
                     innerOrdering.getOrderingSet()
-                            .filterIndependentElements(keyPart -> !outerOrderingValues.contains(keyPart.getValue()));
-            final var filteredInnerOrdering = new Ordering(resultOrderingEqualityBoundValueMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
-            final var resultOrdering = Ordering.concatOrderings(outerOrdering, filteredInnerOrdering, (l, r) -> resultOrderingEqualityBoundValueMap);
-            return resultOrdering.satisfies(requestedOrdering)
+                            .filterElements(value -> innerOrdering.isSingularDirectionalValue(value) || !outerOrderingValues.contains(value));
+            final var filteredInnerOrdering = Ordering.ofOrderingSet(resultOrderingBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
+            final var concatenatedOrdering =
+                    Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);
+            //
+            // Note, that while we could potentially pull up the concatenated ordering along the result value of the
+            // SELECT expression, the ordering would stay identical as we only pull up along a simple QOV over the
+            // inner quantifier.
+            //
+            return concatenatedOrdering.satisfies(requestedOrdering)
                    ? sourcesBuilder.build()
                    : ImmutableList.of();
         } else {
@@ -283,23 +310,24 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
             for (final var explodeAlias : availableExplodeAliases) {
                 final var explodeQuantifier =
                         Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-                final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+                final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.get(explodeQuantifier));
 
                 final var explodeCollectionValue = explodeExpression.getCollectionValue();
 
                 final InSource inSource;
+                final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
                 if (explodeCollectionValue instanceof LiteralValue<?>) {
                     final Object literalValue = ((LiteralValue<?>)explodeCollectionValue).getLiteralValue();
                     if (literalValue instanceof List<?>) {
-                        inSource = new InValuesSource(
-                                CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                                (List<Object>)literalValue);
+                        inSource = new InValuesSource(bindingName, (List<Object>)literalValue);
                     } else {
                         return ImmutableList.of();
                     }
                 } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
-                    inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                    inSource = new InParameterSource(bindingName,
                             ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId());
+                } else if (explodeCollectionValue.isConstant()) {
+                    inSource = new InComparandSource(bindingName, new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue));
                 } else {
                     return ImmutableList.of();
                 }
@@ -314,16 +342,17 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         return sourcesBuilder.build();
     }
 
-    private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
-                                                                                                      @Nonnull final Set<ExplodeExpression> explodeExpressions) {
+    @Nonnull
+    private static Map<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
+                                                                                            @Nonnull final Set<ExplodeExpression> explodeExpressions) {
         final var resultMap =
-                IdentityBiMap.<Quantifier.ForEach,  ExplodeExpression>create();
+                new LinkedIdentityMap<Quantifier.ForEach,  ExplodeExpression>();
 
         for (final var quantifier : quantifiers) {
             final var rangesOver = quantifier.getRangesOver();
             for (final var explodeExpression : explodeExpressions) {
                 if (rangesOver.getMembers().contains(explodeExpression)) {
-                    resultMap.putUnwrapped(quantifier, explodeExpression);
+                    resultMap.put(quantifier, explodeExpression);
                     break; // only ever one match possible
                 }
             }

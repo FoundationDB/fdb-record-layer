@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -61,6 +62,8 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private final Traversal traversal;
     @Nonnull
+    private final Deque<CascadesPlanner.Task> taskStack;
+    @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
     private final PlanContext context;
@@ -73,16 +76,18 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     private final EvaluationContext evaluationContext;
 
-    public CascadesRuleCall(@Nonnull PlanContext context,
-                            @Nonnull CascadesRule<?> rule,
-                            @Nonnull Reference root,
-                            @Nonnull Traversal traversal,
-                            @Nonnull PlannerBindings bindings,
+    public CascadesRuleCall(@Nonnull final PlanContext context,
+                            @Nonnull final CascadesRule<?> rule,
+                            @Nonnull final Reference root,
+                            @Nonnull final Traversal traversal,
+                            @Nonnull final Deque<CascadesPlanner.Task> taskStack,
+                            @Nonnull final PlannerBindings bindings,
                             @Nonnull final EvaluationContext evaluationContext) {
         this.context = context;
         this.rule = rule;
         this.root = root;
         this.traversal = traversal;
+        this.taskStack = taskStack;
         this.bindings = bindings;
         this.newExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
@@ -274,7 +279,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             }
 
             for (final var commonReferencingExpression : commonReferencingExpressions) {
-                if (Reference.containsInMember(commonReferencingExpression, expression)) {
+                if (Reference.isMemoizedExpression(commonReferencingExpression, expression)) {
                     Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
                     final var reference = expressionToReferenceMap.get(commonReferencingExpression);
                     Verify.verifyNotNull(reference);
@@ -303,7 +308,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
 
             for (final var leafRef : leafRefs) {
                 for (final var member : leafRef.getMembers()) {
-                    if (Reference.containsInMember(expression, member)) {
+                    if (Reference.isMemoizedExpression(expression, member)) {
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
                         return leafRef;
                     }
@@ -331,7 +336,6 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         return memoizePlans(Arrays.asList(plans));
     }
 
-    @SuppressWarnings("unchecked")
     @Nonnull
     @Override
     public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
@@ -351,7 +355,15 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
 
-            if (expressionSet.size() == 1) {
+            //
+            // Note that we cannot ever reuse a reference containing just plans unless we can somehow prove
+            // that the reference cannot subsequently be pruned. Currently, we cannot prove that.
+            // TODO Check if we can reuse a reference if at least one expression is not a plan as that reference
+            //      is only pruned at the very last OptimizeGroup of the root. I will leave the disabled code here
+            //      for now. https://github.com/FoundationDB/fdb-record-layer/issues/2766
+            //
+            //noinspection PointlessBooleanExpression
+            if (false && expressionSet.size() == 1) {
                 final Optional<Reference> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
                 if (memoizedRefMaybe.isPresent()) {
                     Debugger.withDebugger(debugger ->
@@ -443,5 +455,12 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 return expressionSet;
             }
         };
+    }
+
+    public void emitEvent(@Nonnull Debugger.Location location) {
+        Debugger.withDebugger(debugger ->
+                debugger.onEvent(
+                        new Debugger.TransformRuleCallEvent(root, taskStack, location, root,
+                                bindings.get(rule.getMatcher()), rule, this)));
     }
 }

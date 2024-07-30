@@ -20,10 +20,18 @@
 
 package com.apple.foundationdb.tuple;
 
+import com.apple.test.RandomizedTestUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import javax.annotation.Nonnull;
+import java.util.Random;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -32,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ByteArrayUtil2Test {
 
     @Test
-    public void testLoggable() throws Exception {
+    void testLoggable() {
         String hexRegex = "^\\\\x[0-9a-f][0-9a-f]$";
         for (int i = Byte.MIN_VALUE; i < (byte)' '; i++) {
             String l = ByteArrayUtil2.loggable(new byte[]{(byte)i});
@@ -57,12 +65,43 @@ public class ByteArrayUtil2Test {
     }
 
     @Test
-    public void testUnprint() throws Exception {
+    void testUnprint() {
         byte[] allBytes = new byte[Math.abs((int)Byte.MIN_VALUE) + Byte.MAX_VALUE];
         for (byte b = Byte.MIN_VALUE; b < Byte.MAX_VALUE; b++) {
             allBytes[b - Byte.MIN_VALUE] = b;
         }
         assertArrayEquals(allBytes, ByteArrayUtil2.unprint(ByteArrayUtil2.loggable(allBytes)));
         assertArrayEquals(allBytes, ByteArrayUtil2.unprint(ByteArrayUtil.printable(allBytes)));
+    }
+
+    @Nonnull
+    static Stream<Long> testRandomBytes() {
+        // Nothing particular about these seeds, except that though some of them create random bytes that are
+        // encoded identically by ByteArrayUtil.printable and ByteArrayUtil2.loggable, whereas others create
+        // byte arrays that are encoded differently
+        return RandomizedTestUtils.randomSeeds(0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testRandomBytes(long seed) {
+        Random r = new Random(seed);
+        int length = r.nextInt(100);
+        byte[] bytes = new byte[length];
+        r.nextBytes(bytes);
+
+        final String printable = ByteArrayUtil.printable(bytes);
+        byte[] unprinted = ByteArrayUtil2.unprint(printable);
+        assertArrayEquals(bytes, unprinted, "Unprinting printable bytes should reconstruct original array");
+
+        final String loggable = ByteArrayUtil2.loggable(bytes);
+        byte[] unlogged = ByteArrayUtil2.unprint(loggable);
+        assertArrayEquals(bytes, unlogged, "Unprinting loggable bytes should reconstruct original array");
+        assertFalse(loggable.contains("="), "loggable string should not contain equals sign");
+        assertFalse(loggable.contains("\""), "loggable string should not contain quote");
+
+        if (!printable.contains("=") && !printable.contains("\"")) {
+            assertEquals(printable, loggable);
+        }
     }
 }

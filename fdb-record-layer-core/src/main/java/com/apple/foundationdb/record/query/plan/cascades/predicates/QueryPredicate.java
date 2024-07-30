@@ -27,9 +27,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
+import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -39,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.CompensatePredicateFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -67,7 +70,7 @@ import java.util.stream.StreamSupport;
  * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate>, PlanSerializable {
+public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, UsesValueEquivalence<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate>, PlanSerializable {
     @Nonnull
     @Override
     default QueryPredicate getThis() {
@@ -150,7 +153,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
      * also represents a tautology.
      *
-     * @param aliasMap the current alias map
+     * @param valueEquivalence the current value equivalence
      * @param candidatePredicate another predicate (usually in a match candidate)
      * @param evaluationContext the evaluation context used to evaluate any compile-time constants when examining predicate
      * implication.
@@ -162,7 +165,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      */
     @Nonnull
     @SuppressWarnings("unused")
-    default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
+    default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final ValueEquivalence valueEquivalence,
                                                                  @Nonnull final QueryPredicate candidatePredicate,
                                                                  @Nonnull final EvaluationContext evaluationContext) {
         if (candidatePredicate instanceof Placeholder) {
@@ -176,10 +179,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                     Optional.empty()));  // TODO: provide a translated predicate value here.
         }
 
-        if (this.semanticEquals(candidatePredicate, aliasMap)) {
-            return Optional.of(PredicateMapping.regularMappingWithoutCompensation(this, candidatePredicate));
-        }
-        return Optional.empty();
+        final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
+        return semanticEquals
+                .mapToOptional(queryPlanConstraint ->
+                        PredicateMapping.regularMappingWithoutCompensation(this,
+                                candidatePredicate, queryPlanConstraint));
     }
 
     /**
@@ -220,14 +224,14 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     /**
      * Method to find all mappings of this predicate in an {@link Iterable} of candidate predicates. If no mapping can
-     * be found at all, this method will then call {@link #impliesCandidatePredicate(AliasMap, QueryPredicate, EvaluationContext)} using
+     * be found at all, this method will then call {@link #impliesCandidatePredicate(ValueEquivalence, QueryPredicate, EvaluationContext)} using
      * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
-     * @param aliasMap the current alias map
+     * @param valueEquivalence the current alias map together with some other known equalities
      * @param candidatePredicates an {@link Iterable} of candiate predicates
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
-    default Collection<PredicateMapping> findImpliedMappings(@NonNull AliasMap aliasMap,
+    default Collection<PredicateMapping> findImpliedMappings(@NonNull ValueEquivalence valueEquivalence,
                                                              @Nonnull Iterable<? extends QueryPredicate> candidatePredicates,
                                                              @Nonnull final EvaluationContext evaluationContext) {
         final Set<PredicateMapping.MappingKey> mappingKeys = Sets.newHashSet();
@@ -235,7 +239,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         for (final QueryPredicate candidatePredicate : candidatePredicates) {
             final Optional<PredicateMapping> impliedByQueryPredicateOptional =
-                    impliesCandidatePredicate(aliasMap, candidatePredicate, evaluationContext);
+                    impliesCandidatePredicate(valueEquivalence, candidatePredicate, evaluationContext);
             impliedByQueryPredicateOptional.ifPresent(impliedByPredicate -> {
                 final var mappingKey = impliedByPredicate.getMappingKey();
                 if (!mappingKeys.contains(mappingKey)) {
@@ -248,7 +252,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         final ImmutableList<PredicateMapping> result = mappingBuilder.build();
         if (mappingKeys.isEmpty()) {
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
-            return impliesCandidatePredicate(aliasMap, tautologyPredicate, evaluationContext)
+            return impliesCandidatePredicate(valueEquivalence, tautologyPredicate, evaluationContext)
                     .map(ImmutableSet::of)
                     .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
         }
@@ -300,44 +304,61 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
             return false;
         }
 
-        final QueryPredicate otherPred = (QueryPredicate)other;
-        if (!equalsWithoutChildren(otherPred, aliasMap)) {
-            return false;
-        }
-
-        return equalsForChildren(otherPred, aliasMap);
+        return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
-    default boolean equalsForChildren(@Nonnull final QueryPredicate otherPred,
-                                      @Nonnull final AliasMap aliasMap) {
+    @Nonnull
+    @Override
+    default BooleanWithConstraint semanticEqualsTyped(@Nonnull final QueryPredicate other,
+                                                      @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren =
+                equalsWithoutChildren(other, valueEquivalence);
+        if (equalsWithoutChildren.isFalse()) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        return equalsWithoutChildren.composeWithOther(equalsForChildren(other, valueEquivalence));
+    }
+
+    @Nonnull
+    default BooleanWithConstraint equalsForChildren(@Nonnull final QueryPredicate otherPred,
+                                                    @Nonnull final ValueEquivalence valueEquivalence) {
         final Iterator<? extends QueryPredicate> preds = getChildren().iterator();
         final Iterator<? extends QueryPredicate> otherPreds = otherPred.getChildren().iterator();
 
+        var constraint = BooleanWithConstraint.alwaysTrue();
         while (preds.hasNext()) {
             if (!otherPreds.hasNext()) {
-                return false;
+                return BooleanWithConstraint.falseValue();
             }
 
-            if (!preds.next().semanticEquals(otherPreds.next(), aliasMap)) {
-                return false;
+            final var semanticEqualsOptional =
+                    preds.next().semanticEquals(otherPreds.next(), valueEquivalence);
+            if (semanticEqualsOptional.isFalse()) {
+                return BooleanWithConstraint.falseValue();
             }
+            constraint = constraint.composeWithOther(semanticEqualsOptional);
         }
 
-        return !otherPreds.hasNext();
+        if (otherPreds.hasNext()) {
+            return BooleanWithConstraint.falseValue();
+        }
+        return constraint;
     }
 
     @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
-    default boolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                          @Nonnull final AliasMap aliasMap) {
+    @Nonnull
+    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                        @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return true;
+            return BooleanWithConstraint.alwaysTrue();
         }
 
         if (other.getClass() != getClass()) {
-            return false;
+            return BooleanWithConstraint.falseValue();
         }
 
-        return other.isAtomic() == isAtomic();
+        return other.isAtomic() == isAtomic() ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
     }
 
     boolean isAtomic();
@@ -369,11 +390,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    RecordQueryPlanProto.PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
+    PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull
     static QueryPredicate fromQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final RecordQueryPlanProto.PQueryPredicate queryPredicateProto) {
+                                                  @Nonnull final PQueryPredicate queryPredicateProto) {
         return (QueryPredicate)PlanSerialization.dispatchFromProtoContainer(serializationContext, queryPredicateProto);
     }
 

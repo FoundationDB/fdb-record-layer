@@ -58,7 +58,6 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -78,12 +77,14 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorde
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -557,18 +558,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
     }
 
     private <T extends Throwable> void assertThrowsWithWrapper(@Nonnull Class<T> expectedType, @Nonnull Executable executable) {
-        try {
-            executable.execute();
-        } catch (Throwable actualException) {
-            while (actualException instanceof CompletionException) {
-                actualException = actualException.getCause();
-            }
-            if (expectedType.isInstance(actualException)) {
-                return;
-            }  else {
-                throw new AssertionFailedError("Unexpected exception type thrown", actualException);
-            }
+        Throwable actualException = assertThrows(Throwable.class, executable);
+        while (actualException instanceof CompletionException) {
+            actualException = actualException.getCause();
         }
-        throw new AssertionFailedError(String.format("Expected %s to be thrown, but nothing was thrown.", expectedType.getCanonicalName()));
+        assertThat(actualException, instanceOf(expectedType));
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -31,11 +32,13 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -51,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 
@@ -179,14 +183,17 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nonnull
     @Override
-    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo,
+                                                                 @Nonnull final List<CorrelationIdentifier> sortParameterIds,
+                                                                 final boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
-
-        final var normalizedKeys =
+        final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
         final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
         final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
@@ -200,7 +207,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             final var ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
             Verify.verify(ordinalInCandidate >= 0);
             int permutedIndex = indexWithPermutation(ordinalInCandidate);
-            final var normalizedKeyExpression = normalizedKeys.get(permutedIndex);
+            final var normalizedKeyExpression = normalizedKeyExpressions.get(permutedIndex);
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
@@ -220,10 +227,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             // Grab the value for this sortParameterID from the selectHaving result columns
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
-            builder.add(
-                    MatchedOrderingPart.of(value,
-                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
-                            isReverse));
+
+            if (normalizedValues.add(value)) {
+                builder.add(
+                        MatchedOrderingPart.of(parameterId, value, comparisonRange,
+                                MatchedSortOrder.ASCENDING));
+            }
         }
 
         return builder.build();
@@ -249,12 +258,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Nonnull
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
-        final var equalityBoundValueMapBuilder = ImmutableSetMultimap.<Value, Comparisons.Comparison>builder();
+        final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         final var groupingKey = ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey();
 
         if (groupingKey instanceof EmptyKeyExpression) {
             // TODO this should be something like anything-order.
-            return Ordering.emptyOrder();
+            return Ordering.empty();
         }
 
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
@@ -263,6 +272,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         // TODO include the aggregate Value itself in the ordering.
         final var normalizedKeyExpressions = groupingKey.normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
+
+        // We keep a set for normalized values in order to check for duplicate values in the index definition.
+        // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
+        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
@@ -275,10 +288,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             }
 
             final var comparison = equalityComparisons.get(i);
-            equalityBoundValueMapBuilder.put(deconstructedValue.get(permutedIndex).rebase(aliasMap), comparison);
+            final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
+            bindingMapBuilder.put(value, Binding.fixed(comparison));
+            normalizedValues.add(value);
         }
 
-        final var result = ImmutableList.<OrderingPart>builder();
+        final var orderingSequenceBuilder = ImmutableList.<Value>builder();
         for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
             if (permutedIndex < normalizedKeyExpressions.size()) {
@@ -297,10 +312,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            result.add(OrderingPart.of(normalizedValue, isReverse));
+            if (!normalizedValues.contains(normalizedValue)) {
+                normalizedValues.add(normalizedValue);
+                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
+                orderingSequenceBuilder.add(normalizedValue);
+            }
         }
 
-        return new Ordering(equalityBoundValueMapBuilder.build(), result.build(), isDistinct);
+        return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 
     @Nonnull
@@ -318,7 +337,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var resultType = groupByResultValue.getResultType();
         final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build().newMessageBuilder(resultType);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();
-        final var constraintMaybe = partialMatch.getMatchInfo().getConstraintMaybe();
+        final var constraintMaybe = partialMatch.getMatchInfo().getConstraint();
 
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
@@ -336,7 +355,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
                 groupByResultValue,
-                constraintMaybe.orElse(QueryPlanConstraint.tautology()));
+                constraintMaybe);
     }
 
     @Nonnull
@@ -345,7 +364,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return recordTypes;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
         final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);
@@ -360,7 +378,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
 
         if (!builder.isValid()) {
-            throw new RecordCoreException(String.format("could not generate a covering index scan operator for '%s'; Invalid mapping between index entries to partial record", index.getName()));
+            throw new RecordCoreException("could not generate a covering index scan operator for index; Invalid mapping between index entries to partial record").addLogInfo(LogMessageKeys.INDEX_NAME, index.getName());
         }
         return builder.build();
     }
@@ -441,7 +459,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         Verify.verify(maybeFieldName.isPresent());
         final String fieldName = maybeFieldName.get();
         if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(), fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath());
+            builder.addField(fieldName, fieldData.getSource(),
+                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
         }
     }
 

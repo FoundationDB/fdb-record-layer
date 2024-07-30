@@ -88,13 +88,13 @@ public class MultipleTransactions implements AutoCloseable, Iterable<Transaction
             Transaction tr = transactions.get(i);
             if (expectedConflicts.contains(i)) {
                 CompletionException err = assertThrows(CompletionException.class, () -> tr.commit().join(),
-                        String.format("Transaction %d should not commit successfully", i));
+                        "Transaction " + i + " should not commit successfully");
                 Throwable cause = err.getCause();
                 assertNotNull(cause);
                 assertTrue(cause instanceof FDBException);
                 assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)cause).getCode());
             } else {
-                assertDoesNotThrow(() -> tr.commit().join(), String.format("Transaction %d should commit successfully", i));
+                assertDoesNotThrow(() -> tr.commit().join(), "Transaction " + i + " should commit successfully");
             }
         }
     }

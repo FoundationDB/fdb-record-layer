@@ -21,19 +21,26 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
  * towards the sources during planning.
- *
+ * <br>
  * There are two flows of information at work during planning:
  * <ul>
  *     <li>
@@ -54,13 +61,17 @@ public class RequestedOrdering {
      * defines the actual order of records.
      */
     @Nonnull
-    private final List<OrderingPart> orderingParts;
+    private final List<RequestedOrderingPart> orderingParts;
 
     private final Distinctness distinctness;
 
-    public RequestedOrdering(@Nonnull final List<OrderingPart> orderingParts, final Distinctness distinctness) {
+    @Nonnull
+    private final Supplier<Map<Value, RequestedSortOrder>> valueRequestedSortOrderMapSupplier;
+
+    public RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts, final Distinctness distinctness) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
+        this.valueRequestedSortOrderMapSupplier = Suppliers.memoize(this::computeValueSortOrderMap);
     }
 
     public Distinctness getDistinctness() {
@@ -81,21 +92,23 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public List<OrderingPart> getOrderingParts() {
+    public List<RequestedOrderingPart> getOrderingParts() {
         return orderingParts;
+    }
+
+    /**
+     * Returns a map from {@link Value} to {@link RequestedSortOrder}. It is meant for quick lookups of the
+     * sort order of a given value.
+     * @return a map from {@link Value} to {@link RequestedSortOrder}. It is lazily computed and memoized. Subsequent
+     *         calls return instantaneously.
+     */
+    @Nonnull
+    public Map<Value, RequestedSortOrder> getValueRequestedSortOrderMap() {
+        return valueRequestedSortOrderMapSupplier.get();
     }
 
     public int size() {
         return orderingParts.size();
-    }
-
-    @Nonnull
-    public RequestedOrdering removePrefix(int prefixSize) {
-        if (prefixSize >= size()) {
-            return preserve();
-        }
-
-        return new RequestedOrdering(getOrderingParts().subList(prefixSize, size()), getDistinctness());
     }
 
     @Override
@@ -113,7 +126,12 @@ public class RequestedOrdering {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingParts(), getDistinctness());
+        return Objects.hash(getOrderingParts(), getDistinctness().name());
+    }
+
+    @Override
+    public String toString() {
+        return orderingParts.stream().map(Object::toString).collect(Collectors.joining(", "));
     }
 
     /**
@@ -168,14 +186,27 @@ public class RequestedOrdering {
 
         final var translationMap = AliasMap.ofAliases(lowerBaseAlias, Quantifier.current());
 
-        final var pushedDownOrderingPartsBuilder = ImmutableList.<OrderingPart>builder();
+        final var pushedDownOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
         for (int i = 0; i < orderingParts.size(); i++) {
             final var orderingPart = orderingParts.get(i);
             final var orderingValue = Objects.requireNonNull(pushedDownOrderingValues.get(i));
             final var rebasedOrderingValue = orderingValue.rebase(translationMap);
-            pushedDownOrderingPartsBuilder.add(OrderingPart.of(rebasedOrderingValue, orderingPart.isReverse()));
+            pushedDownOrderingPartsBuilder.add(new RequestedOrderingPart(rebasedOrderingValue, orderingPart.getSortOrder()));
         }
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS);
+    }
+
+    @Nonnull
+    private Map<Value, RequestedSortOrder> computeValueSortOrderMap() {
+        return getOrderingParts()
+                .stream()
+                .collect(Collectors.toMap(OrderingPart::getValue, OrderingPart::getSortOrder,
+                        (left, right) -> {
+                            if (left == right) {
+                                return left;
+                            }
+                            return RequestedSortOrder.ANY;
+                        }, LinkedHashMap::new));
     }
 
     /**
@@ -188,10 +219,11 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public static RequestedOrdering fromSortValues(@Nonnull final List<? extends Value> values,
-                                                   final boolean isReverse,
-                                                   @Nonnull final Distinctness distinctness) {
-        return new RequestedOrdering(values.stream().map(value -> OrderingPart.of(value, isReverse)).collect(ImmutableList.toImmutableList()), distinctness);
+    public RequestedOrdering withDistinctness(@Nonnull final Distinctness distinctness) {
+        if (this.distinctness == distinctness) {
+            return this;
+        }
+        return new RequestedOrdering(orderingParts, distinctness);
     }
 
     /**

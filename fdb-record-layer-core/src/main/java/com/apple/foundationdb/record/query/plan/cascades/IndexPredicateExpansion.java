@@ -81,7 +81,7 @@ public class IndexPredicateExpansion {
                 if (key.isEmpty()) {
                     key = Optional.of(valuePredicate.getValue());
                 } else {
-                    if (!key.get().semanticEquals(valuePredicate.getValue(), AliasMap.identitiesFor(key.get().getCorrelatedTo()))) {
+                    if (!key.get().semanticEquals(valuePredicate.getValue(), AliasMap.emptyMap())) {
                         return false;
                     }
                 }
@@ -106,7 +106,7 @@ public class IndexPredicateExpansion {
             }
             final var range = rangeBuilder.build();
             if (range.isEmpty()) {
-                throw new RecordCoreException(String.format("invalid predicate '%s'", predicate));
+                throw new RecordCoreException("invalid predicate").addLogInfo("predicate", predicate);
             }
             result.put(key, range.get());
         }

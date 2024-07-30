@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PBinaryRelOpValue.PBinaryPhysicalOperator;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRelOpValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PUnaryRelOpValue;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PUnaryRelOpValue.PUnaryPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PBinaryRelOpValue;
+import com.apple.foundationdb.record.planprotos.PBinaryRelOpValue.PBinaryPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PRelOpValue;
+import com.apple.foundationdb.record.planprotos.PUnaryRelOpValue;
+import com.apple.foundationdb.record.planprotos.PUnaryRelOpValue.PUnaryPhysicalOperator;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -233,7 +233,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Nonnull
@@ -878,8 +878,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setBinaryRelOpValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setBinaryRelOpValue(toProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -988,8 +988,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nonnull
         @Override
-        public RecordQueryPlanProto.PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return RecordQueryPlanProto.PValue.newBuilder().setUnaryRelOpValue(toProto(serializationContext)).build();
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PValue.newBuilder().setUnaryRelOpValue(toProto(serializationContext)).build();
         }
 
         @Nonnull

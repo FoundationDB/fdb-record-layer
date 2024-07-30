@@ -179,6 +179,19 @@ public class Simplification {
     }
 
     @Nonnull
+    private static <BASE, ELEMENT> List<ELEMENT> collectChildrenElements(@Nonnull final Map<BASE, Pair<BASE, List<ELEMENT>>> resultsMap,
+                                                                         @Nonnull final List<BASE> children) {
+        final var result = Lists.<ELEMENT>newArrayList();
+        for (final var child : children) {
+            @Nullable  final var childInResult = resultsMap.get(child);
+            if (childInResult != null) {
+                result.addAll(childInResult.getRight());
+            }
+        }
+        return result;
+    }
+
+    @Nonnull
     private static <BASE, R> BASE onResultsFunction(@Nonnull final Map<BASE, Pair<BASE, R>> resultsMap,
                                                     @Nonnull final Collection<Pair<BASE, R>> results) {
         Verify.verify(results.size() <= 1);
@@ -290,11 +303,12 @@ public class Simplification {
                                                                                       @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                                                                       @Nonnull final QueryPredicateComputationRuleSet<ARGUMENT, List<QueryPlanConstraint>> ruleSet) {
         final var resultsMap = new LinkedIdentityMap<QueryPredicate, Pair<QueryPredicate, List<QueryPlanConstraint>>>();
-        final var simplifiedPredicate = simplifyWithReExploration(root,
-                root,
-                resultsMap,
-                ruleSet,
-                (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
+        final var simplifiedPredicate =
+                simplifyWithReExploration(root,
+                        root,
+                        resultsMap,
+                        ruleSet,
+                        (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
         return simplifiedPredicate == root
                ? Pair.of(root, ImmutableList.of(QueryPlanConstraint.tautology()))
                : Verify.verifyNotNull(resultsMap.get(simplifiedPredicate));
@@ -328,9 +342,16 @@ public class Simplification {
             }
 
             final var computedCurrent = computeCurrent(current, simplifiedChildren);
-            if (computedCurrent != current && resultsMap.containsKey(current)) {
-                resultsMap.put(computedCurrent, Pair.of(computedCurrent, resultsMap.get(current).getRight()));
+            if (computedCurrent != current) {
+                if (resultsMap.containsKey(current)) {
+                    resultsMap.put(computedCurrent, Pair.of(computedCurrent, resultsMap.get(current).getRight()));
+                } else {
+                    final var computedCurrentElements = collectChildrenElements(resultsMap, simplifiedChildren);
+                    final var computedCurrentPair = Pair.of(computedCurrent, computedCurrentElements);
+                    resultsMap.put(computedCurrent, computedCurrentPair);
+                }
             }
+
             current = computedCurrent;
 
             executionResult =

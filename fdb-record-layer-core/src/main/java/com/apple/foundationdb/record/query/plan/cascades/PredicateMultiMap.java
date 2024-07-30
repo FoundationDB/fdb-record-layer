@@ -93,7 +93,7 @@ public class PredicateMultiMap {
          */
         public enum MappingKind {
             REGULAR_IMPLIES_CANDIDATE,
-            OR_TERM_IMPLIES_CANDIDATE;
+            OR_TERM_IMPLIES_CANDIDATE
         }
 
         @Nonnull
@@ -103,7 +103,7 @@ public class PredicateMultiMap {
         @Nonnull
         private final Optional<CorrelationIdentifier> parameterAliasOptional;
         @Nonnull
-        private final Optional<QueryPlanConstraint> constraintOptional;
+        private final QueryPlanConstraint constraint;
 
         @Nonnull
         private final Optional<QueryPredicate> translatedQueryPredicateOptional;
@@ -113,12 +113,12 @@ public class PredicateMultiMap {
                                  @Nonnull final MappingKind mappingKind,
                                  @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                  @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
-                                 @Nonnull final Optional<QueryPlanConstraint> constraintOptional,
+                                 @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final Optional<QueryPredicate> translatedQueryPredicateOptional) {
             this.mappingKey = new MappingKey(queryPredicate, candidatePredicate, mappingKind);
             this.compensatePredicateFunction = compensatePredicateFunction;
             this.parameterAliasOptional = parameterAlias;
-            this.constraintOptional = constraintOptional;
+            this.constraint = constraint;
             this.translatedQueryPredicateOptional = translatedQueryPredicateOptional;
         }
 
@@ -163,8 +163,8 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public Optional<QueryPlanConstraint> getConstraint() {
-            return constraintOptional;
+        public QueryPlanConstraint getConstraint() {
+            return constraint;
         }
 
         @Nonnull
@@ -174,13 +174,15 @@ public class PredicateMultiMap {
 
         @Nonnull
         public PredicateMapping withTranslatedQueryPredicate(@Nonnull final Optional<QueryPredicate> translatedCandidatePredicate) {
-            return new PredicateMapping(getQueryPredicate(), getCandidatePredicate(), getMappingKind(), compensatePredicateFunction, parameterAliasOptional, constraintOptional, translatedCandidatePredicate);
+            return new PredicateMapping(getQueryPredicate(), getCandidatePredicate(), getMappingKind(), compensatePredicateFunction, parameterAliasOptional, constraint, translatedCandidatePredicate);
         }
 
         @Nonnull
         public static PredicateMapping regularMappingWithoutCompensation(@Nonnull final QueryPredicate queryPredicate,
-                                                                         @Nonnull final QueryPredicate candidatePredicate) {
-            return regularMapping(queryPredicate, candidatePredicate, CompensatePredicateFunction.noCompensationNeeded(), Optional.empty(), Optional.empty(), Optional.empty());
+                                                                         @Nonnull final QueryPredicate candidatePredicate,
+                                                                         @Nonnull final QueryPlanConstraint constraint) {
+            return regularMapping(queryPredicate, candidatePredicate, CompensatePredicateFunction.noCompensationNeeded(),
+                    Optional.empty(), constraint, Optional.empty());
         }
 
         @Nonnull
@@ -188,7 +190,8 @@ public class PredicateMultiMap {
                                                       @Nonnull final QueryPredicate candidatePredicate,
                                                       @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                                       @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return regularMapping(queryPredicate, candidatePredicate, compensatePredicateFunction, Optional.empty(), Optional.empty(), translatedQueryPredicate);
+            return regularMapping(queryPredicate, candidatePredicate, compensatePredicateFunction,
+                    Optional.empty(), QueryPlanConstraint.tautology(), translatedQueryPredicate);
         }
 
         @Nonnull
@@ -196,9 +199,10 @@ public class PredicateMultiMap {
                                                       @Nonnull final QueryPredicate candidatePredicate,
                                                       @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                                       @Nonnull final Optional<CorrelationIdentifier> parameterAliasOptional,
-                                                      @Nonnull final Optional<QueryPlanConstraint> constraintOptional,
+                                                      @Nonnull final QueryPlanConstraint constraint,
                                                       @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return new PredicateMapping(queryPredicate, candidatePredicate, MappingKind.REGULAR_IMPLIES_CANDIDATE, compensatePredicateFunction, parameterAliasOptional, constraintOptional, translatedQueryPredicate);
+            return new PredicateMapping(queryPredicate, candidatePredicate, MappingKind.REGULAR_IMPLIES_CANDIDATE,
+                    compensatePredicateFunction, parameterAliasOptional, constraint, translatedQueryPredicate);
         }
 
         @Nonnull
@@ -206,7 +210,8 @@ public class PredicateMultiMap {
                                                      @Nonnull final QueryPredicate candidatePredicate,
                                                      @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                                      @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return orTermMapping(queryPredicate, candidatePredicate, compensatePredicateFunction, Optional.empty(), Optional.empty(), translatedQueryPredicate);
+            return orTermMapping(queryPredicate, candidatePredicate, compensatePredicateFunction,
+                    Optional.empty(), QueryPlanConstraint.tautology(), translatedQueryPredicate);
         }
 
         @Nonnull
@@ -214,9 +219,10 @@ public class PredicateMultiMap {
                                                      @Nonnull final QueryPredicate candidatePredicate,
                                                      @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                                      @Nonnull final Optional<CorrelationIdentifier> parameterAliasOptional,
-                                                     @Nonnull final Optional<QueryPlanConstraint> constraintOptional,
+                                                     @Nonnull final QueryPlanConstraint constraint,
                                                      @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return new PredicateMapping(queryPredicate, candidatePredicate, MappingKind.OR_TERM_IMPLIES_CANDIDATE, compensatePredicateFunction, parameterAliasOptional, constraintOptional, translatedQueryPredicate);
+            return new PredicateMapping(queryPredicate, candidatePredicate, MappingKind.OR_TERM_IMPLIES_CANDIDATE,
+                    compensatePredicateFunction, parameterAliasOptional, constraint, translatedQueryPredicate);
         }
 
         /**

@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -148,14 +149,14 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 TestLogMessageKeys.RECORD_TYPES, metaData.recordTypesForIndex(index),
                 LogMessageKeys.KEY_SPACE_PATH, path,
                 LogMessageKeys.LIMIT, 20,
-                TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100));
+                TestLogMessageKeys.RECORDS_PER_SECOND, OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100));
         final OnlineIndexer.Builder builder = newIndexerBuilder()
                 .setIndex(index)
                 .setConfigLoader(old -> {
-                    OnlineIndexer.Config.Builder conf = OnlineIndexer.Config.newBuilder()
+                    OnlineIndexOperationConfig.Builder conf = OnlineIndexOperationConfig.newBuilder()
                             .setMaxLimit(20)
                             .setMaxRetries(Integer.MAX_VALUE)
-                            .setRecordsPerSecond(OnlineIndexer.DEFAULT_RECORDS_PER_SECOND * 100);
+                            .setRecordsPerSecond(OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100);
                     if (ThreadLocalRandom.current().nextBoolean()) {
                         // randomly enable the progress logging to ensure that it doesn't throw exceptions,
                         // or otherwise disrupt the build.
@@ -221,13 +222,17 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     assumeFalse(safeBuild);
                     buildFuture = indexBuilder.buildEndpoints().thenCompose(tupleRange -> {
                         if (tupleRange != null) {
-                            long start = Objects.requireNonNull(tupleRange.getLow()).getLong(0);
-                            long end = Objects.requireNonNull(tupleRange.getHigh()).getLong(0);
+                            // Divide the range so that each agent takes an equal amount of the integer range
+                            // Use BigIntegers for computing the boundaries because intermediate steps can exceed
+                            // 64-bit precision if, for example, start is near Long.MIN_VALUE and end is near Long.MAX_VALUE
+                            final BigInteger start = Objects.requireNonNull(tupleRange.getLow()).getBigInteger(0);
+                            final BigInteger end = Objects.requireNonNull(tupleRange.getHigh()).getBigInteger(0);
+                            final BigInteger rangePerAgent = end.subtract(start).divide(BigInteger.valueOf(agents));
 
                             CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
                             for (int i = 0; i < agents; i++) {
-                                long itrStart = start + (end - start) / agents * i;
-                                long itrEnd = (i == agents - 1) ? end : start + (end - start) / agents * (i + 1);
+                                long itrStart = start.add(rangePerAgent.multiply(BigInteger.valueOf(i))).longValue();
+                                long itrEnd = (i == agents - 1) ? end.longValue() : start.add(rangePerAgent.multiply(BigInteger.valueOf(i + 1))).longValue();
                                 LOGGER.info(KeyValueLogMessage.of("building range",
                                         TestLogMessageKeys.INDEX, index,
                                         TestLogMessageKeys.AGENT, i,

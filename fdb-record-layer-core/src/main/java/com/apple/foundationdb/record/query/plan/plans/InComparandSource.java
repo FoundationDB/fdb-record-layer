@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordQueryPlanProto;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PInComparandSource;
+import com.apple.foundationdb.record.planprotos.PInComparandSource;
+import com.apple.foundationdb.record.planprotos.PInSource;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
@@ -154,14 +155,20 @@ public class InComparandSource extends InSource {
 
     @Nonnull
     @Override
-    protected RecordQueryPlanProto.PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return RecordQueryPlanProto.PInSource.newBuilder().setInComparandSource(toInComparandSourceProto(serializationContext)).build();
+    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PInSource.newBuilder().setInComparandSource(toInComparandSourceProto(serializationContext)).build();
     }
 
     @Nonnull
     public static InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                               @Nonnull final PInComparandSource inComparandSourceProto) {
         return new InComparandSource(serializationContext, inComparandSourceProto);
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return Objects.requireNonNull(comparison.getValue()).getResultType();
     }
 
     /**

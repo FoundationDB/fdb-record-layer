@@ -114,14 +114,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         selectWhereBuilder.addQuantifier(baseQun);
         Quantifier repeatQun = repeatExpansion(baseQun, repeatValuePredicates);
         selectWhereBuilder.addQuantifier(repeatQun);
-
-        final var num3Value = FieldValue.ofFieldName(baseQun.getFlowedObjectValue(), "num_value_3_indexed");
-        final List<Column<? extends Value>> groupingColumns = ImmutableList.of(
-                Column.unnamedOf(FieldValue.ofOrdinalNumber(repeatQun.getFlowedObjectValue(), 0)),
-                Column.of(Optional.of("num_value_3_indexed"), num3Value)
-        );
         selectWhereBuilder
-                .addResultValue(RecordConstructorValue.ofColumns(groupingColumns))
                 .addResultValue(baseQun.getFlowedObjectValue())
                 .addResultValue(repeatQun.getFlowedObjectValue());
         return Quantifier.forEach(Reference.of(selectWhereBuilder.build().buildSelect()));
@@ -134,11 +127,13 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private Quantifier sumByGroup(@Nonnull Quantifier selectWhere) {
-        var baseReference = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 1);
+        var baseReference = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
         final FieldValue groupedValue = FieldValue.ofFieldName(baseReference, "num_value_2");
         var aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
         final Value sumValue = (Value) new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(aggregatedFieldRef));
-        final FieldValue groupingValue = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
+        final FieldValue groupingCol1 = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumberAndFuseIfPossible(selectWhere.getFlowedObjectValue(), 1), 0);
+        final FieldValue groupingCol2 = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumberAndFuseIfPossible(selectWhere.getFlowedObjectValue(), 0), "num_value_3_indexed");
+        final RecordConstructorValue groupingValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(groupingCol1, groupingCol2));
         final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(sumValue)),
                 GroupByExpression::nestedResults, selectWhere);
         return Quantifier.forEach(Reference.of(groupByExpression));
@@ -221,7 +216,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var selectHavingBuilder = selectHavingByGroup(groupedSum);
                 final Quantifier selectHaving = Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
-                return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, selectHaving));
+                return Reference.of(LogicalSortExpression.unsorted(selectHaving));
             });
             assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()
                     .where(scanComparisons(range("[[42],[42]]")))));
@@ -246,7 +241,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42L))
                 );
                 final Quantifier selectHaving = Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
-                return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, selectHaving));
+                return Reference.of(LogicalSortExpression.unsorted(selectHaving));
             });
             assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()
                     .where(scanComparisons(range("[[42],[42]]")))));

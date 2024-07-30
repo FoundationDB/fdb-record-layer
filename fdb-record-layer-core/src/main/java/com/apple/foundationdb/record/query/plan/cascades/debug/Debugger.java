@@ -23,11 +23,31 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PAbstractEventWithState;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PAdjustMatchEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PBindable;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExecutingTaskEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreExpressionEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PMatchPartition;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.POptimizeGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.POptimizeInputsEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PPartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PRegisteredReference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PRegisteredRelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTransformEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTransformRuleCallEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTranslateCorrelationsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -216,7 +236,9 @@ public interface Debugger {
         FAILURE,
         COUNT,
         NEW,
-        REUSED
+        REUSED,
+        DISCARDED_INTERSECTION_COMBINATIONS,
+        ALL_INTERSECTION_COMBINATIONS
     }
 
     /**
@@ -246,6 +268,70 @@ public interface Debugger {
          */
         @Nonnull
         Location getLocation();
+
+        @Nonnull
+        Message toProto();
+
+        @Nonnull
+        default PEvent toEventProto() {
+            return toEventBuilder()
+                    .setDescription(getDescription())
+                    .setShorthand(getShorthand().name())
+                    .build();
+        }
+
+        @Nonnull
+        PEvent.Builder toEventBuilder();
+
+        @Nonnull
+        static PRegisteredRelationalExpression toExpressionProto(@Nonnull final RelationalExpression expression) {
+            return PRegisteredRelationalExpression.newBuilder()
+                    .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow())
+                    .setSemanticHashCode(expression.semanticHashCode())
+                    .build();
+        }
+
+        @Nonnull
+        static PRegisteredReference toReferenceProto(@Nonnull final Reference reference) {
+            final var builder = PRegisteredReference.newBuilder()
+                    .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(reference)).orElseThrow());
+            for (final var member : reference.getMembers()) {
+                builder.addExpressions(toExpressionProto(member));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        static PBindable toBindableProto(@Nonnull final Object bindable) {
+            final var builder = PBindable.newBuilder();
+            if (bindable instanceof RelationalExpression) {
+                builder.setExpression(toExpressionProto((RelationalExpression)bindable));
+            } else if (bindable instanceof PartialMatch) {
+                builder.setPartialMatch(toPartialMatchProto((PartialMatch)bindable));
+            } else if (bindable instanceof MatchPartition) {
+                builder.setMatchPartition(toMatchPartitionProto((MatchPartition)bindable));
+            }
+            return builder.build();
+        }
+
+        @Nonnull
+        static PPartialMatch toPartialMatchProto(@Nonnull final PartialMatch partialMatch) {
+            return PPartialMatch.newBuilder()
+                    .setMatchCandidate(partialMatch.toString())
+                    .setQueryRef(toReferenceProto(partialMatch.getQueryRef()))
+                    .setQueryExpression(toExpressionProto(partialMatch.getQueryExpression()))
+                    .setCandidateRef(toReferenceProto(partialMatch.getCandidateRef()))
+                    .build();
+        }
+
+        @Nonnull
+        static PMatchPartition toMatchPartitionProto(@Nonnull final MatchPartition matchPartition) {
+            final var builder = PMatchPartition.newBuilder();
+            for (final var partialMatch : matchPartition.getPartialMatches()) {
+                builder.addPartialMatches(toPartialMatchProto(partialMatch));
+            }
+            return builder.build();
+        }
     }
 
     /**
@@ -330,6 +416,14 @@ public interface Debugger {
         public Location getLocation() {
             return location;
         }
+
+        @Nonnull
+        public PAbstractEventWithState toAbstractEventWithStateProto() {
+            return PAbstractEventWithState.newBuilder()
+                    .setRootReference(Event.toReferenceProto(rootReference))
+                    .setLocation(getLocation().name())
+                    .build();
+        }
     }
 
     /**
@@ -361,6 +455,21 @@ public interface Debugger {
         @Nonnull
         public Task getTask() {
             return task;
+        }
+
+        @Nonnull
+        @Override
+        public PExecutingTaskEvent toProto() {
+            return PExecutingTaskEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setExecutingTaskEvent(toProto());
         }
     }
 
@@ -395,6 +504,22 @@ public interface Debugger {
         @Nonnull
         public Reference getCurrentReference() {
             return currentGroupReference;
+        }
+
+        @Nonnull
+        @Override
+        public POptimizeGroupEvent toProto() {
+            return POptimizeGroupEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setOptimizeGroupEvent(toProto());
         }
     }
 
@@ -439,6 +564,23 @@ public interface Debugger {
         public RelationalExpression getExpression() {
             return expression;
         }
+
+        @Nonnull
+        @Override
+        public PExploreExpressionEvent toProto() {
+            return PExploreExpressionEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .setExpression(Event.toExpressionProto(expression))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setExploreExpressionEvent(toProto());
+        }
     }
 
     /**
@@ -472,6 +614,22 @@ public interface Debugger {
         @Nonnull
         public Reference getCurrentReference() {
             return currentGroupReference;
+        }
+
+        @Nonnull
+        @Override
+        public PExploreGroupEvent toProto() {
+            return PExploreGroupEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setExploreGroupEvent(toProto());
         }
     }
 
@@ -525,6 +683,24 @@ public interface Debugger {
         @Override
         public CascadesRule<?> getRule() {
             return rule;
+        }
+
+        @Nonnull
+        @Override
+        public PTransformEvent toProto() {
+            return PTransformEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .setBindable(Event.toBindableProto(bindable))
+                    .setRule(rule.toString())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setTransformEvent(toProto());
         }
     }
 
@@ -588,6 +764,24 @@ public interface Debugger {
         public CascadesRuleCall getRuleCall() {
             return ruleCall;
         }
+
+        @Nonnull
+        @Override
+        public PTransformRuleCallEvent toProto() {
+            return PTransformRuleCallEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .setBindable(Event.toBindableProto(bindable))
+                    .setRule(rule.toString())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setTransformRuleCallEvent(toProto());
+        }
     }
 
     /**
@@ -630,6 +824,23 @@ public interface Debugger {
         @Nonnull
         public RelationalExpression getExpression() {
             return expression;
+        }
+
+        @Nonnull
+        @Override
+        public PAdjustMatchEvent toProto() {
+            return PAdjustMatchEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .setExpression(Event.toExpressionProto(expression))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setAdjustMatchEvent(toProto());
         }
     }
 
@@ -674,6 +885,23 @@ public interface Debugger {
         public RelationalExpression getExpression() {
             return expression;
         }
+
+        @Nonnull
+        @Override
+        public POptimizeInputsEvent toProto() {
+            return POptimizeInputsEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setCurrentGroupReference(Event.toReferenceProto(currentGroupReference))
+                    .setExpression(Event.toExpressionProto(expression))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setOptimizeInputsEvent(toProto());
+        }
     }
 
     /**
@@ -704,6 +932,21 @@ public interface Debugger {
         @Override
         public Location getLocation() {
             return location;
+        }
+
+        @Nonnull
+        @Override
+        public PInsertIntoMemoEvent toProto() {
+            return PInsertIntoMemoEvent.newBuilder()
+                    .setLocation(getLocation().name())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setInsertIntoMemoEvent(toProto());
         }
     }
 
@@ -745,6 +988,22 @@ public interface Debugger {
         @Override
         public Location getLocation() {
             return location;
+        }
+
+        @Nonnull
+        @Override
+        public PTranslateCorrelationsEvent toProto() {
+            return PTranslateCorrelationsEvent.newBuilder()
+                    .setExpression(Event.toExpressionProto(expression))
+                    .setLocation(location.name())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setTranslateCorrelationsEvent(toProto());
         }
     }
 }

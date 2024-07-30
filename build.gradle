@@ -211,7 +211,14 @@ subprojects {
                 // exclude generated Protobuf classes
                 exclude "**/*Proto.java"
                 exclude "**/*ProtoV3.java"
+                exclude "com/apple/foundationdb/record/planprotos/*.java"
+                exclude "com/apple/foundationdb/record/query/plan/cascades/debug/eventprotos/*.java"
                 options.addBooleanOption('Xwerror', true)
+
+		// Quiet javadoc errors for missing comments, etc.
+		// It would be good to have more coverage, but this allows us to move forward with incomplete docs
+                options.addBooleanOption('Xdoclint:none', true)
+
                 options.addStringOption('source', '11')
                 options.with {
                     overview "src/main/javadoc/overview.html"

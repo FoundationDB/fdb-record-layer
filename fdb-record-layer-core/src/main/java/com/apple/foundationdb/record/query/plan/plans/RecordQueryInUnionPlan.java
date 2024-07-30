@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordQueryPlanProto.PRecordQueryInUnionPlan;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.planprotos.PRecordQueryInUnionPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -38,9 +38,9 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.PlanStringRepresentation;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -389,6 +389,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param inner the input/inner plan to this in-union
      * @param inSources a list of outer in-sources
      * @param comparisonKeyValues values by which the results of both plans are ordered
+     * @param isReverse indicator if {@code comparisonKeyValues} should be considered reversed (inverted).
      * @param maxNumberOfValuesAllowed maximum number of parallel legs of this in-union
      * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
@@ -397,12 +398,13 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
     public static RecordQueryInUnionOnValuesPlan from(@Nonnull final Quantifier.Physical inner,
                                                       @Nonnull final List<? extends InSource> inSources,
                                                       @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                      final boolean isReverse,
                                                       final int maxNumberOfValuesAllowed,
                                                       @Nonnull final Bindings.Internal internal) {
         return RecordQueryInUnionOnValuesPlan.inUnion(inner,
                 inSources,
                 comparisonKeyValues,
-                Quantifiers.isReversed(ImmutableList.of(inner)),
+                isReverse,
                 maxNumberOfValuesAllowed,
                 internal);
     }
