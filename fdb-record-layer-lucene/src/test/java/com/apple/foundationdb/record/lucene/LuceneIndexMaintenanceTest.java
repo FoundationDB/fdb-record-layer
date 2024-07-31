@@ -60,7 +60,6 @@ import com.apple.test.TestConfigurationUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -122,14 +121,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         });
     }
 
-    @AfterEach
-    void tearDown() throws InterruptedException {
-        // A fairly hacky attempt to solving: https://github.com/FoundationDB/fdb-record-layer/issues/2842
-        // The theory is that these tests put *a lot* of load on the system, and can overwhelm it if you are just
-        // pointing to a single-instance cluster. The hope here is that this will allow the system to recover.
-        Thread.sleep(1000);
-    }
-
     static Stream<Arguments> configurationArguments() {
         // This has found situations that should have explicit tests:
         //      1. Multiple groups
@@ -164,7 +155,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                    int partitionHighWatermark,
                                    int repartitionCount,
                                    int minDocumentCount,
-                                   long seed) throws IOException {
+                                   long seed) throws IOException, InterruptedException {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -230,7 +221,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                           int partitionHighWatermark,
                           int repartitionCount,
                           int loopCount,
-                          long seed) throws IOException {
+                          long seed) throws IOException, InterruptedException {
         manyDocument(isGrouped, isSynthetic, primaryKeySegmentIndexEnabled, partitionHighWatermark,
                 repartitionCount, loopCount, 10, seed);
     }
@@ -268,7 +259,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                       int repartitionCount,
                       int loopCount,
                       int maxTransactionsPerLoop,
-                      long seed) throws IOException {
+                      long seed) throws IOException, InterruptedException {
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
                 .setIsSynthetic(isSynthetic)
@@ -333,7 +324,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     @Test
     @Tag(Tags.Slow)
-    void flakyMergeQuick() throws IOException {
+    void flakyMergeQuick() throws IOException, InterruptedException {
         flakyMerge(true, true, true, 31, -644766138635622644L, true);
     }
 
@@ -356,7 +347,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                     boolean primaryKeySegmentIndexEnabled,
                     int minDocumentCount,
                     long seed,
-                    boolean requireFailure) throws IOException {
+                    boolean requireFailure) throws IOException, InterruptedException {
 
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
                 .setIsGrouped(isGrouped)
@@ -855,6 +846,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             contextProps, schemaSetup, random.nextInt(maxTransactionsPerLoop - 1) + 1, ids, textGenerator, transactionCounter, documentCount);
                 } catch (RuntimeException e) {
                     throw new RuntimeException("Failed to generate documents at iteration " + currentLoop.get(), e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted generating documents at iteration " + currentLoop.get(), e);
                 }
 
                 boolean mergeFailed = mergeIndex();
@@ -947,7 +941,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                    final int transactionCount,
                                    final Map<Tuple, Map<Tuple, Tuple>> ids,
                                    final RandomTextGenerator textGenerator,
-                                   AtomicInteger transactionCounter, final AtomicInteger documentCount) {
+                                   AtomicInteger transactionCounter,
+                                   final AtomicInteger documentCount) throws InterruptedException {
         final long start = Instant.now().toEpochMilli();
         int i = 0;
         while (i < transactionCount ||
@@ -967,9 +962,20 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 commit(context);
                 documentCount.addAndGet(docCount);
             }
+            rest();
             transactionCounter.incrementAndGet();
             i++;
         }
+    }
+
+    /**
+     * Rest to
+     // A fairly hacky attempt to solving: https://github.com/FoundationDB/fdb-record-layer/issues/2842
+     // The theory is that these tests put *a lot* of load on the system, and can overwhelm it if you are just
+     // pointing to a single-instance cluster. The hope here is that this will allow the system to recover.
+     */
+    private void rest() throws InterruptedException {
+        Thread.sleep(200);
     }
 
     @Nonnull
