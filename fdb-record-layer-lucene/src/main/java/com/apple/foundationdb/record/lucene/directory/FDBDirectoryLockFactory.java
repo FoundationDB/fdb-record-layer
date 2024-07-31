@@ -64,7 +64,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             return new FDBDirectoryLock(directory.getAgilityContext(), lockName, directory.fileLockKey(lockName), timeWindowMilliseconds);
         } catch (FDBDirectoryLockException ex) {
             // Wrap in a Lucene-compatible exception (that extends IOException)
-            throw LuceneExceptions.toIoException(ex);
+            throw LuceneExceptions.toIoException(ex, null);
         }
     }
 
