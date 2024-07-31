@@ -74,10 +74,13 @@ class RelationalStructFacade implements RelationalStruct {
      */
     private final Struct delegate;
 
+    private boolean wasNull;
+
     RelationalStructFacade(ListColumnMetadata delegateMetadata, Struct delegate) {
         this.delegate = delegate;
         this.delegateMetadata = delegateMetadata;
         this.structMetaData = new RelationalStructFacadeMetaData(delegateMetadata);
+        this.wasNull = false;
     }
 
     /**
@@ -106,32 +109,56 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public boolean getBoolean(int oneBasedColumn) throws SQLException {
-        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getBoolean();
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return false;
+        }
+        if (!(c.hasBoolean())) {
+            throw new SQLException("Boolean", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return c.getBoolean();
     }
 
     @Override
     public boolean getBoolean(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return getBoolean(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
     public int getInt(int oneBasedColumn) throws SQLException {
-        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getInteger();
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return 0;
+        }
+        if (!(c.hasInteger())) {
+            throw new SQLException("Integer", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return c.getInteger();
     }
 
     @Override
     public int getInt(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return getInt(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
     public long getLong(int oneBasedColumn) throws SQLException {
-        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getLong();
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return 0;
+        }
+        if (!(c.hasLong())) {
+            throw new SQLException("Long", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return c.getLong();
     }
 
     @Override
     public long getLong(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return getLong(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
@@ -146,29 +173,51 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public double getDouble(int oneBasedColumn) throws SQLException {
-        return this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn)).getDouble();
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return 0;
+        }
+        if (!(c.hasDouble())) {
+            throw new SQLException("Double", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return c.getDouble();
     }
 
     @Override
     public double getDouble(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return getDouble(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
     public byte[] getBytes(int oneBasedColumn) throws SQLException {
-        Column column = this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn));
-        return column == null || !column.hasBinary() ? null : column.getBinary().toByteArray();
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return null;
+        }
+        if (!(c.hasBinary())) {
+            throw new SQLException("Binary", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return c.getBinary().toByteArray();
     }
 
     @Override
     public byte[] getBytes(String fieldName) throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return getBytes(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
     public String getString(int oneBasedColumn) throws SQLException {
-        Column column = this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn));
-        return column == null || !column.hasString() ? null : column.getString();
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return null;
+        }
+        if (!(c.hasString())) {
+            throw new SQLException("String", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return c.getString();
     }
 
     @Override
@@ -208,6 +257,9 @@ class RelationalStructFacade implements RelationalStruct {
             default:
                 throw new SQLException("Unsupported object type: " + type);
         }
+        if (wasNull()) {
+            return null;
+        }
         return obj;
     }
 
@@ -218,11 +270,15 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        Column column = this.delegate.getColumns().getColumn(index);
-        return column == null || !column.hasStruct() ? null :
-                new RelationalStructFacade(this.delegateMetadata.getColumnMetadata(index).getStructMetadata(),
-                        column.getStruct());
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return null;
+        }
+        if (!(c.hasStruct())) {
+            throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+
+        return new RelationalStructFacade(this.delegateMetadata.getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata(), c.getStruct());
     }
 
     @Override
@@ -232,10 +288,14 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public RelationalArray getArray(int oneBasedColumn) throws SQLException {
-        int index = PositionalIndex.toProtobuf(oneBasedColumn);
-        Column column = this.delegate.getColumns().getColumn(index);
-        return column == null || !column.hasArray() ? null :
-                new RelationalArrayFacade(this.delegateMetadata.getColumnMetadata(index).getArrayMetadata(), column.getArray());
+        Column c = getColumnInternal(oneBasedColumn);
+        if (wasNull) {
+            return null;
+        }
+        if (!(c.hasArray())) {
+            throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+        return new RelationalArrayFacade(this.delegateMetadata.getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getArrayMetadata(), c.getArray());
     }
 
     @Override
@@ -245,7 +305,13 @@ class RelationalStructFacade implements RelationalStruct {
 
     @Override
     public boolean wasNull() throws SQLException {
-        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        return wasNull;
+    }
+
+    private Column getColumnInternal(int oneBasedColumn) {
+        Column c = this.delegate.getColumns().getColumn(PositionalIndex.toProtobuf(oneBasedColumn));
+        wasNull = c.hasNull() || c.getKindCase().equals(Column.KindCase.KIND_NOT_SET);
+        return c;
     }
 
     static RelationalStructBuilder newBuilder() {
@@ -364,7 +430,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addDouble(String fieldName, double d) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.DOUBLE).build());
-            this.listColumnBuilder.setColumn(offset, Column.newBuilder().setDouble(d).build());
+            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setDouble(d).build());
             return this;
         }
 
@@ -372,7 +438,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addBytes(String fieldName, byte[] bytes) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.BINARY).build());
-            this.listColumnBuilder.setColumn(offset, Column.newBuilder().setBinary(ByteString.copyFrom(bytes)).build());
+            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setBinary(ByteString.copyFrom(bytes)).build());
             return this;
         }
 
@@ -419,7 +485,10 @@ class RelationalStructFacade implements RelationalStruct {
 
         @Override
         public RelationalStructBuilder addInt(String fieldName, int i) throws SQLException {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+            int offset = addMetadata(ColumnMetadata.newBuilder()
+                    .setName(fieldName).setJavaSqlTypesCode(Types.INTEGER).build());
+            this.listColumnBuilder.addColumn(offset, Column.newBuilder().setInteger(i).build());
+            return this;
         }
 
         @Override

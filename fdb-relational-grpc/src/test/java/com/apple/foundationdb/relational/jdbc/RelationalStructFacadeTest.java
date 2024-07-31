@@ -33,4 +33,53 @@ public class RelationalStructFacadeTest {
         var relationalStruct = RelationalStructFacade.newBuilder().addString(key, value).build();
         Assertions.assertEquals(relationalStruct.getString(key), value);
     }
+
+    @Test
+    public void testSimpleBoolean() throws SQLException {
+        String key = "only-field";
+        boolean value = true;
+        var relationalStruct = RelationalStructFacade.newBuilder().addBoolean(key, value).build();
+        Assertions.assertEquals(relationalStruct.getBoolean(key), value);
+    }
+
+    @Test
+    public void testSimpleDouble() throws SQLException {
+        String key = "only-field";
+        double value = 1.056;
+        var relationalStruct = RelationalStructFacade.newBuilder().addDouble(key, value).build();
+        Assertions.assertEquals(relationalStruct.getDouble(key), value);
+    }
+
+    @Test
+    public void testSimpleBytes() throws SQLException {
+        String key = "only-field";
+        byte[] value = "something".getBytes();
+        var relationalStruct = RelationalStructFacade.newBuilder().addBytes(key, value).build();
+        Assertions.assertArrayEquals(relationalStruct.getBytes(key), value);
+    }
+
+    @Test
+    public void testSimpleInt() throws SQLException {
+        String key = "only-field";
+        int value = 5;
+        var relationalStruct = RelationalStructFacade.newBuilder().addInt(key, value).build();
+        Assertions.assertEquals(relationalStruct.getInt(key), value);
+    }
+
+    @Test
+    public void testSimpleLong() throws SQLException {
+        String key = "only-field";
+        long value = 55;
+        var relationalStruct = RelationalStructFacade.newBuilder().addLong(key, value).build();
+        Assertions.assertEquals(relationalStruct.getLong(key), value);
+    }
+
+    @Test
+    public void testMultipleFields() throws SQLException {
+        var relationalStruct = RelationalStructFacade.newBuilder().addLong("field1", 1L).addString("field2", "hello").build();
+        Assertions.assertEquals(relationalStruct.getLong("field1"), 1L);
+        Assertions.assertEquals(relationalStruct.getString("field2"), "hello");
+        Assertions.assertEquals(relationalStruct.getLong(1), 1L);
+        Assertions.assertEquals(relationalStruct.getString(2), "hello");
+    }
 }
