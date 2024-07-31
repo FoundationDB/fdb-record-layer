@@ -42,9 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the
@@ -59,8 +57,7 @@ public class ImplementUnorderedUnionRule extends CascadesRule<LogicalUnionExpres
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
-                    rollUp(any(unionLegPlanPartitionsMatcher))));
+            planPartitions(rollUp(any(unionLegPlanPartitionsMatcher)));
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
