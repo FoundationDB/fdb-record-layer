@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -276,5 +277,10 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<UpdateExpression> updateExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(UpdateExpression.class, only(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecursiveExpression> recursiveExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecursiveExpression.class, downstream);
     }
 }

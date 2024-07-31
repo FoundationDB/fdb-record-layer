@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTypeFilterRule;
@@ -66,6 +67,7 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrde
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughGroupByRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInsertRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughRecursiveRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectExistentialRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughSortRule;
@@ -130,7 +132,8 @@ public class PlannerRuleSet {
             new PushRequestedOrderingThroughDeleteRule(),
             new PushRequestedOrderingThroughInsertRule(),
             new PushRequestedOrderingThroughUpdateRule(),
-            new PushRequestedOrderingThroughUniqueRule()
+            new PushRequestedOrderingThroughUniqueRule(),
+            new PushRequestedOrderingThroughRecursiveRule()
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
@@ -167,7 +170,8 @@ public class PlannerRuleSet {
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
-            new ImplementUpdateRule()
+            new ImplementUpdateRule(),
+            new ImplementRecursiveRule()
     );
 
     private static final List<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
