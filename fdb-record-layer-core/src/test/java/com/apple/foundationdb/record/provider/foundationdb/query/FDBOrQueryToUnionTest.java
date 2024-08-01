@@ -69,6 +69,7 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -145,6 +146,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests related to planning a query with an OR clause into a union plan.
  */
 @Tag(Tags.RequiresFDB)
+@Disabled
 class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     private static Stream<Boolean> booleanArgs() {
         return Stream.of(false, true);

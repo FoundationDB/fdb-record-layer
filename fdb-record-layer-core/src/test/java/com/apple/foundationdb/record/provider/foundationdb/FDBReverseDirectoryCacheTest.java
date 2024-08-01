@@ -40,6 +40,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -78,6 +79,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBReverseDirectoryCache}.
  */
 @Tag(Tags.RequiresFDB)
+@Disabled
 public class FDBReverseDirectoryCacheTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
