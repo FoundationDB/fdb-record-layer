@@ -576,7 +576,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
             // busy merge
             for (int i = 0; i < countReps; i++) {
-                explicitMergeIndex(index, contextProps, schemaSetup);
+                try {
+                    explicitMergeIndex(index, contextProps, schemaSetup);
+                } catch (Exception e) {
+                    LOGGER.debug("couldn't merge at iteration{}", i);
+                }
             }
         });
 
@@ -584,6 +588,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         merger.start();
 
         inserter.join();
+        // This could happen if the cluster is down, or something that otherwise prevents us from inserting any documents
+        // by asserting that there are documents we prevent the `join` below from waiting forever.
+        assertThat(insertedDocs, Matchers.not(Matchers.anEmptyMap()));
         merger.join();
 
         // validate index is sane
