@@ -319,7 +319,7 @@ public interface MatchCandidate {
                 break;
             case IndexTypes.MAX_EVER_LONG: // fallthrough
             case IndexTypes.MIN_EVER_LONG: // fallthrough
-            case IndexTypes.BITMAP_VALUE:
+            case IndexTypes.BITMAP_VALUE: // fallthrough
             case IndexTypes.SUM: // fallthrough
             case IndexTypes.COUNT: // fallthrough
             case IndexTypes.COUNT_NOT_NULL:

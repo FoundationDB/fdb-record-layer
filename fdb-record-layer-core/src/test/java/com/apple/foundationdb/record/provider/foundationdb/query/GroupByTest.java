@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -36,7 +37,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -279,17 +278,17 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 .and(groupings(ValueMatchers.anyValue())))));
 
         final Map<String, List<Long>> expectedResult = new HashMap<>();
-        expectedResult.put("1", List.of(2L, 8L));
-        expectedResult.put("2", List.of(2L));
-        expectedResult.put("3", List.of(2L));
-        expectedResult.put("4", List.of(2L, 4L));
-        expectedResult.put("5", List.of(4L));
-        expectedResult.put("6", List.of(4L));
-        expectedResult.put("7", List.of(4L, 8L));
-        expectedResult.put("8", List.of(8L));
-        expectedResult.put("9", List.of(8L));
-        expectedResult.put("10", List.of(1L));
-        expectedResult.put("11", List.of(1L));
+        expectedResult.put("1", List.of(1L, 3L));
+        expectedResult.put("2", List.of(1L));
+        expectedResult.put("3", List.of(1L));
+        expectedResult.put("4", List.of(1L, 2L));
+        expectedResult.put("5", List.of(2L));
+        expectedResult.put("6", List.of(2L));
+        expectedResult.put("7", List.of(2L, 3L));
+        expectedResult.put("8", List.of(3L));
+        expectedResult.put("9", List.of(3L));
+        expectedResult.put("10", List.of(0L));
+        expectedResult.put("11", List.of(0L));
 
         final Map<String, List<Long>> bitMapGroupByStrValue = new HashMap<>();
 
@@ -312,33 +311,31 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     void testBitMapWithBitMapIndex() {
         int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, true, true, bitBucketSize);
-
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(
                 () -> constructBitMapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
-
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
         assertEquals(1, plan.getUsedIndexes().size());
         assertTrue(plan.getUsedIndexes().contains("BitMapIndex"));
 
         final Map<Pair<String, Integer>, List<Long>> expectedResult = new HashMap<>();
-        expectedResult.put(Pair.of("1", 0), List.of(2L)); // 1
-        expectedResult.put(Pair.of("1", 4), List.of(8L)); // 7
-        expectedResult.put(Pair.of("2", 0), List.of(2L)); // 1
-        expectedResult.put(Pair.of("3", 0), List.of(2L)); // 1
-        expectedResult.put(Pair.of("4", 0), List.of(4L)); // 2
-        expectedResult.put(Pair.of("4", 4), List.of(2L)); // 5
-        expectedResult.put(Pair.of("5", 0), List.of(4L)); // 2
-        expectedResult.put(Pair.of("6", 0), List.of(4L)); // 2
-        expectedResult.put(Pair.of("7", 0), List.of(8L)); // 3
-        expectedResult.put(Pair.of("7", 4), List.of(4L)); // 6
-        expectedResult.put(Pair.of("8", 0), List.of(8L)); // 3
-        expectedResult.put(Pair.of("9", 0), List.of(8L)); // 3
-        expectedResult.put(Pair.of("10", 4), List.of(1L)); // 4
-        expectedResult.put(Pair.of("11", 4), List.of(1L)); // 4
+        expectedResult.put(Pair.of("1", 0), List.of(1L)); // str_value_indexed = "1", num_value_2 = 1 and 7
+        expectedResult.put(Pair.of("1", 4), List.of(3L)); // 7 mod 4 = 3
+        expectedResult.put(Pair.of("2", 0), List.of(1L)); // str_value_indexed = "2", num_value_2 = 1
+        expectedResult.put(Pair.of("3", 0), List.of(1L)); // str_value_indexed = "3", num_value_2 = 1
+        expectedResult.put(Pair.of("4", 0), List.of(2L)); // str_value_indexed = "4", num_value_2 = 2 and 5
+        expectedResult.put(Pair.of("4", 4), List.of(1L)); // 5 mod 4 = 1
+        expectedResult.put(Pair.of("5", 0), List.of(2L)); // str_value_indexed = "5", num_value_2 = 2
+        expectedResult.put(Pair.of("6", 0), List.of(2L)); // str_value_indexed = "6", num_value_2 = 2
+        expectedResult.put(Pair.of("7", 0), List.of(3L)); // str_value_indexed = "7", num_value_2 = 3 and 6
+        expectedResult.put(Pair.of("7", 4), List.of(2L)); // 6 mod 4 = 2
+        expectedResult.put(Pair.of("8", 0), List.of(3L)); // str_value_indexed = "8", num_value_2 = 3
+        expectedResult.put(Pair.of("9", 0), List.of(3L)); // str_value_indexed = "9", num_value_2 = 3
+        expectedResult.put(Pair.of("10", 4), List.of(0L)); // str_value_indexed = "10", num_value_2 = 4
+        expectedResult.put(Pair.of("11", 4), List.of(0L)); // str_value_indexed = "11", num_value_2 = 4
 
         final Map<Pair<String, Integer>, List<Long>> bitMapGroupByStrValue = new HashMap<>();
 
@@ -355,7 +352,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 }).join();
             }
         }
-        // assertEquals(expectedResult, bitMapGroupByStrValue);
+        assertEquals(expectedResult, bitMapGroupByStrValue);
     }
 
     @Nonnull
@@ -449,7 +446,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
                 if (addBitMapIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE, Map.of("bitmapValueEntrySize", String.valueOf(bucketSize))));
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE, Map.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                 }
             };
             openSimpleRecordStore(context, hook);

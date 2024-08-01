@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
@@ -58,7 +59,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -625,19 +625,19 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    // final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
-                    return Pair.of(Math.addExact((int)pair1.getKey(), (int)s2), Math.addExact((long)pair1.getValue(), 1L));
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of(Math.addExact((int)pair1.getKey(), (int)pair2.getKey()), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
                     return (double)(Integer)pair.getKey() / (long)pair.getValue();
-                    // return (double) (Integer) s1 / (long) s2;
                 }),
         AVG_L(LogicalOperator.AVG, TypeCode.LONG, TypeCode.DOUBLE,
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    return Pair.of(Math.addExact((long)pair1.getKey(), (long)s2), Math.addExact((long)pair1.getValue(), 1L));
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of(Math.addExact((long)pair1.getKey(), (long)pair2.getKey()), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
@@ -647,7 +647,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    return Pair.of((float)pair1.getKey() + (float)s2, Math.addExact((long)pair1.getValue(), 1L));
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of((float)pair1.getKey() + (float)pair2.getKey(), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
@@ -657,7 +658,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                 v -> Pair.of(v, 1L),
                 (s1, s2) -> {
                     final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
-                    return Pair.of((double)pair1.getKey() + (double)s2, Math.addExact((long)pair1.getValue(), 1L));
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of((double)pair1.getKey() + (double)pair2.getKey(), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
                 },
                 s -> {
                     final Pair<?, ?> pair = (Pair<?, ?>)s;
@@ -673,36 +675,49 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.max((long)s, (long)v), identity()),
         MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.max((float)s, (float)v), identity()),
         MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
-        /*
-        pair.key -> last aggregation result, initial = 0
-        pair.value -> input value to be aggregated
-        so final result = pair.key | (1 << pair.value)
-        */
         BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.BYTES,
                 s -> {
-                    BitSet bs = new BitSet();
-                    bs.set(((Long)s).intValue());
-                    return bs.toLongArray()[0];
+                    int MAX_ENTRY_SIZE = 250_000;
+                    int pos = (int)s / 8;
+                    if (pos >= MAX_ENTRY_SIZE) {
+                        throw new RecordCoreArgumentException("entry size option is too large")
+                                .addLogInfo("entrySize", pos, "maxEntrySize", MAX_ENTRY_SIZE);
+                    }
+                    byte[] s1 = new byte[MAX_ENTRY_SIZE];
+                    s1[pos] = (byte) (1 << ((int)s % 8));
+                    return s1;
                 },
                 (s, v) -> {
-                    // convert s (long to bitset), set v, then convert it back to long
-                    BitSet bs = BitSet.valueOf(new long[] {(long)s});
-                    bs.set(((Long)v).intValue());
-                    return bs.toLongArray()[0];
+                    byte[] s1 = (byte[])s;
+                    byte[] v1 = (byte[])v;
+                    Verify.verify(s1.length == v1.length);
+                    byte[] result = new byte[s1.length];
+                    for (int i = 0; i < s1.length; i++) {
+                        result[i] = (byte) (s1[i] | v1[i]);
+                    }
+                    return result;
                 },
-                s -> BitSet.valueOf(new long[]{(long)s}).toByteArray()),
+                identity()),
         BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.BYTES,
                 s -> {
-                    BitSet bs = new BitSet();
-                    bs.set(((Number)s).intValue());
-                    return bs.toLongArray()[0];
+                    int MAX_ENTRY_SIZE = 250_000;
+                    int pos = (int)s / 8;
+                    byte[] s1 = new byte[MAX_ENTRY_SIZE];
+                    s1[pos] = (byte) (1 << ((int)s % 8));
+                    return s1;
                 },
                 (s, v) -> {
-                    BitSet bs = BitSet.valueOf(new long[] {(long)s});
-                    bs.set(((Number)v).intValue());
-                    return bs.toLongArray()[0];
+                    byte[] s1 = (byte[])s;
+                    byte[] v1 = (byte[])v;
+                    Verify.verify(s1.length == v1.length);
+                    byte[] result = new byte[s1.length];
+                    for (int i = 0; i < s1.length; i++) {
+                        result[i] = (byte) (s1[i] | v1[i]);
+                    }
+                    return result;
                 },
-                s -> BitSet.valueOf(new long[]{(long)s}).toByteArray());
+                identity());
+
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
@@ -833,11 +848,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Override
         public void accumulate(@Nullable final Object currentObject) {
-            if (state == null) {
-                this.state = physicalOperator.evalInitialToPartial(currentObject);
-            } else {
-                this.state = physicalOperator.evalPartialToPartial(state, currentObject);
-            }
+            this.state = physicalOperator.evalPartialToPartial(state, currentObject);
         }
 
         @Nullable

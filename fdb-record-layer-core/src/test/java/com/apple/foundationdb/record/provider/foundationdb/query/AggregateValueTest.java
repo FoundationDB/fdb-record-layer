@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue.PhysicalOperator;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -103,14 +104,14 @@ class AggregateValueTest {
 
     @Test
     void testBitMap() {
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), new Object[]{0L, 1L, 2L, 0L}, Arrays.asList(0L, 1L, 2L)); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}, Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L)); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longs, Arrays.asList(longs)); // 1111110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longsWithNulls, List.of(1L, 2L, 4L, 5L, 6L)); // 1110110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), longsOnlyNull, null);
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), ints, Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L)); // 1111110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), intsWithNulls, Arrays.asList(1L, 2L, 4L, 5L, 6L)); // 1110110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), intsOnlyNull, null);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(new Object[]{0L, 1L, 2L, 0L}), Arrays.asList(0L, 1L, 2L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(longs), Arrays.asList(longs)); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(longsWithNulls), List.of(1L, 2L, 4L, 5L, 6L)); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(longsOnlyNull), null);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), byteArrayForBitMap(ints), Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L)); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), byteArrayForBitMap(intsWithNulls), Arrays.asList(1L, 2L, 4L, 5L, 6L)); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), byteArrayForBitMap(intsOnlyNull), null);
     }
 
     @Test
@@ -163,26 +164,54 @@ class AggregateValueTest {
 
     @Test
     void testAvg() {
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), ints, 3.5D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), longs, 3.5D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), floats, 3.5D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), doubles, 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(ints), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longs), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floats), 3.5D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doubles), 3.5D);
     }
 
     @Test
     void testAvgWithNulls() {
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), intsWithNulls, 3.6D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), longsWithNulls, 3.6D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), floatsWithNulls, 3.6D);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), doublesWithNulls, 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsWithNulls), 3.6D);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesWithNulls), 3.6D);
     }
 
     @Test
     void testAvgOnlyNulls() {
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), intsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), longsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), floatsOnlyNull, (Object)null);
-        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), doublesOnlyNull, (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_I, ofScalar(1)), pairsForAvg(intsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_L, ofScalar(1L)), pairsForAvg(longsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_F, ofScalar(1F)), pairsForAvg(floatsOnlyNull), (Object)null);
+        accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
+    }
+
+    private Object[] pairsForAvg(Object[] objects) {
+        return Arrays.stream(objects)
+                .map(object -> object == null ? null : Pair.of(object, 1L)) // left for the sum, right for the count
+                .toArray();
+    }
+
+    private Object[] byteArrayForBitMap(Object[] objects) {
+        return Arrays.stream(objects)
+                .map(object -> {
+                    if (object == null) {
+                        return null;
+                    }
+                    byte[] s1 = new byte[1024];
+                    long divRes = 0;
+                    long modRes = 0;
+                    if (object instanceof Long) {
+                        divRes = (long)object / 8;
+                        modRes = (long)object % 8;
+                    } else if (object instanceof Integer) {
+                        divRes = (int)object / 8;
+                        modRes = (int)object % 8;
+                    }
+                    s1[Math.toIntExact(divRes)] = (byte)(1 << modRes);
+                    return s1;
+                })
+                .toArray();
     }
 
     @Test
@@ -214,13 +243,12 @@ class AggregateValueTest {
         if (bitmap == null) {
             return null;
         }
-        int start = 0;
         List<Long> result = new ArrayList<>();
         for (int i = 0; i < bitmap.length; i++) {
             if (bitmap[i] != 0) {
                 for (int j = 0; j < 8; j++) {
                     if ((bitmap[i] & (1 << j)) != 0) {
-                        result.add(start + i * 8L + j);
+                        result.add(i * 8L + j);
                     }
                 }
             }
