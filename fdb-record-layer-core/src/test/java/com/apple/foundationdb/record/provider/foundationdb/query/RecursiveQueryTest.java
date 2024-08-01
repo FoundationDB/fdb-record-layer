@@ -32,17 +32,26 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecursivePriorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -51,13 +60,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursivePlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -67,13 +76,15 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class RecursiveQueryTest extends FDBRecordStoreQueryTestBase {
 
-    @Test
+    @DualPlannerTest()
     public void testUp() throws Exception {
         loadRecords();
 
         final RecordQueryPlan plan;
         if (planner instanceof RecordQueryPlanner) {
             plan = buildAncestorPlan((RecordQueryPlanner)planner);
+        } else if (planner instanceof CascadesPlanner) {
+            plan = buildAncestorPlan((CascadesPlanner)planner);
         } else {
             plan = null;
             fail("unsupported planner type");
@@ -84,6 +95,7 @@ public class RecursiveQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(expected, actual);
     }
 
+    @Nonnull
     private RecordQueryPlan buildAncestorPlan(@Nonnull RecordQueryPlanner planner) throws Exception {
         final RecordQuery rootQuery = RecordQuery.newBuilder()
                 .setRecordType("MyChildRecord")
@@ -96,13 +108,42 @@ public class RecursiveQueryTest extends FDBRecordStoreQueryTestBase {
         return recursiveQuery(planner, rootQuery, childQuery, "parent_rec_no");
     }
 
-    @Test
+    @Nonnull
+    private RecordQueryPlan buildAncestorPlan(@Nonnull CascadesPlanner cascadesPlanner) {
+        return planGraph(
+                () -> {
+                    var rootQuantifier = fullTypeScan(cascadesPlanner.getRecordMetaData(), "MyChildRecord");
+                    var graphExpansionBuilder = GraphExpansion.builder();
+                    graphExpansionBuilder.addQuantifier(rootQuantifier);
+                    graphExpansionBuilder.addPredicate(
+                            new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(rootQuantifier.getAlias(), rootQuantifier.getFlowedObjectType()), "str_value"),
+                                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "three")));
+                    rootQuantifier = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)rootQuantifier)));
+
+                    var childQuantifier = fullTypeScan(cascadesPlanner.getRecordMetaData(), "MyChildRecord");
+                    graphExpansionBuilder = GraphExpansion.builder();
+                    graphExpansionBuilder.addQuantifier(childQuantifier);
+                    var aliasForPrior = CorrelationIdentifier.uniqueID();
+                    graphExpansionBuilder.addPredicate(
+                            new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(childQuantifier.getAlias(), childQuantifier.getFlowedObjectType()), "rec_no"),
+                                    new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(RecursivePriorValue.of(aliasForPrior, childQuantifier.getFlowedObjectType()), "parent_rec_no"))));
+                    childQuantifier = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)childQuantifier)), aliasForPrior);
+
+                    final var resultStrValue = FieldValue.ofFieldName(QuantifiedObjectValue.of(childQuantifier.getAlias(), childQuantifier.getFlowedObjectType()), "str_value");
+                    final var recursive = new RecursiveExpression(resultStrValue, rootQuantifier, childQuantifier);
+                    return Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursive))));
+                });
+    }
+
+    @DualPlannerTest()
     public void testDown() throws Exception {
         loadRecords();
 
         final RecordQueryPlan plan;
         if (planner instanceof RecordQueryPlanner) {
             plan = buildDescendantPlan((RecordQueryPlanner)planner);
+        } else if (planner instanceof CascadesPlanner) {
+            plan = buildDescendantPlan((CascadesPlanner)planner);
         } else {
             plan = null;
             fail("unsupported planner type");
@@ -124,6 +165,33 @@ public class RecursiveQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         return recursiveQuery(planner, rootQuery, childQuery, "rec_no");
+    }
+
+    @Nonnull
+    private RecordQueryPlan buildDescendantPlan(@Nonnull CascadesPlanner cascadesPlanner) {
+        return planGraph(
+                () -> {
+                    var rootQuantifier = fullTypeScan(cascadesPlanner.getRecordMetaData(), "MyChildRecord");
+                    var graphExpansionBuilder = GraphExpansion.builder();
+                    graphExpansionBuilder.addQuantifier(rootQuantifier);
+                    graphExpansionBuilder.addPredicate(
+                            new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(rootQuantifier.getAlias(), rootQuantifier.getFlowedObjectType()), "parent_rec_no"),
+                                    new Comparisons.NullComparison(Comparisons.Type.IS_NULL)));
+                    rootQuantifier = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)rootQuantifier)));
+
+                    var childQuantifier = fullTypeScan(cascadesPlanner.getRecordMetaData(), "MyChildRecord");
+                    graphExpansionBuilder = GraphExpansion.builder();
+                    graphExpansionBuilder.addQuantifier(childQuantifier);
+                    var aliasForPrior = CorrelationIdentifier.uniqueID();
+                    graphExpansionBuilder.addPredicate(
+                            new ValuePredicate(FieldValue.ofFieldName(QuantifiedObjectValue.of(childQuantifier.getAlias(), childQuantifier.getFlowedObjectType()), "parent_rec_no"),
+                                    new Comparisons.ValueComparison(Comparisons.Type.EQUALS, FieldValue.ofFieldName(RecursivePriorValue.of(aliasForPrior, childQuantifier.getFlowedObjectType()), "rec_no"))));
+                    childQuantifier = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSimpleSelectOverQuantifier((Quantifier.ForEach)childQuantifier)), aliasForPrior);
+
+                    final var resultStrValue = FieldValue.ofFieldName(QuantifiedObjectValue.of(childQuantifier.getAlias(), childQuantifier.getFlowedObjectType()), "str_value");
+                    final var recursive = new RecursiveExpression(resultStrValue, rootQuantifier, childQuantifier);
+                    return Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(recursive))));
+                });
     }
 
     private void openParentChildRecordStore(FDBRecordContext context) throws Exception {
