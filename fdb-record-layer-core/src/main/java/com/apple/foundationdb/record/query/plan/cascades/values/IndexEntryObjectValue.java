@@ -63,6 +63,8 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Entry-Object-Value");
 
     @Nonnull
+    private final CorrelationIdentifier indexEntryAlias;
+    @Nonnull
     private final TupleSource source;
     @Nonnull
     private final ImmutableIntArray ordinalPath;
@@ -70,10 +72,12 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     @Nonnull
     private final Type resultType;
 
-    private IndexEntryObjectValue(@Nonnull final TupleSource source,
-                                  @Nonnull final ImmutableIntArray ordinalPath,
-                                  @Nonnull final Type resultType) {
+    public IndexEntryObjectValue(@Nonnull final CorrelationIdentifier alias,
+                                 @Nonnull final TupleSource source,
+                                 @Nonnull final ImmutableIntArray ordinalPath,
+                                 @Nonnull final Type resultType) {
         Verify.verify(resultType.isPrimitive() || resultType.isEnum());
+        this.indexEntryAlias = alias;
         this.source = source;
         this.ordinalPath = ordinalPath;
         this.resultType = resultType;
@@ -118,10 +122,8 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var bindings = context.getBindings();
-        final var indexEntry = Objects.requireNonNull((IndexEntry)bindings.get(Bindings.Internal
-                .CORRELATION.bindingName(Quantifier.current().getId())));
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final var indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(indexEntryAlias));
 
         final var tuple = (source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue());
         var value = getForOrdinalPath(tuple, ordinalPath);
@@ -168,6 +170,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     @Override
     public PIndexEntryObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = PIndexEntryObjectValue.newBuilder()
+                .setIndexEntryAlias(indexEntryAlias.getId())
                 .setSource(source.toProto(serializationContext));
         ordinalPath.forEach(builder::addOrdinalPath);
         return builder.setResultType(resultType.toTypeProto(serializationContext))
@@ -181,6 +184,11 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     }
 
     @Nonnull
+    public static String bindingName() {
+        return Bindings.Internal.CORRELATION.bindingName(Quantifier.current().getId());
+    }
+
+    @Nonnull
     public static IndexEntryObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                   @Nonnull final PIndexEntryObjectValue indexEntryObjectValueProto) {
         final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
@@ -189,6 +197,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
         }
 
         return new IndexEntryObjectValue(
+                CorrelationIdentifier.of(Objects.requireNonNull(indexEntryObjectValueProto.getIndexEntryAlias())),
                 TupleSource.fromProto(serializationContext,
                         Objects.requireNonNull(indexEntryObjectValueProto.getSource())),
                 ordinalPathBuilder.build(),

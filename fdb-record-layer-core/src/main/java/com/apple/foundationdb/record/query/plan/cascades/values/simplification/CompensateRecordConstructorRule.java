@@ -44,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class CompensateRecordConstructorRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, RecordConstructorValue> {
+public class CompensateRecordConstructorRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, RecordConstructorValue> {
     @Nonnull
     private static final BindingMatcher<RecordConstructorValue> rootMatcher =
             recordConstructorValue(all(anyValue()));
@@ -54,10 +54,10 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, PullUpCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
-        final var resultingMatchedValuesMap = new LinkedIdentityMap<Value, PullUpCompensation>();
+        final var resultingMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
 
         final var recordConstructorValueResult = call.getResult(recordConstructorValue);
         final var matchedCompensation = recordConstructorValueResult == null

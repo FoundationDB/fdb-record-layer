@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -51,7 +52,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         // dispatching happens at query-building time, therefore, the argument must be literal
         Verify.verify(arguments.get(0) instanceof LiteralValue<?>);
         final var literalValue = (LiteralValue<?>)arguments.get(0);
-        final var functionName = (String)literalValue.compileTimeEval(null);
+        final var functionName = (String)literalValue.evalWithoutStore(EvaluationContext.empty());
 
         // for now, the function name is expected to represent the fully-qualified class name, so we can find
         // it quickly via reflection, in the future we'll use the service loader to register the function.

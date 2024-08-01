@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregati
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,18 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<Value> anyValue() {
         return typed(Value.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<FieldValue> anyFieldValue() {
+        return typed(FieldValue.class);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValueMatcher) {
+        return typedWithDownstream(FieldValue.class,
+                Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValueMatcher);
     }
 
     @Nonnull
@@ -161,5 +174,12 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<QuantifiedObjectValue> quantifiedObjectValue() {
         return typed(QuantifiedObjectValue.class);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final BindingMatcher<V> downstreamValueMatcher) {
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.of(ToOrderedBytesValue::getChild, name -> "child(" + name + ")"),
+                downstreamValueMatcher);
     }
 }

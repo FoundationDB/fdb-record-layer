@@ -155,7 +155,9 @@ public class PredicateMultiMap {
         @NonNull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
             final var queryPredicate = getQueryPredicate();
-            if (parameterAliasOptional.isEmpty() || !(queryPredicate instanceof PredicateWithValueAndRanges && ((PredicateWithValueAndRanges)queryPredicate).isSargable())) {
+            if (parameterAliasOptional.isEmpty() ||
+                    !(queryPredicate instanceof PredicateWithValueAndRanges &&
+                              ((PredicateWithValueAndRanges)queryPredicate).isSargable())) {
                 return Optional.empty();
             }
             final var predicateConjunctionPredicate = (PredicateWithValueAndRanges)queryPredicate;

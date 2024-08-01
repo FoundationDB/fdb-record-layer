@@ -82,7 +82,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
         Boolean defaultValue = Boolean.FALSE;
         for (QueryPredicate child : getChildren()) {
             final Boolean val = child.eval(store, context);

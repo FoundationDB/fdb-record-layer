@@ -46,9 +46,9 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     @Nonnull
     private final CorrelationIdentifier parameterAlias;
 
-    private Placeholder(@Nonnull Value value,
-                       @Nonnull final Set<RangeConstraints> ranges,
-                       @Nonnull final CorrelationIdentifier alias) {
+    private Placeholder(@Nonnull final Value value,
+                        @Nonnull final Set<RangeConstraints> ranges,
+                        @Nonnull final CorrelationIdentifier alias) {
         super(value, ranges);
         this.parameterAlias = alias;
     }

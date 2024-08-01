@@ -107,7 +107,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final Object result = child.eval(store, context);
         return ZeroCopyByteString.wrap(TupleOrdering.pack(Key.Evaluated.scalar(result).toTuple(), direction));

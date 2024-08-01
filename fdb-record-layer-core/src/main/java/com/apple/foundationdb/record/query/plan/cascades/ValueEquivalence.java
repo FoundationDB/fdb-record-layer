@@ -348,11 +348,11 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "compileTimeEval can return nullable")
+        @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "evalWithoutStore can return nullable")
         @Nonnull
         public BooleanWithConstraint isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                     @Nonnull final LiteralValue<?> literalValue) {
-            final var constantObject = constantObjectValue.compileTimeEval(evaluationContext);
+            final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {
                 return trueWithConstraint(

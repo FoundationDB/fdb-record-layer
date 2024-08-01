@@ -23,56 +23,53 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 
 /**
  * A rule that matches a {@link Value} (with the argument values).
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, Value> {
+public class MatchSimpleFieldValueRule extends ValueComputationRule<Value, Map<Value, ValueCompensation>, FieldValue> {
     @Nonnull
-    private static final BindingMatcher<Value> rootMatcher = anyValue();
+    private static final BindingMatcher<FieldValue> rootMatcher = fieldValue(ValueMatchers.quantifiedObjectValue());
 
-    public MatchValueRule() {
+    public MatchSimpleFieldValueRule() {
         super(rootMatcher);
     }
 
     @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+        return Optional.of(FieldValue.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
-        final var value = bindings.get(rootMatcher);
+        final var rootValue = bindings.get(rootMatcher);
+        final var baseValue = Objects.requireNonNull(call.getArgument());
 
-        final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
-
-        final var resultPair = call.getResult(value);
+        final var resultPair = call.getResult(rootValue);
         final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
-        if (matchedValuesMap != null) {
-            newMatchedValuesMap.putAll(matchedValuesMap);
+        Verify.verify(matchedValuesMap == null || matchedValuesMap.isEmpty() ||
+                (matchedValuesMap.size() == 1 && matchedValuesMap.containsKey(rootValue)));
+        if (!rootValue.isFunctionallyDependentOn(baseValue)) {
+            return;
         }
 
-        for (final var toBePulledUpValue : toBePulledUpValues) {
-            if (!(toBePulledUpValue instanceof FieldValue)) {
-                if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
-                    newMatchedValuesMap.put(toBePulledUpValue, ValueCompensation.noCompensation());
-                }
-            }
-        }
-        call.yieldValue(value, newMatchedValuesMap);
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        newMatchedValuesMap.put(rootValue, ValueCompensation.noCompensation());
+        call.yieldValue(rootValue, newMatchedValuesMap);
     }
 }

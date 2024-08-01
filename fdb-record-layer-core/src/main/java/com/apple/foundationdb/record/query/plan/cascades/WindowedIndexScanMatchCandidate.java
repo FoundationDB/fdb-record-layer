@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -48,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -394,12 +394,17 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseRecordType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
-            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
-                    return Optional.empty();
-                }
+
+            final var extractFromIndexEntryPairOptional =
+                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
+                            IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+            if (extractFromIndexEntryPairOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                    extractFromIndexEntryPair.getValue())) {
+                return Optional.empty();
             }
         }
 
@@ -447,31 +452,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
-    }
-
-    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                            @Nonnull FieldValue fieldValue,
-                                            @Nonnull AvailableFields.FieldData fieldData) {
-        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
-        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
-            if (maybeFieldName.isEmpty()) {
-                return false;
-            }
-            builder = builder.getFieldBuilder(maybeFieldName.get());
-        }
-
-        // TODO not sure what to do with the null standing requirement
-
-        final var maybeFieldName = fieldValue.getLastFieldName();
-        if (maybeFieldName.isEmpty()) {
-            return false;
-        }
-        final String fieldName = maybeFieldName.get();
-        if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(),
-                    new AvailableFields.TruePredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
-        }
-        return true;
     }
 
     @Nonnull

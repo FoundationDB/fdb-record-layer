@@ -110,7 +110,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return comparison.eval(store, context, value.eval(store, context));
     }
 

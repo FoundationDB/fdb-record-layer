@@ -77,7 +77,7 @@ public abstract class UdfValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return call(StreamSupport.stream(children.spliterator(), false).map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
 

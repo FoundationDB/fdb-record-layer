@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
 
@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  * @param <T> the type of object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ValueComputationRule<A, R, T extends Value> extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, T> {
+public abstract class ValueComputationRule<A, R, T extends Value> extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, T> {
     public ValueComputationRule(@Nonnull final BindingMatcher<T> matcher) {
         super(matcher);
     }

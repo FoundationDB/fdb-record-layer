@@ -169,7 +169,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         final var builder = newBuilder();
         for (final var comparison : getComparisons()) {
             if (comparison instanceof Comparisons.ValueComparison) {
-                final var newComparand = ((Comparisons.ValueComparison)comparison).getComparandValue().compileTimeEval(context);
+                final var newComparand = ((Comparisons.ValueComparison)comparison).getComparandValue().evalWithoutStore(context);
                 builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(), newComparand));
             } else {
                 builder.addComparisonMaybe(comparison);

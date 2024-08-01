@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
@@ -35,10 +35,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet<Pair<Value, R>, ValueComputationRuleCall<A, R>> {
+public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>> {
 
-    public ValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> abstractValueSimplificationRules,
-                                   @Nonnull final SetMultimap<? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>, ? extends AbstractValueRule<Pair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> dependsOn) {
+    public ValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> abstractValueSimplificationRules,
+                                   @Nonnull final SetMultimap<? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>, ? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> dependsOn) {
         super(abstractValueSimplificationRules, dependsOn);
     }
 }

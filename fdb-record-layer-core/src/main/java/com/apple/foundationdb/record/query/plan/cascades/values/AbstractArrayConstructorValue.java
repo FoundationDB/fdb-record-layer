@@ -199,7 +199,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nullable
         @Override
         @SuppressWarnings("java:S6213")
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             return Streams.stream(getChildren())
                     .map(child -> child.eval(store, context))
                     .collect(ImmutableList.toImmutableList());
