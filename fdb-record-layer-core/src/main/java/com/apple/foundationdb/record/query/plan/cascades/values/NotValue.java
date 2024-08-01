@@ -116,7 +116,7 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final Object result = child.eval(store, context);
         if (result == null) {

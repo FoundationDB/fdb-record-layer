@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -36,11 +38,18 @@ import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldCopier;
+import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PFieldWithValueCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PMessageCopier;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PTupleSource;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -58,6 +67,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Construct a record from a covering index.
@@ -401,6 +411,156 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
     }
 
     /**
+     * Copier for basic fields.
+     */
+    public static class FieldWithValueCopier implements Copier {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-With-Value-Copier");
+
+        @Nonnull
+        private final CorrelationIdentifier indexEntryAlias;
+        @Nonnull
+        private final QueryPredicate copyIfPredicate;
+        @Nonnull
+        private final Value extractFromIndexEntryValue;
+        @Nonnull
+        private final String field;
+        @Nonnull
+        private final Supplier<String> indexEntryBindingNameSupplier;
+
+        private FieldWithValueCopier(@Nonnull final CorrelationIdentifier indexEntryAlias,
+                                     @Nonnull final QueryPredicate copyIfPredicate,
+                                     @Nonnull final Value extractFromIndexEntryValue,
+                                     @Nonnull final String field) {
+            this.indexEntryAlias = indexEntryAlias;
+            this.copyIfPredicate = copyIfPredicate;
+            this.extractFromIndexEntryValue = extractFromIndexEntryValue;
+            this.field = field;
+            this.indexEntryBindingNameSupplier = Suppliers.memoize(this::computeIndexEntryBindingName);
+        }
+
+        @Override
+        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
+                            @Nonnull IndexEntry kv) {
+            // TODO Should this be extended to hold a type repository? Probably not!
+            final var evaluationContext = EvaluationContext.forBinding(getIndexEntryBindingName(), kv);
+            final var shouldCopy = copyIfPredicate.evalWithoutStore(evaluationContext);
+            if (shouldCopy == null || !shouldCopy) {
+                return false;
+            }
+
+            final var fieldDescriptor = recordDescriptor.findFieldByName(field);
+
+            Object value = extractFromIndexEntryValue.evalWithoutStore(evaluationContext);
+            if (value == null) {
+                //
+                // The logic here goes like this: If the field is null, but it is required we cannot
+                // copy the value as it is required to be non-null. If it is null, but it is optional or repeated,
+                // null is assumed to be the default and the field remains unset.
+                //
+                return !fieldDescriptor.isRequired();
+            }
+            switch (fieldDescriptor.getType()) {
+                case MESSAGE:
+                    value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
+                    break;
+                case ENUM:
+                    value = fieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
+                    break;
+                default:
+                    break;
+            }
+            recordBuilder.setField(fieldDescriptor, value);
+            return true;
+        }
+
+        @Nonnull
+        private String getIndexEntryBindingName() {
+            return indexEntryBindingNameSupplier.get();
+        }
+
+        @Nonnull
+        private String computeIndexEntryBindingName() {
+            return Bindings.Internal.CORRELATION.bindingName(indexEntryAlias.getId());
+        }
+
+        @Override
+        public String toString() {
+            return field + ": " + extractFromIndexEntryValue +
+                    (copyIfPredicate.isTautology() ? "" : " if " + copyIfPredicate);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof FieldWithValueCopier)) {
+                return false;
+            }
+            final FieldWithValueCopier that = (FieldWithValueCopier)o;
+            return Objects.equals(field, that.field) &&
+                    Objects.equals(indexEntryAlias, that.indexEntryAlias) &&
+                    Objects.equals(copyIfPredicate, that.copyIfPredicate) &&
+                    Objects.equals(extractFromIndexEntryValue, that.extractFromIndexEntryValue);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(indexEntryAlias, copyIfPredicate, extractFromIndexEntryValue, field);
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, copyIfPredicate, extractFromIndexEntryValue, field);
+        }
+
+        @Nonnull
+        @Override
+        public PFieldWithValueCopier toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PFieldWithValueCopier.newBuilder()
+                    .setIndexEntryAlias(indexEntryAlias.getId())
+                    .setCopyIfPredicate(copyIfPredicate.toQueryPredicateProto(serializationContext))
+                    .setExtractFromIndexEntryValue(extractFromIndexEntryValue.toValueProto(serializationContext))
+                    .setField(field)
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PCopier.newBuilder().setFieldWithValueCopier(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static FieldWithValueCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                     @Nonnull final PFieldWithValueCopier fieldWithValueCopierProto) {
+            return new FieldWithValueCopier(CorrelationIdentifier.of(Objects.requireNonNull(fieldWithValueCopierProto.getIndexEntryAlias())),
+                    QueryPredicate.fromQueryPredicateProto(serializationContext, Objects.requireNonNull(fieldWithValueCopierProto.getCopyIfPredicate())),
+                    Value.fromValueProto(serializationContext, Objects.requireNonNull(fieldWithValueCopierProto.getExtractFromIndexEntryValue())),
+                    Objects.requireNonNull(fieldWithValueCopierProto.getField()));
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PFieldWithValueCopier, FieldWithValueCopier> {
+            @Nonnull
+            @Override
+            public Class<PFieldWithValueCopier> getProtoMessageClass() {
+                return PFieldWithValueCopier.class;
+            }
+
+            @Nonnull
+            @Override
+            public FieldWithValueCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                  @Nonnull final PFieldWithValueCopier fieldWithValueCopierProto) {
+                return FieldWithValueCopier.fromProto(serializationContext, fieldWithValueCopierProto);
+            }
+        }
+    }
+
+    /**
      * Copier for nested messages.
      */
     public static class MessageCopier implements Copier {
@@ -526,7 +686,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         @Nonnull
         private final Descriptors.Descriptor recordDescriptor;
         @Nonnull
-        private final Map<String, FieldCopier> fields;
+        private final Map<String, Copier> fields;
         @Nonnull
         private final Map<String, Builder> nestedBuilders;
         private final List<Copier> regularCopiers = new ArrayList<>();
@@ -552,6 +712,29 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                                 @Nonnull final AvailableFields.CopyIfPredicate copyIfPredicate,
                                 @Nonnull final ImmutableIntArray ordinalPath,
                                 @Nullable final String invertibleFunction) {
+            validateField(field);
+            FieldCopier copier = new FieldCopier(field, source, copyIfPredicate, ordinalPath, invertibleFunction);
+            if (fields.put(field, copier) != null) {
+                throw new RecordCoreException("setting field more than once: " + field);
+            }
+            return this;
+        }
+
+        public Builder addField(@Nonnull final String field,
+                                @Nonnull final Value extractFromIndexEntryValue) {
+            validateField(field);
+            final Copier copier =
+                    new FieldWithValueCopier(Quantifier.current(),
+                            ConstantPredicate.TRUE,
+                            extractFromIndexEntryValue,
+                            field);
+            if (fields.put(field, copier) != null) {
+                throw new RecordCoreException("setting field more than once: " + field);
+            }
+            return this;
+        }
+
+        private void validateField(final @Nonnull String field) {
             final Descriptors.FieldDescriptor fieldDescriptor = recordDescriptor.findFieldByName(field);
             if (fieldDescriptor == null) {
                 throw new MetaDataException("field not found: " + field);
@@ -560,12 +743,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                     !TupleFieldsHelper.isTupleField(fieldDescriptor.getMessageType())) {
                 throw new RecordCoreException("must set nested message field-by-field: " + field);
             }
-            FieldCopier copier = new FieldCopier(field, source, copyIfPredicate, ordinalPath, invertibleFunction);
-            FieldCopier prev = fields.put(field, copier);
-            if (prev != null) {
-                throw new RecordCoreException("setting field more than once: " + field);
-            }
-            return this;
         }
 
         public Builder getFieldBuilder(@Nonnull String field) {

@@ -86,7 +86,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         throw new RecordCoreException("this predicate cannot be evaluated per record");
     }
 

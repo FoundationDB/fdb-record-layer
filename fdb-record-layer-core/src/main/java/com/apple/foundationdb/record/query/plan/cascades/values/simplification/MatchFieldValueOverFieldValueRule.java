@@ -28,51 +28,57 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyFieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 
 /**
  * A rule that matches a {@link Value} (with the argument values).
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MatchValueRule extends ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, Value> {
+public class MatchFieldValueOverFieldValueRule extends ValueComputationRule<Value, Map<Value, ValueCompensation>, FieldValue> {
     @Nonnull
-    private static final BindingMatcher<Value> rootMatcher = anyValue();
+    private static final BindingMatcher<FieldValue> childFieldMatcher = anyFieldValue();
+    @Nonnull
+    private static final BindingMatcher<FieldValue> rootMatcher = fieldValue(childFieldMatcher);
 
-    public MatchValueRule() {
+    public MatchFieldValueOverFieldValueRule() {
         super(rootMatcher);
     }
 
     @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
-        return Optional.empty();
+        return Optional.of(FieldValue.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, Map<Value, ValueCompensation>> call) {
+    public void onMatch(@Nonnull final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
-        final var value = bindings.get(rootMatcher);
+        final var rootValue = bindings.get(rootMatcher);
+        final var childValue = bindings.get(childFieldMatcher);
 
-        final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
-        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
-
-        final var resultPair = call.getResult(value);
+        final var resultPair = call.getResult(rootValue);
         final var matchedValuesMap = resultPair == null ? null : resultPair.getRight();
-        if (matchedValuesMap != null) {
-            newMatchedValuesMap.putAll(matchedValuesMap);
+        if (matchedValuesMap != null && !matchedValuesMap.isEmpty()) {
+            return;
+        }
+        final var childResultPair = call.getResult(childValue);
+        final var childMatchedValuesMap = childResultPair == null ? null : childResultPair.getRight();
+        if (childMatchedValuesMap == null || childMatchedValuesMap.isEmpty()) {
+            return;
         }
 
-        for (final var toBePulledUpValue : toBePulledUpValues) {
-            if (!(toBePulledUpValue instanceof FieldValue)) {
-                if (value.semanticEquals(toBePulledUpValue, call.getEquivalenceMap())) {
-                    newMatchedValuesMap.put(toBePulledUpValue, ValueCompensation.noCompensation());
-                }
-            }
-        }
-        call.yieldValue(value, newMatchedValuesMap);
+        //
+        // Fuse the field values
+        //
+        final var fusedFieldValue =
+                FieldValue.ofFieldsAndFuseIfPossible(childValue, rootValue.getFieldPath());
+
+        final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
+        newMatchedValuesMap.put(fusedFieldValue, ValueCompensation.noCompensation());
+        call.yieldValue(fusedFieldValue, newMatchedValuesMap);
     }
 }

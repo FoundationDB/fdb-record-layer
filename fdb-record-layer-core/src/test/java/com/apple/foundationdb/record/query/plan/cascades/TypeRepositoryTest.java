@@ -241,7 +241,7 @@ class TypeRepositoryTest {
         final AbstractArrayConstructorValue.LightArrayConstructorValue arrayConstructorValue = (AbstractArrayConstructorValue.LightArrayConstructorValue)value;
         final Type resultType = arrayConstructorValue.getResultType();
         Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)), resultType);
-        final Object result = arrayConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
+        final Object result = arrayConstructorValue.evalWithoutStore(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof List);
         final List<?> list = (List<?>)result;
         Assertions.assertEquals(2, list.size());
@@ -259,7 +259,7 @@ class TypeRepositoryTest {
                 Type.Record.Field.of(INT_2.getResultType(), Optional.empty()),
                 Type.Record.Field.of(FLOAT_1.getResultType(), Optional.empty())
                 )), resultType);
-        final Object result = recordConstructorValue.compileTimeEval(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(recordConstructorValue.getResultType()).build()));
+        final Object result = recordConstructorValue.evalWithoutStore(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(recordConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof DynamicMessage);
         final DynamicMessage resultMessage = (DynamicMessage)result;
         Assertions.assertEquals(3, resultMessage.getAllFields().size());

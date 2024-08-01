@@ -52,7 +52,7 @@ public class EmptyValue extends AbstractValue implements LeafValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return Key.Evaluated.EMPTY;
     }
 

@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -40,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 
@@ -257,23 +257,32 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         final Value baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
         for (int i = 0; i < indexKeyValues.size(); i++) {
             final Value keyValue = indexKeyValues.get(i);
-            if (keyValue instanceof FieldValue && keyValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-                if (!addCoveringField(builder, (FieldValue)keyValue, fieldData)) {
-                    return Optional.empty();
-                }
+
+            final var extractFromIndexEntryPairOptional =
+                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
+                            IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+            if (extractFromIndexEntryPairOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                    extractFromIndexEntryPair.getValue())) {
+                return Optional.empty();
             }
         }
 
         for (int i = 0; i < indexValueValues.size(); i++) {
             final Value valueValue = indexValueValues.get(i);
-            if (valueValue instanceof FieldValue && valueValue.isFunctionallyDependentOn(baseObjectValue)) {
-                final AvailableFields.FieldData fieldData =
-                        AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
-                if (!addCoveringField(builder, (FieldValue)valueValue, fieldData)) {
-                    return Optional.empty();
-                }
+            final var extractFromIndexEntryPairOptional =
+                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
+                            IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
+            if (extractFromIndexEntryPairOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                    extractFromIndexEntryPair.getValue())) {
+                return Optional.empty();
             }
         }
 
@@ -322,29 +331,5 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
-    }
-
-    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                            @Nonnull FieldValue fieldValue,
-                                            @Nonnull AvailableFields.FieldData fieldData) {
-        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
-        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
-            if (maybeFieldName.isEmpty()) {
-                return false;
-            }
-            builder = builder.getFieldBuilder(maybeFieldName.get());
-        }
-
-        // TODO not sure what to do with the null standing requirement
-        final var maybeFieldName = fieldValue.getLastFieldName();
-        if (maybeFieldName.isEmpty()) {
-            return false;
-        }
-        final String fieldName = maybeFieldName.get();
-        if (!builder.hasField(fieldName)) {
-            builder.addField(fieldName, fieldData.getSource(),
-                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
-        }
-        return true;
     }
 }

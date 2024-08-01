@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -27,15 +28,20 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FromOrderedBytesValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.ImmutableIntArray;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +50,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * TODO.
+ * Test cases that test logic around the simplification of {@link Value} trees.
  */
 class ValueSimplificationTest {
     private static final CorrelationIdentifier ALIAS = CorrelationIdentifier.of("_");
@@ -401,6 +407,68 @@ class ValueSimplificationTest {
 
         Assertions.assertEquals(iFieldPulledUp, pulledUpValuesMap.get(iField));
         Assertions.assertEquals(bFieldPulledUp, pulledUpValuesMap.get(bField));
+    }
+
+    @Test
+    void testDeriveIndexKeyToPartialRecordValue1() {
+        final var qov = QuantifiedObjectValue.of(ALIAS, someRecordType());
+
+        // _.a.aa.aaa
+        final var _a_aa_aaa = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "aa", "aaa"));
+
+        final var resultOptional =
+                _a_aa_aaa.extractFromIndexEntryMaybe(qov, AliasMap.emptyMap(), ImmutableSet.of(),
+                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
+        Assertions.assertTrue(resultOptional.isPresent());
+        final var expectedResult = new IndexEntryObjectValue(Quantifier.current(), IndexKeyValueToPartialRecord.TupleSource.KEY,
+                ImmutableIntArray.of(1), Type.primitiveType(Type.TypeCode.STRING));
+        Assertions.assertEquals(_a_aa_aaa, resultOptional.get().getKey());
+        Assertions.assertEquals(expectedResult, resultOptional.get().getValue());
+    }
+
+    @Test
+    void testDeriveIndexKeyToPartialRecordValue2() {
+        final var qov = QuantifiedObjectValue.of(ALIAS, someRecordType());
+
+        // _.a.aa.aaa
+        final var _a_aa_aaa = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "aa", "aaa"));
+        final var toOrderingBytesValue = new ToOrderedBytesValue(_a_aa_aaa, TupleOrdering.Direction.DESC_NULLS_FIRST);
+
+        final var resultOptional =
+                toOrderingBytesValue.extractFromIndexEntryMaybe(qov, AliasMap.emptyMap(), ImmutableSet.of(),
+                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
+        final var expectedResult =
+                new FromOrderedBytesValue(new IndexEntryObjectValue(Quantifier.current(),
+                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1),
+                        Type.primitiveType(Type.TypeCode.STRING)),
+                TupleOrdering.Direction.DESC_NULLS_FIRST, Type.primitiveType(Type.TypeCode.STRING));
+        Assertions.assertTrue(resultOptional.isPresent());
+        Assertions.assertEquals(_a_aa_aaa, resultOptional.get().getKey());
+        Assertions.assertEquals(expectedResult, resultOptional.get().getValue());
+    }
+
+    @Test
+    void testDeriveIndexKeyToPartialRecordValue3() {
+        final var qov = QuantifiedObjectValue.of(ALIAS, someRecordType());
+
+        // _.a.aa
+        final var _a_aa = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "aa"));
+        // _.a.aa.aaa
+        final var _a_aa__aaa = FieldValue.ofFieldName(_a_aa, "aaa");
+        final var toOrderingBytesValue = new ToOrderedBytesValue(_a_aa__aaa, TupleOrdering.Direction.DESC_NULLS_FIRST);
+
+        final var resultOptional =
+                toOrderingBytesValue.extractFromIndexEntryMaybe(qov, AliasMap.emptyMap(), ImmutableSet.of(),
+                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
+        final var expectedResult =
+                new FromOrderedBytesValue(new IndexEntryObjectValue(Quantifier.current(),
+                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1),
+                        Type.primitiveType(Type.TypeCode.STRING)),
+                        TupleOrdering.Direction.DESC_NULLS_FIRST, Type.primitiveType(Type.TypeCode.STRING));
+        Assertions.assertTrue(resultOptional.isPresent());
+        final var _a_aa_aaa = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "aa", "aaa"));
+        Assertions.assertEquals(_a_aa_aaa, resultOptional.get().getKey());
+        Assertions.assertEquals(expectedResult, resultOptional.get().getValue());
     }
 
     @Nonnull

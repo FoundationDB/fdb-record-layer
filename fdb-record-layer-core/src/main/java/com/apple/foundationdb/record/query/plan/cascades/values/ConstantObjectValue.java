@@ -130,7 +130,7 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var obj = context.dereferenceConstant(alias, constantId);
         if (obj == null) {
             Verify.verify(getResultType().isNullable());

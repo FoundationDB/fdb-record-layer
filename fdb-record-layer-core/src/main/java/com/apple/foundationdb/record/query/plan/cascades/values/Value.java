@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -31,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ExtractFromIndexKeyValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
@@ -60,12 +61,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.S
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -81,7 +84,6 @@ import java.util.stream.Stream;
 /**
  * A scalar value type.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
@@ -150,20 +152,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
-     * evaluates computation of the expression at compile time and returns the result immediately.
+     * evaluates computation of the expression without a store and returns the result immediately.
      *
      * @param context The execution context.
      * @return The expression output.
      */
     @Nullable
     @SuppressWarnings({"java:S2637", "ConstantConditions"})
-    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
-    default Object compileTimeEval(@Nonnull final EvaluationContext context) {
+    default Object evalWithoutStore(@Nonnull final EvaluationContext context) {
         return eval(null, context);
     }
 
     @Nullable
-    <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    <M extends Message> Object eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     /**
      * Method to create a {@link QueryPredicate} that is based on this value and a
@@ -451,10 +452,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * A scalar value type that cannot be evaluated.
      */
     @API(API.Status.EXPERIMENTAL)
-    interface CompileTimeValue extends Value {
+    interface NonEvaluableValue extends Value {
         @Nullable
         @Override
-        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                                 @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is compile-time only and cannot be evaluated");
         }
@@ -477,7 +478,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     interface IndexOnlyValue extends Value {
         @Nullable
         @Override
-        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+        default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                                 @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is index-only and cannot be evaluated");
         }
@@ -548,7 +549,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             final var compensation = matchedValuesMap.get(toBePulledUpValue);
             if (compensation != null) {
                 resultsMap.put(toBePulledUpValue,
-                        compensation.compensate(upperBaseAlias,
+                        compensation.compensate(
                                 QuantifiedObjectValue.of(upperBaseAlias, this.getResultType())));
             }
         }
@@ -617,6 +618,34 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         } else {
             return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
         }
+    }
+
+    @Nonnull
+    default Optional<NonnullPair<FieldValue, Value>> extractFromIndexEntryMaybe(@Nonnull final Value baseValue,
+                                                                                @Nonnull final AliasMap aliasMap,
+                                                                                @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                                @Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
+                                                                                @Nonnull final ImmutableIntArray ordinalPath) {
+        final var resultPair =
+                Simplification.compute(this, baseValue, aliasMap, constantAliases,
+                        ExtractFromIndexKeyValueRuleSet.ofIndexKeyToPartialRecordValueRules());
+        if (resultPair == null) {
+            return Optional.empty();
+        }
+
+        final var matchedValuesMap = resultPair.getRight();
+        if (matchedValuesMap.size() != 1) {
+            return Optional.empty();
+        }
+
+        final var matchedEntry = Iterables.getOnlyElement(matchedValuesMap.entrySet());
+        final var matchedValue = matchedEntry.getKey();
+        final var matchedValueCompensation = matchedEntry.getValue();
+        Verify.verify(matchedValue instanceof FieldValue);
+
+        return Optional.of(NonnullPair.of((FieldValue)matchedValue,
+                matchedValueCompensation.compensate(new IndexEntryObjectValue(Quantifier.current(), source,
+                        ordinalPath, matchedValue.getResultType()))));
     }
 
     @Nonnull

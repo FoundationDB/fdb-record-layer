@@ -454,9 +454,10 @@ message PIndexedValue {
 }
 
 message PIndexEntryObjectValue {
-  optional PIndexKeyValueToPartialRecord.PTupleSource source = 1;
-  repeated int32 ordinal_path = 2;
-  optional PType result_type = 3;
+  optional string index_entry_alias = 1;
+  optional PIndexKeyValueToPartialRecord.PTupleSource source = 2;
+  repeated int32 ordinal_path = 3;
+  optional PType result_type = 4;
 }
 
 message PIndexOnlyAggregateValue {  // abstract
@@ -1193,6 +1194,7 @@ message PIndexKeyValueToPartialRecord {
       google.protobuf.Any additional_copiers = 1;
       PFieldCopier field_copier = 2;
       PMessageCopier message_copier = 3;
+      PFieldWithValueCopier field_with_value_copier = 4;
     }
   }
 
@@ -1230,6 +1232,13 @@ message PIndexKeyValueToPartialRecord {
   message PMessageCopier {
     optional string field = 1;
     optional PIndexKeyValueToPartialRecord nested = 2;
+  }
+
+  message PFieldWithValueCopier {
+    optional string index_entry_alias = 1;
+    optional PQueryPredicate copy_if_predicate = 2;
+    optional PValue extractFromIndexEntryValue = 3;
+    optional string field = 4;
   }
 
   repeated PCopier copiers = 1;

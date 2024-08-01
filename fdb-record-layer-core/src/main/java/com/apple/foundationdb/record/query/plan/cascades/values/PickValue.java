@@ -99,7 +99,7 @@ public class PickValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var boxedSelectedIndex = (Integer)selectorValue.eval(store, context);
         if (boxedSelectedIndex == null) {
             return null;

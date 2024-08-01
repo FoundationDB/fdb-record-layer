@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class DerivedValue extends AbstractValue implements Value.CompileTimeValue {
+public class DerivedValue extends AbstractValue implements Value.NonEvaluableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Derived-Value");
 
     @Nonnull

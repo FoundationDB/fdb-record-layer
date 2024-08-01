@@ -278,7 +278,12 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
-    <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    default <M extends Message> Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+        return eval(null, context);
+    }
+
+    @Nullable
+    <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
 
     @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();

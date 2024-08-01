@@ -113,7 +113,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final var childResult = (ByteString)Objects.requireNonNull(child.eval(store, context));
         final Object result = TupleOrdering.unpack(childResult.toByteArray(), direction).get(0);

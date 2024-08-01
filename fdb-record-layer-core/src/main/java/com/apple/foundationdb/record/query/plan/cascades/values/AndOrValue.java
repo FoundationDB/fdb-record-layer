@@ -173,7 +173,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            @Nonnull final EvaluationContext context) {
         final Object leftResult = leftChild.eval(store, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(leftResult)) {

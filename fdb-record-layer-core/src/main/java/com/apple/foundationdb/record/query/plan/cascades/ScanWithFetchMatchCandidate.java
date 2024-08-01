@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -31,7 +33,6 @@ import java.util.Optional;
  * Interface to represent a candidate that replaces with an index scan.
  */
 public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidate {
-
     @Nonnull
     Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                           @Nonnull CorrelationIdentifier sourceAlias,
@@ -79,5 +80,64 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             // optimization.
             return false;
         }
+    }
+
+    static boolean addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
+                                    @Nonnull final FieldValue fieldValue,
+                                    @Nonnull final AvailableFields.FieldData fieldData) {
+        final var parentBuilderForFieldOptional = getParentBuilderForFieldMaybe(builder, fieldValue);
+        if (parentBuilderForFieldOptional.isEmpty()) {
+            return false;
+        }
+
+        final var parentBuilderForField = parentBuilderForFieldOptional.get();
+
+        // TODO not sure what to do with the null standing requirement
+        final var maybeFieldName = fieldValue.getLastFieldName();
+        if (maybeFieldName.isEmpty()) {
+            return false;
+        }
+        final String fieldName = maybeFieldName.get();
+        if (!parentBuilderForField.hasField(fieldName)) {
+            parentBuilderForField.addField(fieldName, fieldData.getSource(),
+                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
+        }
+        return true;
+    }
+
+    static boolean addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
+                                    @Nonnull final FieldValue fieldValue,
+                                    @Nonnull final Value extractFromIndexEntryValue) {
+        final var parentBuilderForFieldOptional = getParentBuilderForFieldMaybe(builder, fieldValue);
+        if (parentBuilderForFieldOptional.isEmpty()) {
+            return false;
+        }
+
+        final var parentBuilderForField = parentBuilderForFieldOptional.get();
+
+        // TODO not sure what to do with the null standing requirement
+        final var maybeFieldName = fieldValue.getLastFieldName();
+        if (maybeFieldName.isEmpty()) {
+            return false;
+        }
+        final String fieldName = maybeFieldName.get();
+        if (!parentBuilderForField.hasField(fieldName)) {
+            parentBuilderForField.addField(fieldName, extractFromIndexEntryValue);
+        }
+        return true;
+    }
+
+    @Nonnull
+    private static Optional<IndexKeyValueToPartialRecord.Builder> getParentBuilderForFieldMaybe(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                                                                                @Nonnull final FieldValue fieldValue) {
+        // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
+        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
+            if (maybeFieldName.isEmpty()) {
+                return Optional.empty();
+            }
+            builder = builder.getFieldBuilder(maybeFieldName.get());
+        }
+
+        return Optional.of(builder);
     }
 }

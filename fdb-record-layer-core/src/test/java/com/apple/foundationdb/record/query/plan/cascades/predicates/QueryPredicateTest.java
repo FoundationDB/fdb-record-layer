@@ -120,7 +120,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate TRUE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return Boolean.TRUE;
         }
 
@@ -140,7 +140,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate FALSE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return Boolean.FALSE;
         }
 
@@ -160,7 +160,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate NULL = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
             return null;
         }
 
