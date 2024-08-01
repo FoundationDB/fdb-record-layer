@@ -475,8 +475,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                     index,
                     LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                List<Tuple> primaryKeys = cursor.asList()
-                        .join()
+                List<Tuple> primaryKeys = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList())
                         .stream()
                         .map(IndexEntry::getPrimaryKey)
                         .collect(Collectors.toList());
@@ -549,7 +548,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                                 index,
                                 LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                            List<IndexEntry> matches = cursor.asList().join();
+                            List<IndexEntry> matches = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
+                                    cursor.asList());
                             assertFalse(matches.isEmpty());
                         }
 
