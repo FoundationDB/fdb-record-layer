@@ -74,6 +74,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -167,7 +168,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
-    AsyncLockRegistry asyncLockRegistry = new AsyncLockRegistry();
+    private final AsyncLockRegistry asyncLockRegistry = new AsyncLockRegistry();
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -1511,11 +1512,19 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 .thenApply(vignore -> result);
     }
 
-    public CompletableFuture<Void> getReadLock(@Nonnull AsyncLockRegistry.LockIdentifier identifier, CompletableFuture<Void> taskFuture) {
-        return asyncLockRegistry.getReadLock(identifier, taskFuture);
+    public <T> CompletableFuture<T> acquireReadLock(@Nonnull AsyncLockRegistry.LockIdentifier id, Function<AsyncLockRegistry.AsyncLock, T> operation) {
+        return asyncLockRegistry.acquireReadLock(id, operation);
     }
 
-    public CompletableFuture<Void> getWriteLock(@Nonnull AsyncLockRegistry.LockIdentifier identifier, CompletableFuture<Void> taskFuture) {
-        return asyncLockRegistry.getWriteLock(identifier, taskFuture);
+    public <T> CompletableFuture<T> acquireWriteLock(@Nonnull AsyncLockRegistry.LockIdentifier id, Function<AsyncLockRegistry.AsyncLock, T> operation) {
+        return asyncLockRegistry.acquireWriteLock(id, operation);
+    }
+
+    public <T> CompletableFuture<T> doWithReadLock(AsyncLockRegistry.LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
+        return asyncLockRegistry.doWithReadLock(id, operation);
+    }
+
+    public <T> CompletableFuture<T> doWithWriteLock(AsyncLockRegistry.LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
+        return asyncLockRegistry.doWithWriteLock(id, operation);
     }
 }

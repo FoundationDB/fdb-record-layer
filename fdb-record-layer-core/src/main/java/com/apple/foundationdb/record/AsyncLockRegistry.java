@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record;
 
-import com.apple.foundationdb.record.util.pair.ImmutablePair;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -31,35 +31,51 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 /**
  * The {@link AsyncLockRegistry} keeps track of locking over resources in the context of a single transaction. In
- * essence, it maps a resource (by means of a {@link LockIdentifier}) to a data-structure that keeps account of
- * outstanding read and write tasks on that resource.
+ * essence, it maps a resource (by means of a {@link LockIdentifier}) to the latest {@link AsyncLock} that has been
+ * assigned on that resource.
  *
- * The consumer interacts with the registry through {@link AsyncLockRegistry#getReadLock} and
- * {@link AsyncLockRegistry#getWriteLock} that schedule tasks and return wait {@link CompletableFuture}s. These methods
- * take in a resource identifier {@link LockIdentifier} and a taskLock.The taskLock is a {@link CompletableFuture} that
- * is required to be marked complete by the caller when the task is done to "leave" the lock. The methods also return a
- * waitLock {@link CompletableFuture} that itself get marked complete when all dependant backlog tasks for the resource
- * has completed.
+ * There are 2 set of methods to interact with the registry:
+ * <ul>
+ *     <li>acquire: {@link AsyncLockRegistry#acquireReadLock} and {@link AsyncLockRegistry#acquireWriteLock}</li>
+ *     <li>do: {@link AsyncLockRegistry#doWithReadLock} and {@link AsyncLockRegistry#doWithWriteLock}</li>
+ * </ul>
+ * While the acquire methods hands over the lock to the consumer, thereby expecting the consumer to release the lock
+ * on completion of the task, the do method abstracts the lock management. Typically, acquire is only to be used in case
+ * if the task requires cannot be completed atomically and requires persisting the lock to be released later. For
+ * everything else, do methods offer a more abstract way of dealing with locks.
  *
- * Hence, the caller can schedule a task as:
+ * The sample usage with do method can be:
  * <pre>{@code
- *      final var taskLock = new CompletableFuture<Void>();
- *      registry.getWriteLock(identifier, taskLock)
- *          .thenComposeAsync(ignore -> {
- *              // do your task...
- *          })
- *          .thenRun(() -> taskLock.complete(null));
+ *      final CompletableFuture<Void> task = registry.doWithReadLock(identifier, () -> {
+ *          // do your task...
+ *      });
  * }</pre>
  *
- */
+ * The usage with the acquire methods is more involved as it expects the caller to provide a function that will hand off
+ * the produced {@link AsyncLock} to its owner for managing. An illustrative example:
+ * <pre>{@code
+ *      final var lockRef = new AtomicReference<AsyncLock>();
+ *      final CompletableFuture<Void> lock = registry.acquireWithReadLock(identifier, asyncLock -> {
+ *          // hand off the lock to owner
+ *          lockRef.set(asyncLock)
+ *      });
+ *      lock.thenCompose(ignore -> {
+ *          // do your task...
+ *      }).whenComplete((ignore, error) -> {
+ *          lockRef.get().release();
+ *      })
+ *
+ * NOTE: Since the lock is handed-off to the owner, care should be taken to release it after the task has been completed.
+ *
+ * }</pre> */
 public class AsyncLockRegistry {
 
-    private static final CompletableFuture<Void> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
-
-    private static final AsyncLock NO_LOCKING_LOCK = new AsyncLock(COMPLETED_FUTURE, COMPLETED_FUTURE);
+    private static final AsyncLock NO_LOCKING_LOCK = new AsyncLock(AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE);
 
     /**
      * Tuple-based identifier used to locate a resource in the {@link AsyncLockRegistry}.
@@ -67,6 +83,7 @@ public class AsyncLockRegistry {
     public static class LockIdentifier {
         @Nonnull
         private final Subspace lockingSubspace;
+        private final Supplier<Integer> memoizedHashCode = Suppliers.memoize(this::calculateHashCode);
 
         public LockIdentifier(@Nonnull Subspace lockingSubspace) {
             this.lockingSubspace = lockingSubspace;
@@ -86,76 +103,148 @@ public class AsyncLockRegistry {
             return lockingSubspace.equals(((LockIdentifier) obj).lockingSubspace);
         }
 
+        private int calculateHashCode() {
+            return Objects.hashCode(lockingSubspace);
+        }
+
         @Override
         public int hashCode() {
-            return Objects.hashCode(lockingSubspace);
+            return memoizedHashCode.get();
         }
     }
 
     /**
-     * Structure to keep the current state of requested locks on a particular resource by means of read and write
-     * {@link CompletableFuture}s on backlog tasks.
+     * Structure to maintain the current state of requested locks on a particular resource.
      */
     public static class AsyncLock {
-        private final CompletableFuture<Void> reads;
-        private final CompletableFuture<Void> writes;
+        private final CompletableFuture<Void> pendingReads;
+        private final CompletableFuture<Void> pendingWrites;
+        private final CompletableFuture<Void> taskFuture;
+        private final CompletableFuture<Void> waitFuture;
 
-        private AsyncLock(@Nonnull CompletableFuture<Void> reads, @Nonnull CompletableFuture<Void> writes) {
-            this.reads = reads;
-            this.writes = writes;
+        private AsyncLock(@Nonnull CompletableFuture<Void> pendingReads, @Nonnull CompletableFuture<Void> pendingWrites,
+                          @Nonnull CompletableFuture<Void> taskFuture, @Nonnull CompletableFuture<Void> waitFuture) {
+            this.pendingReads = pendingReads;
+            this.pendingWrites = pendingWrites;
+            this.taskFuture = taskFuture;
+            this.waitFuture = waitFuture;
         }
 
         /**
-         * Constructs a new {@link AsyncLock} from the calling lock by stacking the new read future to its backlog tasks.
+         * Constructs a new {@link AsyncLock} from the calling lock by stacking the new read future to its pending tasks.
          *
-         * @param taskFuture the {@link CompletableFuture} to complete when the lock has to be released.
-         *
-         * @return A pair of the new {@link AsyncLock} and the {@link CompletableFuture} that is completed when the
-         * backlog tasks are done and the current new read task can begin executing. The new read task can begin only after
-         * all the existing write tasks have been completed, to maintain exclusivity. However, the read task can begin
-         * concurrently with other read tasks that themselves should start after all write tasks.
+         * @return A pair of the new {@link AsyncLock} to be handed over to the consumer.
          */
-        private Pair<CompletableFuture<Void>, AsyncLock> withNewRead(CompletableFuture<Void> taskFuture) {
-            final var waitFuture = writes;
-            final var newReadFuture = CompletableFuture.allOf(reads, waitFuture.thenCompose(ignore -> taskFuture));
-            return ImmutablePair.of(waitFuture, new AsyncLock(newReadFuture, writes));
+        private AsyncLock withNewRead() {
+            final var waitFuture = pendingWrites;
+            final var taskFuture = new CompletableFuture<Void>();
+            final var newPendingReads = CompletableFuture.allOf(this.pendingReads, waitFuture.thenCompose(ignore -> taskFuture));
+            return new AsyncLock(newPendingReads, this.pendingWrites, taskFuture, waitFuture);
         }
 
         /**
-         * Constructs a new {@link AsyncLock} from the calling lock by stacking the new write future to its backlog tasks.
+         * Constructs a new {@link AsyncLock} from the calling lock by stacking the new write future to its pending tasks.
          *
-         * @param taskFuture the {@link CompletableFuture} to complete when the lock has to be released.
-         *
-         * @return A pair of the new {@link AsyncLock} and the {@link CompletableFuture} that is completed when the
-         * backlog tasks are done and the current new write task can begin executing. The new write task can begin only after
-         * all the existing write tasks have been completed, to maintain exclusivity. It should also wait for one of more
-         * read tasks that can happen concurrently.
+         * @return A pair of the new {@link AsyncLock} to be handed over to the consumer.
          */
-        private Pair<CompletableFuture<Void>, AsyncLock> withNewWrite(CompletableFuture<Void> taskFuture) {
-            final var waitFuture = CompletableFuture.allOf(reads, writes);
-            final var newWriteFuture = waitFuture.thenCompose(ignore -> taskFuture);
-            return ImmutablePair.of(waitFuture, new AsyncLock(COMPLETED_FUTURE, newWriteFuture));
+        private AsyncLock withNewWrite() {
+            final var waitFuture = CompletableFuture.allOf(this.pendingReads, this.pendingWrites);
+            final var taskFuture = new CompletableFuture<Void>();
+            final var newPendingWrites = waitFuture.thenCompose(ignore -> taskFuture);
+            return new AsyncLock(AsyncUtil.DONE, newPendingWrites, taskFuture, waitFuture);
+        }
+
+        private CompletableFuture<Void> asyncWait() {
+            return waitFuture;
+        }
+
+        /**
+         * Checks if the lock is still not released. This is conceptually different from the scenario when the lock is
+         * granted. The access to the resource is granted only after {@link AsyncLock#asyncWait()} is completed and
+         * this method returns false.
+         */
+        public boolean isLockNotReleased() {
+            return !taskFuture.isDone();
+        }
+
+        /**
+         * Releases the lock. The owner of this {@link AsyncLock} should be calling this method to signal completion
+         * of their task for which they required the lock.
+         */
+        public void release() {
+            taskFuture.complete(null);
         }
     }
 
-    Map<LockIdentifier, AtomicReference<AsyncLock>> heldLocks = new ConcurrentHashMap<>();
+    @Nonnull
+    private final Map<LockIdentifier, AtomicReference<AsyncLock>> heldLocks = new ConcurrentHashMap<>();
 
-    public CompletableFuture<Void> getReadLock(@Nonnull LockIdentifier identifier, CompletableFuture<Void> taskFuture) {
-        return updateRefAndGetFuture(identifier, (parentLock) -> parentLock.withNewRead(taskFuture));
+    /**
+     * Attempts to get access for performing read operations on the resource represented by the id and returns a
+     * {@link CompletableFuture} of the owning object that will be completed after the access has been granted followed
+     * by the operation being completed.
+
+     * @param <T> owning class for the granted {@link AsyncLock}.
+     * @param id the {@link LockIdentifier} for the resource.
+     * @param operation the function that performs the hand-off of the {@link AsyncLock} to the owning object.
+     * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
+     */
+    public <T> CompletableFuture<T> acquireReadLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
+        final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewRead);
+        System.out.println("read lock");
+        return lock.asyncWait().thenApply(ignore -> operation.apply(lock));
     }
 
-    public CompletableFuture<Void> getWriteLock(@Nonnull LockIdentifier identifier, CompletableFuture<Void> taskFuture) {
-        return updateRefAndGetFuture(identifier, (parentLock) -> parentLock.withNewWrite(taskFuture));
+    /**
+     * Attempts to get access for performing write operations on the resource represented by the id and returns a
+     * {@link CompletableFuture} of the owning object that will be completed after the access has been granted followed
+     * by the operation being completed.
+
+     * @param <T> owning class for the granted {@link AsyncLock}.
+     * @param id the {@link LockIdentifier} for the resource.
+     * @param operation the function that performs the hand-off of the {@link AsyncLock} to the owning object.
+     * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
+     */
+    public <T> CompletableFuture<T> acquireWriteLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
+        final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewWrite);
+        System.out.println("write lock");
+        return lock.asyncWait().thenApply(ignore -> operation.apply(lock));
     }
 
-    private CompletableFuture<Void> updateRefAndGetFuture(@Nonnull LockIdentifier identifier, Function<AsyncLock, Pair<CompletableFuture<Void>, AsyncLock>> getNewLock) {
+    /**
+     * Attempts to get access for read access on the resource represented by the id to perform an atomic operation. It
+     * leaves the lock after the operation is completed.
+
+     * @param <T> type of the value returned from the future of operation.
+     * @param id the {@link LockIdentifier} for the resource.
+     * @param operation to be called after the access is granted.
+     * @return the {@link CompletableFuture} of T which is the result of the operaion.
+     */
+    public <T> CompletableFuture<T> doWithReadLock(LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
+        final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewRead);
+        System.out.println("read lock");
+        return lock.asyncWait().thenCompose(ignore -> operation.get())
+                .whenComplete((ignore, err) -> lock.release());
+    }
+
+    /**
+     * Attempts to get access for write access on the resource represented by the id to perform an atomic operation. It
+     * leaves the lock after the operation is completed.
+
+     * @param <T> type of the value returned from the future of operation.
+     * @param id the {@link LockIdentifier} for the resource.
+     * @param operation to be called after the access is granted.
+     * @return the {@link CompletableFuture} of T which is the result of the operaion.
+     */
+    public <T> CompletableFuture<T> doWithWriteLock(LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
+        final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewWrite);
+        System.out.println("write lock");
+        return lock.asyncWait().thenCompose(ignore -> operation.get())
+                .whenComplete((ignore, err) -> lock.release());
+    }
+
+    private AsyncLock updateRefAndGetNewLock(@Nonnull LockIdentifier identifier, UnaryOperator<AsyncLock> getNewLock) {
         final var parentLockRef = heldLocks.computeIfAbsent(identifier, ignore -> new AtomicReference<>(NO_LOCKING_LOCK));
-        AsyncLock parentLock;
-        Pair<CompletableFuture<Void>, AsyncLock> waitFutureAndNewLock;
-        do {
-            parentLock = parentLockRef.get();
-            waitFutureAndNewLock = getNewLock.apply(parentLock);
-        } while (!parentLockRef.compareAndSet(parentLock, waitFutureAndNewLock.getRight()));
-        return waitFutureAndNewLock.getLeft();
+        return parentLockRef.updateAndGet(getNewLock);
     }
 }

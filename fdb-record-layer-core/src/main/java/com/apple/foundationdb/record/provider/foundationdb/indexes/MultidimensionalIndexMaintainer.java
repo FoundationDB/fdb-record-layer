@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.AsyncLockCursor;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -153,12 +154,12 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId,
                                     OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
-                            final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                                    rTree.scan(transaction, lastHilbertValue, lastKey,
-                                            mDScanBounds::overlapsMbrApproximately,
-                                            (low, high) -> mDScanBounds.getSuffixRange().overlaps(low, high)),
-                                            cursorLimitManager, timer);
-                            return new AsyncLockCursor<>(new AsyncLockRegistry.LockIdentifier(rtSubspace), state.context, itemSlotCursor, true)
+                            return new LazyCursor<>(state.context.acquireReadLock(new AsyncLockRegistry.LockIdentifier(rtSubspace),
+                                    (lock) -> new AsyncLockCursor<>(lock, new ItemSlotCursor(getExecutor(),
+                                            rTree.scan(transaction, lastHilbertValue, lastKey,
+                                                    mDScanBounds::overlapsMbrApproximately,
+                                                    (low, high) -> mDScanBounds.getSuffixRange().overlaps(low, high)),
+                                            cursorLimitManager, timer))), state.context.getExecutor())
                                     .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
                                                         itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) > 0)
                                     .filter(itemSlot -> mDScanBounds.containsPosition(itemSlot.getPosition()))
@@ -266,8 +267,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 rtSubspace = indexSubspace;
                 rtNodeSlotIndexSubspace = nodeSlotIndexSubspace;
             }
-            final var writeCompletableFuture = new CompletableFuture<Void>();
-            return state.context.getWriteLock(new AsyncLockRegistry.LockIdentifier(rtSubspace), writeCompletableFuture).thenCompose(ignore -> {
+            return state.context.doWithWriteLock(new AsyncLockRegistry.LockIdentifier(rtSubspace), () -> {
                 final RTree.Point point =
                         validatePoint(new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize))));
 
@@ -288,14 +288,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                             point,
                             keySuffix,
                             indexEntry.getValue());
-                }
-            }).whenComplete((ignore, throwable) -> {
-                writeCompletableFuture.complete(null);
-                if (throwable != null) {
-                    // "... if this stage completed exceptionally and the supplied action throws an exception, then the
-                    // returned stage completes exceptionally with this stage's exception."
-                    // See: https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html#whenComplete(java.util.function.BiConsumer)
-                    throw new RuntimeException();
                 }
             });
         }).collect(Collectors.toList());

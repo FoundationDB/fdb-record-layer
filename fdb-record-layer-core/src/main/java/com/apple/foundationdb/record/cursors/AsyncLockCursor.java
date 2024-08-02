@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.AsyncLockRegistry;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
@@ -41,28 +42,37 @@ import java.util.concurrent.Executor;
 @API(API.Status.MAINTAINED)
 public class AsyncLockCursor<T> implements RecordCursor<T> {
     @Nonnull
+    private final AsyncLockRegistry.AsyncLock lock;
+    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
-    private final CompletableFuture<Void> taskFuture;
-    @Nonnull
-    private final CompletableFuture<Void> waitFuture;
+    private boolean innerExhausted = false;
 
-    public AsyncLockCursor(@Nonnull AsyncLockRegistry.LockIdentifier identifier, @Nonnull FDBRecordContext context, @Nonnull RecordCursor<T> inner, boolean forRead) {
+    public AsyncLockCursor(@Nonnull AsyncLockRegistry.AsyncLock lock, @Nonnull RecordCursor<T> inner) {
         this.inner = inner;
-        taskFuture = new CompletableFuture<>();
-        waitFuture = forRead ? context.getReadLock(identifier, taskFuture) : context.getWriteLock(identifier, taskFuture);
+        this.lock = lock;
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        return waitFuture.thenComposeAsync(ignore -> inner.onNext());
+        if (!lock.isLockNotReleased()) {
+            if (!innerExhausted && !isClosed()) {
+                throw new RecordCoreException("AsyncLockCursor: lock released before the downstream cursor is exhausted or closed.");
+            }
+        }
+        return inner.onNext().thenApply(result -> {
+            if (!result.hasNext()) {
+                innerExhausted = true;
+                lock.release();
+            }
+            return result;
+        });
     }
 
     @Override
     public void close() {
         inner.close();
-        taskFuture.complete(null);
+        lock.release();
     }
 
     @Override
