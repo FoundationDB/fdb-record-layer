@@ -77,6 +77,9 @@ public class AsyncLockRegistry {
 
     private static final AsyncLock NO_LOCKING_LOCK = new AsyncLock(AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE);
 
+    @Nonnull
+    private final Map<LockIdentifier, AtomicReference<AsyncLock>> heldLocks = new ConcurrentHashMap<>();
+
     /**
      * Tuple-based identifier used to locate a resource in the {@link AsyncLockRegistry}.
      */
@@ -178,9 +181,6 @@ public class AsyncLockRegistry {
         }
     }
 
-    @Nonnull
-    private final Map<LockIdentifier, AtomicReference<AsyncLock>> heldLocks = new ConcurrentHashMap<>();
-
     /**
      * Attempts to get access for performing read operations on the resource represented by the id and returns a
      * {@link CompletableFuture} of the owning object that will be completed after the access has been granted followed
@@ -193,7 +193,6 @@ public class AsyncLockRegistry {
      */
     public <T> CompletableFuture<T> acquireReadLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
         final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewRead);
-        System.out.println("read lock");
         return lock.asyncWait().thenApply(ignore -> operation.apply(lock));
     }
 
@@ -209,7 +208,6 @@ public class AsyncLockRegistry {
      */
     public <T> CompletableFuture<T> acquireWriteLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
         final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewWrite);
-        System.out.println("write lock");
         return lock.asyncWait().thenApply(ignore -> operation.apply(lock));
     }
 
@@ -224,7 +222,6 @@ public class AsyncLockRegistry {
      */
     public <T> CompletableFuture<T> doWithReadLock(LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
         final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewRead);
-        System.out.println("read lock");
         return lock.asyncWait().thenCompose(ignore -> operation.get())
                 .whenComplete((ignore, err) -> lock.release());
     }
@@ -240,7 +237,6 @@ public class AsyncLockRegistry {
      */
     public <T> CompletableFuture<T> doWithWriteLock(LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
         final var lock = updateRefAndGetNewLock(id, AsyncLock::withNewWrite);
-        System.out.println("write lock");
         return lock.asyncWait().thenCompose(ignore -> operation.get())
                 .whenComplete((ignore, err) -> lock.release());
     }
