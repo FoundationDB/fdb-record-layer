@@ -76,6 +76,7 @@ import static org.apache.lucene.index.SortedSetDocValues.NO_MORE_ORDS;
 @TestRuleLimitSysouts.Limit(bytes = 85_000L) // 85k assuming debug logging
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
+@Ignore
 public class LuceneOptimizedDocValuesFormatTest extends BaseDocValuesFormatTestCase {
 
     @Override

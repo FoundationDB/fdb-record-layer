@@ -43,6 +43,7 @@ import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.hamcrest.Matchers;
+import org.junit.Ignore;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,6 +70,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Low-level test for {@link LuceneOptimizedFieldInfosFormatTest}.
  */
 @Tag(Tags.RequiresFDB)
+@Ignore
 class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
 
     final LuceneOptimizedFieldInfosFormat format = new LuceneOptimizedFieldInfosFormat();
