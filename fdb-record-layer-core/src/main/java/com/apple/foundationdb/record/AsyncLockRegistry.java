@@ -162,6 +162,8 @@ public class AsyncLockRegistry {
          * Checks if the lock is still not released. This is conceptually different from the scenario when the lock is
          * granted. The access to the resource is granted only after {@link AsyncLock#asyncWait()} is completed and
          * this method returns false.
+         *
+         * @return {@code true} if the lock is still held, else {@code false}.
          */
         public boolean isLockNotReleased() {
             return !taskFuture.isDone();
