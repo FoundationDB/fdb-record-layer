@@ -94,6 +94,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
@@ -239,13 +240,12 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         return metaDataBuilder;
     }
 
-    public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final List<String> calendarNames, final int numSamples)  {
-        final Random random = new Random(seed);
+    private Function<Integer, Message> getRecordGenerator(@Nonnull Random random, @Nonnull List<String> calendarNames) {
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationCutOff = 30L * 60L; // meetings are at least 30 minutes long
         final long durationStandardDeviation = 60L * 60L;
         final long expirationStandardDeviation = 24L * 60L * 60L;
-        final Function<Integer, CompletableFuture<FDBStoredRecord<Message>>> consumer = recNo -> {
+        return recNo -> {
             final String calendarName = calendarNames.get(random.nextInt(calendarNames.size()));
             final long startEpoch = (long)(random.nextGaussian() * epochStandardDeviation) + epochMean;
             final long endEpoch = startEpoch + durationCutOff + (long)(Math.abs(random.nextGaussian()) * durationStandardDeviation);
@@ -253,16 +253,20 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             Verify.verify(duration > 0L);
             final long expirationEpoch = endEpoch + expirationCutOff + (long)(Math.abs(random.nextGaussian()) * expirationStandardDeviation);
             logRecord(calendarName, startEpoch, endEpoch, expirationEpoch);
-            final Message record =
-                    TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
-                            .setRecNo(recNo)
-                            .setCalendarName(calendarName)
-                            .setStartEpoch(startEpoch)
-                            .setEndEpoch(endEpoch)
-                            .setExpirationEpoch(expirationEpoch)
-                            .build();
-            return recordStore.saveRecordAsync(record);
+            return TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
+                    .setRecNo(recNo)
+                    .setCalendarName(calendarName)
+                    .setStartEpoch(startEpoch)
+                    .setEndEpoch(endEpoch)
+                    .setExpirationEpoch(expirationEpoch)
+                    .build();
         };
+    }
+
+    public void loadRecords(@Nonnull final RecordMetaDataHook hook, final long seed, final List<String> calendarNames, final int numSamples)  {
+        final Random random = new Random(seed);
+        final var recordGenerator = getRecordGenerator(random, calendarNames);
+        final Function<Integer, CompletableFuture<FDBStoredRecord<Message>>> consumer = recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo));
         Assertions.assertDoesNotThrow(() -> batch(hook, numSamples, 500, consumer));
     }
 
@@ -273,9 +277,11 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 openRecordStore(context, hook);
                 int recNoInBatch;
                 final var futures = new ArrayList<CompletableFuture<T>>();
+
                 for (recNoInBatch = 0; numRecordsCommitted + recNoInBatch < numRecords && recNoInBatch < batchSize; recNoInBatch++) {
                     futures.add(recordConsumer.apply(numRecordsCommitted + recNoInBatch));
                 }
+
                 // wait and then commit
                 AsyncUtil.whenAll(futures).get();
                 commit(context);
@@ -429,6 +435,67 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             assertEquals("business", recordBuilder.getCalendarName());
             commit(context);
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForBasicReads")
+    void concurrentReadsAndWrites(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) {
+        final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
+                storeHilbertValues, useNodeSlotIndex);
+        final RecordQueryIndexPlan indexPlan =
+                new RecordQueryIndexPlan("EventIntervals",
+                        new HypercubeScanParameters("business",
+                                (Long)null, null,
+                                null, null),
+                        false);
+        final var random = new Random(System.currentTimeMillis());
+        final var expectedMessages = new HashSet<Message>();
+        var writeNum = 0;
+        try (final var context = openContext()) {
+            final var writeFutures = new ArrayList<CompletableFuture<FDBStoredRecord<Message>>>();
+            final var readFutures = new ArrayList<CompletableFuture<Void>>();
+            openRecordStore(context, additionalIndex);
+            for (int i = 0; i < 50; i++) {
+                if (random.nextBoolean()) {
+                    // write single record.
+                    writeFutures.add(recordStore.saveRecordAsync(getRecordGenerator(random, ImmutableList.of("business")).apply(writeNum++)));
+                } else {
+                    // read all records inserted.
+                    readFutures.add(CompletableFuture.runAsync(() -> {
+                        try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
+                            while (true) {
+                                var result = cursor.onNext().get();
+                                if (!result.hasNext()) {
+                                    return;
+                                }
+                            }
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    }, context.getExecutor()));
+                }
+            }
+            // Assert no failures in any issued writes and reads.
+            Assertions.assertDoesNotThrow(() -> AsyncUtil.whenAll(writeFutures).get());
+            Assertions.assertDoesNotThrow(() -> AsyncUtil.whenAll(readFutures).get());
+            context.commit();
+            for (var future: writeFutures) {
+                expectedMessages.add(future.get().getRecord());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        // Assert that the index have all written records intact.
+        final var actualMessages = new HashSet<Message>();
+        try (final var context = openContext()) {
+            openRecordStore(context, additionalIndex);
+            try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
+                cursor.asStream().forEach(result -> actualMessages.add(result.getMessage()));
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        Assertions.assertEquals(expectedMessages, actualMessages);
     }
 
     @ParameterizedTest
