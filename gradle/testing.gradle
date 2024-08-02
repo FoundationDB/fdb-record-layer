@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+import java.util.regex.Matcher;
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
 jacoco {
@@ -27,6 +28,24 @@ jacocoTestReport {
     reports {
         xml.required = true
     }
+}
+def getStorageEngine() {
+    def fdbStatus = new ProcessBuilder('fdbcli', '--exec', 'status')
+        .redirectErrorStream(true)
+        .start()
+    fdbStatus.waitFor()
+    if (fdbStatus.exitValue() != 0) {
+        println(fdbStatus.text)
+        throw new RuntimeException('fdbcli failed')
+    }
+    def output = fdbStatus.text
+    def matcher = output =~ /\s+Storage engine\s+- (?<engine>memory|ssd-2)/
+    if (!matcher.find()) {
+        println(output)
+        println((output =~ /Storage engine/).find())
+        throw new RuntimeException('no storage engine match')
+    }
+    return matcher.group("engine")
 }
 
 test {
@@ -83,6 +102,28 @@ def configureTestTask = { propertyPrefix, task ->
                    propertyPrefix + '.maxParallelForks',
                    propertyPrefix + '.exclude',
                    propertyPrefix + '.forkEvery']
+    
+    def storageEngine = getStorageEngine()
+    if (storageEngine != "ssd-2") {
+        println("Storage engine is currently $storageEngine")
+        def change = new ProcessBuilder('fdbcli', '--exec', 'configure storage_migration_type=aggressive')
+            .redirectErrorStream(true)
+            .start()
+        change.waitFor()
+        println(change.exitValue())
+        println(change.text)
+        change = new ProcessBuilder('fdbcli', '--exec', 'configure single ssd-2')
+            .redirectErrorStream(true)
+            .start()
+        change.waitFor()
+        println(change.exitValue())
+        println(change.text)
+        do {
+            Thread.sleep(1000)
+            storageEngine = getStorageEngine()
+            println("Storage engine is $storageEngine")
+        } while (storageEngine != "ssd-2");
+    }
     System.properties.each { prop ->
         def prefix = "${propertyPrefix}.sysProp."
         if (!prop.key.startsWith(prefix.toString()))
