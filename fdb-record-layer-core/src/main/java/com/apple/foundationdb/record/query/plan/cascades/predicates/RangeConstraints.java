@@ -69,7 +69,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     private final Supplier<List<Comparisons.Comparison>> comparisonsCalculator;
 
     @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlationsCalculator;
+    private final Supplier<Set<CorrelationIdentifier>> correlationsSupplier;
 
     /**
      * Amortized checker which checks whether any of the underlying range {@link Comparisons.Comparison}
@@ -102,7 +102,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         this.evaluableRange = evaluableRange;
         this.deferredRanges = ImmutableSet.copyOf(deferredRanges);
         this.comparisonsCalculator = Suppliers.memoize(this::computeComparisons);
-        this.correlationsCalculator = Suppliers.memoize(this::computeCorrelations);
+        this.correlationsSupplier = Suppliers.memoize(this::computeCorrelations);
         this.constantValueComparandsChecker = Suppliers.memoize(this::checkConstantValueComparands);
     }
 
@@ -208,7 +208,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return correlationsCalculator.get();
+        return correlationsSupplier.get();
     }
 
 

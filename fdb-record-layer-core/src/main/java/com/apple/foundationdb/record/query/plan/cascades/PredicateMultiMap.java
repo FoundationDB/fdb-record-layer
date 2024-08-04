@@ -340,7 +340,7 @@ public class PredicateMultiMap {
             return map.put(queryPredicate, predicateMapping);
         }
 
-        public boolean putAll(@Nonnull final PredicateMap otherMap) {
+        public boolean putAll(@Nonnull final PredicateMultiMap otherMap) {
             boolean isModified = false;
             for (final Map.Entry<QueryPredicate, PredicateMapping> entry : otherMap.getMap().entries()) {
                 isModified = map.put(entry.getKey(), entry.getValue()) || isModified;

@@ -251,6 +251,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
         final ImmutableList<PredicateMapping> result = mappingBuilder.build();
         if (mappingKeys.isEmpty()) {
+            //
+            // Note that for uniqueness constraints during matching it is important to create a new instance of the
+            // constant predicate here.
+            //
             final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
             return impliesCandidatePredicate(valueEquivalence, tautologyPredicate, evaluationContext)
                     .map(ImmutableSet::of)

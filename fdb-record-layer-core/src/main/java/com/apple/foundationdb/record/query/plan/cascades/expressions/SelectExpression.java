@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ExpandCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -62,6 +63,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
@@ -397,7 +399,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // would mean that the candidate eliminates records that the query side may not eliminate. If we detect that
         // case we MUST not create a match.
         //
-        final var predicateMappingsBuilder = ImmutableList.<Iterable<PredicateMapping>>builder();
+        final var predicateMappingsMap =
+                new LinkedIdentityMap<QueryPredicate/* candidate predicate */,
+                        List<PredicateMapping>/* all mappings mapping to the candidate predicate */>();
 
         //
         // Handle the "on empty" case, i.e., the case where there are no predicates on the query side that can
@@ -467,7 +471,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     predicate.findImpliedMappings(bindingValueEquivalence, candidateSelectExpression.getPredicates(),
                             evaluationContext);
 
-            predicateMappingsBuilder.add(impliedMappingsForPredicate);
+            for (final PredicateMapping predicateMapping : impliedMappingsForPredicate) {
+                var currentPredicateMappings =
+                        predicateMappingsMap.computeIfAbsent(predicateMapping.getCandidatePredicate(),
+                                k -> Lists.newArrayList());
+                currentPredicateMappings.add(predicateMapping);
+            }
         }
 
         //
@@ -477,7 +486,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // can lead to a match.
         //
         final var crossedMappings =
-                CrossProduct.crossProduct(predicateMappingsBuilder.build());
+                CrossProduct.crossProduct(predicateMappingsMap.values());
 
         return IterableHelpers.flatMap(crossedMappings,
                 predicateMappings -> {
@@ -485,7 +494,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     remainingUnmappedCandidatePredicates.addAll(candidateSelectExpression.getPredicates());
 
                     final var parameterBindingMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
-                    final var predicateMapBuilder = PredicateMap.builder();
+                    final var predicateMapBuilder = PredicateMultiMap.builder();
 
                     for (final var predicateMapping : predicateMappings) {
                         final var queryPredicate = predicateMapping.getQueryPredicate();
@@ -729,21 +738,37 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         // to skip reapplication in which case we won't do anything when compensation needs to be applied.
         //
         for (final var predicate : getPredicates()) {
-            final var predicateMappingOptional = predicateMap.getMappingOptional(predicate);
-            if (predicateMappingOptional.isPresent()) {
-                final var predicateMapping = predicateMappingOptional.get();
-
-                final var queryPredicate = predicateMapping.getQueryPredicate();
-                if (queryPredicate.getCorrelatedTo().stream().anyMatch(unmatchedQuantifierAliases::contains)) {
+            final var predicateMappings = predicateMap.get(predicate);
+            if (!predicateMappings.isEmpty()) {
+                if (predicate.getCorrelatedTo().stream().anyMatch(unmatchedQuantifierAliases::contains)) {
                     isImpossible = true;
                 }
 
-                final Optional<ExpandCompensationFunction> injectCompensationFunctionOptional =
-                        predicateMapping
-                                .compensatePredicateFunction()
-                                .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
+                //
+                // This logic follows the same approach used in Compensation::intersect where duplicate mappings can
+                // arise from different partial matches when their compensations are intersected.
+                // We use the first compensation we encounter (with the same reasoning as given in
+                // Compensation::intersect). If we find a mapping that does not need a compensation to be applied
+                // (in all reality those mappings are mappings to tautological placeholders), we do not need
+                // compensation for this query predicate at all.
+                //
+                ExpandCompensationFunction injectCompensationFunction = null;
+                for (final var predicateMapping : predicateMappings) {
+                    final Optional<ExpandCompensationFunction> injectCompensationFunctionForCandidatePredicateOptional =
+                            predicateMapping
+                                    .compensatePredicateFunction()
+                                    .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
 
-                injectCompensationFunctionOptional.ifPresent(injectCompensationFunction -> predicateCompensationMap.put(predicate, injectCompensationFunction));
+                    if (injectCompensationFunctionForCandidatePredicateOptional.isEmpty()) {
+                        injectCompensationFunction = null;
+                        break;
+                    } else if (injectCompensationFunction == null) {
+                        injectCompensationFunction = injectCompensationFunctionForCandidatePredicateOptional.get();
+                    }
+                }
+                if (injectCompensationFunction != null) {
+                    predicateCompensationMap.put(predicate, injectCompensationFunction);
+                }
             }
         }
 

@@ -66,7 +66,7 @@ public class MatchInfo {
     private final Supplier<QueryPlanConstraint> constraintsSupplier;
 
     @Nonnull
-    private final PredicateMap predicateMap;
+    private final PredicateMultiMap predicateMap;
 
     @Nonnull
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
@@ -76,7 +76,7 @@ public class MatchInfo {
      * from children match info.
      */
     @Nonnull
-    private final PredicateMap accumulatedPredicateMap;
+    private final PredicateMultiMap accumulatedPredicateMap;
 
     @Nonnull
     private final List<MatchedOrderingPart> matchedOrderingParts;
@@ -99,8 +99,8 @@ public class MatchInfo {
 
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
-                      @Nonnull final PredicateMap predicateMap,
-                      @Nonnull final PredicateMap accumulatedPredicateMap,
+                      @Nonnull final PredicateMultiMap predicateMap,
+                      @Nonnull final PredicateMultiMap accumulatedPredicateMap,
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional,
                       @Nonnull final Optional<MaxMatchMap> maxMatchMapOptional,
@@ -148,7 +148,7 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public PredicateMap getPredicateMap() {
+    public PredicateMultiMap getPredicateMap() {
         return predicateMap;
     }
 
@@ -163,7 +163,7 @@ public class MatchInfo {
     }
 
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    private void collectPredicateMappings(@Nonnull PredicateMap.Builder targetBuilder) {
+    private void collectPredicateMappings(@Nonnull PredicateMultiMap.Builder targetBuilder) {
         targetBuilder.putAll(predicateMap);
 
         for (final Equivalence.Wrapper<PartialMatch> partialMatchWrapper : quantifierToPartialMatchMap.values()) {
@@ -232,8 +232,8 @@ public class MatchInfo {
     @Nonnull
     public static Optional<MatchInfo> tryMerge(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                               @Nonnull final PredicateMap predicateMap,
-                                               @Nonnull final PredicateMap accumulatedPredicateMap,
+                                               @Nonnull final PredicateMultiMap predicateMap,
+                                               @Nonnull final PredicateMultiMap accumulatedPredicateMap,
                                                @Nonnull final Optional<Value> remainingComputationValueOptional,
                                                @Nonnull final Optional<MaxMatchMap> maxMatchMap,
                                                @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
