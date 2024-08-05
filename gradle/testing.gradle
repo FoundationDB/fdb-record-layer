@@ -256,12 +256,12 @@ tasks.withType(Test).configureEach { task ->
         } else {
             systemProperties["junit.jupiter.execution.timeout.default"] = "5m"
         }
-        if (project.hasProperty('tests.nightly') || true) {
+        if (project.hasProperty('tests.nightly')) {
             systemProperties['tests.nightly'] = 'true'
         } else {
             task.testFramework.options.excludeTags.add('SuperSlow')
         }
-        if (!project.hasProperty('tests.includeRandom') && false) {
+        if (!project.hasProperty('tests.includeRandom')) {
             task.testFramework.options.excludeTags.add('Random')
         } else {
             if (!project.hasProperty('randomTestsLocale')) {
@@ -276,8 +276,6 @@ tasks.withType(Test).configureEach { task ->
         }
         if (project.hasProperty('tests.iterations')) {
             systemProperties['tests.iterations'] = project.getProperty('tests.iterations')
-        } else {
-            systemProperties['tests.iterations'] = 2
         }
         task.testFramework.options.excludeTags.add('Performance')
 
