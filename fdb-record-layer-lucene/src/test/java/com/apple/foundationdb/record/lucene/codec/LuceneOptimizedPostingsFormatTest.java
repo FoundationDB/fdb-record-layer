@@ -47,7 +47,6 @@ import java.io.IOException;
 @TestRuleLimitSysouts.Limit(bytes = 50_000L) // 50k assuming debug logging
 // sonarcloud doesn't seem to be able to detect the junit4 style of just having the method start with "test"
 @SuppressWarnings("java:S2187")
-@Ignore
 public class LuceneOptimizedPostingsFormatTest extends BasePostingsFormatTestCase {
 
     @Override

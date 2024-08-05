@@ -33,7 +33,6 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -58,7 +57,6 @@ import java.util.stream.Stream;
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
 @Execution(ExecutionMode.CONCURRENT)
-@Disabled
 public class RTreeModificationTest {
     private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
     private static final int NUM_TEST_RUNS = 5;

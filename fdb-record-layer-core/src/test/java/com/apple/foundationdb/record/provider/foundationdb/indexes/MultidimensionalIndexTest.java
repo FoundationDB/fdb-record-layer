@@ -79,7 +79,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -133,7 +132,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
-@Disabled
 class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(MultidimensionalIndexTest.class);
 

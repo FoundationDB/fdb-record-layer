@@ -38,7 +38,6 @@ import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -58,7 +57,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link OnlineIndexer}.
  */
 @Tag(Tags.RequiresFDB)
-@Disabled
 public abstract class OnlineIndexerTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();

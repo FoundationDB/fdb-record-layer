@@ -42,7 +42,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -61,7 +60,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * TODO this probably shouldn't depend on the query test infrastructure.
  */
 @Tag(Tags.RequiresFDB)
-@Disabled
 public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
 
     private void uncheckedOpenNestedRecordStore(FDBRecordContext context) throws Exception {
