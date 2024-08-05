@@ -59,6 +59,12 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
     private TextCollatorRegistryICU() {
     }
 
+    @Nonnull
+    @Override
+    public String getName() {
+        return "icu";
+    }
+
     @Override
     @Nonnull
     public TextCollator getTextCollator(int strength) {

@@ -892,15 +892,15 @@ public class Comparisons {
     /**
      * A comparison with a constant value.
      */
-    public static class SimpleComparison implements Comparison {
+    public abstract static class SimpleComparisonBase implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Simple-Comparison");
 
         @Nonnull
-        private final Type type;
+        protected final Type type;
         @Nonnull
         protected final Object comparand;
 
-        public SimpleComparison(@Nonnull Type type, @Nonnull Object comparand) {
+        protected SimpleComparisonBase(@Nonnull Type type, @Nonnull Object comparand) {
             this.type = type;
             this.comparand = comparand;
         }
@@ -968,15 +968,6 @@ public class Comparisons {
             return type;
         }
 
-        @Nonnull
-        @Override
-        public Comparison withType(@Nonnull final Type newType) {
-            if (type == newType) {
-                return this;
-            }
-            return new SimpleComparison(newType, comparand);
-        }
-
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
@@ -1002,7 +993,7 @@ public class Comparisons {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            SimpleComparison that = (SimpleComparison) o;
+            SimpleComparisonBase that = (SimpleComparisonBase) o;
             return type == that.type &&
                     Objects.equals(toClassWithRealEquals(comparand), toClassWithRealEquals(that.comparand));
         }
@@ -1040,6 +1031,24 @@ public class Comparisons {
         @Override
         public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap) {
             return this;
+        }
+    }
+
+    /**
+     * A comparison with a constant value.
+     */
+    public static class SimpleComparison extends SimpleComparisonBase {
+        public SimpleComparison(@Nonnull Type type, @Nonnull Object comparand) {
+            super(type, comparand);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new SimpleComparison(newType, comparand);
         }
 
         @Nonnull
@@ -1120,11 +1129,11 @@ public class Comparisons {
     /**
      * A comparison with a bound parameter, as opposed to a literal constant in the query.
      */
-    public static class ParameterComparison implements ComparisonWithParameter {
+    public abstract static class ParameterComparisonBase implements ComparisonWithParameter {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Comparison");
 
         @Nonnull
-        private final Type type;
+        protected final Type type;
         @Nonnull
         protected final String parameter;
         @Nullable
@@ -1132,18 +1141,11 @@ public class Comparisons {
         @Nonnull
         protected final ParameterRelationshipGraph parameterRelationshipGraph;
         @Nonnull
-        private final Supplier<Integer> hashCodeSupplier;
+        protected final Supplier<Integer> hashCodeSupplier;
 
-        public ParameterComparison(@Nonnull Type type,
-                                   @Nonnull String parameter) {
-            this(type, parameter, null, ParameterRelationshipGraph.unbound());
-        }
-
-        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal) {
-            this(type, parameter, internal, ParameterRelationshipGraph.unbound());
-        }
-
-        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        protected ParameterComparisonBase(@Nonnull Type type, @Nonnull String parameter,
+                                          @Nullable Bindings.Internal internal,
+                                          @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
             checkInternalBinding(parameter, internal);
             this.type = type;
             this.parameter = parameter;
@@ -1156,6 +1158,7 @@ public class Comparisons {
         }
 
         @Override
+        @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract")
         public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
             // No additional validation.
         }
@@ -1164,15 +1167,6 @@ public class Comparisons {
         @Override
         public Type getType() {
             return type;
-        }
-
-        @Nonnull
-        @Override
-        public Comparison withType(@Nonnull final Type newType) {
-            if (type == newType) {
-                return this;
-            }
-            return new ParameterComparison(newType, parameter, internal, parameterRelationshipGraph);
         }
 
         public boolean isCorrelation() {
@@ -1218,15 +1212,14 @@ public class Comparisons {
                 if (quantifiedObjectValue == translatedQuantifiedObjectValue) {
                     return this;
                 }
-                final var translatedAlias = translatedQuantifiedObjectValue.getAlias();
-                return new ParameterComparison(type,
-                        Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
-                        Bindings.Internal.CORRELATION,
-                        parameterRelationshipGraph);
+                return withTranslatedCorrelation(translatedQuantifiedObjectValue.getAlias());
             } else {
                 return this;
             }
         }
+
+        @Nonnull
+        protected abstract ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias);
 
         @Nonnull
         @Override
@@ -1240,7 +1233,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
-            ParameterComparison that = (ParameterComparison) other;
+            ParameterComparisonBase that = (ParameterComparisonBase) other;
             if (type != that.type) {
                 return BooleanWithConstraint.falseValue();
             }
@@ -1261,7 +1254,7 @@ public class Comparisons {
             if (!getParameter().equals(that.getParameter())) {
                 return BooleanWithConstraint.falseValue();
             }
-            
+
             return Objects.equals(relatedByEquality(), that.relatedByEquality())
                    ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
         }
@@ -1353,6 +1346,52 @@ public class Comparisons {
         }
 
         @Nonnull
+        private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.Internal internal) {
+            if (internal == null && Bindings.Internal.isInternal(parameter)) {
+                throw new RecordCoreException(
+                        "Parameter is internal, parameters cannot start with \"" + Bindings.Internal.PREFIX + "\"");
+            }
+            return parameter;
+        }
+    }
+
+    /**
+     * A comparison with a bound parameter, as opposed to a literal constant in the query.
+     */
+    public static class ParameterComparison extends ParameterComparisonBase {
+        protected ParameterComparison(@Nonnull Type type, @Nonnull String parameter,
+                                      @Nullable Bindings.Internal internal,
+                                      @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+            super(type, parameter, internal, parameterRelationshipGraph);
+        }
+
+        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter) {
+            this(type, parameter, null, ParameterRelationshipGraph.unbound());
+        }
+
+        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal) {
+            this(type, parameter, internal, ParameterRelationshipGraph.unbound());
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (type == newType) {
+                return this;
+            }
+            return new ParameterComparison(newType, parameter, internal, parameterRelationshipGraph);
+        }
+
+        @Nonnull
+        @Override
+        protected ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias) {
+            return new ParameterComparison(type,
+                                           Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
+                                           Bindings.Internal.CORRELATION,
+                                           parameterRelationshipGraph);
+        }
+
+        @Nonnull
         @Override
         public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
@@ -1390,15 +1429,6 @@ public class Comparisons {
             return new ParameterComparison(Type.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getType())),
                     Objects.requireNonNull(parameterComparisonProto.getParameter()),
                     internal);
-        }
-
-        @Nonnull
-        private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.Internal internal) {
-            if (internal == null && Bindings.Internal.isInternal(parameter)) {
-                throw new RecordCoreException(
-                        "Parameter is internal, parameters cannot start with \"" + Bindings.Internal.PREFIX + "\"");
-            }
-            return parameter;
         }
 
         /**

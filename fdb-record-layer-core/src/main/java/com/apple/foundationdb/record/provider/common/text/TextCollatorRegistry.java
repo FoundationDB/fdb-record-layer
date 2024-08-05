@@ -31,6 +31,14 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public interface TextCollatorRegistry {
     /**
+     * Get the name of this collator registry.
+     * Used for serialization and debugging.
+     * @return the name of this collator registry
+     */
+    @Nonnull
+    String getName();
+
+    /**
      * Get a weak text collator for the default locale.
      *
      * In general, this means one that is case- and accent-insensitive.
