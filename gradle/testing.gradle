@@ -112,7 +112,7 @@ def configureTestTask = { propertyPrefix, task ->
         change.waitFor()
         println(change.exitValue())
         println(change.text)
-        change = new ProcessBuilder('fdbcli', '--exec', 'configure single ssd-2')
+        change = new ProcessBuilder('fdbcli', '--exec', 'configure single ssd')
             .redirectErrorStream(true)
             .start()
         change.waitFor()
