@@ -81,6 +81,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
@@ -527,60 +529,87 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         long timestamp = System.currentTimeMillis();
         Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
-        CountDownLatch firstRecordInserted = new CountDownLatch(1);
+        // Use a queue with a capacity of 1 to help ensure that saves are actually occurring between merge attempts
+        // and it's not just a loop of merges concluding that there is no merge to be done
+        BlockingQueue<Boolean> mergeQueue = new ArrayBlockingQueue<>(1);
+        AtomicInteger successfulMerges = new AtomicInteger();
+        AtomicInteger merges = new AtomicInteger();
+        AtomicInteger docCount = new AtomicInteger();
+        AtomicInteger conflicts = new AtomicInteger();
+        AtomicInteger fileLockFailures = new AtomicInteger();
         Thread inserter = new Thread(() -> {
-            for (int i = 0; i < countReps; i++) {
-                // create a record then query
-                try (FDBRecordContext context = openContext(contextProps)) {
-                    FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-                    recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
-                    TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
-                            .setGroup(1)
-                            .setDocId(i + 1000L)
-                            .setIsSeen(true)
-                            .setText("A word about what I want to say")
-                            .setTimestamp(timestamp + i)
-                            .setHeader(TestRecordsTextProto.ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
-                            .build();
-                    try {
-                        final Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
+            try {
+                int i = 0;
+                while (docCount.get() < 200) {
+                    // create a record then query
+                    try (FDBRecordContext context = openContext(contextProps)) {
+                        FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
+                        recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
+                        TestRecordsTextProto.ComplexDocument cd = TestRecordsTextProto.ComplexDocument.newBuilder()
+                                .setGroup(1)
+                                .setDocId(i + 1000L)
+                                .setIsSeen(true)
+                                .setText("A word about what I want to say")
+                                .setTimestamp(timestamp + i)
+                                .setHeader(TestRecordsTextProto.ComplexDocument.Header.newBuilder().setHeaderId(1000L - i))
+                                .build();
+                        try {
+                            final Tuple primaryKey = recordStore.saveRecord(cd).getPrimaryKey();
 
-                        try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
-                                index,
-                                LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                            List<IndexEntry> matches = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
-                                    cursor.asList());
-                            assertFalse(matches.isEmpty());
+                            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
+                                    index,
+                                    LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
+                                List<IndexEntry> matches = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
+                                        cursor.asList());
+                                assertFalse(matches.isEmpty());
+                            }
+
+                            commit(context);
+                            i++;
+                            insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp + i));
+                            docCount.incrementAndGet();
+                            mergeQueue.offer(true);
+                        } catch (Exception e) {
+                            if (Thread.currentThread().isInterrupted()) {
+                                return;
+                            }
+                            if (e instanceof FDBExceptions.FDBStoreTransactionConflictException) {
+                                conflicts.incrementAndGet();
+                            } else if (e instanceof FDBExceptions.FDBStoreLockTakenException) {
+                                fileLockFailures.incrementAndGet();
+                            } else {
+                                LOGGER.debug("couldn't commit for key {}", (1000L + i), e);
+                            }
+                            // commit failed due to conflict with other thread. Continue trying to create docs.
+                            LOGGER.debug("couldn't commit for key {}", (1000L + i));
                         }
-
-                        commit(context);
-                        insertedDocs.computeIfAbsent(Tuple.from(1), k -> new HashMap<>()).put(primaryKey, Tuple.from(timestamp + i));
-                        // after first record is committed, signal to merger record to start attempting to merge
-                        firstRecordInserted.countDown();
-                    } catch (Exception e) {
-                        // commit failed due to conflict with other thread. Continue trying to create docs.
-                        LOGGER.debug("couldn't commit for key {}", (1000L + i));
                     }
+                }
+            } finally {
+                try {
+                    mergeQueue.put(false);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
             }
         });
-
         Thread merger = new Thread(() -> {
-            // wait till first record is committed before attempting to merge
-            try {
-                firstRecordInserted.await();
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-
             // busy merge
-            for (int i = 0; i < countReps; i++) {
-                try {
-                    explicitMergeIndex(index, contextProps, schemaSetup);
-                } catch (Exception e) {
-                    LOGGER.debug("couldn't merge at iteration{}", i);
+            int i = 0;
+            // start a merge after each save completes
+            try {
+                while (mergeQueue.take()) {
+                    i++;
+                    try {
+                        merges.incrementAndGet();
+                        explicitMergeIndex(index, contextProps, schemaSetup);
+                        successfulMerges.incrementAndGet();
+                    } catch (Exception e) {
+                        LOGGER.debug("couldn't merge at iteration{}", i);
+                    }
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         });
 
@@ -590,8 +619,15 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         inserter.join();
         // This could happen if the cluster is down, or something that otherwise prevents us from inserting any documents
         // by asserting that there are documents we prevent the `join` below from waiting forever.
+        if (insertedDocs.isEmpty()) {
+            merger.interrupt();
+        }
         assertThat(insertedDocs, Matchers.not(Matchers.anEmptyMap()));
         merger.join();
+        assertThat(successfulMerges.get(), Matchers.greaterThan(10));
+        assertThat(conflicts.get(), Matchers.greaterThan(10));
+        assertThat(fileLockFailures.get(), Matchers.greaterThan(10));
+        assertThat(docCount.get(), Matchers.greaterThanOrEqualTo(200));
 
         // validate index is sane
         new LuceneIndexTestValidator(() -> openContext(contextProps), context -> Objects.requireNonNull(schemaSetup.apply(context)))
