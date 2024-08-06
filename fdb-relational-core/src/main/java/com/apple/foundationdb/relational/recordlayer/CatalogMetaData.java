@@ -256,20 +256,20 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     FieldDescription.primitive("BUFFER_LENGTH", Types.INTEGER, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("DECIMAL_DIGITS", Types.INTEGER, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("NUM_PREC_RADIX", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("NULLABLE", Types.BOOLEAN, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("NULLABLE", Types.INTEGER, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("REMARKS", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("COLUMN_DEF", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SQL_DATA_TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SQL_DATETIME_SUB", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SQL_DATA_TYPE", Types.INTEGER, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("SQL_DATETIME_SUB", Types.INTEGER, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("CHAR_OCTET_LENGTH", Types.INTEGER, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("IS_NULLABLE", Types.BOOLEAN, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("IS_NULLABLE", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("SCOPE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("SCOPE_SCHEMA", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("SCOPE_TABLE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SOURCE_DATA_TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("IS_AUTOINCREMENT", Types.BOOLEAN, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.BOOLEAN, DatabaseMetaData.columnNullable)
+                    FieldDescription.primitive("SOURCE_DATA_TYPE", Types.SMALLINT, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("IS_AUTOINCREMENT", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                    FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.VARCHAR, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(columns), columnDefs.iterator(), 0);
         } catch (RelationalException e) {

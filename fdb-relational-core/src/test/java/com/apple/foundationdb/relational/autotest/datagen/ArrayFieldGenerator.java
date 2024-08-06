@@ -20,28 +20,40 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 public class ArrayFieldGenerator implements FieldGenerator {
+    private final String fieldName;
     private final FieldGenerator arrayGenerator;
     private final RandomDataSource randomSource;
     private final int maxSize;
 
-    public ArrayFieldGenerator(FieldGenerator arrayGenerator,
+    public ArrayFieldGenerator(@Nonnull String fieldName,
+                               FieldGenerator arrayGenerator,
                                RandomDataSource randomSource,
                                int maxSize) {
+        this.fieldName = fieldName;
         this.arrayGenerator = arrayGenerator;
         this.randomSource = randomSource;
         this.maxSize = maxSize;
     }
 
     @Override
-    public void generateValue(DynamicMessageBuilder destination) throws SQLException {
+    public void generateValue(@Nonnull RelationalStructBuilder builder) throws SQLException {
         int numFields = randomSource.nextInt(0, maxSize);
-        for (int i = 0; i < numFields; i++) {
-            arrayGenerator.generateValue(destination);
+        if (numFields > 0) {
+            final var arrayBuilder = EmbeddedRelationalArray.newBuilder();
+            for (int i = 0; i < numFields; i++) {
+                final var tempStructBuilder = EmbeddedRelationalStruct.newBuilder();
+                arrayGenerator.generateValue(tempStructBuilder);
+                arrayBuilder.addAll(tempStructBuilder.build().getObject(1));
+            }
+            builder.addArray(fieldName, arrayBuilder.build());
         }
     }
 }

@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.utils.ReservoirSample;
-
-import com.google.protobuf.Message;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -32,19 +31,19 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 public class DataSample {
-    private final Map<String, ReservoirSample<Message>> samples = new HashMap<>();
+    private final Map<String, ReservoirSample<RelationalStruct>> samples = new HashMap<>();
 
-    public void addSample(String tableName, ReservoirSample<Message> sample) {
+    public void addSample(String tableName, ReservoirSample<RelationalStruct> sample) {
         samples.put(tableName, sample);
     }
 
-    public Iterator<Map<String, Message>> getSampleIterator() {
-        Map<String, Iterator<Message>> iteratorMap = samples.entrySet().stream()
+    public Iterator<Map<String, RelationalStruct>> getSampleIterator() {
+        Map<String, Iterator<RelationalStruct>> iteratorMap = samples.entrySet().stream()
                 .map(entry -> new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue().sampleIterator()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         return new Iterator<>() {
-            private Map<String, Message> nextMap;
+            private Map<String, RelationalStruct> nextMap;
             boolean hasNextCalled = false;
 
             @Override
@@ -60,11 +59,11 @@ public class DataSample {
             }
 
             @Override
-            public Map<String, Message> next() {
+            public Map<String, RelationalStruct> next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                Map<String, Message> map = nextMap;
+                Map<String, RelationalStruct> map = nextMap;
                 hasNextCalled = false;
                 nextMap = null;
                 return map;

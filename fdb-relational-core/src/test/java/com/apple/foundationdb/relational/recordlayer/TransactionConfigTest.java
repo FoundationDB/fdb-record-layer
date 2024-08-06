@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -29,7 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -54,7 +54,7 @@ public class TransactionConfigTest {
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 RelationalAssertions.assertThrowsSqlException(
-                        () -> s.getDataBuilder("RESTAURANT").setField("NAME", "testRest" + id).setField("REST_NO", id).build())
+                        () -> s.executeInsert("RESTAURANTS", EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", id).addString("NAME", "testRest").build()))
                         .hasErrorCode(ErrorCode.TRANSACTION_TIMEOUT);
             }
         }

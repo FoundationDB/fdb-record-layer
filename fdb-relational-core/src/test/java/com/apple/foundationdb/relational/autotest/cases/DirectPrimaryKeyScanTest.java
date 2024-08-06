@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.autotest.AutomatedTest;
 import com.apple.foundationdb.relational.autotest.Connection;
@@ -43,8 +44,6 @@ import com.apple.foundationdb.relational.autotest.datagen.UniformDataSource;
 import com.apple.foundationdb.relational.memory.InMemoryCatalog;
 import com.apple.foundationdb.relational.memory.InMemoryRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
@@ -102,7 +101,7 @@ public class DirectPrimaryKeyScanTest {
     };
 
     @Schema
-    public Stream<SchemaDescription> getSchemas(WorkloadConfig cfg) {
+    public Stream<SchemaDescription> getSchemas(WorkloadConfig cfg) throws SQLException {
         RandomDataSource rds = new UniformDataSource(cfg.getLong("seed"),
                 cfg.getInt("maxStringLength"),
                 cfg.getInt("maxBytesLength"));
@@ -138,14 +137,14 @@ public class DirectPrimaryKeyScanTest {
         schema.getTables()
                 .forEach(table -> queries.add((statement, params) -> {
                     String fullTableName = schema.getSchemaName() + "." + table.getTableName();
-                    Message m = params.get(fullTableName);
-                    if (m == null) {
+                    RelationalStruct struct = params.get(fullTableName);
+                    if (struct == null) {
                         return null; //no test to execute
                     }
                     List<String> pkCols = table.getPkColumns();
                     KeySet keySet = new KeySet();
                     for (String pkCol : pkCols) {
-                        keySet.setKeyColumn(pkCol, m.getField(m.getDescriptorForType().findFieldByName(pkCol)));
+                        keySet.setKeyColumn(pkCol, struct.getObject(pkCol));
                     }
                     return statement.executeScan(fullTableName, keySet, Options.NONE);
                 }));

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -34,7 +35,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -74,9 +74,9 @@ public class TransactionBoundDatabaseTest {
                 try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
                     conn.setSchema("TEST_SCHEMA");
                     try (RelationalStatement statement = conn.createStatement()) {
-                        Message record = statement.getDataBuilder("RESTAURANT")
-                                .setField("REST_NO", 42)
-                                .setField("NAME", "FOO")
+                        var record = EmbeddedRelationalStruct.newBuilder()
+                                .addLong("REST_NO", 42)
+                                .addString("NAME", "FOO")
                                 .build();
                         statement.executeInsert("RESTAURANT", record);
                     }
@@ -111,9 +111,9 @@ public class TransactionBoundDatabaseTest {
                 try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
                     conn.setSchema("TEST_SCHEMA");
                     try (RelationalStatement statement = conn.createStatement()) {
-                        Message record = statement.getDataBuilder("RESTAURANT")
-                                .setField("REST_NO", 42)
-                                .setField("NAME", "FOO")
+                        var record = EmbeddedRelationalStruct.newBuilder()
+                                .addLong("REST_NO", 42)
+                                .addString("NAME", "FOO")
                                 .build();
                         statement.executeInsert("RESTAURANT", record);
                     }

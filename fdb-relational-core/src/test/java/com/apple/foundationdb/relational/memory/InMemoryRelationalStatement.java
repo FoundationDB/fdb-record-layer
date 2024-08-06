@@ -21,10 +21,8 @@
 package com.apple.foundationdb.relational.memory;
 
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -43,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -172,7 +169,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options) throws SQLException {
         try {
             final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
             if (inMemoryTable == null) {
@@ -182,31 +179,6 @@ public class InMemoryRelationalStatement implements RelationalStatement {
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
-    }
-
-    @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options) throws SQLException {
-        throw new SQLException("Not implemented");
-    }
-
-    @Nonnull
-    @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
-        try {
-            final InMemoryTable inMemoryTable = relationalConn.loadTable(tableName);
-            if (inMemoryTable == null) {
-                throw new RelationalException("Unknown table <" + tableName + ">", ErrorCode.UNKNOWN_TYPE);
-            }
-            return new ProtobufDataBuilder(inMemoryTable.getDescriptor());
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
-    }
-
-    @Nonnull
-    @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
-        throw new RelationalException("not implemented", ErrorCode.INTERNAL_ERROR).toSqlException();
     }
 
     @Override

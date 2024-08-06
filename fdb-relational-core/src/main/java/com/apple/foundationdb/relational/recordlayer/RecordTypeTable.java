@@ -176,13 +176,14 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
      * should not be used for any other general purpose.
      */
     @Nonnull
-    private static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
+    public static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         try {
             StructMetaData structMetaData = struct.getMetaData();
             for (int i = 1; i <= structMetaData.getColumnCount(); i++) {
                 String columnName = structMetaData.getColumnName(i);
                 Descriptors.FieldDescriptor fd = builder.getDescriptorForType().findFieldByName(columnName);
+                Assert.thatUnchecked(fd != null, ErrorCode.INVALID_PARAMETER, "Cannot find column name: " + columnName);
                 // TODO: Add type checking, nudging, and coercion at this point! Per bfines, good place to do it!
                 //  TODO (Add type checking, nudging, and coercion)
                 switch (structMetaData.getColumnType(i)) {
@@ -215,8 +216,11 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                         if (fd.isRepeated()) {
                             final var arrayItems = (Object[]) (array == null ? new Object[]{} : array.getArray());
                             for (Object arrayItem : arrayItems) {
-                                Assert.thatUnchecked(arrayItem instanceof RelationalStruct, ErrorCode.INTERNAL_ERROR, "Direct Insertions using STRUCT do not support primitive arrays.");
-                                builder.addRepeatedField(fd, toDynamicMessage((RelationalStruct) arrayItem, fd.getMessageType()));
+                                if (arrayItem instanceof RelationalStruct) {
+                                    builder.addRepeatedField(fd, toDynamicMessage((RelationalStruct) arrayItem, fd.getMessageType()));
+                                } else {
+                                    builder.addRepeatedField(fd, arrayItem);
+                                }
                             }
                         } else {
                             if (fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
@@ -237,6 +241,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                         if (fd.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
                             final var enumValue = struct.getString(i);
                             if (enumValue != null) {
+                                final var valueDescriptor = fd.getEnumType().findValueByName(enumValue);
+                                Assert.thatUnchecked(valueDescriptor != null, ErrorCode.CANNOT_CONVERT_TYPE, "Invalid enum value: %s", enumValue);
                                 builder.setField(fd, fd.getEnumType().findValueByName(enumValue));
                             }
                         } else {

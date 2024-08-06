@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -70,7 +70,7 @@ public class TableTest {
     @Test
     void canInsertAndGetASingleRecord() throws Exception {
         long restNo = newRestNo();
-        Message inserted = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         KeySet keys = new KeySet()
                 .setKeyColumn("REST_NO", restNo);
@@ -78,7 +78,8 @@ public class TableTest {
         try (final RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(inserted)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
     }
@@ -107,14 +108,15 @@ public class TableTest {
     @Test
     void canDeleteASingleRecord() throws Exception {
         long restNo = newRestNo();
-        Message inserted = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         KeySet keys = new KeySet().setKeyColumn("REST_NO", restNo);
 
         try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(inserted)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
 
@@ -131,14 +133,15 @@ public class TableTest {
     @Test
     void deleteNoRecord() throws Exception {
         long restNo = newRestNo();
-        Message inserted = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         KeySet keys = new KeySet().setKeyColumn("REST_NO", restNo);
 
         try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(inserted)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
 
@@ -150,7 +153,8 @@ public class TableTest {
         try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(inserted)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
     }
@@ -158,17 +162,16 @@ public class TableTest {
     @Test
     void canDeleteMultipleRecord() throws Exception {
         long[] restNo = {newRestNo(), newRestNo()};
-        Message[] inserted = {
-                insertRestaurantRecord(statement, restNo[0]),
-                insertRestaurantRecord(statement, restNo[1])
-        };
+        insertRestaurantRecord(statement, restNo[0]);
+        insertRestaurantRecord(statement, restNo[1]);
         List<KeySet> keys = new ArrayList<>();
         for (int i = 0; i < 2; i++) {
             keys.add(new KeySet().setKeyColumn("REST_NO", restNo[i]));
             try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys.get(keys.size() - 1), Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet)
                         .hasNextRow()
-                        .hasRow(inserted[i])
+                        .hasColumn("REST_NO", restNo[i])
+                        .hasColumn("NAME", restName(restNo[i]))
                         .hasNoNextRow();
             }
         }
@@ -188,7 +191,7 @@ public class TableTest {
     @Test
     void canInsertAndScanASingleRecordFromIndex() throws Exception {
         long restNo = newRestNo();
-        Message r = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         KeySet keys = new KeySet().setKeyColumn("NAME", restName(restNo));
 
@@ -196,7 +199,8 @@ public class TableTest {
                 Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(r)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
     }
@@ -204,14 +208,15 @@ public class TableTest {
     @Test
     void canGetFieldNamesFromCoveringIndex() throws Exception {
         long restNo = newRestNo();
-        Message r = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         KeySet keys = new KeySet().setKeyColumn("REST_NO", restNo);
 
         try (final RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys,
                 Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_TYPE_COVERING").build())) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRow(r)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
     }
@@ -230,12 +235,13 @@ public class TableTest {
     void canInsertAndScanASingleRecord() throws Exception {
         try {
             long restNo = newRestNo();
-            Message r = insertRestaurantRecord(statement, restNo);
+            insertRestaurantRecord(statement, restNo);
 
             KeySet keySet = new KeySet().setKeyColumn("REST_NO", restNo);
             try (final RelationalResultSet resultSet = statement.executeScan("RESTAURANT", keySet, Options.NONE)) {
                 ResultSetAssert.assertThat(resultSet).hasNextRow()
-                        .hasRow(r)
+                        .hasColumn("REST_NO", restNo)
+                        .hasColumn("NAME", restName(restNo))
                         .hasNoNextRow();
             }
         } catch (Throwable t) {
@@ -260,9 +266,8 @@ public class TableTest {
         try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .row()
-                    .hasValue("REST_NO", restNo)
-                    .hasValue("NAME", restName(restNo));
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo));
             org.assertj.core.api.Assertions.assertThat(resultSet.next()).isFalse();
         }
     }
@@ -270,7 +275,7 @@ public class TableTest {
     @Test
     void getViaIndex() throws Exception {
         long restNo = newRestNo();
-        Message r = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         //get via index
         KeySet keys = new KeySet()
@@ -278,7 +283,8 @@ public class TableTest {
         try (RelationalResultSet resultSet = statement.executeGet("RESTAURANT", keys,
                 Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRow(r)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
     }
@@ -286,13 +292,14 @@ public class TableTest {
     @Test
     void scanPrimaryKey() throws Exception {
         long restNo = newRestNo();
-        Message r = insertRestaurantRecord(statement, restNo);
+        insertRestaurantRecord(statement, restNo);
 
         //scan on the primary key
         KeySet keySet = new KeySet().setKeyColumn("REST_NO", restNo);
         try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", keySet, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRow(r)
+                    .hasColumn("REST_NO", restNo)
+                    .hasColumn("NAME", restName(restNo))
                     .hasNoNextRow();
         }
     }
@@ -307,7 +314,7 @@ public class TableTest {
         try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", keySet, Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_NAME_IDX").build())) {
             //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly(Map.of("NAME", restName(restNo)))
+                    .hasColumns(Map.of("NAME", restName(restNo)))
                     .hasNoNextRow();
         }
     }
@@ -320,15 +327,15 @@ public class TableTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
-                Message result = statement.getDataBuilder("TBL1").setField("ID", 42L).setField("A", "valuea1").setField("B", "valueb1").setField("C", "valuec1").build();
+                var result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 42L).addString("A", "valuea1").addString("B", "valueb1").addString("C", "valuec1").build();
                 int cnt = statement.executeInsert("TBL1", result);
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                result = statement.getDataBuilder("TBL1").setField("ID", 43L).setField("A", "valuea2").setField("B", "valueb2").setField("C", "valuec2").build();
+                result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 43L).addString("A", "valuea2").addString("B", "valueb2").addString("C", "valuec2").build();
                 cnt = statement.executeInsert("TBL1", result);
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                result = statement.getDataBuilder("TBL1").setField("ID", 44L).setField("A", "valuea3").setField("B", "valueb3").setField("C", "valuec3").build();
+                result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 44L).addString("A", "valuea3").addString("B", "valueb3").addString("C", "valuec3").build();
                 cnt = statement.executeInsert("TBL1", result);
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
@@ -338,7 +345,7 @@ public class TableTest {
                         Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
                     //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(Map.of("C", "valuec2"))
+                            .hasColumns(Map.of("C", "valuec2"))
                             .hasNoNextRow();
                 }
             }
@@ -353,15 +360,15 @@ public class TableTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
 
-                Message result = statement.getDataBuilder("TBL1").setField("ID", 42L).setField("A", "valuea1").setField("B", "valueb1").setField("C", "valuec1").setField("D", "valued1").build();
+                var result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 42L).addString("A", "valuea1").addString("B", "valueb1").addString("C", "valuec1").addString("D", "valued1").build();
                 int cnt = statement.executeInsert("TBL1", result);
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                result = statement.getDataBuilder("TBL1").setField("ID", 43L).setField("A", "valuea2").setField("B", "valueb2").setField("C", "valuec2").setField("D", "valued2").build();
+                result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 43L).addString("A", "valuea2").addString("B", "valueb2").addString("C", "valuec2").addString("D", "valued2").build();
                 cnt = statement.executeInsert("TBL1", result);
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                result = statement.getDataBuilder("TBL1").setField("ID", 44L).setField("A", "valuea3").setField("B", "valueb3").setField("C", "valuec3").setField("D", "valued3").build();
+                result = EmbeddedRelationalStruct.newBuilder().addLong("ID", 44L).addString("A", "valuea3").addString("B", "valueb3").addString("C", "valuec3").addString("D", "valued3").build();
                 cnt = statement.executeInsert("TBL1", result);
                 org.junit.jupiter.api.Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
@@ -371,7 +378,7 @@ public class TableTest {
                         Options.builder().withOption(Options.Name.INDEX_HINT, "C_NAME_IDX").build())) {
                     //because we are scanning the index only, the returned result only contains what's in the record_name_idx (name)
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(Map.of("C", "valuec2", "D", "valued2"))
+                            .hasColumns(Map.of("C", "valuec2", "D", "valued2"))
                             .hasNoNextRow();
                 }
             }
@@ -396,10 +403,10 @@ public class TableTest {
         }
     }
 
-    private Message insertRestaurantRecord(RelationalStatement s, long id) throws Exception {
-        Message restaurant = statement.getDataBuilder("RESTAURANT")
-                .setField("NAME", restName(id))
-                .setField("REST_NO", id)
+    private RelationalStruct insertRestaurantRecord(RelationalStatement s, long id) throws Exception {
+        var restaurant = EmbeddedRelationalStruct.newBuilder()
+                .addString("NAME", restName(id))
+                .addLong("REST_NO", id)
                 .build();
         int insertCount = s.executeInsert("RESTAURANT", restaurant);
         Assertions.assertThat(insertCount).describedAs("Did not count insertions correctly!").isEqualByComparingTo(1);

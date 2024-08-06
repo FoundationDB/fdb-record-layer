@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.RelationalStructBuilder;
+import com.apple.foundationdb.relational.autotest.TableDescription;
 
-import com.google.protobuf.Descriptors;
-
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -36,19 +36,19 @@ public class TableDataGenerator extends StructFieldGenerator {
     public TableDataGenerator(List<FieldGenerator> nestedFieldGenerators,
                               RandomDataSource randomSource,
                               int maxArraySize) {
-        super("", nestedFieldGenerators, randomSource, maxArraySize, false);
+        super("", nestedFieldGenerators, randomSource, maxArraySize);
     }
 
-    public TableDataGenerator(Descriptors.Descriptor structDescriptor,
+    public TableDataGenerator(TableDescription tableDescription,
                               RandomDataSource randomSource,
-                              int maxArraySize) {
-        super("", structDescriptor, randomSource, maxArraySize, false);
+                              int maxArraySize) throws SQLException {
+        super("", tableDescription.getMetaData(), randomSource, maxArraySize);
     }
 
     @Override
-    public void generateValue(DynamicMessageBuilder destination) throws SQLException {
+    public void generateValue(@Nonnull RelationalStructBuilder builder) throws SQLException {
         for (FieldGenerator fieldGen : nestedFieldGenerators) {
-            fieldGen.generateValue(destination);
+            fieldGen.generateValue(builder);
         }
     }
 }

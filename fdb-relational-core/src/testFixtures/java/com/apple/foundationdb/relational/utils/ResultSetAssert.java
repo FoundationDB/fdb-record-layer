@@ -20,22 +20,16 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.MutableRowStruct;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
@@ -54,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalResultSet> {
 
@@ -180,15 +173,56 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         }
     }
 
-    public ResultSetAssert hasRow(Map<String, Object> colValues) {
-        colValues.forEach(this::hasColumn);
+    /**
+     * Checks if the current Row has the given column name and value. Note that the row can have other column values.
+     *
+     * @param colName the expected name.
+     * @param colValue the expected value.
+     * @return the {@link ResultSetAssert} object.
+     */
+    public ResultSetAssert hasColumn(String colName, Object colValue) {
+        row().hasValue(colName, colValue);
         return this;
     }
 
-    public ResultSetAssert hasRowExactly(Object... colValues) {
+    /**
+     * Checks if the current Row has all the colValues. Note that the row can have other column values. This check
+     * does give any guarantee on ordering.
+     *
+     * @param colValues a map of column name to its expected value
+     * @return the {@link ResultSetAssert} object.
+     */
+    public ResultSetAssert hasColumns(Map<String, Object> colValues) {
+        final var structAssert = row();
+        for (var entry: colValues.entrySet()) {
+            structAssert.hasValue(entry.getKey(), entry.getValue());
+        }
+        return this;
+    }
+
+    /**
+     * Checks if the current Row has all the colValues. Note that it also checks if the Row has no other columns.
+     *
+     * @param colValues a map of column name to its expected value
+     * @return the {@link ResultSetAssert} object.
+     */
+    public ResultSetAssert hasColumnsExactly(Map<String, Object> colValues) {
+        hasColumns(colValues);
+        //now make sure that there aren't any others
+        metaData().hasColumnsExactly(colValues.keySet());
+        return this;
+    }
+
+    /**
+     * Checks if the current Row has all the column values and in the right order.
+     *
+     * @param colValues list of expected value of each column.
+     * @return the {@link ResultSetAssert} object.
+     */
+    public ResultSetAssert isRowExactly(Object... colValues) {
         try {
             final RelationalResultSetMetaData metaData = actual.getMetaData();
-            Assertions.assertThat(metaData.getColumnCount()).isGreaterThanOrEqualTo(colValues.length);
+            Assertions.assertThat(metaData.getColumnCount()).isEqualTo(colValues.length);
             for (int i = 0; i < colValues.length; i++) {
                 Object o = actual.getObject(i + 1);
                 Object expected = colValues[i];
@@ -213,110 +247,34 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         return this;
     }
 
-    public ResultSetAssert hasRowExactly(Map<String, Object> colValues) {
-        hasRow(colValues);
-        //now make sure that there aren't any others
-        metaData().hasColumnsExactly(colValues.keySet());
-        return this;
-    }
-
-    @SuppressWarnings("unchecked")
-    public ResultSetAssert hasColumn(String colName, Object colValue) {
+    /**
+     * Checks if the current Row exactly matches the struct.
+     *
+     * @param struct the {@link RelationalStruct} to be matched.
+     * @return the {@link ResultSetAssert} object.
+     */
+    public ResultSetAssert isRowExactly(RelationalStruct struct) {
         try {
-            Object o = actual.getObject(colName);
-            if (colValue instanceof RelationalStruct) {
-                Assertions.assertThat(o).isInstanceOf(RelationalStruct.class);
-                RelationalStruct actualStruct = (RelationalStruct) o;
-                RelationalStruct expectedStruct = (RelationalStruct) colValue;
-
-                RelationalStructAssert.assertThat(actualStruct).isEqualTo(expectedStruct);
-            } else if (colValue instanceof Map) {
-                //this is the same type of check as a struct, but made convenient for the tester
-                Assertions.assertThat(o).isInstanceOf(RelationalStruct.class);
-                RelationalStruct actualStruct = (RelationalStruct) o;
-
-                RelationalStructAssert.assertThat(actualStruct).containsColumnsByName((Map<String, Object>) colValue);
-            } else if (colValue instanceof Array) {
-                Assertions.assertThat(o).isInstanceOf(Array.class);
-
-                ArrayAssert.assertThat((Array) o).isEqualTo((Array) colValue);
-            } else if (colValue instanceof Message) {
-                Type.Record record = ProtobufDdlUtil.recordFromDescriptor(((Message) colValue).getDescriptorForType());
-                final StructMetaData metaData = SqlTypeSupport.recordToMetaData(record);
-                Row row = new MessageTuple((Message) colValue);
-
-                Assertions.assertThat(o).isInstanceOf(RelationalStruct.class);
-                RelationalStruct actualStruct = (RelationalStruct) o;
-                RelationalStructAssert.assertThat(new ImmutableRowStruct(row, metaData)).isEqualTo(actualStruct);
-            } else {
-                Assertions.assertThat(o).isEqualTo(colValue);
-            }
-        } catch (SQLException | RelationalException se) {
-            throw new RuntimeException(se);
-        }
-        return this;
-    }
-
-    public ResultSetAssert hasRow(Message message) {
-        final Descriptors.Descriptor descriptor = message.getDescriptorForType();
-        try {
-            Type.Record record = ProtobufDdlUtil.recordFromDescriptor(descriptor);
-            final StructMetaData structMetaData = SqlTypeSupport.recordToMetaData(record);
-            Row row = new MessageTuple(message);
-
+            Row row = ResultSetTestUtils.structToRow(struct);
             Row actualRow = ResultSetTestUtils.currentRow(actual);
             StructMetaData actualSMetaData = actual.getMetaData().unwrap(StructMetaData.class);
             RelationalStructAssert.assertThat(new ImmutableRowStruct(actualRow, actualSMetaData))
-                    .isEqualTo(new ImmutableRowStruct(row, structMetaData));
-        } catch (SQLException | RelationalException se) {
+                    .isEqualTo(new ImmutableRowStruct(row, struct.getMetaData()));
+        } catch (SQLException se) {
             throw new RuntimeException(se);
         }
         return this;
     }
 
-    public ResultSetAssert containsRowsExactly(Iterable<? extends Message> rows) {
-        /*
-         * We are operating on the assumption that all rows have the same metadata, because otherwise
-         * the result set would break anyway
-         */
-        Iterator<? extends Message> iter = rows.iterator();
-        if (!iter.hasNext()) {
-            return isEmpty();
-        }
-        Message first = iter.next();
+    public ResultSetAssert isRowPartly(RelationalStruct struct) {
         try {
-            Type.Record record = ProtobufDdlUtil.recordFromDescriptor(first.getDescriptorForType());
-            StructMetaData expectedMetaData = SqlTypeSupport.recordToMetaData(record);
-            List<Row> expectedRows = StreamSupport.stream(rows.spliterator(), false)
-                    .map(MessageTuple::new)
-                    .collect(Collectors.toList());
-            RelationalResultSet expectedResultSet = new IteratorResultSet(expectedMetaData, expectedRows.iterator(), 0);
-            return isExactlyInAnyOrder(expectedResultSet);
-        } catch (RelationalException se) {
+            Row actualRow = ResultSetTestUtils.currentRow(actual);
+            StructMetaData actualSMetaData = actual.getMetaData().unwrap(StructMetaData.class);
+            RelationalStructAssert.assertThat(new ImmutableRowStruct(actualRow, actualSMetaData)).isPartlyEqualTo(struct);
+        } catch (SQLException se) {
             throw new RuntimeException(se);
         }
-    }
-
-    public ResultSetAssert containsRowsExactly(Message... rows) {
-        if (rows.length == 0) {
-            return hasNoNextRow();
-        }
-        /*
-         * We are operating on the assumption that all rows have the same metadata, because otherwise
-         * the result set would break anyway
-         */
-        Message first = rows[0];
-        try {
-            Type.Record record = ProtobufDdlUtil.recordFromDescriptor(first.getDescriptorForType());
-            StructMetaData expectedMetaData = SqlTypeSupport.recordToMetaData(record);
-            List<Row> expectedRows = Arrays.stream(rows)
-                    .map(MessageTuple::new)
-                    .collect(Collectors.toList());
-            RelationalResultSet expectedResultSet = new IteratorResultSet(expectedMetaData, expectedRows.iterator(), 0);
-            return isExactlyInAnyOrder(expectedResultSet);
-        } catch (RelationalException se) {
-            throw new RuntimeException(se);
-        }
+        return this;
     }
 
     public ResultSetAssert containsRowsExactly(Collection<Object[]> rows) {
@@ -331,6 +289,22 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
         } catch (SQLException se) {
             throw new RuntimeException(se);
         }
+    }
+
+    public ResultSetAssert containsRowsPartly(RelationalStruct... expectedStructs) throws SQLException {
+        if (expectedStructs.length == 0) {
+            return this;
+        }
+        final var actualMetaData = actual.getMetaData().unwrap(StructMetaData.class);
+        List<Row> actualRows = new ArrayList<>();
+        while (actual.next()) {
+            actualRows.add(ResultSetTestUtils.currentRow(actual));
+        }
+        for (var expectedStruct: expectedStructs) {
+            final Iterator<RelationalStruct> iterator = getRelationalStructIterator(actualMetaData, actualRows);
+            RelationalStructAssert.assertThat(expectedStruct).isPartlyContainedIn(iterator);
+        }
+        return this;
     }
 
     public ResultSetAssert isExactlyInAnyOrder(RelationalResultSet expectedResultSet) {

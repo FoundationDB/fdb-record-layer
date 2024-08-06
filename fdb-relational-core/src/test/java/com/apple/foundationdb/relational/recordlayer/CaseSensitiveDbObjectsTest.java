@@ -78,13 +78,13 @@ public class CaseSensitiveDbObjectsTest {
         statement.executeUpdate("insert into t1 values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select * from t1")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly(1L, "abc", 1L)
+                    .isRowExactly(1L, "abc", 1L)
                     .hasNoNextRow();
         }
 
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly("abc")
+                    .isRowExactly("abc")
                     .hasNoNextRow();
         }
     }
@@ -105,13 +105,13 @@ public class CaseSensitiveDbObjectsTest {
         statement.executeUpdate("insert into \"t1\" values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select * from \"t1\"")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly(1L, "abc", 1L)
+                    .isRowExactly(1L, "abc", 1L)
                     .hasNoNextRow();
         }
 
         try (RelationalResultSet resultSet = statement.executeQuery("select \"id\" from \"t1\" where \"group\" = 1")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly("abc")
+                    .isRowExactly("abc")
                     .hasNoNextRow();
         }
     }
@@ -122,7 +122,7 @@ public class CaseSensitiveDbObjectsTest {
         statement.executeUpdate("insert into \"t1\" values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly("abc")
+                    .isRowExactly("abc")
                     .hasNoNextRow();
         }
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
@@ -130,7 +130,7 @@ public class CaseSensitiveDbObjectsTest {
 
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly("abc")
+                    .isRowExactly("abc")
                     .hasNoNextRow();
         }
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
@@ -143,7 +143,7 @@ public class CaseSensitiveDbObjectsTest {
         statement.executeUpdate("insert into \"t1\" values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly("abc")
+                    .isRowExactly("abc")
                     .hasNoNextRow();
         }
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
@@ -154,7 +154,7 @@ public class CaseSensitiveDbObjectsTest {
             try (RelationalStatement caseInsensitiveStatement = caseInsensitiveConn.createStatement()) {
                 try (RelationalResultSet resultSet = caseInsensitiveStatement.executeQuery("select \"id\" from \"t1\" where \"group\" = 1 options (log query)")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly("abc")
+                            .isRowExactly("abc")
                             .hasNoNextRow();
                 }
                 Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");

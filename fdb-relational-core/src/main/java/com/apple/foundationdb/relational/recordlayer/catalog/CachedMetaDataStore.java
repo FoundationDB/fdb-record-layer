@@ -38,10 +38,6 @@ import java.util.Map;
  * only a small number of MetaData fields).
  *
  * This is intended to be scoped to a single connection space, and so it is _not_ thread safe.
- *
- * TODO(bfines) this will _mostly_ work, but if the underlying MetaData changes it will cause the upper-level
- * getDataBuilder() objects to break because the schema and the format no longer makes sense, even within a specific
- * transaction. So at some point we'll need to propagate that error to something more user-friendly.
  */
 @NotThreadSafe
 public class CachedMetaDataStore implements RecordMetaDataStore {

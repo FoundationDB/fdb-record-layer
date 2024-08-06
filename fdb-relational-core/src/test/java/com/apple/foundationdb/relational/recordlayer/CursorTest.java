@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -31,14 +30,13 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.ResultSetTestUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -48,8 +46,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class CursorTest {
     @RegisterExtension
@@ -64,10 +60,10 @@ public class CursorTest {
 
     @Test
     public void canIterateOverAllResults() throws SQLException, RelationalException {
-        insertRecordsAndTest(10, (Iterable<Message> records, RelationalConnection conn) -> {
+        insertRecordsAndTest(10, (List<RelationalStruct> records, RelationalConnection conn) -> {
             // 1/2 scan all records
             try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
-                ResultSetAssert.assertThat(resultSet).containsRowsExactly(records);
+                ResultSetAssert.assertThat(resultSet).containsRowsPartly(records.toArray(new RelationalStruct[]{}));
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
@@ -76,7 +72,7 @@ public class CursorTest {
 
     @Test
     public void canIterateWithContinuation() throws SQLException, RelationalException {
-        insertRecordsAndTest(10, (Iterable<Message> records, RelationalConnection conn) -> {
+        insertRecordsAndTest(10, (List<RelationalStruct> records, RelationalConnection conn) -> {
             // 1/2 scan all records
             List<Row> actual = new ArrayList<>();
             StructMetaData metaData = null;
@@ -93,17 +89,17 @@ public class CursorTest {
                         cont = resultSet.getContinuation();
                     }
                 }
+                RelationalResultSet actualResults = new IteratorResultSet(metaData, actual.iterator(), 0);
+                ResultSetAssert.assertThat(actualResults).containsRowsPartly(records.toArray(new RelationalStruct[]{}));
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
-            RelationalResultSet actualResults = new IteratorResultSet(metaData, actual.iterator(), 0);
-            ResultSetAssert.assertThat(actualResults).containsRowsExactly(records);
         });
     }
 
     @Test
     public void continuationOnEdgesOfRecordCollection() throws SQLException, RelationalException {
-        insertRecordsAndTest(3, (Iterable<Message> records, RelationalConnection conn) -> {
+        insertRecordsAndTest(3, (List<RelationalStruct> records, RelationalConnection conn) -> {
             try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE)) {
                 // get continuation before iterating on the result set (should point to the first record).
                 Continuation continuation = resultSet.getContinuation();
@@ -137,7 +133,7 @@ public class CursorTest {
 
     @Test
     public void continuationOnEmptyCollection() throws SQLException, RelationalException {
-        insertRecordsAndTest(0, (Iterable<Message> records, RelationalConnection conn) -> {
+        insertRecordsAndTest(0, (List<RelationalStruct> records, RelationalConnection conn) -> {
             RelationalResultSet resultSet = null;
             try {
                 resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE);
@@ -163,7 +159,7 @@ public class CursorTest {
 
     @Test
     public void continuationWithReturnRowLimit() throws SQLException, RelationalException {
-        insertRecordsAndTest(10, (Iterable<Message> records, RelationalConnection conn) -> {
+        insertRecordsAndTest(10, (List<RelationalStruct> records, RelationalConnection conn) -> {
             Continuation continuation;
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT limit 5")) {
                 Assertions.assertTrue(resultSet.getContinuation().atBeginning());
@@ -239,7 +235,7 @@ public class CursorTest {
     // helper methods
 
     private void insertRecordsAndTest(int numRecords,
-                                      BiConsumer<Iterable<Message>, RelationalConnection> test) throws SQLException, RelationalException {
+                                      BiConsumer<List<RelationalStruct>, RelationalConnection> test) throws SQLException, RelationalException {
         final var records = insertAndReturnRecords(numRecords);
         try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
@@ -248,24 +244,14 @@ public class CursorTest {
         }
     }
 
-    private Iterable<Message> insertAndReturnRecords(int numRecords) throws SQLException, RelationalException {
-        Iterable<Message> records;
+    private List<RelationalStruct> insertAndReturnRecords(int numRecords) throws SQLException, RelationalException {
+        List<RelationalStruct> records;
         try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
             con.beginTransaction();
             final var statement = con.createStatement();
-            records = Utils.generateRestaurantRecords(numRecords, statement);
-            final DynamicMessageBuilder dataBuilder = statement.getDataBuilder("RESTAURANT");
-            Iterable<Message> convertedRecords = StreamSupport.stream(records.spliterator(), false)
-                    .map(m -> {
-                        try {
-                            return dataBuilder.convertMessage(m);
-                        } catch (SQLException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .collect(Collectors.toList());
-            int count = statement.executeInsert("RESTAURANT", convertedRecords);
+            records = Utils.generateRestaurantRecords(numRecords);
+            int count = statement.executeInsert("RESTAURANT", records);
             Assertions.assertEquals(numRecords, count);
         }
         return records;

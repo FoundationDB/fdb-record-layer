@@ -20,12 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.utils.Ddl;
-
-import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -33,7 +32,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 public class NullsInResultSetTest {
 
@@ -97,16 +95,18 @@ public class NullsInResultSetTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 try (RelationalStatement s = conn.createStatement()) {
-                    Message m = s.getDataBuilder("T")
-                            .setField("PK", 100)
-                            .setField("T1", 1)
-                            .setField("T2", "1")
-                            .setField("T3", 1.0)
-                            .setField("T4", "1".getBytes(StandardCharsets.UTF_8))
-                            .setField("T5", s.getDataBuilder("T", List.of("T5")).setField("S1", 2).setField("S2", 3).build())
-                            //.setField("T6", s.getDataBuilder("T", List.of("T6")).build()) // TODO(alacurie) TODO (Error when populating nullable array)
+                    final var struct = EmbeddedRelationalStruct.newBuilder()
+                            .addLong("PK", 100)
+                            .addLong("T1", 1)
+                            .addString("T2", "1")
+                            .addDouble("T3", 1.0)
+                            .addBytes("T4", "1".getBytes(StandardCharsets.UTF_8))
+                            .addStruct("T5", EmbeddedRelationalStruct.newBuilder()
+                                    .addString("S1", "2")
+                                    .addString("S2", "3")
+                                    .build())
                             .build();
-                    s.executeInsert("T", m);
+                    s.executeInsert("T", struct);
                     try (RelationalResultSet rs = s.executeQuery("SELECT * FROM T")) {
                         rs.next();
                         Assertions.assertThat(rs.getLong("PK")).isEqualTo(100L);

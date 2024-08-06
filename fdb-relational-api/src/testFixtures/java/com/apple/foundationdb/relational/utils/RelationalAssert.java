@@ -20,16 +20,10 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.google.protobuf.Message;
 import org.assertj.core.api.AbstractAssert;
 
 public class RelationalAssert extends AbstractAssert<RelationalAssert, Object> {
     protected RelationalAssert(Object o) {
         super(o, Object.class);
-    }
-
-    public MessageAssert isMessage() {
-        isInstanceOf(Message.class);
-        return new MessageAssert((Message) actual).describedAs(info.description());
     }
 }

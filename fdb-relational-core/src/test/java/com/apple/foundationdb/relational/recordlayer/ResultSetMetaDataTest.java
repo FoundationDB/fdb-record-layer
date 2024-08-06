@@ -20,17 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.ResultSetMetaDataAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
@@ -38,8 +37,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -68,14 +65,12 @@ public abstract class ResultSetMetaDataTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        List<Message> data = new ArrayList<>();
-        final DynamicMessageBuilder messageBuilder = statement.getDataBuilder("RESTAURANT");
-        data.add(messageBuilder
-                .setField("NAME", "testRestaurant0")
-                .setField("REST_NO", System.currentTimeMillis())
-                .build());
+        final RelationalStruct struct = EmbeddedRelationalStruct.newBuilder()
+                .addString("NAME", "testRestaurant0")
+                .addLong("REST_NO", System.currentTimeMillis())
+                .build();
 
-        int insertCount = statement.executeInsert("RESTAURANT", data.iterator());
+        int insertCount = statement.executeInsert("RESTAURANT", struct);
         Assertions.assertEquals(1, insertCount, "Did not count insertions correctly!");
     }
 

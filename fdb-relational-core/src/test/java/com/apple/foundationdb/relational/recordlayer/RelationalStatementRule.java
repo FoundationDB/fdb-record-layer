@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
@@ -28,7 +27,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -68,21 +66,6 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     @Override
     public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
         return statement.executeGet(tableName, key, options);
-    }
-
-    @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
-        return statement.getDataBuilder(tableName);
-    }
-
-    @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
-        return statement.getDataBuilder(maybeQualifiedTableName, nestedFields);
-    }
-
-    @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
-        return statement.executeInsert(tableName, data, options);
     }
 
     @Override

@@ -64,7 +64,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a AS OK, b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a, b HAVING MIN(c) < 50"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(2L, 1L, 90L)
+                            .isRowExactly(2L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -89,7 +89,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, SUM(c), b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(2L, 160L, 1L, 90L)
+                            .isRowExactly(2L, 160L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -114,11 +114,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, b, MAX(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 1L, 20L)
+                            .isRowExactly(1L, 1L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(1L, 2L, 15L)
+                            .isRowExactly(1L, 2L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(2L, 1L, 90L)
+                            .isRowExactly(2L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -143,11 +143,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, b, MAX(c) FROM (select * from T1) AS T2 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 1L, 20L)
+                            .isRowExactly(1L, 1L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(1L, 2L, 15L)
+                            .isRowExactly(1L, 2L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(2L, 1L, 90L)
+                            .isRowExactly(2L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -172,11 +172,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT max(T2.c), b, MAX(c) FROM (select * from T1) AS T2 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(20L, 1L, 20L)
+                            .isRowExactly(20L, 1L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(15L, 2L, 15L)
+                            .isRowExactly(15L, 2L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(90L, 1L, 90L)
+                            .isRowExactly(90L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -201,11 +201,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT max(T2.x), y, MAX(x) FROM (select a AS x, b AS y from T1) AS T2 GROUP BY x, y"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(20L, 1L, 20L)
+                            .isRowExactly(20L, 1L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(15L, 2L, 15L)
+                            .isRowExactly(15L, 2L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(90L, 1L, 90L)
+                            .isRowExactly(90L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -230,11 +230,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, b, MAX(c), MIN(c), COUNT(c), AVG(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 1L, 20L, 20L, 1L, 20.0)
+                            .isRowExactly(1L, 1L, 20L, 20L, 1L, 20.0)
                             .hasNextRow()
-                            .hasRowExactly(1L, 2L, 15L, 5L, 3L, 10.0)
+                            .isRowExactly(1L, 2L, 15L, 5L, 3L, 10.0)
                             .hasNextRow()
-                            .hasRowExactly(2L, 1L, 90L, 10L, 4L, 40.0)
+                            .isRowExactly(2L, 1L, 90L, 10L, 4L, 40.0)
                             .hasNoNextRow();
                 }
             }
@@ -259,11 +259,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, b, a+b, MAX(c), MIN(c), COUNT(c), AVG(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 1L, 2L, 20L, 20L, 1L, 20.0)
+                            .isRowExactly(1L, 1L, 2L, 20L, 20L, 1L, 20.0)
                             .hasNextRow()
-                            .hasRowExactly(1L, 2L, 3L, 15L, 5L, 3L, 10.0)
+                            .isRowExactly(1L, 2L, 3L, 15L, 5L, 3L, 10.0)
                             .hasNextRow()
-                            .hasRowExactly(2L, 1L, 3L, 90L, 10L, 4L, 40.0)
+                            .isRowExactly(2L, 1L, 3L, 90L, 10L, 4L, 40.0)
                             .hasNoNextRow();
                 }
             }
@@ -284,7 +284,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, b, MAX(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 1L, 2000L)
+                            .isRowExactly(1L, 1L, 2000L)
                             .hasNoNextRow();
                 }
             }
@@ -305,7 +305,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT MAX(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(2000L)
+                            .isRowExactly(2000L)
                             .hasNoNextRow();
                 }
             }
@@ -326,7 +326,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, b FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 1L)
+                            .isRowExactly(1L, 1L)
                             .hasNoNextRow();
                 }
             }
@@ -347,7 +347,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("select x.a, x.m from (SELECT a, b, max(c) as m FROM T1 GROUP BY a, b) x"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 2000L)
+                            .isRowExactly(1L, 2000L)
                             .hasNoNextRow();
                 }
             }
@@ -368,7 +368,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT max(c) as m FROM T1 GROUP BY 42, 55"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 2000L)
+                            .isRowExactly(1L, 2000L)
                             .hasNoNextRow();
                 }
             }
@@ -389,7 +389,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT MAX(c) FROM T1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(2000L)
+                            .isRowExactly(2000L)
                             .hasNoNextRow();
                 }
             }
@@ -410,7 +410,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT COUNT(H) FROM (SELECT SUM(c) AS H FROM T1 GROUP BY a, b) AS X"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(2L)
+                            .isRowExactly(2L)
                             .hasNoNextRow();
                 }
             }
@@ -435,11 +435,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, SUM(c) / COUNT(c), b, MAX(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 20L, 1L, 20L)
+                            .isRowExactly(1L, 20L, 1L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(1L, 10L, 2L, 15L)
+                            .isRowExactly(1L, 10L, 2L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(2L, 40L, 1L, 90L)
+                            .isRowExactly(2L, 40L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -464,11 +464,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT a, SUM(c) / COUNT(c), b, MAX(c) FROM T1 GROUP BY a, b"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L, 20L, 1L, 20L)
+                            .isRowExactly(1L, 20L, 1L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(1L, 10L, 2L, 15L)
+                            .isRowExactly(1L, 10L, 2L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(2L, 40L, 1L, 90L)
+                            .isRowExactly(2L, 40L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -493,9 +493,9 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT * from (select a from t1) as X group by a"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L)
+                            .isRowExactly(1L)
                             .hasNextRow()
-                            .hasRowExactly(2L)
+                            .isRowExactly(2L)
                             .hasNoNextRow();
                 }
             }
@@ -520,11 +520,11 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT SUM(c) / COUNT(c), MAX(c) FROM T1 GROUP BY a as x, b as y"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(20L, 20L)
+                            .isRowExactly(20L, 20L)
                             .hasNextRow()
-                            .hasRowExactly(10L, 15L)
+                            .isRowExactly(10L, 15L)
                             .hasNextRow()
-                            .hasRowExactly(40L, 90L)
+                            .isRowExactly(40L, 90L)
                             .hasNoNextRow();
                 }
             }
@@ -550,9 +550,9 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT max(y) from (select y, b as L from t1, t2) as q group by l"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(1L)
+                            .isRowExactly(1L)
                             .hasNextRow()
-                            .hasRowExactly(2L)
+                            .isRowExactly(2L)
                             .hasNoNextRow();
                 }
             }
@@ -577,7 +577,7 @@ public class GroupByQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT X AS OK, b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a as X, b HAVING MIN(c) < 50"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(2L, 1L, 90L)
+                            .isRowExactly(2L, 1L, 90L)
                             .hasNoNextRow();
                 }
             }

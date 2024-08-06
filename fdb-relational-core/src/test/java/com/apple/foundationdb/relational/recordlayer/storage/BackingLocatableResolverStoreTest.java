@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeyS
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.ScopedInterningLayer;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.StorageCluster;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
@@ -53,9 +55,6 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +67,7 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.util.Collections;
+import java.sql.Types;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -323,18 +322,17 @@ public class BackingLocatableResolverStoreTest {
                 // Update a few mappings by changing their meta-data
                 for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
                     if (mapping.getValue() % 2 == 0) {
-                        var message = statement.getDataBuilder(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, Collections.emptyList())
-                                .setField(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
-                                .setField(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ByteString.copyFromUtf8("foo_" + mapping.getKey()))
+                        final var struct = EmbeddedRelationalStruct.newBuilder()
+                                .addString(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                                .addBytes(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ("foo_" + mapping.getKey()).getBytes())
                                 .build();
-
-                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message))
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, struct))
                                 .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
 
                         Options options = Options.builder()
                                 .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
                                 .build();
-                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message, options))
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, struct, options))
                                 .hasMessageContaining("Cannot update table");
                     }
                 }
@@ -347,18 +345,18 @@ public class BackingLocatableResolverStoreTest {
                 // Change the actual values for some mappings
                 for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
                     if (mapping.getValue() % 2 != 0) {
-                        var message = statement.getDataBuilder(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, Collections.emptyList())
-                                .setField(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
-                                .setField(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, 1000L + mapping.getValue())
+                        final var struct = EmbeddedRelationalStruct.newBuilder()
+                                .addString(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                                .addLong(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, 100L + mapping.getValue())
                                 .build();
 
-                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message))
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, struct))
                                 .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
 
                         Options options = Options.builder()
                                 .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
                                 .build();
-                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, message, options))
+                        RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, struct, options))
                                 .hasMessageContaining("Cannot update table");
                     }
                 }
@@ -383,13 +381,20 @@ public class BackingLocatableResolverStoreTest {
             connection.setSchema("dl");
             try (RelationalStatement statement = connection.createStatement()) {
                 for (Map.Entry<String, Long> mapping : mappings.entrySet()) {
-                    var builder = statement.getDataBuilder(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, Collections.emptyList())
-                            .setField(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
-                            .setField(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, mapping.getValue());
+                    RelationalStruct struct;
                     if (mapping.getValue() % 2 == 0) {
-                        builder.setField(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ByteString.copyFromUtf8(mapping.getKey()));
+                        struct = EmbeddedRelationalStruct.newBuilder()
+                                .addString(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                                .addLong(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, 100L + mapping.getValue())
+                                .build();
+                    } else {
+                        struct = EmbeddedRelationalStruct.newBuilder()
+                                .addString(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, mapping.getKey())
+                                .addLong(LocatableResolverMetaDataProvider.VALUE_FIELD_NAME, 100L + mapping.getValue())
+                                .addBytes(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, mapping.getKey().getBytes())
+                                .build();
                     }
-                    RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, builder.build()))
+                    RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME, struct))
                             .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
                 }
 
@@ -451,14 +456,20 @@ public class BackingLocatableResolverStoreTest {
             try (RelationalStatement statement = connection.createStatement()) {
                 for (int i = 0; i < count; i++) {
                     String name = String.format("val_%02d", i);
-                    var builder = statement.getDataBuilder("Interning", Collections.emptyList())
-                            .setField("key", name);
                     byte[] metaData = metadataHook.apply(name);
+                    RelationalStruct struct;
                     if (metaData != null) {
-                        builder.setField(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, ByteString.copyFrom(metaData));
+                        struct = EmbeddedRelationalStruct.newBuilder()
+                                .addString(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, name)
+                                .addBytes(LocatableResolverMetaDataProvider.META_DATA_FIELD_NAME, metaData)
+                                .build();
+                    } else {
+                        struct = EmbeddedRelationalStruct.newBuilder()
+                                .addString(LocatableResolverMetaDataProvider.KEY_FIELD_NAME, name)
+                                .build();
                     }
                     try {
-                        statement.executeInsert("Interning", builder.build());
+                        statement.executeInsert("Interning", struct);
                     } catch (SQLException err) {
                         // Ignore duplicate primary keys, as previous runs can insert the data
                         if (!err.getSQLState().equals(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION.getErrorCode())) {
@@ -572,16 +583,13 @@ public class BackingLocatableResolverStoreTest {
     }
 
     private void insertResolverState(RelationalStatement statement, long version, String lock) throws SQLException {
-        var builder = statement.getDataBuilder(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, Collections.emptyList())
-                .setField(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, version);
-        Descriptors.EnumValueDescriptor lockValue = builder.getDescriptor()
-                .findFieldByName(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME)
-                .getEnumType()
-                .findValueByName(lock);
-        builder.setField(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lockValue);
+        final var struct = EmbeddedRelationalStruct.newBuilder()
+                .addInt(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, (int) version)
+                .addObject(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock, Types.OTHER)
+                .build();
         Options options = Options.builder()
                 .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)
                 .build();
-        statement.executeInsert(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, builder.build(), options);
+        statement.executeInsert(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, struct, options);
     }
 }

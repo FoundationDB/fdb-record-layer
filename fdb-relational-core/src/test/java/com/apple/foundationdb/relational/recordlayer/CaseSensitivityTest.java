@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
@@ -265,7 +264,9 @@ public class CaseSensitivityTest {
                 RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String column : columns) {
                     try (RelationalResultSet rs = md.getColumns("/TEST/VARIOUS_COLUMNS_DB", "VARIOUS_COLUMNS_" + column.toUpperCase(Locale.ROOT), "TBL_VARIOUS_COLUMNS", null)) {
-                        ResultSetAssert.assertThat(rs).hasNextRow().hasColumn("COLUMN_NAME", quoted ? column : column.toUpperCase(Locale.ROOT));
+                        ResultSetAssert.assertThat(rs)
+                                .hasNextRow()
+                                .hasColumn("COLUMN_NAME", quoted ? column : column.toUpperCase(Locale.ROOT));
                     }
                 }
             } finally {
@@ -319,11 +320,11 @@ public class CaseSensitivityTest {
                             for (String schema : schemas) {
                                 dbConn.setSchema(schema);
                                 for (String table : tables) {
-                                    DynamicMessageBuilder rowBuilder = statement.getDataBuilder(table);
+                                    final var builder = EmbeddedRelationalStruct.newBuilder();
                                     for (String column : columns) {
-                                        rowBuilder.setField(column, value++);
+                                        builder.addLong(column, value++);
                                     }
-                                    statement.executeInsert(table, rowBuilder.build());
+                                    statement.executeInsert(table, builder.build());
                                 }
                             }
                         }

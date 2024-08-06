@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -27,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.google.protobuf.Descriptors;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.Assumptions;
 import org.assertj.core.api.SoftAssertions;
 
 import java.sql.Array;
@@ -112,6 +114,15 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
         throw failure("Is not contained in data set");
     }
 
+    public void isPartlyContainedIn(Iterator<RelationalStruct> list) {
+        while (list.hasNext()) {
+            if (checkPartlyEquals(list.next(), actual)) {
+                return;
+            }
+        }
+        throw failure("Is not contained in data set");
+    }
+
     @SuppressWarnings("checkstyle:EmptyCatchBlock")
     private static boolean checkEquals(RelationalStruct actual, RelationalStruct expected) {
 
@@ -179,6 +190,162 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
             throw new RuntimeException(se);
         }
 
+    }
+
+
+    /**
+     * Checks if the expected {@link RelationalStruct} is partial overlap of the {@link RelationalStruct}. It follows the
+     * following rules:
+     * <ul>
+     *     <li>The expected struct should have at least 1 column.</li>
+     *     <li>The ordered list of columns in expected struct is required to be a ordered sub-list of actual struct</li>
+     *     <li>The column name of expected struct should match column name of actual struct. For the matched name, their
+     *     sql type should match</li>
+     *     <li>If the column is of primitive or array type, the values should match completely. However, if it is a struct,
+     *     the matching can be partial.</li>
+     * </ul>
+     * @param actual the actual {@link RelationalStruct}.
+     * @param expected the actual {@link RelationalStruct}.
+     *
+     * @return if the actual and expected is the same.
+     */
+    @SuppressWarnings("checkstyle:EmptyCatchBlock")
+    private static boolean checkPartlyEquals(RelationalStruct actual, RelationalStruct expected) {
+        try {
+            StructMetaData actualMetaData = actual.getMetaData();
+            StructMetaData expectedMetaData = expected.getMetaData();
+            if (actualMetaData.getColumnCount() < expectedMetaData.getColumnCount() || expectedMetaData.getColumnCount() == 0) {
+                return false;
+            }
+
+            var expectedIdx = 1;
+            for (int actualIdx = 1; actualIdx <= actualMetaData.getColumnCount(); actualIdx++) {
+                final var actualName = actualMetaData.getColumnName(actualIdx);
+                if (expectedIdx > expectedMetaData.getColumnCount() || !actualName.equalsIgnoreCase(expectedMetaData.getColumnName(expectedIdx))) {
+                    continue;
+                }
+                int actualSqlType = actualMetaData.getColumnType(actualIdx);
+                int expectedSqlType = expectedMetaData.getColumnType(actualIdx);
+                if (actualSqlType != expectedSqlType) {
+                    return false;
+                }
+
+                boolean fieldEquals = false;
+                switch (actualSqlType) {
+                    case Types.BOOLEAN:
+                        fieldEquals = actual.getBoolean(actualIdx) == expected.getBoolean(expectedIdx);
+                        break;
+                    case Types.SMALLINT:
+                    case Types.INTEGER:
+                    case Types.BIGINT:
+                        fieldEquals = actual.getLong(actualIdx) == expected.getLong(expectedIdx);
+                        break;
+                    case Types.FLOAT:
+                        fieldEquals = actual.getFloat(actualIdx) == expected.getFloat(expectedIdx);
+                        break;
+                    case Types.DOUBLE:
+                        fieldEquals = actual.getDouble(actualIdx) == expected.getDouble(expectedIdx);
+                        break;
+                    case Types.CHAR:
+                    case Types.VARCHAR:
+                    case Types.NCHAR:
+                    case Types.NVARCHAR:
+                        fieldEquals = actual.getString(actualIdx).equals(expected.getString(expectedIdx));
+                        break;
+                    case Types.STRUCT:
+                        fieldEquals = RelationalStructAssert.checkPartlyEquals(actual.getStruct(actualIdx), expected.getStruct(expectedIdx));
+                        break;
+                    case Types.ARRAY:
+                        fieldEquals = ArrayAssert.checkEquals(actual.getArray(actualIdx), expected.getArray(expectedIdx));
+                        break;
+                    case Types.BINARY:
+                        try {
+                            Assertions.assertThat(actual.getBytes(actualIdx)).containsExactly(expected.getBytes(expectedIdx));
+                            fieldEquals = true;
+                        } catch (AssertionError ignored) {
+                        }
+                        break;
+                    default:
+                        fieldEquals = actual.getObject(actualIdx).equals(expected.getObject(expectedIdx));
+                }
+                if (!fieldEquals) {
+                    return false;
+                }
+                expectedIdx++;
+            }
+            return expectedIdx > expectedMetaData.getColumnCount();
+        } catch (SQLException se) {
+            throw new RuntimeException(se);
+        }
+    }
+
+    @SuppressWarnings("checkstyle:EmptyCatchBlock")
+    public RelationalStructAssert isPartlyEqualTo(RelationalStruct expected) {
+        if (actual == null) {
+            Assertions.assertThat(expected).isNull();
+            return this;
+        }
+        isNotNull();
+        try {
+            StructMetaData actualMetaData = actual.getMetaData();
+            StructMetaData expectedMetaData = expected.getMetaData();
+            Assertions.assertThat(actualMetaData.getColumnCount()).isGreaterThanOrEqualTo(expectedMetaData.getColumnCount());
+            Assumptions.assumeThat(expectedMetaData.getColumnCount()).isGreaterThan(0);
+
+            var expectedIdx = 1;
+            for (int actualIdx = 1; actualIdx <= actualMetaData.getColumnCount(); actualIdx++) {
+                final var actualName = actualMetaData.getColumnName(actualIdx);
+                if (expectedIdx > expectedMetaData.getColumnCount() || !actualName.equalsIgnoreCase(expectedMetaData.getColumnName(expectedIdx))) {
+                    // ignoring columns that are not in expected.
+                    continue;
+                }
+                int actualSqlType = actualMetaData.getColumnType(actualIdx);
+                int expectedSqlType = expectedMetaData.getColumnType(expectedIdx);
+                Assertions.assertThat(actualSqlType).isEqualTo(expectedSqlType)
+                        .describedAs("expected type: " + SqlTypeNamesSupport.getSqlTypeName(expectedSqlType) + ", but found: " + SqlTypeNamesSupport.getSqlTypeName(actualSqlType));
+
+                switch (actualSqlType) {
+                    case Types.BOOLEAN:
+                        Assertions.assertThat(actual.getBoolean(actualIdx)).isEqualTo(expected.getBoolean(expectedIdx));
+                        break;
+                    case Types.SMALLINT:
+                    case Types.INTEGER:
+                        Assertions.assertThat(actual.getInt(actualIdx)).isEqualTo(expected.getInt(expectedIdx));
+                        break;
+                    case Types.BIGINT:
+                        Assertions.assertThat(actual.getLong(actualIdx)).isEqualTo(expected.getLong(expectedIdx));
+                        break;
+                    case Types.FLOAT:
+                        Assertions.assertThat(actual.getFloat(actualIdx)).isEqualTo(expected.getFloat(expectedIdx));
+                        break;
+                    case Types.DOUBLE:
+                        Assertions.assertThat(actual.getDouble(actualIdx)).isEqualTo(expected.getDouble(expectedIdx));
+                        break;
+                    case Types.CHAR:
+                    case Types.VARCHAR:
+                    case Types.NCHAR:
+                    case Types.NVARCHAR:
+                        Assertions.assertThat(actual.getString(actualIdx)).isEqualTo(expected.getString(expectedIdx));
+                        break;
+                    case Types.STRUCT:
+                        RelationalStructAssert.assertThat(actual.getStruct(actualIdx)).isPartlyEqualTo(expected.getStruct(expectedIdx));
+                        break;
+                    case Types.ARRAY:
+                        ArrayAssert.assertThat(actual.getArray(actualIdx)).isEqualTo(expected.getArray(expectedIdx));
+                        break;
+                    case Types.BINARY:
+                        Assertions.assertThat(actual.getBytes(actualIdx)).containsExactly(expected.getBytes(actualIdx));
+                        break;
+                    default:
+                        Assertions.assertThat(actual.getObject(actualIdx)).isEqualTo(expected.getObject(actualIdx));
+                }
+                expectedIdx++;
+            }
+            Assertions.assertThat(expectedIdx).isGreaterThanOrEqualTo(expectedMetaData.getColumnCount());
+        } catch (SQLException se) {
+            throw new RuntimeException(se);
+        }
+        return this;
     }
 
     public RelationalStructAssert isEqualTo(RelationalStruct expected) {
@@ -259,7 +426,11 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
     public RelationalStructAssert hasValue(String columnName, Object value) {
         try {
             final Object object = actual.getObject(columnName);
-            if (object instanceof RelationalStruct) {
+            if (value instanceof Map) {
+                //this is the same type of check as a struct, but made convenient for the tester
+                Assertions.assertThat(object).isInstanceOf(RelationalStruct.class);
+                RelationalStructAssert.assertThat((RelationalStruct) object).containsColumnsByName((Map<String, Object>) value);
+            } else if (object instanceof RelationalStruct) {
                 RelationalStructAssert.assertThat((RelationalStruct) object).isEqualTo(value);
             } else if (object instanceof Array) {
                 ArrayAssert.assertThat((Array) object).isEqualTo(value);

@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.google.protobuf.Message;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -47,7 +48,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -88,9 +88,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(singleReadSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
-                stmt.executeInsert(
-                        restaurantRecordTable,
-                        Collections.singleton(newRestaurantRecord(42, stmt)));
+                stmt.executeInsert(restaurantRecordTable, newRestaurantRecord(42));
             }
         }
     }
@@ -100,9 +98,7 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(getUri(dbName, true), com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(singleWriteSchema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
-                bh.consume(stmt.executeInsert(
-                        restaurantRecordTable,
-                        Collections.singleton(newRestaurantRecord(stmt))));
+                bh.consume(stmt.executeInsert(restaurantRecordTable, newRestaurantRecord()));
             }
         }
     }
@@ -132,14 +128,14 @@ public class BasicBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    private Message newRestaurantRecord(RelationalStatement statement) throws SQLException {
-        return newRestaurantRecord(restNo.incrementAndGet(), statement);
+    private RelationalStruct newRestaurantRecord() throws SQLException {
+        return newRestaurantRecord(restNo.incrementAndGet());
     }
 
-    private Message newRestaurantRecord(int recordId, RelationalStatement statement) throws SQLException {
-        return statement.getDataBuilder(restaurantRecordTable)
-                .setField("rest_no", recordId)
-                .setField("name", "testName")
+    private RelationalStruct newRestaurantRecord(int recordId) throws SQLException {
+        return EmbeddedRelationalStruct.newBuilder()
+                .addLong("rest_no", recordId)
+                .addString("name", "testName")
                 .build();
     }
 

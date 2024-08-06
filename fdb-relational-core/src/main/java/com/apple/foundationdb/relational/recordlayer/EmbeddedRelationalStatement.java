@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
@@ -35,7 +34,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -158,78 +156,6 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
             final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
             return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
-    }
-
-    @Override
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
-        try {
-            checkOpen();
-            conn.ensureTransactionActive();
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-            return schema.getDataBuilder(schemaAndTable[1]);
-        } catch (RelationalException | RuntimeException ex) {
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
-    }
-
-    @Override
-    @Nonnull
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
-        try {
-            checkOpen();
-            conn.ensureTransactionActive();
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), maybeQualifiedTableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-            final var typeAccessor = new java.util.ArrayList<>(List.of(schemaAndTable[1]));
-            typeAccessor.addAll(nestedFields);
-            return schema.getDataBuilder(String.join(".", typeAccessor));
-        } catch (RelationalException | RuntimeException e) {
-            throw ExceptionUtil.toRelationalException(e).toSqlException();
-        }
-    }
-
-    @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
-        try {
-            checkOpen();
-            options = Options.combine(conn.getOptions(), options);
-            //do this check first because otherwise we might start an expensive transaction that does nothing
-            if (!data.hasNext()) {
-                return 0;
-            }
-
-            conn.ensureTransactionActive();
-
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
-
-            Table table = schema.loadTable(schemaAndTable[1]);
-            table.validateTable(options);
-            final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
-
-            int rowCount = 0;
-            while (data.hasNext()) {
-                Message message = data.next();
-                if (table.insertRecord(message, replaceOnDuplicate != null && replaceOnDuplicate)) {
-                    rowCount++;
-                }
-            }
-            if (conn.getAutoCommit()) {
-                conn.commit();
-            }
-            return rowCount;
         } catch (RelationalException | SQLException | RuntimeException ex) {
             if (conn.getAutoCommit()) {
                 try {

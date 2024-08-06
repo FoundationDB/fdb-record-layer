@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
@@ -58,11 +58,11 @@ public class LargeRecordLayerSchemaTest {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/" + LargeRecordLayerSchemaTest.class.getSimpleName())).relationalExtension(relationalExtension).schemaTemplate(template.toString()).build()) {
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 try (var statement = conn.createStatement()) {
-                    DynamicMessageBuilder toInsert = statement.getDataBuilder("T1");
+                    RelationalStructBuilder builder = EmbeddedRelationalStruct.newBuilder();
                     for (long i = 0; i < colCount; i++) {
-                        toInsert.setField(column(i), i);
+                        builder.addLong(column(i), i);
                     }
-                    statement.executeInsert("T1", toInsert.build());
+                    statement.executeInsert("T1", builder.build());
                     try (ResultSet rs = statement.executeQuery("SELECT * from T1")) {
                         Assertions.assertTrue(rs.next());
                         for (long i = 0; i < colCount; i++) {

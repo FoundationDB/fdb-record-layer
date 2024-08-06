@@ -80,7 +80,7 @@ public class DdlRecordLayerSchemaTest {
                         try (ResultSet rs = tableInfoArr.getResultSet()) {
                             org.assertj.core.api.Assertions.assertThat(rs).isInstanceOf(RelationalResultSet.class);
                             ResultSetAssert.assertThat((RelationalResultSet) rs).hasNextRow()
-                                    .hasRowExactly(1, "FOO_TBL")
+                                    .isRowExactly(1, "FOO_TBL")
                                     .hasNoNextRow();
                         }
                     }
@@ -148,7 +148,7 @@ public class DdlRecordLayerSchemaTest {
                         try (ResultSet tableRs = arr.getResultSet()) {
                             org.assertj.core.api.Assertions.assertThat(tableRs).isInstanceOf(RelationalResultSet.class);
                             ResultSetAssert.assertThat((RelationalResultSet) tableRs).hasNextRow()
-                                    .hasRowExactly(1, "FOO_TBL")
+                                    .isRowExactly(1, "FOO_TBL")
                                     .hasNoNextRow();
                         }
                     }

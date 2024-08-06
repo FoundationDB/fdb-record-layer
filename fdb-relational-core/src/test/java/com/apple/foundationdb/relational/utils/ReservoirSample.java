@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * A simple Resevoir Sample of Objects. Used to keep a sample of data during load operations in comparison
+ * A simple Reservoir Sample of Objects. Used to keep a sample of data during load operations in comparison
  * tests.
  *
  * @param <T> the type of data held in the sample.

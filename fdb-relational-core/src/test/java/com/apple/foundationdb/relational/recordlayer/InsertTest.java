@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,8 +38,6 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -47,8 +46,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 public class InsertTest {
@@ -70,16 +67,16 @@ public class InsertTest {
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Message restaurant = s.getDataBuilder("RESTAURANT")
-                        .setField("REST_NO", id)
-                        .setField("NAME", "restRecord" + id)
+                RelationalStruct restaurant = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", id)
+                        .addString("NAME", "restRecord" + id)
                         .build();
                 int inserted = s.executeInsert("RESTAURANT", restaurant);
                 Assertions.assertEquals(1, inserted, "Did not insert properly!");
 
-                Message reviewer = s.getDataBuilder("RESTAURANT_REVIEWER")
-                        .setField("NAME", "reviewerName" + id)
-                        .setField("ID", id - 1)
+                RelationalStruct reviewer = EmbeddedRelationalStruct.newBuilder()
+                        .addString("NAME", "reviewerName" + id)
+                        .addLong("ID", id - 1)
                         .build();
                 inserted = s.executeInsert("RESTAURANT_REVIEWER", reviewer);
                 Assertions.assertEquals(1, inserted, "Did not insert reviewers properly!");
@@ -87,13 +84,13 @@ public class InsertTest {
                 //now prove we can get them back out
                 try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT", new KeySet().setKeyColumns(Map.of("REST_NO", id)), Options.NONE)) {
                     ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
-                            .hasRow(Map.of("NAME", "restRecord" + id, "REST_NO", id))
+                            .hasColumns(Map.of("NAME", "restRecord" + id, "REST_NO", id))
                             .hasNoNextRow();
                 }
 
                 try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", id - 1), Options.NONE)) {
                     ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
-                            .hasRow(Map.of("NAME", "reviewerName" + id, "ID", id - 1))
+                            .hasColumns(Map.of("NAME", "reviewerName" + id, "ID", id - 1))
                             .hasNoNextRow();
                 }
 
@@ -161,7 +158,7 @@ public class InsertTest {
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
-                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", id).setField("NAME", "restRecord" + id).build();
+                final var record = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", id).addString("NAME", "restRecord" + id).build();
                 RelationalAssertions.assertThrowsSqlException(
                         () -> s.executeInsert("RESTAURANT_REVIEWER", record))
                         .hasErrorCode(ErrorCode.INVALID_PARAMETER);
@@ -177,15 +174,15 @@ public class InsertTest {
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 // string type field NAME is unset
-                Message restaurant1 = s.getDataBuilder("RESTAURANT")
-                        .setField("REST_NO", id)
+                final var restaurant1 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", id)
                         .build();
                 int inserted1 = s.executeInsert("RESTAURANT", restaurant1);
                 Assertions.assertEquals(1, inserted1, "Did not insert properly!");
                 // string type field NAME is set to empty string
-                Message restaurant2 = s.getDataBuilder("RESTAURANT")
-                        .setField("REST_NO", id + 1)
-                        .setField("NAME", "")
+                final var restaurant2 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", id + 1)
+                        .addString("NAME", "")
                         .build();
                 int inserted2 = s.executeInsert("RESTAURANT", restaurant2);
                 Assertions.assertEquals(1, inserted2, "Did not insert properly!");
@@ -193,13 +190,13 @@ public class InsertTest {
                 //now prove we can get them back out
                 try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT", new KeySet().setKeyColumns(Map.of("REST_NO", id)), Options.NONE)) {
                     ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
-                            .hasRow(Map.of("REST_NO", id))
+                            .hasColumns(Map.of("REST_NO", id))
                             .hasNoNextRow();
                 }
 
                 try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT", new KeySet().setKeyColumns(Map.of("REST_NO", id + 1)), Options.NONE)) {
                     ResultSetAssert.assertThat(relationalResultSet).hasNextRow()
-                            .hasRow(Map.of("REST_NO", id + 1, "NAME", ""));
+                            .hasColumns(Map.of("REST_NO", id + 1, "NAME", ""));
                 }
             }
         }
@@ -211,29 +208,19 @@ public class InsertTest {
             conn.setSchema("TEST_SCHEMA");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
-                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).build();
-                s.executeInsert("RESTAURANT", record);
-                RelationalAssertions.assertThrowsSqlException(() -> s.executeInsert("RESTAURANT", record))
+                final var struct = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 0).build();
+                s.executeInsert("RESTAURANT", struct);
+                RelationalAssertions.assertThrowsSqlException(() -> s.executeInsert("RESTAURANT", struct))
                         .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
             }
         }
     }
 
     @Test
-    void canNotAddNullElementToArray() throws SQLException, RelationalException {
-        try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
-            conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
-            List<String> customers = new ArrayList<>();
-            customers.add("A");
-            customers.add(null);
-            try (RelationalStatement s = conn.createStatement()) {
-                RelationalAssertions.assertThrowsSqlException(() -> s.getDataBuilder("RESTAURANT")
-                        .setField("REST_NO", 0)
-                        .addRepeatedFields("CUSTOMER", customers)
-                        .build()).hasErrorCode(ErrorCode.NOT_NULL_VIOLATION);
-            }
-        }
+    void canNotAddNullElementToArray() {
+        final var builder = EmbeddedRelationalArray.newBuilder();
+        final var throwAssert = Assertions.assertThrows(SQLException.class, () -> builder.addAll(1, 2, 3, null, 5, 6));
+        Assertions.assertTrue(throwAssert.getMessage().contains("Cannot add NULL to an array"));
     }
 
     @Test
@@ -264,7 +251,7 @@ public class InsertTest {
                                         .build())
                                 .build())
                         .build();
-                s.executeInsert("RESTAURANT_MENU", List.of(restMenu), Options.NONE);
+                s.executeInsert("RESTAURANT_MENU", restMenu, Options.NONE);
                 //now prove we can get them back out
                 try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT_MENU", new KeySet().setKeyColumns(Map.of("ID", 1L, "REST_NO", 23L)), Options.NONE)) {
                     ResultSetAssert.assertThat(relationalResultSet)
@@ -283,7 +270,7 @@ public class InsertTest {
                         .addLong("REST_NO", 23L)
                         .addObject("CUISINE", "japanese", Types.OTHER)
                         .build();
-                s.executeInsert("RESTAURANT_MENU", List.of(restMenu), Options.NONE);
+                s.executeInsert("RESTAURANT_MENU", restMenu, Options.NONE);
 
                 //now prove we can get them back out
                 try (RelationalResultSet relationalResultSet = s.executeGet("RESTAURANT_MENU", new KeySet().setKeyColumns(Map.of("ID", 2L, "REST_NO", 23L)), Options.NONE)) {
@@ -306,9 +293,18 @@ public class InsertTest {
             conn.setSchema("TEST_SCHEMA");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
-                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "before").addRepeatedFields("CUSTOMER", List.of("cust1")).build();
+                RelationalStruct record = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", 0)
+                        .addString("NAME", "before")
+                        .addArray("CUSTOMER", EmbeddedRelationalArray.newBuilder()
+                                .addString("cust1")
+                                .build())
+                        .build();
                 s.executeInsert("RESTAURANT", record);
-                record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).setField("NAME", "after").build();
+                record = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", 0)
+                        .addString("NAME", "after")
+                        .build();
                 s.executeInsert("RESTAURANT", record, Options.builder().withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true).build());
                 try (RelationalResultSet rs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 0), Options.NONE)) {
                     ResultSetAssert.assertThat(rs)
@@ -326,7 +322,7 @@ public class InsertTest {
             conn.setSchema("TEST_SCHEMA");
             conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
-                Message record = s.getDataBuilder("RESTAURANT").setField("REST_NO", 0).build();
+                RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 0).build();
                 s.executeInsert("RESTAURANT", record, Options.builder().withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true).build());
                 try (RelationalResultSet rs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 0), Options.NONE)) {
                     ResultSetAssert.assertThat(rs)

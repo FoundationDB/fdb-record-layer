@@ -20,25 +20,25 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,10 +68,7 @@ public class TableWithEnumTest {
 
     @Test
     void canInsertAndGetSingleRecord() throws Exception {
-        Message inserted = insertCard(42, "HEARTS", 8);
-        assertThat(inserted.getField(inserted.getDescriptorForType().findFieldByName("SUIT")))
-                .as("inserted value should set enum field")
-                .isEqualTo(inserted.getDescriptorForType().findFieldByName("SUIT").getEnumType().findValueByName("HEARTS"));
+        final var inserted = insertCard(42, "HEARTS", 8);
 
         KeySet keys = new KeySet()
                 .setKeyColumn("ID", 42);
@@ -79,7 +76,7 @@ public class TableWithEnumTest {
         try (RelationalResultSet resultSet = statement.executeGet("CARD", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(inserted)
+                    .isRowExactly(inserted)
                     .hasNoNextRow();
         }
     }
@@ -114,18 +111,12 @@ public class TableWithEnumTest {
     }
 
     @Test
-    void insertUnexpectedEnumValue() {
-        RelationalAssertions.assertThrowsSqlException(() -> statement.getDataBuilder("CARD")
-                .setField("ID", -1)
-                .setField("SUIT", "TAILORED")
-                .build())
+    void insertUnexpectedEnumValue() throws SQLException {
+        RelationalAssertions.assertThrowsSqlException(() -> insertCard(-1, "TAILORED", 34))
                 .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE)
-                .hasMessageContaining("Invalid enum value");
+                .hasMessageContaining("Invalid enum value: TAILORED");
 
-        RelationalAssertions.assertThrowsSqlException(() -> statement.getDataBuilder("CARD")
-                .setField("ID", -1)
-                .setField("SUIT", 2)
-                .build())
+        RelationalAssertions.assertThrowsSqlException(() -> insertCard(-1, 2, 34))
                 .hasErrorCode(ErrorCode.CANNOT_CONVERT_TYPE)
                 .hasMessageContaining("Invalid enum value");
     }
@@ -140,7 +131,7 @@ public class TableWithEnumTest {
             for (String suit : SUITS) {
                 for (var rank = 1L; rank < 14; rank++) {
                     assertion.hasNextRow();
-                    assertion.hasRowExactly(pk++, suit, rank);
+                    assertion.isRowExactly(pk++, suit, rank);
                 }
             }
         }
@@ -161,11 +152,11 @@ public class TableWithEnumTest {
     }
 
     @Test
-    void unsetSuit() throws RelationalException, SQLException {
-        Message card = statement.getDataBuilder("CARD")
-                .setField("ID", 0L)
+    void unsetSuit() throws SQLException {
+        final var cardStruct = EmbeddedRelationalStruct.newBuilder()
+                .addLong("ID", 0L)
                 .build();
-        assertThat(statement.executeInsert("CARD", card))
+        assertThat(statement.executeInsert("CARD", cardStruct))
                 .as("Should be able to insert card without suit")
                 .isEqualTo(1);
 
@@ -174,9 +165,8 @@ public class TableWithEnumTest {
         try (RelationalResultSet resultSet = statement.executeGet("CARD", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(card)
-                    .row()
-                    .hasValue("SUIT", null);
+                    .hasColumn("ID", 0L)
+                    .hasColumn("SUIT", null);
         }
     }
 
@@ -212,16 +202,21 @@ public class TableWithEnumTest {
                 .isEqualTo(52);
     }
 
-    private Message insertCard(long id, String suit, int rank) throws Exception {
-        Message card = statement.getDataBuilder("CARD")
-                .setField("ID", id)
-                .setField("SUIT", suit)
-                .setField("RANK", rank)
+    private RelationalStruct getStructToInsert(long id, Object suit, int rank) throws SQLException {
+        return EmbeddedRelationalStruct.newBuilder()
+                .addLong("ID", id)
+                .addObject("SUIT", suit, Types.OTHER)
+                .addLong("RANK", rank)
                 .build();
-        int insertCount = statement.executeInsert("CARD", card);
+
+    }
+
+    private RelationalStruct insertCard(long id, Object suit, int rank) throws SQLException {
+        final var cardStruct = getStructToInsert(id, suit, rank);
+        int insertCount = statement.executeInsert("CARD", cardStruct);
         assertThat(insertCount)
                 .as("Did not count insertions correctly!")
                 .isEqualTo(1);
-        return card;
+        return cardStruct;
     }
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
@@ -31,8 +32,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -62,16 +61,19 @@ public class TableWithNoPkTest {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final Message row = s.getDataBuilder("NO_PK")
-                        .setField("A", 12)
-                        .setField("B", 18)
+                final var row = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("A", 12)
+                        .addLong("B", 18)
                         .build();
 
                 int inserted = s.executeInsert("NO_PK", row);
                 Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
                 KeySet key = new KeySet();
                 try (RelationalResultSet rrs = s.executeGet("NO_PK", key, Options.NONE)) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow().hasRow(row).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).hasNextRow()
+                            .hasColumn("A", 12L)
+                            .hasColumn("B", 18L)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -83,17 +85,17 @@ public class TableWithNoPkTest {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final Message row1 = s.getDataBuilder("NO_PK")
-                        .setField("A", 12)
-                        .setField("B", 18)
+                final var row1 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("A", 12)
+                        .addLong("B", 18)
                         .build();
 
                 int inserted = s.executeInsert("NO_PK", row1);
                 Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
 
-                final Message row2 = s.getDataBuilder("NO_PK")
-                        .setField("A", 14)
-                        .setField("B", 19)
+                final var row2 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("A", 14)
+                        .addLong("B", 19)
                         .build();
 
                 RelationalAssertions.assertThrowsSqlException(() -> s.executeInsert("NO_PK", row2))
@@ -101,7 +103,10 @@ public class TableWithNoPkTest {
 
                 KeySet key = new KeySet();
                 try (RelationalResultSet rrs = s.executeGet("NO_PK", key, Options.NONE)) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow().hasRow(row1).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).hasNextRow()
+                            .hasColumn("A", 12L)
+                            .hasColumn("B", 18L)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -113,9 +118,9 @@ public class TableWithNoPkTest {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final Message row1 = s.getDataBuilder("NO_PK")
-                        .setField("A", 12)
-                        .setField("B", 18)
+                final var row1 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("A", 12)
+                        .addLong("B", 18)
                         .build();
 
                 s.executeInsert("NO_PK", row1);
@@ -137,14 +142,17 @@ public class TableWithNoPkTest {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final Message row = s.getDataBuilder("NO_PK")
-                        .setField("A", 12)
-                        .setField("B", 18)
+                final var row = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("A", 12)
+                        .addLong("B", 18)
                         .build();
 
                 s.executeInsert("NO_PK", row);
                 try (RelationalResultSet rrs = s.executeScan("NO_PK", new KeySet(), Options.NONE)) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow().hasRow(row).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).hasNextRow()
+                            .hasColumn("A", 12L)
+                            .hasColumn("B", 18L)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -156,22 +164,25 @@ public class TableWithNoPkTest {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final Message row = s.getDataBuilder("NO_PK")
-                        .setField("A", 12)
-                        .setField("B", 18)
+                final var row = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("A", 12)
+                        .addLong("B", 18)
                         .build();
 
                 s.executeInsert("NO_PK", row);
                 try (RelationalResultSet rrs = s.executeQuery("SELECT * FROM NO_PK")) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow().hasRow(row).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).hasNextRow()
+                            .hasColumn("A", 12L)
+                            .hasColumn("B", 18L)
+                            .hasNoNextRow();
                 }
 
                 try (RelationalResultSet rrs = s.executeQuery("SELECT A FROM NO_PK")) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow().hasRowExactly(12L).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).hasNextRow().isRowExactly(12L).hasNoNextRow();
                 }
 
                 try (RelationalResultSet rrs = s.executeQuery("SELECT B FROM NO_PK")) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow().hasRowExactly(18L).hasNoNextRow();
+                    ResultSetAssert.assertThat(rrs).hasNextRow().isRowExactly(18L).hasNoNextRow();
                 }
             }
         }

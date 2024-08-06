@@ -20,13 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.google.protobuf.Message;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -115,9 +116,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection dbConn = Relational.connect(uri, com.apple.foundationdb.relational.api.Options.NONE)) {
             dbConn.setSchema(schema);
             try (RelationalStatement stmt = dbConn.createStatement()) {
-                stmt.executeInsert(
-                        restaurantRecordTable,
-                        createRecords(stmt));
+                stmt.executeInsert(restaurantRecordTable, createRecords());
             }
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
@@ -126,19 +125,19 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    private Message newRestaurantRecord(int recordId, RelationalStatement statement) {
+    private RelationalStruct newRestaurantRecord(int recordId) {
         try {
-            return statement.getDataBuilder(restaurantRecordTable)
-                    .setField("rest_no", recordId)
-                    .setField("name", "restaurant #" + recordId)
+            return EmbeddedRelationalStruct.newBuilder()
+                    .addLong("rest_no", recordId)
+                    .addString("name", "restaurant #" + recordId)
                     .build();
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
-    private List<Message> createRecords(RelationalStatement statement) {
-        return IntStream.range(1, dbSize + 1).mapToObj(id -> newRestaurantRecord(id, statement)).collect(Collectors.toList());
+    private List<RelationalStruct> createRecords() {
+        return IntStream.range(1, dbSize + 1).mapToObj(this::newRestaurantRecord).collect(Collectors.toList());
     }
 
     private String dbName(long dbId) {

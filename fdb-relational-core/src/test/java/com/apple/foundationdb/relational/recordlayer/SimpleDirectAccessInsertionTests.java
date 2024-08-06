@@ -20,7 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
@@ -31,8 +32,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
-import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.List;
 
 /**
  * Simple unit tests around direct-access insertion tests.
@@ -60,25 +58,24 @@ public class SimpleDirectAccessInsertionTests {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                final DynamicMessageBuilder builder = s.getDataBuilder("RESTAURANT_REVIEWER");
-                builder.setField("ID", 1L);
-                builder.setField("NAME", "Anthony Bourdain");
-                builder.setField("EMAIL", "abourdain@apple.com");
-                builder.setField("STATS",
-                        s.getDataBuilder("RESTAURANT_REVIEWER", List.of("STATS"))
-                                .setField("SCHOOL_NAME", "Truman High School")
-                                .setField("HOMETOWN", "Boise, Indiana")
-                                .setField("START_DATE", 0L)
-                                .build());
-                Message toWrite = builder.build();
-
-                int inserted = s.executeInsert("RESTAURANT_REVIEWER", toWrite);
+                final var struct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addString("NAME", "Anthony Bourdain")
+                        .addString("EMAIL", "abourdain@apple.com")
+                        .addStruct("STATS", EmbeddedRelationalStruct.newBuilder()
+                                .addLong("START_DATE", 0L)
+                                .addString("SCHOOL_NAME", "Truman High School")
+                                .addString("HOMETOWN", "Boise, Indiana")
+                                .build())
+                        .build();
+                int inserted = s.executeInsert("RESTAURANT_REVIEWER", struct);
                 Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
                 KeySet key = new KeySet()
                         .setKeyColumn("ID", 1L);
                 try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", key, Options.NONE)) {
-                    ResultSetAssert.assertThat(rrs).hasNextRow()
-                            .hasRow(toWrite)
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .isRowExactly(struct)
                             .hasNoNextRow();
                 }
             }
@@ -96,37 +93,40 @@ public class SimpleDirectAccessInsertionTests {
             conn.setSchema(db.getSchemaName());
 
             try (RelationalStatement s = conn.createStatement()) {
-                Message review = s.getDataBuilder("RESTAURANT_REVIEWER")
-                        .setField("ID", 1L)
-                        .setField("NAME", "Jane Doe")
-                        .setField("EMAIL", "isabel.hawthowrne@apples.com")
-                        .setField("STATS", s.getDataBuilder("RESTAURANT_REVIEWER", List.of("STATS"))
-                                .setField("SCHOOL_NAME", "l'ecole populaire")
-                                .setField("HOMETOWN", "Athens, GA")
-                                .setField("START_DATE", 12L)
+                final var reviewerStruct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addString("NAME", "Jane Doe")
+                        .addString("EMAIL", "isabel.hawthowrne@apples.com")
+                        .addStruct("STATS", EmbeddedRelationalStruct.newBuilder()
+                                .addLong("START_DATE", 12L)
+                                .addString("SCHOOL_NAME", "l'ecole populaire")
+                                .addString("HOMETOWN", "Athens, GA")
                                 .build())
                         .build();
-
-                Message restaurant = s.getDataBuilder("RESTAURANT")
-                        .setField("REST_NO", 2L)
-                        .setField("NAME", "Burgers Burgers")
-                        .setField("LOCATION", s.getDataBuilder("RESTAURANT", List.of("LOCATION"))
-                                .setField("ADDRESS", "12345 Easy Street")
+                final var restaurantStruct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("REST_NO", 2L)
+                        .addString("NAME", "Burgers Burgers")
+                        .addStruct("LOCATION", EmbeddedRelationalStruct.newBuilder()
+                                .addString("ADDRESS", "12345 Easy Street")
                                 .build())
-                        .addRepeatedFields("TAGS", List.of(s.getDataBuilder("RESTAURANT", List.of("TAGS"))
-                                .setField("TAG", "title-123")
-                                .setField("WEIGHT", 1L)
-                                .build()))
-                        .addRepeatedFields("REVIEWS", List.of(s.getDataBuilder("RESTAURANT", List.of("REVIEWS"))
-                                .setField("REVIEWER", 1L)
-                                .setField("RATING", 1L)
-                                .build()))
+                        .addArray("TAGS", EmbeddedRelationalArray.newBuilder()
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("TAG", "title-123")
+                                        .addLong("WEIGHT", 1L)
+                                        .build())
+                                .build())
+                        .addArray("REVIEWS", EmbeddedRelationalArray.newBuilder()
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addLong("REVIEWER", 1L)
+                                        .addLong("RATING", 1L)
+                                        .build())
+                                .build())
                         .build();
 
                 //insert the review
-                Assertions.assertThat(s.executeInsert("RESTAURANT_REVIEWER", review)).isEqualTo(1);
+                Assertions.assertThat(s.executeInsert("RESTAURANT_REVIEWER", reviewerStruct)).isEqualTo(1);
                 //insert the restaurant
-                Assertions.assertThat(s.executeInsert("RESTAURANT", restaurant)).isEqualTo(1);
+                Assertions.assertThat(s.executeInsert("RESTAURANT", restaurantStruct)).isEqualTo(1);
 
                 //now make sure that you don't get back the other one
                 try (RelationalResultSet rrs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 1L), Options.NONE)) {
@@ -141,13 +141,14 @@ public class SimpleDirectAccessInsertionTests {
                 try (RelationalResultSet rrs = s.executeGet("RESTAURANT", new KeySet().setKeyColumn("REST_NO", 2L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
-                            .hasRow(restaurant)
+                            .hasColumn("REST_NO", 2L)
+                            .hasColumn("NAME", "Burgers Burgers")
                             .hasNoNextRow();
                 }
                 try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", 1L), Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
-                            .hasRow(review)
+                            .isRowExactly(reviewerStruct)
                             .hasNoNextRow();
                 }
 
@@ -155,14 +156,15 @@ public class SimpleDirectAccessInsertionTests {
                 try (RelationalResultSet rrs = s.executeScan("RESTAURANT", KeySet.EMPTY, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
-                            .hasRow(restaurant)
+                            .hasColumn("REST_NO", 2L)
+                            .hasColumn("NAME", "Burgers Burgers")
                             .hasNoNextRow();
                 }
 
                 try (RelationalResultSet rrs = s.executeScan("RESTAURANT_REVIEWER", KeySet.EMPTY, Options.NONE)) {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
-                            .hasRow(review)
+                            .isRowExactly(reviewerStruct)
                             .hasNoNextRow();
                 }
             }

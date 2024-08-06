@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -43,8 +44,8 @@ public interface EmbeddedRelationalArray extends RelationalArray {
 
     class Builder implements RelationalArrayBuilder {
 
-        private ArrayMetaData metaData;
-        private final List<Object> elements = new ArrayList<>();
+        @Nullable private ArrayMetaData metaData;
+        @Nonnull private final List<Object> elements = new ArrayList<>();
 
         private Builder() {
         }
@@ -54,13 +55,25 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         }
 
         @Override
-        public EmbeddedRelationalArray build() {
+        public EmbeddedRelationalArray build() throws SQLException {
+            try {
+                // This is a bit odd as we do not allow the arrayMetaData to be null, which can happen if there is no
+                // element added to the builder. The array can be empty in the case of nullable array.
+                // In the case of supporting an empty array, we need to explicitly provide an arrayMetaData, which is
+                // required to correctly decipher the "type" of array downstream.
+                Assert.that(this.metaData != null, ErrorCode.UNKNOWN_TYPE, "Creating ARRAY without metadata is not allowed.");
+            } catch (RelationalException ve) {
+                throw ve.toSqlException();
+            }
             return new RowArray(elements, metaData);
         }
 
         @Override
         public Builder addAll(@Nonnull Object... values) throws SQLException {
             for (var value : values) {
+                if (value == null) {
+                    throw new RelationalException("Cannot add NULL to an array.", ErrorCode.DATATYPE_MISMATCH).toSqlException();
+                }
                 final var sqlType = SqlTypeSupport.getSqlTypeCodeFromObject(value);
                 if (sqlType == Types.STRUCT) {
                     addStruct(((RelationalStruct) value));

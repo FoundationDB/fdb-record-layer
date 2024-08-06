@@ -39,6 +39,7 @@ import java.util.Set;
  *               See usages of this this API in some tests such as {@code SimpleDirectAccessInsertionTests} for more
  *               information.
  */
+@Deprecated
 @NotThreadSafe
 public interface DynamicMessageBuilder {
 

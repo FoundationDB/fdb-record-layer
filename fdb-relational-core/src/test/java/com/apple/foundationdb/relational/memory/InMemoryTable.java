@@ -30,23 +30,23 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.RecordTypeTable;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import java.sql.SQLException;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,11 +59,12 @@ public class InMemoryTable {
         this.recordType = recordType;
     }
 
-    public int add(Iterator<? extends Message> messages) throws RelationalException {
+    public int add(List<? extends RelationalStruct> structs) throws RelationalException {
         try {
             AtomicInteger count = new AtomicInteger(0);
             KeyExpression keyFunc = recordType.getPrimaryKey();
-            messages.forEachRemaining((Consumer<Message>) message -> {
+            for (var struct: structs) {
+                var message = RecordTypeTable.toDynamicMessage(struct, recordType.getDescriptor());
                 FDBStoredRecordBuilder<Message> rec = new FDBStoredRecordBuilder<>().setRecord(message).setRecordType(recordType);
                 byte[] key = keyFunc.evaluateSingleton(rec).toTuple().pack();
                 Message old = data.putIfAbsent(key, message);
@@ -75,7 +76,7 @@ public class InMemoryTable {
                     }
                 }
                 count.incrementAndGet();
-            });
+            }
             return count.get();
         } catch (UncheckedRelationalException uve) {
             throw uve.unwrap();

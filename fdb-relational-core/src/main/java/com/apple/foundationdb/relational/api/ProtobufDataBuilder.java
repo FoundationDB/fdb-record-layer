@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Deprecated
 public class ProtobufDataBuilder implements DynamicMessageBuilder {
     private final Descriptors.Descriptor typeDescriptor;
 

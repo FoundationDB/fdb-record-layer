@@ -20,11 +20,15 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 
-import com.google.protobuf.Descriptors;
-
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,71 +37,72 @@ public class StructFieldGenerator implements FieldGenerator {
     protected final List<FieldGenerator> nestedFieldGenerators;
     private final RandomDataSource randomSource;
     private final int maxArraySize;
-    private final boolean isRepeated;
 
     public StructFieldGenerator(String fieldName,
                                 List<FieldGenerator> nestedFieldGenerators,
                                 RandomDataSource randomSource,
-                                int maxArraySize,
-                                boolean isRepeated) {
+                                int maxArraySize) {
         this.fieldName = fieldName;
         this.nestedFieldGenerators = nestedFieldGenerators;
         this.randomSource = randomSource;
         this.maxArraySize = maxArraySize;
-        this.isRepeated = isRepeated;
     }
 
     public StructFieldGenerator(String fieldName,
-                                Descriptors.Descriptor structDescriptor,
+                                @Nonnull StructMetaData structMetaData,
                                 RandomDataSource randomSource,
-                                int maxArraySize,
-                                boolean isRepeated) {
+                                int maxArraySize) throws SQLException {
         this.fieldName = fieldName;
         this.randomSource = randomSource;
-        final List<Descriptors.FieldDescriptor> fields = structDescriptor.getFields();
         this.maxArraySize = maxArraySize;
-        this.nestedFieldGenerators = new ArrayList<>(fields.size());
-        this.isRepeated = isRepeated;
-        for (Descriptors.FieldDescriptor field : fields) {
-            FieldGenerator fieldGenerator = getFieldGenerator(field);
-            nestedFieldGenerators.add(fieldGenerator);
-        }
-    }
-
-    @Override
-    public void generateValue(DynamicMessageBuilder destination) throws SQLException {
-        final DynamicMessageBuilder structBuilder = destination.getNestedMessageBuilder(fieldName);
-        for (FieldGenerator fieldGen : nestedFieldGenerators) {
-            fieldGen.generateValue(structBuilder);
-            if (isRepeated) {
-                destination.addRepeatedField(fieldName, structBuilder.build());
+        this.nestedFieldGenerators = new ArrayList<>(structMetaData.getColumnCount());
+        for (int i = 0; i < structMetaData.getColumnCount(); i++) {
+            final var sqlType = structMetaData.getColumnType(i + 1);
+            if (sqlType == Types.STRUCT) {
+                nestedFieldGenerators.add(getStructFieldGenerator(structMetaData.getColumnName(i + 1), structMetaData.getStructMetaData(i + 1)));
+            } else if (sqlType == Types.ARRAY) {
+                nestedFieldGenerators.add(getArrayFieldGenerator(structMetaData.getColumnName(i + 1), structMetaData.getArrayMetaData(i + 1)));
             } else {
-                destination.setField(fieldName, structBuilder.build());
+                nestedFieldGenerators.add(getPrimitiveFieldGenerator(structMetaData.getColumnName(i + 1), sqlType));
             }
         }
     }
 
-    private FieldGenerator getFieldGenerator(Descriptors.FieldDescriptor field) {
-        FieldGenerator generator;
-        switch (field.getJavaType()) {
-            case INT:
-            case LONG:
-            case FLOAT:
-            case DOUBLE:
-            case BOOLEAN:
-            case STRING:
-            case BYTE_STRING:
-                generator = new PrimitiveFieldGenerator(field.getName(), field.getJavaType(), randomSource, field.isRepeated());
-                break;
-            case MESSAGE:
-                generator = new StructFieldGenerator(field.getName(), field.getMessageType(), randomSource, maxArraySize, field.isRepeated());
-                break;
+    @Override
+    public void generateValue(RelationalStructBuilder builder) throws SQLException {
+        final var structBuilder = EmbeddedRelationalStruct.newBuilder();
+        for (FieldGenerator fieldGen : nestedFieldGenerators) {
+            fieldGen.generateValue(structBuilder);
+            builder.addStruct(fieldName, structBuilder.build());
+        }
+    }
+
+    private FieldGenerator getStructFieldGenerator(@Nonnull String name, @Nonnull StructMetaData structMetaData) throws SQLException {
+        return new StructFieldGenerator(name, structMetaData, randomSource, maxArraySize);
+    }
+
+    private FieldGenerator getArrayFieldGenerator(@Nonnull String name, @Nonnull ArrayMetaData arrayMetaData) throws SQLException {
+        FieldGenerator componentGenerator;
+        if (arrayMetaData.getElementType() == Types.STRUCT) {
+            componentGenerator = getStructFieldGenerator("na", arrayMetaData.getElementStructMetaData());
+        } else {
+            componentGenerator = getPrimitiveFieldGenerator("na", arrayMetaData.getElementType());
+        }
+        return new ArrayFieldGenerator(name, componentGenerator, randomSource, maxArraySize);
+    }
+
+    private FieldGenerator getPrimitiveFieldGenerator(@Nonnull String name, int sqlType) {
+        switch (sqlType) {
+            case Types.INTEGER:
+            case Types.BIGINT:
+            case Types.FLOAT:
+            case Types.DOUBLE:
+            case Types.BOOLEAN:
+            case Types.VARCHAR:
+            case Types.BINARY:
+                return new PrimitiveFieldGenerator(name, sqlType, randomSource);
             default:
-                throw new IllegalStateException("Unexpected field type: " + field.getJavaType());
+                throw new IllegalStateException("Unexpected field type: " + SqlTypeNamesSupport.getSqlTypeName(sqlType));
         }
-        if (field.isRepeated()) {
-            generator = new ArrayFieldGenerator(generator, randomSource, maxArraySize);
-        }
-        return generator;
     }
 }

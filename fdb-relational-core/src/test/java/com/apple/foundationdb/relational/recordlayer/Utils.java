@@ -22,18 +22,23 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
-import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalArray;
+import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Environment;
 
-import com.google.protobuf.Message;
-
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.sql.Types;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * set of utility functions to generate PB objects for testing.
@@ -44,73 +49,80 @@ public final class Utils {
 
     static volatile AtomicLong sequencer = new AtomicLong();
 
-    static Iterable<Message> generateRestaurantRecords(int count, RelationalStatement statement) {
-        return generateList(count, () -> Utils.generateRestaurantRecordWrapped(statement));
+    static List<RelationalStruct> generateRestaurantRecords(int count) {
+        return IntStream.range(0, count).mapToObj(ignore -> Utils.generateRestaurantRecordWrapped()).collect(Collectors.toList());
     }
 
-    static Message generateRestaurantRecordWrapped(RelationalStatement statement) {
+    static RelationalStruct generateRestaurantRecordWrapped() {
         int numReviews = r.nextInt(5) + 1;
         int numTags = r.nextInt(5) + 1;
         int numCustomers = r.nextInt(5) + 1;
 
         try {
-            return statement.getDataBuilder("RESTAURANT")
-                    .setField("REST_NO", sequencer.incrementAndGet())
-                    .setField("NAME", "restName" + r.nextInt())
-                    .setField("LOCATION", generateLocation(statement))
-                    .addRepeatedFields("REVIEWS", generateList(numReviews, () -> generateReview(statement)))
-                    .addRepeatedFields("TAGS", generateList(numTags, () -> generateTag(statement)))
-                    .addRepeatedFields("CUSTOMER", generateList(numCustomers, () -> "cust" + r.nextInt()))
+            return EmbeddedRelationalStruct.newBuilder()
+                    .addLong("REST_NO", sequencer.incrementAndGet())
+                    .addString("NAME", "restName" + r.nextInt())
+                    .addStruct("LOCATION", generateLocation())
+                    .addArray("REVIEWS", generateList(numReviews, Utils::generateReview, Types.STRUCT))
+                    .addArray("TAGS", generateList(numTags, Utils::generateTag, Types.STRUCT))
+                    .addArray("CUSTOMER", generateList(numCustomers, () -> "cust" + r.nextInt(), Types.VARCHAR))
                     .build();
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
-    private static Message generateLocation(RelationalStatement statement) {
+    private static RelationalStruct generateLocation() {
         try {
-            return statement.getDataBuilder("RESTAURANT", List.of("LOCATION"))
-                    .setField("ADDRESS", "addr" + r.nextInt())
-                    .setField("LATITUDE", "lat" + r.nextInt())
-                    .setField("LONGITUDE", "long" + r.nextInt())
+            return EmbeddedRelationalStruct.newBuilder()
+                    .addString("ADDRESS", "addr" + r.nextInt())
+                    .addString("LATITUDE", "lat" + r.nextInt())
+                    .addString("LONGITUDE", "long" + r.nextInt())
                     .build();
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
-    private static Message generateReview(RelationalStatement statement) {
+    private static RelationalStruct generateReview() {
         try {
-            return statement.getDataBuilder("RESTAURANT", List.of("REVIEWS"))
-                    .setField("RATING", r.nextInt(5))
-                    .setField("REVIEWER", r.nextInt())
+            return EmbeddedRelationalStruct.newBuilder()
+                    .addLong("REVIEWER", r.nextInt())
+                    .addLong("RATING", r.nextInt(5))
                     .build();
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
-    private static Message generateTag(RelationalStatement statement) {
+    private static RelationalStruct generateTag() {
         try {
-            return statement.getDataBuilder("RESTAURANT", List.of("TAGS"))
-                    .setField("TAG", "tag" + r.nextInt())
-                    .setField("WEIGHT", r.nextInt())
+            return EmbeddedRelationalStruct.newBuilder()
+                    .addString("TAG", "tag" + r.nextInt())
+                    .addLong("WEIGHT", r.nextInt())
                     .build();
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
         }
     }
 
-    private static <T> Iterable<T> generateList(int count, Supplier<T> supplier) {
+    private static <T> RelationalArray generateList(int count, Supplier<T> supplier, int elementType) throws SQLException {
         assert count >= 0;
 
-        List<T> result = new ArrayList<>();
-
+        final var builder = EmbeddedRelationalArray.newBuilder();
         for (int i = 0; i < count; i++) {
-            result.add(supplier.get());
+            switch (elementType) {
+                case Types.STRUCT:
+                    builder.addStruct((RelationalStruct) supplier.get());
+                    break;
+                case Types.VARCHAR:
+                    builder.addString((String) supplier.get());
+                    break;
+                default:
+                    throw new RelationalException("Not implemented!", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+            }
         }
-
-        return result;
+        return builder.build();
     }
 
     /**

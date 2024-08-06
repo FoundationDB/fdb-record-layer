@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ public class UniqueIndexTests {
     @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
-    private void insertUniqueRecordsToTable(@Nonnull List<Message> toInsert, @Nonnull String tableName) {
+    private void insertUniqueRecordsToTable(@Nonnull List<RelationalStruct> toInsert, @Nonnull String tableName) {
         try {
             final var count = statement.executeInsert(tableName, toInsert);
             Assertions.assertEquals(count, toInsert.size());
@@ -77,7 +78,7 @@ public class UniqueIndexTests {
         }
     }
 
-    private void checkErrorOnNonUniqueInsertionsToTable(@Nonnull List<Message> toInsert, @Nonnull String tableName) {
+    private void checkErrorOnNonUniqueInsertionsToTable(@Nonnull List<RelationalStruct> toInsert, @Nonnull String tableName) {
         boolean foundError = false;
         try {
             final var count = statement.executeInsert(tableName, toInsert);
@@ -87,7 +88,6 @@ public class UniqueIndexTests {
             foundError = true;
         } catch (Exception e) {
             Assertions.fail(String.format("Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));
-            foundError = true;
         }
         if (!foundError) {
             Assertions.fail("Non unique record inserted without an error.");
@@ -96,66 +96,69 @@ public class UniqueIndexTests {
 
     @Test
     public void insertToColMarkedUnique() throws Exception {
-        final var uniqueOnARecords = new ArrayList<Message>();
+        final var uniqueOnARecords = new ArrayList<RelationalStruct>();
         for (var i = 0; i < 5; i++) {
-            uniqueOnARecords.add(statement.getDataBuilder("T1")
-                    .setField("T1_P", i)
-                    .setField("T1_A", i)
+            uniqueOnARecords.add(EmbeddedRelationalStruct.newBuilder()
+                    .addLong("T1_P", i)
+                    .addLong("T1_A", i)
                     .build());
         }
         insertUniqueRecordsToTable(uniqueOnARecords, "T1");
-        final var nonUniqueOnARecord = List.of(statement.getDataBuilder("T1")
-                .setField("T1_P", 5)
-                .setField("T1_A", 0)
+        final var nonUniqueOnARecord = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T1_P", 5)
+                .addLong("T1_A", 0)
                 .build());
         checkErrorOnNonUniqueInsertionsToTable(nonUniqueOnARecord, "T1");
     }
 
     @Test
     public void insertToTupleMarkedUnique() throws Exception {
-        final var uniqueOnARecords = new ArrayList<Message>();
+        final var uniqueOnARecords = new ArrayList<RelationalStruct>();
         for (var i = 0; i < 5; i++) {
-            uniqueOnARecords.add(statement.getDataBuilder("T2")
-                    .setField("T2_P", i)
-                    .setField("T2_A", i * 2)
-                    .setField("T2_B", 10 - i)
+            uniqueOnARecords.add(EmbeddedRelationalStruct.newBuilder()
+                    .addLong("T2_P", i)
+                    .addLong("T2_A", i * 2)
+                    .addLong("T2_B", 10 - i)
                     .build());
         }
         // This will insert [{0, 0, 10}, {1, 2, 9}, {2, 4, 8}, {3, 6, 7}, {4, 8, 6}]
         insertUniqueRecordsToTable(uniqueOnARecords, "T2");
-        final var nonUniqueOnARecord = List.of(statement.getDataBuilder("T2")
-                .setField("T2_P", 5)
-                .setField("T2_A", 2)
-                .setField("T2_B", 9)
+        final var nonUniqueOnARecord = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T2_P", 5)
+                .addLong("T2_A", 2)
+                .addLong("T2_B", 9)
                 .build());
+
         // Trying to insert [{5, 2, 9}]
         checkErrorOnNonUniqueInsertionsToTable(nonUniqueOnARecord, "T2");
     }
 
     @Test
     public void insertWith2UniqueIndexes() throws Exception {
-        final var uniqueOnARecords = new ArrayList<Message>();
+        final var uniqueOnARecords = new ArrayList<RelationalStruct>();
         for (var i = 0; i < 5; i++) {
-            uniqueOnARecords.add(statement.getDataBuilder("T3")
-                    .setField("T3_P", i)
-                    .setField("T3_A", i * 2)
-                    .setField("T3_B", 10 - i)
+            uniqueOnARecords.add(EmbeddedRelationalStruct.newBuilder()
+                    .addLong("T3_P", i)
+                    .addLong("T3_A", i * 2)
+                    .addLong("T3_B", 10 - i)
                     .build());
         }
         // This will insert [{0, 0, 10}, {1, 2, 9}, {2, 4, 8}, {3, 6, 7}, {4, 8, 6}]
         insertUniqueRecordsToTable(uniqueOnARecords, "T3");
-        final var nonUniqueOnARecord1 = List.of(statement.getDataBuilder("T3")
-                .setField("T3_P", 5)
-                .setField("T3_A", 2)
-                .setField("T3_B", 5)
+        final var nonUniqueOnARecord1 = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T3_P", 5)
+                .addLong("T3_A", 2)
+                .addLong("T3_B", 5)
                 .build());
+
         // Trying to insert [{5, 2, 5}]. Other 5 is duplicated
         checkErrorOnNonUniqueInsertionsToTable(nonUniqueOnARecord1, "T3");
-        final var nonUniqueOnARecord2 = List.of(statement.getDataBuilder("T3")
-                .setField("T3_P", 5)
-                .setField("T3_A", 10)
-                .setField("T3_B", 9)
+        final var nonUniqueOnARecord2 = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T3_P", 5)
+                .addLong("T3_A", 10)
+                .addLong("T3_B", 9)
                 .build());
+
         // Trying to insert [{5, 10, 9}]. 9 is duplicated.
         checkErrorOnNonUniqueInsertionsToTable(nonUniqueOnARecord2, "T3");
     }
@@ -166,10 +169,10 @@ public class UniqueIndexTests {
     // when those semantics change underneath.
     @Test
     public void insertToUniqueColWithNull() throws Exception {
-        final var recordsWithNullA = new ArrayList<Message>();
+        final var recordsWithNullA = new ArrayList<RelationalStruct>();
         for (var i = 0; i < 5; i++) {
-            recordsWithNullA.add(statement.getDataBuilder("T1")
-                    .setField("T1_P", i)
+            recordsWithNullA.add(EmbeddedRelationalStruct.newBuilder()
+                    .addLong("T1_P", i)
                     .build());
         }
         insertUniqueRecordsToTable(recordsWithNullA, "T1");
@@ -177,23 +180,23 @@ public class UniqueIndexTests {
 
     @Test
     public void insertToArrayNestedFieldMarkedUnique() throws Exception {
-        final var records = new ArrayList<Message>();
+        final var records = new ArrayList<RelationalStruct>();
         for (var i = 0; i < 5; i++) {
-            var messageBuilder = statement.getDataBuilder("T4");
-            messageBuilder.setField("T4_P", i);
-            var ST1ArrayBuilder = messageBuilder.getNestedMessageBuilder("T4_ST1");
+            var builder = EmbeddedRelationalStruct.newBuilder();
+            builder.addLong("T4_P", i);
+            var ST1ArrayBuilder = EmbeddedRelationalArray.newBuilder();
             for (var j = 0; j < 5; j++) {
-                ST1ArrayBuilder.addRepeatedField(1, ST1ArrayBuilder.getNestedMessageBuilder(1).setField(1, i * 5 + j).build());
+                ST1ArrayBuilder.addStruct(EmbeddedRelationalStruct.newBuilder().addLong("ST1_A", i * 5 + j).build());
             }
-            messageBuilder.setField("T4_ST1", ST1ArrayBuilder.build());
-            records.add(messageBuilder.build());
+            builder.addArray("T4_ST1", ST1ArrayBuilder.build());
+            records.add(builder.build());
         }
         insertUniqueRecordsToTable(records, "T4");
-        final var nonUniqueRecord = List.of(statement.getDataBuilder("T4")
-                .setField("T4_P", 5)
-                .setField("T4_ST1", statement.getDataBuilder("T4").getNestedMessageBuilder("T4_ST1")
-                        .addRepeatedField(1, statement.getDataBuilder("T4").getNestedMessageBuilder("T4_ST1").getNestedMessageBuilder(1)
-                                .setField(1, 1)
+        final var nonUniqueRecord = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T4_P", 5)
+                .addArray("T4_ST1", EmbeddedRelationalArray.newBuilder()
+                        .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                .addLong("ST1_A", 1)
                                 .build()
                         ).build()
                 ).build()
@@ -203,24 +206,24 @@ public class UniqueIndexTests {
 
     @Test
     public void insertToTableWithUniqueCoveringIndexWithValueExp() throws Exception {
-        final var uniqueOnARecords = new ArrayList<Message>();
+        final var uniqueOnARecords = new ArrayList<RelationalStruct>();
         for (var i = 0; i < 5; i++) {
-            uniqueOnARecords.add(statement.getDataBuilder("T5")
-                    .setField("T5_P", i)
-                    .setField("T5_A", i)
-                    .setField("T5_B", 5 - i)
-                    .setField("T5_C", i * 2)
-                    .setField("T5_D", Math.abs(2 - i))
+            uniqueOnARecords.add(EmbeddedRelationalStruct.newBuilder()
+                    .addLong("T5_P", i)
+                    .addLong("T5_A", i)
+                    .addLong("T5_B", 5 - i)
+                    .addLong("T5_C", i * 2)
+                    .addLong("T5_D", Math.abs(2 - i))
                     .build());
         }
         // This will insert [{0, 0, 5, 0, 2}, {1, 1, 4, 2, 1}, {2, 2, 3, 4, 0}, {3, 3, 2, 6, 1}, {4, 4, 1, 8, 2}]
         insertUniqueRecordsToTable(uniqueOnARecords, "T5");
-        final var nonUniqueOnARecord = List.of(statement.getDataBuilder("T5")
-                .setField("T5_P", 10)
-                .setField("T5_A", 10)
-                .setField("T5_B", 10)
-                .setField("T5_C", 8)
-                .setField("T5_D", 2)
+        final var nonUniqueOnARecord = List.of(EmbeddedRelationalStruct.newBuilder()
+                .addLong("T5_P", 10)
+                .addLong("T5_A", 10)
+                .addLong("T5_B", 10)
+                .addLong("T5_C", 8)
+                .addLong("T5_D", 2)
                 .build());
         // Trying to insert [{10, 10, 10, 8, 2}]. This should fail since (T5_C=8, T5_D=2) is repeated, because
         // only the Key keyExpression is tested for the uniqueness.

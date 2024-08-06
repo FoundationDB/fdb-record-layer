@@ -67,7 +67,7 @@ public class SqlInsertTest {
 
                 try (RelationalResultSet rrs = stmt.executeQuery("select * from simple")) {
                     ResultSetAssert.assertThat(rrs).hasNextRow()
-                            .hasRow(Map.of("NAME", "testRecord1", "REST_NO", 1L))
+                            .hasColumns(Map.of("NAME", "testRecord1", "REST_NO", 1L))
                             .hasNoNextRow();
                 }
             }
@@ -85,7 +85,7 @@ public class SqlInsertTest {
 
                 try (RelationalResultSet rrs = stmt.executeQuery("select * from with_loc")) {
                     ResultSetAssert.assertThat(rrs).hasNextRow()
-                            .hasRow(Map.of("NAME", "testRecord1",
+                            .hasColumns(Map.of("NAME", "testRecord1",
                                     "REST_NO", 1L,
                                     "LOC", Map.of("ADDRESS", "1234", "LATITUDE", "5678", "LONGITUDE", "9101112")))
                             .hasNoNextRow();
@@ -105,7 +105,7 @@ public class SqlInsertTest {
 
                 try (RelationalResultSet rrs = stmt.executeQuery("select * from with_loc")) {
                     ResultSetAssert.assertThat(rrs).hasNextRow()
-                            .hasRow(Map.of("NAME", "testRecord1",
+                            .hasColumns(Map.of("NAME", "testRecord1",
                                     "REST_NO", 1L,
                                     "LOC", Map.of("ADDRESS", "1234", "LATITUDE", "5678", "LONGITUDE", "9101112")))
                             .hasNoNextRow();
@@ -126,7 +126,7 @@ public class SqlInsertTest {
 
                 try (RelationalResultSet rrs = stmt.executeQuery("select * from with_loc")) {
                     ResultSetAssert.assertThat(rrs).hasNextRow()
-                            .hasRow(Map.of("NAME", "testRecord1",
+                            .hasColumns(Map.of("NAME", "testRecord1",
                                     "REST_NO", 1L,
                                     "LOC", Map.of("ADDRESS", "1234", "LATITUDE", "5678", "LONGITUDE", "9101112")))
                             .hasNoNextRow();

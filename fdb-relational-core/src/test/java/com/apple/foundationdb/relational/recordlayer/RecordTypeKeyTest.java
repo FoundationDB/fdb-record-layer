@@ -20,16 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -61,14 +59,14 @@ public class RecordTypeKeyTest {
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
     @Test
-    void testPrimaryKeyWithOnlyRecordTypeKey() throws RelationalException, SQLException {
-        Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
-                .setField("REVIEWER", 12345)
-                .setField("RATING", 4)
+    void testPrimaryKeyWithOnlyRecordTypeKey() throws SQLException {
+        var review = EmbeddedRelationalStruct.newBuilder()
+                .addLong("REVIEWER", 12345)
+                .addLong("RATING", 4)
                 .build();
-        Message tag = statement.getDataBuilder("RESTAURANT_TAG")
-                .setField("TAG", "Awesome Burgers")
-                .setField("WEIGHT", 23)
+        var tag = EmbeddedRelationalStruct.newBuilder()
+                .addString("TAG", "Awesome Burgers")
+                .addLong("WEIGHT", 23)
                 .build();
         int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
@@ -80,16 +78,16 @@ public class RecordTypeKeyTest {
         try (final RelationalResultSet resultSet = statement.executeScan("RESTAURANT_REVIEW", new KeySet(), Options.NONE)) {
             // Only 1 RestaurantRecord is expected to be returned
             ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .hasRowExactly(12345L, 4L)
+                    .isRowExactly(12345L, 4L)
                     .hasNoNextRow();
         }
     }
 
     @Test
     void testScanningWithUnknownKeys() throws Exception {
-        Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
-                .setField("REVIEWER", 678910)
-                .setField("RATING", 2)
+        var review = EmbeddedRelationalStruct.newBuilder()
+                .addLong("REVIEWER", 678910)
+                .addLong("RATING", 2)
                 .build();
         int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
@@ -102,10 +100,10 @@ public class RecordTypeKeyTest {
     }
 
     @Test
-    void canGetWithRecordTypeInPrimaryKey() throws RelationalException, SQLException {
-        Message tag = statement.getDataBuilder("RESTAURANT_TAG")
-                .setField("TAG", "culvers")
-                .setField("WEIGHT", 23)
+    void canGetWithRecordTypeInPrimaryKey() throws  SQLException {
+        var tag = EmbeddedRelationalStruct.newBuilder()
+                .addString("TAG", "culvers")
+                .addLong("WEIGHT", 23)
                 .build();
         int count = statement.executeInsert("RESTAURANT_TAG", tag);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
@@ -114,16 +112,16 @@ public class RecordTypeKeyTest {
                 new KeySet().setKeyColumn("TAG", "culvers"),
                 Options.NONE)) {
             ResultSetAssert.assertThat(rrs).hasNextRow()
-                    .hasRowExactly("culvers", 23L)
+                    .isRowExactly("culvers", 23L)
                     .hasNoNextRow();
         }
     }
 
     @Test
-    void canGetWithRecordTypeKeyIndex() throws RelationalException, SQLException {
-        Message review = statement.getDataBuilder("RESTAURANT_REVIEW")
-                .setField("REVIEWER", 678910)
-                .setField("RATING", 2)
+    void canGetWithRecordTypeKeyIndex() throws SQLException {
+        var review = EmbeddedRelationalStruct.newBuilder()
+                .addLong("REVIEWER", 678910)
+                .addLong("RATING", 2)
                 .build();
         int count = statement.executeInsert("RESTAURANT_REVIEW", review);
         Assertions.assertEquals(1, count, "Incorrect returned insertion count");
@@ -132,7 +130,7 @@ public class RecordTypeKeyTest {
                 new KeySet().setKeyColumn("REVIEWER", 678910),
                 Options.builder().withOption(Options.Name.INDEX_HINT, "RECORD_RT_COVERING_IDX").build())) {
             ResultSetAssert.assertThat(rrs).hasNextRow()
-                    .hasRowExactly(678910L, 2L)
+                    .isRowExactly(678910L, 2L)
                     .hasNoNextRow();
         }
     }

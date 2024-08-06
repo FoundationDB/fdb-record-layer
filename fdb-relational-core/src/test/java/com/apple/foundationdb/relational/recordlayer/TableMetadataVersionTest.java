@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -27,8 +28,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -76,10 +75,9 @@ public class TableMetadataVersionTest {
         dbConn.setSchema(database.getSchemaName());
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
-            RelationalAssertions.assertThrowsSqlException(() -> {
-                Message message = vs.getDataBuilder("RESTAURANT").setField("REST_NO", 1L).build();
-                vs.executeInsert("RESTAURANT", message, opts);
-            }).hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
+            RelationalAssertions.assertThrowsSqlException(() -> vs.executeInsert("RESTAURANT",
+                            EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 1L).build(), opts))
+                    .hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
     }
 

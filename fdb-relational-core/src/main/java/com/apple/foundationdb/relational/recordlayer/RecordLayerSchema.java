@@ -22,17 +22,11 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
-import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -119,30 +113,5 @@ public class RecordLayerSchema implements DatabaseSchema {
             currentStore = null;
         });
         return currentStore;
-    }
-
-    public DynamicMessageBuilder getDataBuilder(String typeName) throws RelationalException {
-        final var fieldAccessor = typeName.split("\\.");
-        final Descriptors.FileDescriptor recordsDescriptor = loadStore().getRecordMetaData().getRecordsDescriptor();
-        Descriptors.Descriptor currentDescriptor = null;
-        for (Descriptors.Descriptor typeDescriptor : recordsDescriptor.getMessageTypes()) {
-            if (typeDescriptor.getName().equals(fieldAccessor[0])) {
-                currentDescriptor = typeDescriptor;
-                break;
-            }
-        }
-        Assert.notNullUnchecked(currentDescriptor, ErrorCode.UNKNOWN_TYPE, "Unknown type: <" + typeName + ">");
-        for (int i = 1; i < fieldAccessor.length; i++) {
-            for (final var field : currentDescriptor.getFields()) {
-                if (field.getName().equals(fieldAccessor[i])) {
-                    currentDescriptor = field.getMessageType();
-                    if (NullableArrayUtils.isWrappedArrayDescriptor(currentDescriptor)) {
-                        currentDescriptor = currentDescriptor.getFields().get(0).getMessageType();
-                    }
-                }
-            }
-        }
-        Assert.notNullUnchecked(currentDescriptor, ErrorCode.UNKNOWN_TYPE, "Unknown type: <" + typeName + ">");
-        return new ProtobufDataBuilder(currentDescriptor);
     }
 }

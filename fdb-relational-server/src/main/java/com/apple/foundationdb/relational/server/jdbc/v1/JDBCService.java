@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.BuildVersion;
-
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -146,11 +145,8 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             return;
         }
         try {
-            int rowCount = request.hasDataResultSet() ?
-                    this.frl.insert(request.getDatabase(), request.getSchema(), request.getTableName(),
-                            TypeConversion.fromResultSetProtobuf(request.getDataResultSet())) :
-                    this.frl.insert(request.getDataListBytes().getBytesList(), request.getDatabase(),
-                            request.getSchema(), request.getTableName());
+            int rowCount = this.frl.insert(request.getDatabase(), request.getSchema(), request.getTableName(),
+                    TypeConversion.fromResultSetProtobuf(request.getDataResultSet()));
             InsertResponse insertResponse = InsertResponse.newBuilder().setRowCount(rowCount).build();
             responseObserver.onNext(insertResponse);
             responseObserver.onCompleted();
@@ -174,10 +170,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
             responseObserver.onError(createStatusRuntimeException("Empty table name"));
             return false;
         }
-        if (request.hasDataResultSet() && request.getDataResultSet().getRowCount() <= 0) {
-            responseObserver.onError(createStatusRuntimeException("No data in insert"));
-            return false;
-        } else if (!request.hasDataResultSet() && request.getDataListBytes().getBytesCount() <= 0) {
+        if (request.getDataResultSet().getRowCount() <= 0) {
             responseObserver.onError(createStatusRuntimeException("No data in insert"));
             return false;
         }

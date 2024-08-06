@@ -22,9 +22,8 @@ package com.apple.foundationdb.relational.autotest;
 
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -32,6 +31,6 @@ import java.util.Map;
 
 public interface ParameterizedQuery {
     RelationalResultSet executeQuery(@Nonnull RelationalStatement statement,
-                                   @Nonnull Map<String, Message> params) throws SQLException, RelationalException;
+                                   @Nonnull Map<String, RelationalStruct> params) throws SQLException, RelationalException;
 
 }

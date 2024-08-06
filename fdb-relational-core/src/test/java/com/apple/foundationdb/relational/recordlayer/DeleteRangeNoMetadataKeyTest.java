@@ -20,18 +20,18 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -75,21 +75,21 @@ public class DeleteRangeNoMetadataKeyTest {
 
     private void insertData(RelationalStatement stmt) throws SQLException {
         for (int i = 0; i < 12; i++) {
-            Message toInsert = stmt.getDataBuilder("T1")
-                    .setField("ID", i % 2)
-                    .setField("A", i % 3)
-                    .setField("B", i % 4)
-                    .setField("C", i * 10)
-                    .setField("D", i * 100)
+            RelationalStruct toInsert = EmbeddedRelationalStruct.newBuilder()
+                    .addLong("ID", i % 2)
+                    .addString("A", Integer.toString(i % 3))
+                    .addString("B", Integer.toString(i % 4))
+                    .addString("C", Integer.toString(i * 10))
+                    .addString("D", Integer.toString(i * 100))
                     .build();
             stmt.executeInsert("T1", toInsert);
 
-            Message toInsert2 = stmt.getDataBuilder("T2")
-                    .setField("ID", i % 2)
-                    .setField("A", i % 3)
-                    .setField("B", i % 4 + 100)
-                    .setField("E", i * 10)
-                    .setField("F", i % 2 == 0)
+            RelationalStruct toInsert2 = EmbeddedRelationalStruct.newBuilder()
+                    .addLong("ID", i % 2)
+                    .addString("A", Integer.toString(i % 3))
+                    .addString("B", Integer.toString(i % 4 + 100))
+                    .addLong("E", i * 10)
+                    .addBoolean("F", i % 2 == 0)
                     .build();
             stmt.executeInsert("T2", toInsert2);
         }

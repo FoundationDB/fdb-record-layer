@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
@@ -52,11 +51,6 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
-import com.google.protobuf.Parser;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -64,7 +58,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -264,41 +257,6 @@ public class FRL implements AutoCloseable {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                     return relationalStatement.executeUpdate(sql);
-                }
-            }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
-        }
-    }
-
-    /**
-     * Insert.
-     * @param data List of ByteStrings with serialized Messages to insert.
-     * @param database Which database to insert into.
-     * @param schema Which schema to use.
-     * @param tableName Table to insert into.
-     * @return Count of rows inserted.
-     * @throws SQLException If error inserting.
-     * @deprecated Since 01/24/2023. Replaced by {@link #insert(String, String, String, List)}.
-     */
-    // Order of parameters here is intentionally different from insert List<RelationalStruct> to avoid clash of
-    // List erasure (ByteString vs RelationalStruct).
-    @Deprecated
-    public int insert(List<ByteString> data, String database, String schema, String tableName)
-            throws SQLException {
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
-            try (Statement statement = connection.createStatement()) {
-                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                    // Get a parser to use deserializing ByteStrings.
-                    DynamicMessageBuilder dynamicMessageBuilder = relationalStatement.getDataBuilder(tableName);
-                    Parser<? extends Message> parser = dynamicMessageBuilder.build().getParserForType();
-                    List<Message> messages = new ArrayList<>();
-                    for (ByteString bytes : data) {
-                        messages.add(parser.parseFrom(bytes));
-                    }
-                    return relationalStatement.executeInsert(tableName, messages.iterator(), Options.NONE);
-                } catch (InvalidProtocolBufferException e) {
-                    throw new RuntimeException(e);
                 }
             }
         } catch (RelationalException ve) {

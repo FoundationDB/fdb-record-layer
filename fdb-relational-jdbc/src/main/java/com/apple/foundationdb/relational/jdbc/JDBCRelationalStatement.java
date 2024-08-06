@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -33,7 +32,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.ListBytes;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
@@ -42,8 +40,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
-import com.google.protobuf.Message;
 import io.grpc.StatusRuntimeException;
 
 import javax.annotation.Nonnull;
@@ -302,36 +298,6 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException {
-        checkOpen();
-        InsertResponse insertResponse = null;
-        try {
-            // Add the messages as opaque ByteStrings. On the other side, it uses context to figure how to parse the
-            // bytes back up into a protobuf Message again.
-            var listBytesBuilder = ListBytes.newBuilder();
-            while (data.hasNext()) {
-                listBytesBuilder.addBytes(data.next().toByteString());
-            }
-            insertResponse = this.connection.getStub().insert(InsertRequest.newBuilder()
-                    .setDataListBytes(listBytesBuilder.build())
-                    .setDatabase(this.connection.getDatabase())
-                    .setSchema(this.connection.getSchema())
-                    .setTableName(tableName)
-                    .build());
-        } catch (StatusRuntimeException statusRuntimeException) {
-            // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLException.map(statusRuntimeException);
-            if (sqlException == null) {
-                throw statusRuntimeException;
-            }
-            throw sqlException;
-        }
-        this.updateCount = insertResponse == null ? STATEMENT_NO_RESULT : insertResponse.getRowCount();
-        return this.updateCount;
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException {
         checkOpen();
@@ -353,21 +319,6 @@ class JDBCRelationalStatement implements RelationalStatement {
         }
         this.updateCount = insertResponse == null ? STATEMENT_NO_RESULT : insertResponse.getRowCount();
         return this.updateCount;
-    }
-
-    @Deprecated
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException {
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-    }
-
-    @Override
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
-    @ExcludeFromJacocoGeneratedReport
-    public DynamicMessageBuilder getDataBuilder(@Nonnull String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException {
-        throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
     }
 
     @Override

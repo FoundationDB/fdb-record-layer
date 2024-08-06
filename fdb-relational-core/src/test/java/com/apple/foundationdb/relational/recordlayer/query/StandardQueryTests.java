@@ -22,8 +22,13 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -33,9 +38,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Assertions;
@@ -49,13 +51,14 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -119,11 +122,11 @@ public class StandardQueryTests {
 
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(typeConflictFieldsTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                var insertedRecord = insertTypeConflictRecords(statement);
+                insertTypeConflictRecords(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM CLASSA"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(insertedRecord);
+                            .hasColumn("NAME", "Sophia");
                 }
             }
         }
@@ -137,7 +140,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(insertedRecord);
+                            .isRowPartly(insertedRecord);
                     // explicitly test when nullable array is set to empty list, the RelationalArray object holds an empty iterable
                     Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
                     // explicitly test unset Nullable array is NULL
@@ -154,11 +157,11 @@ public class StandardQueryTests {
         //        var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build();
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                var insertedRecord = insertRestaurantComplexRecord(statement, true);
+                var insertedRecord = insertRestaurantComplexRecord(statement);
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(insertedRecord);
+                            .isRowPartly(insertedRecord);
                     // explicitly test when a Non-nullable array is unset, the RelationalArray object holds an empty iterable
                     Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
                     Assertions.assertEquals("[]", resultSet.getArray("TAGS").toString());
@@ -177,7 +180,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT * FROM RestaurantComplexRecord"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(insertedRecord)
+                            .isRowPartly(insertedRecord)
                             .hasNoNextRow();
                 }
             }
@@ -189,29 +192,29 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                Message r11 = insertRestaurantComplexRecord(statement, 11L);
+                RelationalStruct r11 = insertRestaurantComplexRecord(statement, 11L);
 
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 10")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(r11)
+                            .isRowPartly(r11)
                             .hasNoNextRow();
                 }
 
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no >= 11")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(r11)
+                            .isRowPartly(r11)
                             .hasNoNextRow();
                 }
 
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 10 < rest_no")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(r11)
+                            .isRowPartly(r11)
                             .hasNoNextRow();
                 }
 
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 11 <= rest_no")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRow(r11)
+                            .isRowPartly(r11)
                             .hasNoNextRow();
                 }
             }
@@ -262,29 +265,29 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
-                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
-                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
-                Message l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
+                final var l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
+                final var l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
+                final var l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
+                final var l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 42 AND name = 'rest1'")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where rest_no > 42 AND name = 'rest1'")
-                            .containsRowsExactly(l43, l44);
+                            .containsRowsPartly(l43, l44);
                 }
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE name = 'rest2' OR name = 'rest1'")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where name = 'rest2' OR name = 'rest1'")
-                            .containsRowsExactly(l42, l43, l44, l45);
+                            .containsRowsPartly(l42, l43, l44, l45);
                 }
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no = (40+2)")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where rest_no = (40+2)")
-                            .containsRowsExactly(l42);
+                            .containsRowsPartly(l42);
                 }
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE (40+2) = rest_no")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where (40+2) = rest_no")
-                            .containsRowsExactly(l42);
+                            .containsRowsPartly(l42);
                 }
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE (44-2) = rest_no")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where (44-2) = rest_no")
-                            .containsRowsExactly(l42);
+                            .containsRowsPartly(l42);
                 }
                 try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no < -1")) {
                     ResultSetAssert.assertThat(resultSet).describedAs("where rest_no < -1").isEmpty();
@@ -306,13 +309,13 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is not null")) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow().hasRow(insertedRecord);
+                    ResultSetAssert.assertThat(resultSet).hasNextRow().isRowExactly(insertedRecord);
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE TRUE is null")) {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE TRUE is not null")) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow().hasRow(insertedRecord);
+                    ResultSetAssert.assertThat(resultSet).hasNextRow().isRowExactly(insertedRecord);
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 != null")) {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
@@ -364,13 +367,13 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
-                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
-                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
-                Message l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
+                RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
+                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
+                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
+                RelationalStruct l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
                 final String initialQuery = "select * from RestaurantComplexRecord where rest_no > 40";
                 Continuation continuation = ContinuationImpl.BEGIN;
-                final List<Message> expected = List.of(l42, l43, l44, l45);
+                final List<RelationalStruct> expected = List.of(l42, l43, l44, l45);
                 int i = 0;
 
                 while (!continuation.atEnd()) {
@@ -382,7 +385,7 @@ public class StandardQueryTests {
                         // assert result matches expected
                         Assertions.assertNotNull(resultSet, "Did not return a result set!");
                         ResultSetAssert.assertThat(resultSet).hasNextRow()
-                                .hasRow(expected.get(i));
+                                .isRowPartly(expected.get(i));
                         // get continuation for the next query
                         continuation = resultSet.getContinuation();
                         i += 1;
@@ -442,17 +445,20 @@ public class StandardQueryTests {
                 " CREATE INDEX T1_IDX as select col1, col3, col2 from t1 order by col1, col3";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message row1 = statement.getDataBuilder("T1").setField("COL1", 42L).setField("COL2", 100L).setField("COL3", 200L).build();
+                final var row1 = EmbeddedRelationalStruct.newBuilder().addLong("COL1", 42L).addLong("COL2", 100L).addLong("COL3", 200L).build();
                 int cnt = statement.executeInsert("T1", row1);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                final Message row2 = statement.getDataBuilder("T1").setField("COL1", 43L).setField("COL2", 101L).setField("COL3", 201L).build();
+                final var row2 = EmbeddedRelationalStruct.newBuilder().addLong("COL1", 43L).addLong("COL2", 101L).addLong("COL3", 201L).build();
                 cnt = statement.executeInsert("T1", row2);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
                 Assertions.assertTrue(statement.execute("SELECT * from T1 USE INDEX (T1_IDX)"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(row1, row2);
+                    final var expected = new ArrayList<Object[]>();
+                    expected.add(new Object[] {42L, 100L, 200L});
+                    expected.add(new Object[] {43L, 101L, 201L});
+                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(expected);
                 }
             }
         }
@@ -546,21 +552,21 @@ public class StandardQueryTests {
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message result = statement.getDataBuilder("TBL1")
-                        .setField("ID", 42L)
-                        .setField("C", statement.getDataBuilder("TBL1", List.of("C"))
-                                .setField("D", statement.getDataBuilder("TBL1", List.of("C", "D"))
-                                        .setField("E", statement.getDataBuilder("TBL1", List.of("C", "D", "E"))
-                                                .setField("F", 128L)
+                final var result = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 42L)
+                        .addStruct("C", EmbeddedRelationalStruct.newBuilder()
+                                .addStruct("D", EmbeddedRelationalStruct.newBuilder()
+                                        .addStruct("E", EmbeddedRelationalStruct.newBuilder()
+                                                .addLong("F", 128L)
                                                 .build())
                                         .build())
                                 .build())
-                        .setField("A", statement.getDataBuilder("TBL1", List.of("A"))
-                                .setField("B", statement.getDataBuilder("TBL1", List.of("A", "B"))
-                                        .setField("C", statement.getDataBuilder("TBL1", List.of("A", "B", "C"))
-                                                .setField("D", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D"))
-                                                        .setField("E", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D", "E"))
-                                                                .setField("F", 128L)
+                        .addStruct("A", EmbeddedRelationalStruct.newBuilder()
+                                .addStruct("B", EmbeddedRelationalStruct.newBuilder()
+                                        .addStruct("C", EmbeddedRelationalStruct.newBuilder()
+                                                .addStruct("D", EmbeddedRelationalStruct.newBuilder()
+                                                        .addStruct("E", EmbeddedRelationalStruct.newBuilder()
+                                                                .addLong("F", 128L)
                                                                 .build())
                                                         .build())
                                                 .build())
@@ -572,16 +578,16 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(42L, 128L, 128L)
+                            .isRowExactly(42L, 128L, 128L)
                             .hasNoNextRow();
                 }
                 Assertions.assertTrue(statement.execute("SELECT c.d.e FROM tbl1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    final Message expected = statement.getDataBuilder("TBL1", List.of("C", "D", "E"))
-                            .setField("F", 128L)
+                    final var struct = EmbeddedRelationalStruct.newBuilder()
+                            .addLong("F", 128L)
                             .build();
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasColumn("E", expected)
+                            .hasColumn("E", struct)
                             .hasNoNextRow();
                 }
             }
@@ -598,21 +604,21 @@ public class StandardQueryTests {
                 " CREATE TABLE tbl1 (id bigint, c C, a A, PRIMARY KEY(id))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message result = statement.getDataBuilder("TBL1")
-                        .setField("ID", 42L)
-                        .setField("C", statement.getDataBuilder("TBL1", List.of("C"))
-                                .setField("D", statement.getDataBuilder("TBL1", List.of("C", "D"))
-                                        .setField("E", statement.getDataBuilder("TBL1", List.of("C", "D", "E"))
-                                                .addRepeatedFields("F", List.of(128L), true)
+                final var result = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 42L)
+                        .addStruct("C", EmbeddedRelationalStruct.newBuilder()
+                                .addStruct("D", EmbeddedRelationalStruct.newBuilder()
+                                        .addStruct("E", EmbeddedRelationalStruct.newBuilder()
+                                                .addArray("F", EmbeddedRelationalArray.newBuilder().addLong(128L).build())
                                                 .build())
                                         .build())
                                 .build())
-                        .setField("A", statement.getDataBuilder("TBL1", List.of("A"))
-                                .setField("B", statement.getDataBuilder("TBL1", List.of("A", "B"))
-                                        .setField("C", statement.getDataBuilder("TBL1", List.of("A", "B", "C"))
-                                                .setField("D", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D"))
-                                                        .setField("E", statement.getDataBuilder("TBL1", List.of("A", "B", "C", "D", "E"))
-                                                                .addRepeatedFields("F", List.of(128L), true)
+                        .addStruct("A", EmbeddedRelationalStruct.newBuilder()
+                                .addStruct("B", EmbeddedRelationalStruct.newBuilder()
+                                        .addStruct("C", EmbeddedRelationalStruct.newBuilder()
+                                                .addStruct("D", EmbeddedRelationalStruct.newBuilder()
+                                                        .addStruct("E", EmbeddedRelationalStruct.newBuilder()
+                                                                .addArray("F", EmbeddedRelationalArray.newBuilder().addLong(128L).build())
                                                                 .build())
                                                         .build())
                                                 .build())
@@ -626,7 +632,7 @@ public class StandardQueryTests {
                     Array expectedCol2 = EmbeddedRelationalArray.newBuilder().addLong(128L).build();
                     Array expectedCol3 = EmbeddedRelationalArray.newBuilder().addLong(128L).build();
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(42L, expectedCol2, expectedCol3)
+                            .isRowExactly(42L, expectedCol2, expectedCol3)
                             .hasNoNextRow();
                 }
             }
@@ -672,12 +678,12 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
-                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
-                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
-                Message l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
+                RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1");
+                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest1");
+                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest1");
+                RelationalStruct l45 = insertRestaurantComplexRecord(statement, 45L, "rest2");
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE rest_no > 40.5")) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42, l43, l44, l45);
+                    ResultSetAssert.assertThat(resultSet).containsRowsPartly(l42, l43, l44, l45);
                 }
             }
         }
@@ -688,11 +694,11 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())), false);
-                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())), false);
-                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())), false);
+                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
+                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
+                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l43, l44);
+                    ResultSetAssert.assertThat(resultSet).containsRowsPartly(l43, l44);
                 }
             }
         }
@@ -702,11 +708,11 @@ public class StandardQueryTests {
     void existsPredicateWorksWithNonNullableArray() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplateWithNonNullableArrays).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())), true);
-                Message l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())), true);
-                Message l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())), true);
+                insertRestaurantComplexRecord(statement, 42L, "rest1", List.of(Triple.of(1L, 4L, List.of()), Triple.of(2L, 5L, List.of())));
+                RelationalStruct l43 = insertRestaurantComplexRecord(statement, 43L, "rest2", List.of(Triple.of(3L, 9L, List.of()), Triple.of(4L, 8L, List.of())));
+                RelationalStruct l44 = insertRestaurantComplexRecord(statement, 44L, "rest3", List.of(Triple.of(3L, 10L, List.of())));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE RE.rating >= 9)")) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l43, l44);
+                    ResultSetAssert.assertThat(resultSet).containsRowsPartly(l43, l44);
                 }
             }
         }
@@ -717,15 +723,15 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertRestaurantComplexRecord(statement);
-                Message l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
+                RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
                         List.of(Triple.of(1L, 4L, List.of(
                                         Pair.of(400L, "good"),
                                         Pair.of(401L, "meh"))),
                                 Triple.of(2L, 5L, List.of(
                                         Pair.of(402L, "awesome"),
-                                        Pair.of(401L, "wow")))), false);
+                                        Pair.of(401L, "wow")))));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(l42);
+                    ResultSetAssert.assertThat(resultSet).containsRowsPartly(l42);
                 }
             }
         }
@@ -738,42 +744,48 @@ public class StandardQueryTests {
                 "CREATE TABLE conversations(id bigint, other_party CONTACT_DETAIL, messages MESSAGES ARRAY,primary key(id))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message row1 = statement.getDataBuilder("CONVERSATIONS")
-                        .setField("ID", 0L)
-                        .setField("OTHER_PARTY", statement.getDataBuilder("CONVERSATIONS", List.of("OTHER_PARTY"))
-                                .setField("NAME", "Arnaud")
-                                .setField("PHONE_NUMBER", 12345)
-                                .setField("ADDRESS", "6 Part Road")
+                final var row1 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 0L)
+                        .addStruct("OTHER_PARTY", EmbeddedRelationalStruct.newBuilder()
+                                .addString("NAME", "Arnaud")
+                                .addString("PHONE_NUMBER", "12345")
+                                .addString("ADDRESS", "6 Part Road")
                                 .build())
-                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
-                                .setField("TEXT", "Hello there!")
-                                .setField("TIMESTAMP", 10000)
-                                .setField("SENT", true)
-                                .build(), statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
-                                .setField("TEXT", "Hi Scott!")
-                                .setField("TIMESTAMP", 20000)
-                                .setField("SENT", false)
-                                .build()))
+                        .addArray("MESSAGES", EmbeddedRelationalArray.newBuilder()
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("TEXT", "Hello there!")
+                                        .addLong("TIMESTAMP", 10000)
+                                        .addBoolean("SENT", true)
+                                        .build())
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("TEXT", "Hi Scott!")
+                                        .addLong("TIMESTAMP", 20000)
+                                        .addBoolean("SENT", false)
+                                        .build())
+                                .build())
                         .build();
                 int cnt = statement.executeInsert("CONVERSATIONS", row1);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                final Message row2 = statement.getDataBuilder("CONVERSATIONS")
-                        .setField("ID", 1L)
-                        .setField("OTHER_PARTY", statement.getDataBuilder("CONVERSATIONS", List.of("OTHER_PARTY"))
-                                .setField("NAME", "Bri")
-                                .setField("PHONE_NUMBER", 9876543)
-                                .setField("ADDRESS", "10 Chancery Lane")
+                final var row2 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addStruct("OTHER_PARTY", EmbeddedRelationalStruct.newBuilder()
+                                .addString("NAME", "Bri")
+                                .addString("PHONE_NUMBER", "9876543")
+                                .addString("ADDRESS", "10 Chancery Lane")
                                 .build())
-                        .addRepeatedFields("MESSAGES", List.of(statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
-                                .setField("TEXT", "Hello there")
-                                .setField("TIMESTAMP", 30000)
-                                .setField("SENT", true)
-                                .build(), statement.getDataBuilder("CONVERSATIONS", List.of("MESSAGES"))
-                                .setField("TEXT", "What a nice weather today!")
-                                .setField("TIMESTAMP", 40000)
-                                .setField("SENT", true)
-                                .build()))
+                        .addArray("MESSAGES", EmbeddedRelationalArray.newBuilder()
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("TEXT", "Hello there")
+                                        .addLong("TIMESTAMP", 30000)
+                                        .addBoolean("SENT", true)
+                                        .build())
+                                .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                        .addString("TEXT", "What a nice weather today!")
+                                        .addLong("TIMESTAMP", 40000)
+                                        .addBoolean("SENT", true)
+                                        .build())
+                                .build())
                         .build();
                 cnt = statement.executeInsert("CONVERSATIONS", row2);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
@@ -836,20 +848,26 @@ public class StandardQueryTests {
         final String schema = "CREATE TABLE FOO(FOO bigint, PRIMARY KEY(FOO))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                final Message row1 = statement.getDataBuilder("FOO").setField("FOO", 42L).build();
+                final var row1 = EmbeddedRelationalStruct.newBuilder().addLong("FOO", 42L).build();
                 int cnt = statement.executeInsert("FOO", row1);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
 
-                final Message row2 = statement.getDataBuilder("FOO").setField("FOO", 43L).build();
+                final var row2 = EmbeddedRelationalStruct.newBuilder().addLong("FOO", 43L).build();
                 cnt = statement.executeInsert("FOO", row2);
                 Assertions.assertEquals(1, cnt, "Incorrect insertion count");
                 Assertions.assertTrue(statement.execute("SELECT * from FOO f WHERE f.FOO > 42"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(row2);
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("FOO", 43L)
+                            .hasNoNextRow();
                 }
                 Assertions.assertTrue(statement.execute("SELECT * from FOO f WHERE FOO > 42"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    ResultSetAssert.assertThat(resultSet).containsRowsExactly(row2);
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("FOO", 43L)
+                            .hasNoNextRow();
                 }
             }
         }
@@ -864,7 +882,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT java_call('com.apple.foundationdb.relational.recordlayer.query.udf.SumUdf', pk, 42) + 100 FROM T1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(100 + 42 + 42L)
+                            .isRowExactly(100 + 42 + 42L)
                             .hasNoNextRow();
                 }
             }
@@ -881,7 +899,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT java_call('com.apple.foundationdb.relational.recordlayer.query.udf.ByteOperationsUdf', a, b) FROM T1"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(expected)
+                            .isRowExactly(expected)
                             .hasNoNextRow();
                 }
             }
@@ -897,7 +915,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select * from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .hasRowExactly(42L, 100L, 101L)
+                            .isRowExactly(42L, 100L, 101L)
                             .hasNoNextRow();
                 }
             }
@@ -1209,89 +1227,79 @@ public class StandardQueryTests {
 
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
-    private Message insertTypeConflictRecords(RelationalStatement s) throws SQLException {
-        final var recBuilder = s.getDataBuilder("CLASSA")
-                .setField("NAME", "Sophia");
-        final Message rec = recBuilder.build();
+    private RelationalStruct insertTypeConflictRecords(RelationalStatement s) throws SQLException {
+        final var recBuilder = EmbeddedRelationalStruct.newBuilder()
+                .addString("NAME", "Sophia");
+        final var rec = recBuilder.build();
         int cnt = s.executeInsert("CLASSA", rec);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return rec;
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
         return insertRestaurantComplexRecord(s, 10L);
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, boolean containsNonNullableArray) throws SQLException {
-        return insertRestaurantComplexRecord(s, 10L, "testName", List.of(), containsNonNullableArray);
-    }
-
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber) throws SQLException {
         return insertRestaurantComplexRecord(s, recordNumber, "testName");
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws SQLException {
-        return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of(), false);
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws SQLException {
+        return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of());
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews, boolean containsNonNullableArray) throws SQLException {
-        final var recBuilder2 = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
-                .setField("REST_NO", recordNumber)
-                .setField("NAME", recordName)
-                .setField("LOCATION", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("LOCATION"))
-                        .setField("ADDRESS", "address")
-                        .setField("LATITUDE", 1)
-                        .setField("LONGITUDE", 1)
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews) throws SQLException {
+        final var recBuilder2 = EmbeddedRelationalStruct.newBuilder()
+                .addLong("REST_NO", recordNumber)
+                .addString("NAME", recordName)
+                .addStruct("LOCATION", EmbeddedRelationalStruct.newBuilder()
+                        .addString("ADDRESS", "address")
+                        .addString("LATITUDE", "1")
+                        .addString("LONGITUDE", "1")
                         .build());
-        if (containsNonNullableArray) {
-            for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-                recBuilder2.addRepeatedField("REVIEWS", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS"))
-                        .setField("REVIEWER", review.getLeft())
-                        .setField("RATING", review.getMiddle())
-                        .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
-                            try {
-                                return s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS", "ENDORSEMENTS")).setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }).collect(Collectors.toList()), false)
-                        .build());
-            }
-        } else {
-            List<Message> reviewList = new LinkedList<>();
-            for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
-                reviewList.add(s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS"))
-                        .setField("REVIEWER", review.getLeft())
-                        .setField("RATING", review.getMiddle())
-                        .addRepeatedFields("ENDORSEMENTS", review.getRight().stream().map(endo -> {
-                            try {
-                                return s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("REVIEWS", "ENDORSEMENTS")).setField("endorsementId", endo.getLeft()).setField("endorsementText", endo.getRight()).build();
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }).collect(Collectors.toList()))
+        final var reviewsArrayBuilder = EmbeddedRelationalArray.newBuilder(RelationalArrayMetaData.ofStruct(new RelationalStructMetaData(
+                FieldDescription.primitive("REVIEWER", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                FieldDescription.primitive("RATING", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                FieldDescription.array("ENDORSEMENTS", DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(new RelationalStructMetaData(
+                        FieldDescription.primitive("endorsementId", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                        FieldDescription.primitive("endorsementText", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+                ), DatabaseMetaData.columnNoNulls))
+        ), DatabaseMetaData.columnNoNulls));
+        for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
+            final var reviewBuilder = EmbeddedRelationalStruct.newBuilder()
+                    .addLong("REVIEWER", review.getLeft())
+                    .addLong("RATING", review.getMiddle());
+            final var endorsementsArrayBuilder = EmbeddedRelationalArray.newBuilder(RelationalArrayMetaData.ofStruct(new RelationalStructMetaData(
+                    FieldDescription.primitive("endorsementId", Types.BIGINT, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("endorsementText", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
+            ), DatabaseMetaData.columnNoNulls));
+            for (var endorsement: review.getRight()) {
+                endorsementsArrayBuilder.addStruct(EmbeddedRelationalStruct.newBuilder()
+                        .addLong("endorsementId", endorsement.getLeft())
+                        .addString("endorsementText", endorsement.getRight())
                         .build());
             }
-            recBuilder2.addRepeatedFields("REVIEWS", reviewList);
+            reviewBuilder.addArray("ENDORSEMENTS", endorsementsArrayBuilder.build());
+            reviewsArrayBuilder.addStruct(reviewBuilder.build());
         }
-
-        final Message rec = recBuilder2.build();
-        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", rec);
+        recBuilder2.addArray("REVIEWS", reviewsArrayBuilder.build());
+        final RelationalStruct struct = recBuilder2.build();
+        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return rec;
+        return struct;
     }
 
-    private Message insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
-        Message result = s.getDataBuilder("RESTAURANTCOMPLEXRECORD")
-                .setField("REST_NO", recordNumber)
-                .setField("NAME", recordName)
-                .setField("ENCODED_BYTES", ByteString.copyFrom(blob))
-                .setField("LOCATION", s.getDataBuilder("RESTAURANTCOMPLEXRECORD", List.of("LOCATION"))
-                        .setField("ADDRESS", "address")
-                        .build()).build();
-
-        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", result);
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
+        var struct = EmbeddedRelationalStruct.newBuilder()
+                .addLong("REST_NO", recordNumber)
+                .addString("NAME", recordName)
+                .addBytes("ENCODED_BYTES", blob)
+                .addStruct("LOCATION", EmbeddedRelationalStruct.newBuilder()
+                        .addString("ADDRESS", "address")
+                        .build())
+                .build();
+        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return result;
+        return struct;
     }
 }

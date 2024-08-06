@@ -20,11 +20,10 @@
 
 package com.apple.foundationdb.relational.autotest;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
-
-import com.google.protobuf.Message;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import javax.annotation.Nonnull;
+import java.sql.SQLException;
 import java.util.stream.Stream;
 
 public interface DataSet {
@@ -36,8 +35,8 @@ public interface DataSet {
      * be calling this from multiple threads, so it's not a big deal, but if you want to, make sure you
      * have external synchronization.
      *
-     * @param messageBuilder the message Builder to use.
+     * @param tableDescription the {@link TableDescription} to use.
      * @return a stream of messages built by the messageBuilder.
      */
-    Stream<Message> getData(@Nonnull DynamicMessageBuilder messageBuilder);
+    Stream<RelationalStruct> getData(@Nonnull TableDescription tableDescription) throws SQLException;
 }

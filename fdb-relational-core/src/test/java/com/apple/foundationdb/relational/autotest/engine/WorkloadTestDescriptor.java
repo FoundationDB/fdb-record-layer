@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.relational.autotest.engine;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.autotest.Connector;
@@ -37,12 +37,9 @@ import com.apple.foundationdb.relational.autotest.WorkloadConfig;
 import com.apple.foundationdb.relational.autotest.datagen.DataSample;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.utils.ReservoirSample;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
@@ -118,9 +115,9 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
 
                 int index = 1;
                 for (ParameterizedQuery query : querySet.getQueries()) {
-                    final Iterator<Map<String, Message>> sampleIterator = dataSample.getSampleIterator();
+                    final Iterator<Map<String, RelationalStruct>> sampleIterator = dataSample.getSampleIterator();
                     while (sampleIterator.hasNext()) {
-                        Map<String, Message> params = sampleIterator.next();
+                        Map<String, RelationalStruct> params = sampleIterator.next();
 
                         final String label = workload.getDisplayName() + "." + querySet.getLabel() + "[" + index + "]";
                         DynamicTest dt = DynamicTest.dynamicTest(label, () -> {
@@ -195,10 +192,10 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
 
     private void runComparisonTest(ParameterizedQuery query,
                                    List<Connector> connectors,
-                                   Map<String, Message> params,
+                                   Map<String, RelationalStruct> params,
                                    WorkloadReporter.TestReporter testReporter) {
         Map<String, QueryResultSet> results = new HashMap<>();
-        params.forEach((key, value) -> testReporter.publishEntry("param[" + key + "]", new MessageTuple(value).toString()));
+        params.forEach((key, value) -> testReporter.publishEntry("param[" + key + "]", value.toString()));
 
         for (Connector connector : connectors) {
             try (RelationalConnection conn = connector.connect(workload.getDatabasePath());
@@ -263,45 +260,32 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
 
         try {
             String schemaName = schema.getSchemaName();
-            List<TableDescription> tableNames = schema.getTables();
-            for (TableDescription table : tableNames) {
+            List<TableDescription> tables = schema.getTables();
+            for (TableDescription table : tables) {
                 String fullTableName = schemaName + "." + table.getTableName();
 
                 List<RelationalConnection> vConns = new ArrayList<>();
                 List<RelationalStatement> statements = new ArrayList<>();
-                /*
-                 * We use a single DynamicMessageBuilder to pass to the generators in order
-                 * to generate Messages, and then we convert them all to the MessageBuilders for
-                 * each individual Connector. This is hypothetically expensive, but easier to use
-                 * and in practice they should pretty much all be the same and shouldn't make extra Message
-                 * copies
-                 */
-                DynamicMessageBuilder templateBuilder = null;
                 try {
                     for (Connector connector : connectors) {
                         final RelationalConnection conn = connector.connect(workload.getDatabasePath());
                         vConns.add(conn);
                         final RelationalStatement statement = conn.createStatement();
                         statements.add(statement);
-                        if (templateBuilder == null) {
-                            templateBuilder = statement.getDataBuilder(fullTableName);
-                        }
                     }
-
-                    assert templateBuilder != null : "Programmer error: No Connectors defined in workload test!";
 
                     //TODO(bfines) configure this
                     final WorkloadConfig config = workload.getConfig();
-                    ReservoirSample<Message> reservoir = new ReservoirSample<>(config.getInt(WorkloadConfig.SAMPLE_SIZE, 100),
+                    ReservoirSample<RelationalStruct> reservoir = new ReservoirSample<>(config.getInt(WorkloadConfig.SAMPLE_SIZE, 100),
                             config.getLong(WorkloadConfig.SEED_KEY, System.currentTimeMillis()));
-                    try (Stream<Message> messages = dataSet.getData(templateBuilder)) {
+                    try (Stream<RelationalStruct> structs = dataSet.getData(table)) {
                         /*
                          * Read in a batch of records, and insert them to every connector
                          */
                         int batchSize = config.getInt(WorkloadConfig.INSERT_BATCH_SIZE, 10);
-                        List<Message> batch = new ArrayList<>(batchSize); //TODO(Bfines) make this configurable
-                        messages.forEach(message -> {
-                            batch.add(message);
+                        List<RelationalStruct> batch = new ArrayList<>(batchSize); //TODO(Bfines) make this configurable
+                        structs.forEach(struct -> {
+                            batch.add(struct);
                             if (batch.size() == batchSize) {
                                 insertDataBatch(fullTableName, statements, batch, reservoir);
                             }
@@ -330,23 +314,15 @@ class WorkloadTestDescriptor extends NestedClassTestDescriptor {
 
     void insertDataBatch(String tableName,
                          List<RelationalStatement> statements,
-                         List<Message> messages,
-                         ReservoirSample<Message> reservoir) {
+                         List<RelationalStruct> structs,
+                         ReservoirSample<RelationalStruct> reservoir) {
         try {
             for (RelationalStatement statement : statements) {
-                final DynamicMessageBuilder dataBuilder = statement.getDataBuilder(tableName);
-                Iterator<Message> theBatch = messages.stream().map(m -> {
-                    try {
-                        return dataBuilder.convertMessage(m);
-                    } catch (SQLException e) {
-                        throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
-                    }
-                }).iterator();
-                statement.executeInsert(tableName, theBatch);
+                statement.executeInsert(tableName, structs);
             }
             //add to the sample here, only after we guarantee that the write actually succeeded
-            messages.forEach(reservoir::add);
-            messages.clear();
+            structs.forEach(reservoir::add);
+            structs.clear();
         } catch (SQLException e) {
             RelationalException ve = ExceptionUtil.toRelationalException(e);
             //ignore PK violations for now

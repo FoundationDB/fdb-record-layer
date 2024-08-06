@@ -81,17 +81,17 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT qpk, M.e FROM (SELECT * FROM Q, Q.d) as M")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 100L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 100L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 200L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 200L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 300L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 300L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 2L, "e", 400L))
+                    .hasColumns(Map.of("qpk", 2L, "e", 400L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 2L, "e", 500L))
+                    .hasColumns(Map.of("qpk", 2L, "e", 500L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 2L, "e", 600L))
+                    .hasColumns(Map.of("qpk", 2L, "e", 600L))
                     .hasNoNextRow();
         }
     }
@@ -101,7 +101,7 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT M.e FROM (SELECT * FROM Q, Q.d) as M LIMIT 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("e", 100L))
+                    .hasColumns(Map.of("e", 100L))
                     .hasNoNextRow();
         }
     }
@@ -145,17 +145,17 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT qpk, e FROM Q, Q.d")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 100L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 100L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 200L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 200L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 300L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 300L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 2L, "e", 400L))
+                    .hasColumns(Map.of("qpk", 2L, "e", 400L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 2L, "e", 500L))
+                    .hasColumns(Map.of("qpk", 2L, "e", 500L))
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 2L, "e", 600L))
+                    .hasColumns(Map.of("qpk", 2L, "e", 600L))
                     .hasNoNextRow();
         }
     }
@@ -165,7 +165,7 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT qpk, e FROM Q, Q.d Limit 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("qpk", 1L, "e", 100L))
+                    .hasColumns(Map.of("qpk", 1L, "e", 100L))
                     .hasNoNextRow();
         }
     }
@@ -175,13 +175,13 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT * FROM R, S")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 2L, "sa", 20L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 2L, "sa", 20L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 2L, "ra", 2L, "spk", 1L, "sa", 10L))
+                    .hasColumns(Map.of("rpk", 2L, "ra", 2L, "spk", 1L, "sa", 10L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 2L, "ra", 2L, "spk", 2L, "sa", 20L))
+                    .hasColumns(Map.of("rpk", 2L, "ra", 2L, "spk", 2L, "sa", 20L))
                     .hasNoNextRow();
         }
     }
@@ -191,7 +191,7 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT * FROM R, S LIMIT 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
                     .hasNoNextRow();
         }
     }
@@ -201,9 +201,9 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT * FROM R, S LIMIT 2")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 2L, "sa", 20L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 2L, "sa", 20L))
                     .hasNoNextRow();
         }
     }
@@ -213,13 +213,13 @@ public class JoinWithLimitTest {
         try (var resultSet = statement.executeQuery("SELECT * FROM R, S LIMIT 20")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 1L, "ra", 1L, "spk", 2L, "sa", 20L))
+                    .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 2L, "sa", 20L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 2L, "ra", 2L, "spk", 1L, "sa", 10L))
+                    .hasColumns(Map.of("rpk", 2L, "ra", 2L, "spk", 1L, "sa", 10L))
                     .hasNextRow()
-                    .hasRow(Map.of("rpk", 2L, "ra", 2L, "spk", 2L, "sa", 20L))
+                    .hasColumns(Map.of("rpk", 2L, "ra", 2L, "spk", 2L, "sa", 20L))
                     .hasNoNextRow();
         }
     }

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
+import java.sql.Types;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -78,19 +79,19 @@ public class TransactionBoundDatabaseWithEnumTest {
             try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
                 conn.setSchema("TEST_SCHEMA");
                 try (RelationalStatement statement = conn.createStatement()) {
-                    Message record = statement.getDataBuilder("Card")
-                            .setField("id", 1)
-                            .setField("suit", "DIAMONDS")
-                            .setField("rank", 1)
-                            .build();
-                    statement.executeInsert("Card", record);
+                    statement.executeInsert("Card", EmbeddedRelationalStruct.newBuilder()
+                            .addLong("id", 1L)
+                            .addObject("suit", "DIAMONDS", Types.OTHER)
+                            .addInt("rank", 1)
+                            .build()
+                    );
                 }
 
                 try (RelationalStatement statement = conn.createStatement()) {
                     try (RelationalResultSet resultSet = statement.executeScan("Card", KeySet.EMPTY, Options.NONE)) {
                         Assertions.assertThat(resultSet.next()).isTrue();
                         Assertions.assertThat(resultSet.getString("suit")).isEqualTo("DIAMONDS");
-                        Assertions.assertThat(resultSet.getLong("rank")).isEqualTo(1);
+                        Assertions.assertThat(resultSet.getLong("rank")).isEqualTo(1L);
                     }
                 }
             }

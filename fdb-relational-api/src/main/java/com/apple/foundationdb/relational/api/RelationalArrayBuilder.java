@@ -34,7 +34,7 @@ public interface RelationalArrayBuilder {
      * Build a {@link RelationalArray}.
      * @return A 'built' {@link RelationalArray} instance.
      */
-    RelationalArray build();
+    RelationalArray build() throws SQLException;
 
     RelationalArrayBuilder addAll(@Nonnull Object... value) throws SQLException;
 

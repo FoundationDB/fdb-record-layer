@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.autotest.DataSet;
+import com.apple.foundationdb.relational.autotest.TableDescription;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -48,21 +48,22 @@ public class RandomDataSet implements DataSet {
     }
 
     @Override
-    public Stream<Message> getData(@Nonnull DynamicMessageBuilder messageBuilder) {
+    public Stream<RelationalStruct> getData(@Nonnull TableDescription tableDescription) throws SQLException {
         RandomDataSource rds = new UniformDataSource(seed, maxStringLength, maxBytesLength);
-        TableDataGenerator tableGenerator = new TableDataGenerator(messageBuilder.getDescriptor(), rds, maxArraySize);
+        TableDataGenerator tableGenerator = new TableDataGenerator(tableDescription, rds, maxArraySize);
 
         AtomicInteger counter = new AtomicInteger(0);
-        UnaryOperator<Message> dataGenerator = theLast -> {
+        UnaryOperator<RelationalStruct> dataGenerator = theLast -> {
             try {
-                tableGenerator.generateValue(messageBuilder);
+                final var builder = EmbeddedRelationalStruct.newBuilder();
+                tableGenerator.generateValue(builder);
                 counter.getAndIncrement();
-                return messageBuilder.build();
+                return builder.build();
             } catch (SQLException e) {
                 throw ExceptionUtil.toRelationalException(e).toUncheckedWrappedException();
             }
         };
-        Message first = dataGenerator.apply(null);
+        RelationalStruct first = dataGenerator.apply(null);
         return Stream.iterate(first, message -> counter.get() <= numRecords, dataGenerator);
     }
 }

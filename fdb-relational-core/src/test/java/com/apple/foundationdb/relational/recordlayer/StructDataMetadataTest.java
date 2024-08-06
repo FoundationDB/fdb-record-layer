@@ -20,15 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
@@ -38,7 +37,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -78,34 +76,38 @@ public class StructDataMetadataTest {
 
     @BeforeEach
     void setUp() throws SQLException {
-        final DynamicMessageBuilder t1 = statement.getDataBuilder("T");
-        Message m = t1.setField("NAME", "test_record_1")
-                .setField("ST1", t1.getNestedMessageBuilder("ST1").setField("A", "Hello").build())
+        final var t1 = EmbeddedRelationalStruct.newBuilder();
+        var m = t1.addString("NAME", "test_record_1")
+                .addStruct("ST1", EmbeddedRelationalStruct.newBuilder().addString("A", "Hello").build())
                 .build();
 
         statement.executeInsert("T", m);
 
-        final DynamicMessageBuilder ntBuilder = statement.getDataBuilder("NT");
-        final DynamicMessageBuilder stBuilder = ntBuilder.getNestedMessageBuilder("ST1");
-        m = ntBuilder.setField("T_NAME", "nt_record")
-                .setField("ST1", stBuilder
-                        .setField("C", 1234L)
-                        .setField("D", stBuilder.getNestedMessageBuilder("D")
-                                .setField("A", "Goodbye").build())
+        final var ntBuilder = EmbeddedRelationalStruct.newBuilder();
+        final var stBuilder = EmbeddedRelationalStruct.newBuilder();
+        m = ntBuilder.addString("T_NAME", "nt_record")
+                .addStruct("ST1", stBuilder
+                        .addLong("C", 1234L)
+                        .addStruct("D", EmbeddedRelationalStruct.newBuilder()
+                                .addString("A", "Goodbye")
+                                .build())
                         .build())
                 .build();
 
         statement.executeInsert("NT", m);
 
-        final DynamicMessageBuilder atBuilder = statement.getDataBuilder("AT");
-        final DynamicMessageBuilder st2Builder = statement.getDataBuilder("AT", List.of("ST2"));
-        System.out.println("st2Builder:" + st2Builder.getDescriptor().toProto());
-        m = atBuilder.setField("A_NAME", "a_test_rec")
-                .addRepeatedFields("ST2", List.of(st2Builder.setField("C", "Hello".getBytes(StandardCharsets.UTF_8))
-                        .setField("D", true)
-                        .build(), st2Builder.setField("C", "Bonjour".getBytes(StandardCharsets.UTF_8))
-                        .setField("D", false)
-                        .build()))
+        final var atBuilder = EmbeddedRelationalStruct.newBuilder();
+        m = atBuilder.addString("A_NAME", "a_test_rec")
+                .addArray("ST2", EmbeddedRelationalArray.newBuilder()
+                        .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                .addBytes("C", "Hello".getBytes(StandardCharsets.UTF_8))
+                                .addBoolean("D", true)
+                                .build())
+                        .addStruct(EmbeddedRelationalStruct.newBuilder()
+                                .addBytes("C", "Bonjour".getBytes(StandardCharsets.UTF_8))
+                                .addBoolean("D", false)
+                                .build())
+                        .build())
                 .build();
 
         statement.executeInsert("AT", m);
@@ -152,7 +154,6 @@ public class StructDataMetadataTest {
         }
     }
 
-    @SuppressWarnings("SuspiciousMethodCalls")
     @Test
     void canReadRepeatedStruct() throws Exception {
         final KeySet key = new KeySet().setKeyColumn("A_NAME", "a_test_rec");
@@ -200,7 +201,7 @@ public class StructDataMetadataTest {
 
             //now check that the Object[] functionality also works
             Object obj = st2.getArray();
-            Assertions.assertTrue(obj instanceof Object[], "Did not return an array of data!");
+            Assertions.assertInstanceOf(Object[].class, obj, "Did not return an array of data!");
             Object[] data = (Object[]) obj;
             Set<String> expectedFirstColumn = Set.of("Hello", "Bonjour");
             Set<Boolean> expectedSecondColumn = Set.of(true, false);

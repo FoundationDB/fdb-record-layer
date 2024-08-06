@@ -120,7 +120,7 @@ public class DdlRecordLayerSchemaTemplateTest {
 
                 ResultSetAssert.assertThat(rs)
                         .hasNextRow()
-                        .hasRowExactly(table.getName(), expectedTablesArr)
+                        .isRowExactly(table.getName(), expectedTablesArr)
                         .hasNoNextRow();
             }
         });

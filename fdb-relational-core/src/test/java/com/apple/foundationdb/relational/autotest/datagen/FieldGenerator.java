@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.autotest.datagen;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 
 import java.sql.SQLException;
 
@@ -32,5 +32,5 @@ import java.sql.SQLException;
  */
 public interface FieldGenerator {
 
-    void generateValue(DynamicMessageBuilder destination) throws SQLException;
+    void generateValue(RelationalStructBuilder builder) throws SQLException;
 }

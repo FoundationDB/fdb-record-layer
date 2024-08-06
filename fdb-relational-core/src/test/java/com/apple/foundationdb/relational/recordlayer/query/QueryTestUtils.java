@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-
-import com.google.protobuf.Message;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -30,16 +30,15 @@ import java.sql.SQLException;
 
 public class QueryTestUtils {
 
-    public static Message insertT1Record(@Nonnull final RelationalStatement statement, long pk, long a, long b, long c) throws SQLException {
-        Message result = statement.getDataBuilder("T1")
-                .setField("PK", pk)
-                .setField("A", a)
-                .setField("B", b)
-                .setField("C", c)
+    public static RelationalStruct insertT1Record(@Nonnull final RelationalStatement statement, long pk, long a, long b, long c) throws SQLException {
+        var result = EmbeddedRelationalStruct.newBuilder()
+                .addLong("PK", pk)
+                .addLong("A", a)
+                .addLong("B", b)
+                .addLong("C", c)
                 .build();
         int cnt = statement.executeInsert("T1", result);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return result;
     }
-
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -65,10 +65,10 @@ public class IntermingledTablesTest {
 
     @Test
     void readFromOtherType() throws SQLException {
-        final var row = statement.getDataBuilder("T1")
-                .setField("GROUP", 0)
-                .setField("ID", "foo")
-                .setField("VAL", 1066)
+        final var row = EmbeddedRelationalStruct.newBuilder()
+                .addLong("GROUP", 0)
+                .addString("ID", "foo")
+                .addLong("VAL", 1066)
                 .build();
         statement.executeInsert("T1", row, Options.NONE);
 
@@ -80,24 +80,23 @@ public class IntermingledTablesTest {
                     .hasNextRow()
                     .hasColumn("GROUP", 0L)
                     .hasColumn("ID", "foo")
-                    .hasColumn("VAL2", 1066L)
+                    .hasColumn("VAL2", "1066")
                     .hasNoNextRow();
         }
     }
 
     @Test
     void doNotInsertOnOtherType() throws SQLException {
-        final var row1 = statement.getDataBuilder("T1")
-                .setField("GROUP", 1)
-                .setField("ID", "bar")
-                .setField("VAL", 1412)
+        final var row1 = EmbeddedRelationalStruct.newBuilder()
+                .addLong("GROUP", 1L)
+                .addString("ID", "bar")
+                .addLong("VAL", 1412L)
                 .build();
         statement.executeInsert("T1", row1, Options.NONE);
-
-        final var row2 = statement.getDataBuilder("T2")
-                .setField("GROUP", 1)
-                .setField("ID", "bar")
-                .setField("VAL2", "other")
+        final var row2 = EmbeddedRelationalStruct.newBuilder()
+                .addLong("GROUP", 1L)
+                .addString("ID", "bar")
+                .addString("VAL2", "other")
                 .build();
         RelationalAssertions.assertThrowsSqlException(() -> statement.executeInsert("T2", row2, Options.NONE))
                 .hasErrorCode(ErrorCode.UNIQUE_CONSTRAINT_VIOLATION);
@@ -109,9 +108,7 @@ public class IntermingledTablesTest {
         try (RelationalResultSet resultSet = statement.executeGet("T1", key, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .hasColumn("GROUP", 1L)
-                    .hasColumn("ID", "bar")
-                    .hasColumn("VAL", "other")
+                    .isRowExactly(1L, "bar", "other")
                     .hasNoNextRow();
         }
     }
@@ -123,17 +120,17 @@ public class IntermingledTablesTest {
 
         for (int group = 0; group < groupCount; group++) {
             for (int id = 0; id < idCount; id++) {
-                var t1 = statement.getDataBuilder("T1")
-                        .setField("GROUP", group)
-                        .setField("ID", "t1_" + id)
-                        .setField("VAL", id * 10)
+                var t1 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("GROUP", group)
+                        .addString("ID", "t1_" + id)
+                        .addLong("VAL", id * 10)
                         .build();
                 statement.executeInsert("T1", t1, Options.NONE);
 
-                var t2 = statement.getDataBuilder("T2")
-                        .setField("GROUP", group)
-                        .setField("ID", "t2_" + id)
-                        .setField("VAL2", "val=" + (id * 10))
+                var t2 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("GROUP", group)
+                        .addString("ID", "t2_" + id)
+                        .addString("VAL2", "val=" + (id * 10))
                         .build();
                 statement.executeInsert("T2", t2, Options.NONE);
             }

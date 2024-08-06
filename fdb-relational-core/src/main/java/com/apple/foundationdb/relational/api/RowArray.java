@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;

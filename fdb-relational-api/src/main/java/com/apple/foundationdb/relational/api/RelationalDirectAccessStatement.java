@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.google.protobuf.Message;
-
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -97,49 +95,15 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException;
 
     /**
-     * Insert.
-     * @param tableName Table to insert into.
-     * @param message Protobuf to insert.
-     * @return How many rows inserted.
-     * @throws SQLException On failed insert.
-     * @deprecated since 01/19/2023 to avoid protobufs in our API; use {@link #executeInsert(String, List)} instead.
-     */
-    // syntactic sugar to make it easier to insert a single record
-    @Deprecated
-    default int executeInsert(@Nonnull String tableName, Message message) throws SQLException {
-        return executeInsert(tableName, Collections.singleton(message).iterator(), Options.NONE);
-    }
-
-    /**
-     * Insert.
-     * @param tableName Table to insert into.
-     * @param message Protobuf to insert.
-     * @param options Options to color the insert.
-     * @return How many rows inserted.
-     * @throws SQLException On failed insert.
-     * @deprecated since 01/19/2023 to avoid protobufs in our API; use {@link #executeInsert(String, List)} instead.
-     */
-    @Deprecated
-    default int executeInsert(@Nonnull String tableName, Message message, Options options) throws SQLException {
-        return executeInsert(tableName, Collections.singleton(message).iterator(), options);
-    }
-
-    /**
-     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
-     * <p>
-     * Equivalent to {@link #executeInsert(String, Iterator)}, but avoids the extra {@code .iterator()} call
-     * for a slightly nicer user experience.
+     * Insert a record into the specified table, updating any indexes as necessary to maintain consistency.
      *
      * @param tableName the name of the table to insert into.
      * @param data      the data to insert.
      * @return the number of records inserted.
-     * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
-     * @deprecated since 01/19/2023 because we would void having protobufs in our API; use
-     * {@link #executeInsert(String, List)} instead.
+     * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
      */
-    @Deprecated
-    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data) throws SQLException {
-        return executeInsert(tableName, data.iterator());
+    default int executeInsert(@Nonnull String tableName, @Nonnull RelationalStruct data) throws SQLException {
+        return executeInsert(tableName, Collections.singletonList(data), Options.NONE);
     }
 
     /**
@@ -149,12 +113,9 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @param data      the data to insert.
      * @return the number of records inserted.
      * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
-     * @deprecated since 01/19/2023 because we would void having protobufs in our API; use
-     * {@link #executeInsert(String, List)} instead.
      */
-    @Deprecated
-    default int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data) throws SQLException {
-        return executeInsert(tableName, data, Options.NONE);
+    default int executeInsert(@Nonnull String tableName, @Nonnull RelationalStruct data, @Nonnull Options options) throws SQLException {
+        return executeInsert(tableName, Collections.singletonList(data), options);
     }
 
     /**
@@ -177,60 +138,9 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @param options    options to apply to the insert.
      * @return the number of records inserted.
      * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
-     * @deprecated since 01/19/2023 because we would void having protobufs in our API; use
-     * {@link #executeInsert(String, List, Options)} instead.
-     */
-    @Deprecated
-    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws SQLException;
-
-    /**
-     * Insert one or more records into the specified table, updating any indexes as necessary to maintain consistency.
-     *
-     * @param tableName the name of the table to insert into.
-     * @param data      the data to insert.
-     * @param options    options to apply to the insert.
-     * @return the number of records inserted.
-     * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
      */
     int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException;
-
-    /**
-     * Get a DynamicMessageBuilder instance.
-     * @param tableName Table to build the message for.
-     * @return Message Builder.
-     * @throws SQLException On fail to get builder.
-     * @deprecated since 01/19/2023 to avoid protobuf in API; use {@link #executeInsert(String, List, Options)} instead.
-     */
-    @Deprecated
-    DynamicMessageBuilder getDataBuilder(@Nonnull String tableName) throws SQLException;
-
-    /**
-     * Creates a {@link DynamicMessageBuilder} of a specific {@code Column} in a {@code Table}. For example, say we have
-     * the following DDL of a table:
-     *
-     * <code>
-     * CREATE TYPE AS STRUCT DESK_INFO(FLOOR STRING, ROW INT, COL INT);
-     * CREATE TYPE AS STRUCT EMPLOYEE(NAME STRING, DESK DESK_INFO);
-     * CREATE TABLE REPORTS( ID INT, MANAGER EMPLOYEE NOT NULL, MANAGED EMPLOYEE NULL, PRIMARY KEY(ID) );
-     * </code>
-     * We can retrieve a {@link DynamicMessageBuilder} of "DESK" field in {@code MANAGED} field of the table "REPORTS":
-     * <pre>
-     * <code>getDataBuilder("REPORTS", List.of("MANAGED", "DESK"))</code>
-     * </pre>
-     *
-     * Or, by prefixing the table name with the schema name, as in, e.g.:
-     * <pre>
-     * <code>getDataBuilder("SCHEMA.REPORTS", List.of("MANAGED", "DESK"))</code>
-     * </pre>
-     *
-     * @param maybeQualifiedTableName Table name, optionally with a qualifying schema name.
-     * @param nestedFields the (nested) field we want to retrieve the {@link DynamicMessageBuilder} of.
-     * @return A {@link DynamicMessageBuilder} of the field.
-     * @throws SQLException In case of error (e.g. failure to open a transaction).
-     */
-    @Nonnull
-    DynamicMessageBuilder getDataBuilder(@Nonnull final String maybeQualifiedTableName, @Nonnull final List<String> nestedFields) throws SQLException;
 
     /**
      * Delete one or more records from the specified table, specified by key, if such records exist.

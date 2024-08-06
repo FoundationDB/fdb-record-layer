@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
@@ -36,9 +37,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -98,9 +97,9 @@ public class QueryPropertiesTest {
             try (RelationalStatement s = conn.createStatement()) {
                 for (long i = 0; i < 2; i++) {
                     long id = firstRestNo + i;
-                    Message restaurant = s.getDataBuilder("RESTAURANT")
-                            .setField("NAME", "testRest" + id)
-                            .setField("REST_NO", id)
+                    var restaurant = EmbeddedRelationalStruct.newBuilder()
+                            .addString("NAME", "testRest" + id)
+                            .addLong("REST_NO", id)
                             .build();
                     s.executeInsert("RESTAURANT", restaurant);
                 }

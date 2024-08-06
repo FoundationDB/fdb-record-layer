@@ -20,26 +20,27 @@
 
 package com.apple.foundationdb.relational.autotest;
 
+import com.apple.foundationdb.relational.api.StructMetaData;
+
+import javax.annotation.Nonnull;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.Map;
 
 public class TableDescription {
-    private final String tableName;
-    private final Map<String, String> columnNames;
+    private final StructMetaData metaData;
     private final List<String> pkColumns;
 
-    public TableDescription(String tableName, Map<String, String> columnNames, List<String> pkColumns) {
-        this.tableName = tableName;
-        this.columnNames = columnNames;
+    public TableDescription(@Nonnull StructMetaData metaData, @Nonnull List<String> pkColumns) {
+        this.metaData = metaData;
         this.pkColumns = pkColumns;
     }
 
-    public String getTableName() {
-        return tableName;
+    public String getTableName() throws SQLException {
+        return metaData.getTypeName();
     }
 
-    public Map<String, String> getColumnNames() {
-        return columnNames;
+    public StructMetaData getMetaData() {
+        return metaData;
     }
 
     public List<String> getPkColumns() {

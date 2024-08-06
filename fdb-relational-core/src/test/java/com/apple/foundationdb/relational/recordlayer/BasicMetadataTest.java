@@ -69,7 +69,7 @@ public class BasicMetadataTest {
         try (final RelationalResultSet pks = metaData.getPrimaryKeys(database.getDatabasePath().getPath(),
                 "TEST_SCHEMA", "RESTAURANT")) {
             ResultSetAssert.assertThat(pks).hasNextRow()
-                    .hasRowExactly(
+                    .isRowExactly(
                             database.getDatabasePath().getPath(),
                             "TEST_SCHEMA",
                             "RESTAURANT",
@@ -164,7 +164,7 @@ public class BasicMetadataTest {
         Assertions.assertNotNull(metaData, "Null metadata returned");
         try (final RelationalResultSet tableData = metaData.getIndexInfo("/TEST/BasicMetadataTest", "TEST_SCHEMA", "RESTAURANT_REVIEWER", false, false)) {
             ResultSetAssert.assertThat(tableData).hasNextRow()
-                    .hasRowExactly(
+                    .isRowExactly(
                             "/TEST/BasicMetadataTest", //table_cat
                             "TEST_SCHEMA", //table_schem
                             "RESTAURANT_REVIEWER", //table_name

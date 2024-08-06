@@ -20,15 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.google.protobuf.Message;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -53,7 +54,6 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -122,7 +122,7 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
         private final int numRecords;
         private int pos = 0;
 
-        private final List<Message> data = new ArrayList<>();
+        private final List<RelationalStruct> data = new ArrayList<>();
 
         public DataSet(int numRecords) {
             this.numRecords = numRecords;
@@ -132,18 +132,18 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
             return pos < numRecords;
         }
 
-        public void next(DynamicMessageBuilder destination) throws SQLException {
+        public void next(RelationalStructBuilder builder) throws SQLException {
             //create the data
-            destination.setField("ID", "id" + pos);
+            builder.addString("ID", "id" + pos);
             byte[] bytes = new byte[20];
             ThreadLocalRandom.current().nextBytes(bytes);
-            destination.setField("SOME_BYTES", bytes);
-            data.add(destination.build());
+            builder.addBytes("SOME_BYTES", bytes);
+            data.add(builder.build());
             pos++;
         }
 
-        public Iterator<Message> data() {
-            return data.iterator();
+        public List<RelationalStruct> data() {
+            return data;
         }
     }
 
@@ -152,11 +152,11 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
         try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed:" + dbUri.getPath()), Options.NONE)) {
             conn.setSchema(schema);
             try (RelationalStatement vs = conn.createStatement()) {
-                final DynamicMessageBuilder builder = vs.getDataBuilder("DIRECTACCESSBENCHTABLE");
+                final RelationalStructBuilder builder = EmbeddedRelationalStruct.newBuilder();
                 while (dataSet.hasNext()) {
                     dataSet.next(builder);
                 }
-                vs.executeInsert("DIRECTACCESSBENCHTABLE", dataSet.data(), Options.NONE);
+                vs.executeInsert("DIRECTACCESSBENCHTABLE", dataSet.data());
             }
         }
     }

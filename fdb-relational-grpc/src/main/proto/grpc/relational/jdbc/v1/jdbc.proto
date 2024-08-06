@@ -76,12 +76,11 @@ message GetResponse {
 }
 
 message InsertRequest {
-  oneof data {
-    ListBytes dataListBytes = 1;
-    // We use ResultSet to carry data from client to server -- inverting its
-    // usual intent.
-    ResultSet dataResultSet = 5;
-  }
+
+  // We use ResultSet to carry data from client to server -- inverting its
+  // usual intent.
+  ResultSet dataResultSet = 5;
+
   optional string database = 2;
   optional string schema = 3;
   optional string table_name = 4;

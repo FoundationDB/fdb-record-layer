@@ -57,6 +57,8 @@ public final class SqlTypeNamesSupport {
                 return "BINARY";
             case Types.NULL:
                 return "NULL";
+            case Types.OTHER:
+                return "OTHER";
             default:
                 throw new IllegalStateException("Unexpected sql type code :" + sqlTypeCode);
         }
