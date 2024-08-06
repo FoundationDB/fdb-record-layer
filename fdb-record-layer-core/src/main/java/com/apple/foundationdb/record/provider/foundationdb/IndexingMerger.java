@@ -137,6 +137,13 @@ public class IndexingMerger {
     }
 
     private CompletableFuture<Boolean> handleFailure(final IndexDeferredMaintenanceControl mergeControl, Throwable e) {
+        // Here: mergeIndex was iterating over grouping keys and partitions, this mergeControl object
+        // reflects the state of the last merge attempt that had failed. The values are adjusted according to it entity
+        // that had failed, assuming that a retry will reach the same obstacle.
+        // Note: when passing that said obstacle, the same restrictions will be applied on the following groups/partitions
+        // merges. Not perfect, but as long as it's rare the impact should be minimal.
+
+        mergeControl.mergeHadFailed(); // report to adjust stats
         final FDBException ex = IndexingBase.findException(e, FDBException.class);
         final IndexDeferredMaintenanceControl.LastStep lastStep = mergeControl.getLastStep();
         if (!IndexingBase.shouldLessenWork(ex)) {
@@ -229,9 +236,10 @@ public class IndexingMerger {
     List<Object> mergerKeysAndValues(final IndexDeferredMaintenanceControl mergeControl) {
         return List.of(
                 LogMessageKeys.INDEX_NAME, index.getName(),
-                LogMessageKeys.INDEX_MERGES_LIMIT, mergeControl.getMergesLimit(),
-                LogMessageKeys.INDEX_MERGES_FOUND, mergeControl.getMergesFound(),
-                LogMessageKeys.INDEX_MERGES_TRIED, mergeControl.getMergesTried(),
+                LogMessageKeys.INDEX_MERGES_LAST_LIMIT, mergeControl.getMergesLimit(),
+                LogMessageKeys.INDEX_MERGES_LAST_FOUND, mergeControl.getMergesFound(),
+                LogMessageKeys.INDEX_MERGES_LAST_TRIED, mergeControl.getMergesTried(),
+                LogMessageKeys.INDEX_MERGES_TOTAL_TRIED, mergeControl.getTotalMerges(),
                 LogMessageKeys.INDEX_MERGES_CONTEXT_TIME_QUOTA, mergeControl.getTimeQuotaMillis(),
                 LogMessageKeys.INDEX_REPARTITION_DOCUMENT_COUNT, mergeControl.getRepartitionDocumentCount(),
                 LogMessageKeys.INDEX_DEFERRED_ACTION_STEP, mergeControl.getLastStep()
