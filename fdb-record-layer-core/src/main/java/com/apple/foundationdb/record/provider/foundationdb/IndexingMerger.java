@@ -239,7 +239,7 @@ public class IndexingMerger {
                 LogMessageKeys.INDEX_MERGES_LAST_LIMIT, mergeControl.getMergesLimit(),
                 LogMessageKeys.INDEX_MERGES_LAST_FOUND, mergeControl.getMergesFound(),
                 LogMessageKeys.INDEX_MERGES_LAST_TRIED, mergeControl.getMergesTried(),
-                LogMessageKeys.INDEX_MERGES_TOTAL_TRIED, mergeControl.getTotalMerges(),
+                LogMessageKeys.INDEX_MERGES_NUM_COMPLETED, mergeControl.getTotalMerges(),
                 LogMessageKeys.INDEX_MERGES_CONTEXT_TIME_QUOTA, mergeControl.getTimeQuotaMillis(),
                 LogMessageKeys.INDEX_REPARTITION_DOCUMENT_COUNT, mergeControl.getRepartitionDocumentCount(),
                 LogMessageKeys.INDEX_DEFERRED_ACTION_STEP, mergeControl.getLastStep()

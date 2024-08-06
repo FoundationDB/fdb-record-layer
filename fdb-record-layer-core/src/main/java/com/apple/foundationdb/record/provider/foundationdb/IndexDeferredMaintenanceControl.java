@@ -141,8 +141,7 @@ public class IndexDeferredMaintenanceControl {
     }
 
     /**
-     * Adjust the total number of merges after a failure. For 3rd party compatibility reasons, it is easier
-     * to keep count of the merge attempts before the merge operations.
+     * Adjust merge stats after a failure.
      */
     public void mergeHadFailed() {
         if (mergesTried > 0 && totalMerges >= mergesTried) {
