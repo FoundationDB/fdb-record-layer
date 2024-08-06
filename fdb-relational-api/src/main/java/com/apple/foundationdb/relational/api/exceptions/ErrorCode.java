@@ -135,7 +135,8 @@ public enum ErrorCode {
     EXECUTE_UPDATE_RETURNED_RESULT_SET("42F61"),
     DUPLICATE_SCHEMA_TEMPLATE("42F62"),
     UNKNOWN_DATABASE("42F63"),
-
+    UNION_INCORRECT_COLUMN_COUNT("42F64"),
+    UNION_INCOMPATIBLE_COLUMNS("42F65"),
     // Class 53 - Insufficient Resources
     TRANSACTION_TIMEOUT("53F00"),
     // Class 54 Program Limit Exceeded

@@ -205,7 +205,15 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     @Nonnull
-    LogicalOperator visitUnionSelect(@Nonnull RelationalParser.UnionSelectContext ctx);
+    LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx);
+
+    @Override
+    @Nonnull
+    LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx);
+
+    @Override
+    @Nonnull
+    LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx);
 
     @Override
     @Nonnull
@@ -289,11 +297,23 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     @Nonnull
-    LogicalOperator visitUnionParenthesis(@Nonnull RelationalParser.UnionParenthesisContext ctx);
+    LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx);
 
     @Override
     @Nonnull
-    LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx);
+    LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx);
+
+    @Override
+    @Nonnull
+    LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx);
+
+    @Override
+    @Nonnull
+    LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx);
+
+    @Override
+    @Nonnull
+    LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx);
 
     @Override
     @Nonnull

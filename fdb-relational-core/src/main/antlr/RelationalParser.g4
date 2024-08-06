@@ -199,20 +199,12 @@ continuationAtom
 
 // done
 selectStatement
-    : querySpecification                               #simpleSelect // done
-    | queryExpression                                  #parenthesisSelect // done
-    | querySpecification unionStatement+
-        (
-          UNION unionType=(ALL | DISTINCT)?
-          (querySpecification | queryExpression)
-        )?
-        orderByClause? limitClause?                    #unionSelect // done (unsupported)
-    | queryExpression unionParenthesis+
-        (
-          UNION unionType=(ALL | DISTINCT)?
-          queryExpression
-        )?
-        orderByClause? limitClause?                    #unionParenthesisSelect // done (unsupported)
+    : querySpecification                   #simpleSelect // done
+    | queryExpression                      #parenthesisSelect // done
+    | unionSelectSpecification             #unionSimpleSelect // done
+    | unionSelectExpression                #unionParenthesisSelect// done
+    | parenthesisUnionSelectSpecification  #parenthesisUnionSimpleSelect // done (unsupported)
+    | parenthesisUnionSelectExpression     #parenthesisUnionParenthesisSelect // done (unsupported)
     ;
 
 // details
@@ -305,13 +297,25 @@ querySpecification
     : SELECT DISTINCT? selectElements fromClause? groupByClause? havingClause? /*windowClause?*/ orderByClause? limitClause? queryOptions?
     ;
 
-unionParenthesis
-    : UNION unionType=(ALL | DISTINCT)? queryExpression
-    ;
-
 unionStatement
     : UNION unionType=(ALL | DISTINCT)?
       (querySpecification | queryExpression)
+    ;
+
+unionSelectSpecification
+    : querySpecification unionStatement+ orderByClause? limitClause?
+    ;
+
+unionSelectExpression
+    : queryExpression unionStatement+ orderByClause? limitClause?
+    ;
+
+parenthesisUnionSelectSpecification
+    : LEFT_ROUND_BRACKET unionSelectSpecification RIGHT_ROUND_BRACKET
+    ;
+
+parenthesisUnionSelectExpression
+    : LEFT_ROUND_BRACKET unionSelectExpression RIGHT_ROUND_BRACKET
     ;
 
 // details

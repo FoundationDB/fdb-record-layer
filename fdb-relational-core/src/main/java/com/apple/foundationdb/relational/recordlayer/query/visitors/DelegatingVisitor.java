@@ -287,14 +287,26 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionSelect(@Nonnull RelationalParser.UnionSelectContext ctx) {
-        return getDelegate().visitUnionSelect(ctx);
+    public LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx) {
+        return getDelegate().visitUnionSimpleSelect(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx) {
+        return getDelegate().visitParenthesisUnionSimpleSelect(ctx);
     }
 
     @Override
     @Nonnull
     public LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx) {
         return getDelegate().visitUnionParenthesisSelect(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx) {
+        return getDelegate().visitParenthesisUnionParenthesisSelect(ctx);
     }
 
     @Override
@@ -413,14 +425,32 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionParenthesis(@Nonnull RelationalParser.UnionParenthesisContext ctx) {
-        return getDelegate().visitUnionParenthesis(ctx);
+    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx) {
+        return getDelegate().visitUnionStatement(ctx);
     }
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx) {
-        return getDelegate().visitUnionStatement(ctx);
+    public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx) {
+        return getDelegate().visitUnionSelectSpecification(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx) {
+        return getDelegate().visitUnionSelectExpression(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx) {
+        return getDelegate().visitParenthesisUnionSelectSpecification(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx) {
+        return getDelegate().visitParenthesisUnionSelectExpression(ctx);
     }
 
     @Override

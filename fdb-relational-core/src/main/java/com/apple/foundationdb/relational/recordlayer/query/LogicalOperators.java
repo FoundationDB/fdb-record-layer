@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 
+import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -31,6 +32,7 @@ import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 public class LogicalOperators implements Iterable<LogicalOperator> {
 
@@ -51,8 +53,23 @@ public class LogicalOperators implements Iterable<LogicalOperator> {
     }
 
     @Nonnull
+    public Stream<LogicalOperator> stream() {
+        return underlying.stream();
+    }
+
+    @Nonnull
     public List<LogicalOperator> asList() {
         return underlying;
+    }
+
+    @Nonnull
+    public LogicalOperator first() {
+        Assert.thatUnchecked(!underlying.isEmpty());
+        return underlying.get(0);
+    }
+
+    public boolean isEmpty() {
+        return underlying.isEmpty();
     }
 
     @Nonnull
@@ -61,7 +78,7 @@ public class LogicalOperators implements Iterable<LogicalOperator> {
     }
 
     @Nonnull
-    public Iterable<Quantifier> getQuantifiers() {
+    public List<Quantifier> getQuantifiers() {
         return underlying.stream().map(LogicalOperator::getQuantifier).collect(ImmutableList.toImmutableList());
     }
 
@@ -76,7 +93,7 @@ public class LogicalOperators implements Iterable<LogicalOperator> {
 
     @Nonnull
     public LogicalOperators forEachOnly() {
-        return LogicalOperators.of(this.asList().stream()
+        return LogicalOperators.of(this.stream()
                 .filter(operator -> operator.getQuantifier().getClass().equals(Quantifier.ForEach.class))
                 .collect(ImmutableList.toImmutableList()));
     }

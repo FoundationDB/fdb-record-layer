@@ -145,7 +145,7 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
-        return Expressions.of(this.asList().stream().flatMap(e -> e.dereferenced(literals).asList().stream()).collect(ImmutableList.toImmutableList()));
+        return Expressions.of(this.stream().flatMap(e -> e.dereferenced(literals).stream()).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
@@ -155,7 +155,7 @@ public final class Expressions implements Iterable<Expression> {
 
     @Nonnull
     public Expression getSingleItem() {
-        Assert.thatUnchecked(asList().size() == 1, "invalid attempt to get single item");
+        Assert.thatUnchecked(size() == 1, "invalid attempt to get single item");
         return asList().get(0);
     }
 
@@ -193,6 +193,10 @@ public final class Expressions implements Iterable<Expression> {
 
     public boolean isEmpty() {
         return this == empty() || Iterables.isEmpty(this);
+    }
+
+    public int size() {
+        return underlying.size();
     }
 
     @Nonnull

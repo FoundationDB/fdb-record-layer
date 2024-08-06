@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.util.Assert;
@@ -153,6 +154,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
         getDelegate().popPlanFragment();
         return result;
+    }
+
+    @Nonnull
+    @Override
+    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext unionStatementContext) {
+        return unionStatementContext.querySpecification() != null
+                ? visitQuerySpecification(unionStatementContext.querySpecification())
+                : visitQueryExpression(unionStatementContext.queryExpression());
     }
 
     @Override
@@ -395,22 +404,32 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitUnionSelect(@Nonnull RelationalParser.UnionSelectContext ctx) {
-        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
-    }
-
     @Nonnull
-    @Override
-    public LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx) {
-        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
+    public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext unionSelectContext) {
+        final var leftmostLeg = visitQuerySpecification(unionSelectContext.querySpecification());
+        return constructUnionInternal(leftmostLeg, unionSelectContext.unionStatement());
     }
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionParenthesis(@Nonnull RelationalParser.UnionParenthesisContext ctx) {
-        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
+    public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext unionSelectContext) {
+        final var leftmostLeg = visitQueryExpression(unionSelectContext.queryExpression());
+        return constructUnionInternal(leftmostLeg, unionSelectContext.unionStatement());
+    }
+
+    @Nonnull
+    private LogicalOperator constructUnionInternal(@Nonnull LogicalOperator leftmostLeg,
+                                                   @Nonnull Iterable<RelationalParser.UnionStatementContext> selectContexts) {
+        final ImmutableList.Builder<LogicalOperator> unionLegsBuilder = ImmutableList.builder();
+        unionLegsBuilder.add(leftmostLeg);
+        selectContexts.forEach(unionStatement -> {
+            Assert.thatUnchecked(unionStatement.ALL() != null, ErrorCode.UNSUPPORTED_QUERY, "only UNION ALL is supported");
+            unionLegsBuilder.add(visitUnionStatement(unionStatement));
+        });
+        final var unionLegs = unionLegsBuilder.build();
+        return LogicalOperator.generateUnionAll(LogicalOperators.of(unionLegs), getDelegate().getCurrentPlanFragmentMaybe()
+                .map(LogicalPlanFragment::getOuterCorrelations).orElse(ImmutableSet.of()));
     }
 
     @Nonnull
@@ -421,7 +440,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     public Pair<Boolean, Expressions> visitOrderByClauseForSelect(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContext,
                                                                   @Nonnull Expressions visibleSelectAliases) {
-        final var validSelectAliases = Expressions.of(visibleSelectAliases.asList().stream()
+        final var validSelectAliases = Expressions.of(visibleSelectAliases.stream()
                 .filter(expr -> expr.getName().isPresent() && !expr.getName().get().isQualified())
                 .collect(ImmutableList.toImmutableList()));
         if (validSelectAliases.isEmpty()) {

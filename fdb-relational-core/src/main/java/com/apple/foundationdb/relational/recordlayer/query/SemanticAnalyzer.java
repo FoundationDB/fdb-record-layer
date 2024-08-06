@@ -239,7 +239,7 @@ public class SemanticAnalyzer {
         // differently.
         // This mostly happens when the logical operator encompasses an internal modeling strategy
         // rather than adhering to what the user _can_ semantically describe in SQL.
-        final var individualReferencedColumns = Expressions.of(forEachOperators.getExpressions().asList().stream()
+        final var individualReferencedColumns = Expressions.of(forEachOperators.getExpressions().stream()
                 .filter(expr -> expr.getName().isPresent() && expr.getName().get().isQualified())
                 .filter(expr -> expr.getName().get().qualifiedWith(optionalQualifier.get()))
                 .collect(ImmutableList.toImmutableList()));
@@ -528,12 +528,51 @@ public class SemanticAnalyzer {
     }
 
     public static void validateGroupByAggregates(@Nonnull Expressions groupByExpressions) {
-        final var nestedAggregates = groupByExpressions.asList().stream()
+        final var nestedAggregates = groupByExpressions.stream()
                 .filter(expression -> expression.getUnderlying() instanceof AggregateValue)
                 .filter(agg -> agg.getUnderlying().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
                 .collect(ImmutableSet.toImmutableSet());
         Assert.thatUnchecked(nestedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format("unsupported nested aggregate(s) %s",
                 nestedAggregates.stream().map(ex -> ex.getUnderlying().toString()).collect(Collectors.joining(","))));
+    }
+
+    /**
+     * Checks that the logical operator forming the legs of a {@code UNION} have compatible types. The rules are:
+     * <ul>
+     *     <li>each leg must project the same number of columns</li>
+     *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
+     *     words, their maximum type is well defined.
+     * </ul>
+     * @param unionLegs The logical operators representing the legs of the union.
+     * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
+     * representing the maximum type of each column calculated pairwise.
+     */
+    @Nonnull
+    public static Optional<Type.Record> validateUnionTypes(@Nonnull LogicalOperators unionLegs) {
+        final var distinctTypesCount = unionLegs.stream().map(exp -> exp.getOutput().expanded().size()).distinct().count();
+        Assert.thatUnchecked(distinctTypesCount == 1, ErrorCode.UNION_INCORRECT_COLUMN_COUNT,
+                "UNION legs do not have the same number of columns");
+        Type.Record result = null;
+        boolean requiresPromotion = false;
+        for (final var unionLegType : unionLegs.stream().map(leg -> leg.getQuantifier().getFlowedObjectType())
+                .map(type -> Assert.castUnchecked(type, Type.Record.class)).collect(ImmutableList.toImmutableList())) {
+            if (result == null) {
+                result = unionLegType;
+                continue;
+            }
+            if (requiresPromotion) {
+                result = Assert.castUnchecked(Type.maximumType(result, unionLegType), Type.Record.class);
+                continue;
+            }
+            final var oldType = result;
+            result = Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(result, unionLegType), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
+                            "Incompatible column types in UNION legs"),
+                    Type.Record.class);
+            if (!oldType.equals(result)) {
+                requiresPromotion = true;
+            }
+        }
+        return requiresPromotion ? Optional.of(Assert.notNullUnchecked(result)) : Optional.empty();
     }
 
     @Nonnull

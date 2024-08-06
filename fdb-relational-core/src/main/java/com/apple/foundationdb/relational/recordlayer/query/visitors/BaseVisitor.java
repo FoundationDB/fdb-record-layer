@@ -449,14 +449,26 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionSelect(@Nonnull RelationalParser.UnionSelectContext ctx) {
-        return queryVisitor.visitUnionSelect(ctx);
+    public LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx) {
+        return visitUnionSelectSpecification(ctx.unionSelectSpecification());
     }
 
     @Override
     @Nonnull
     public LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx) {
-        return queryVisitor.visitUnionParenthesisSelect(ctx);
+        return visitUnionSelectExpression(ctx.unionSelectExpression());
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx) {
+        return visitParenthesisUnionSelectSpecification(ctx.parenthesisUnionSelectSpecification());
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx) {
+        return visitParenthesisUnionSelectExpression(ctx.parenthesisUnionSelectExpression());
     }
 
     @Override
@@ -575,14 +587,32 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionParenthesis(@Nonnull RelationalParser.UnionParenthesisContext ctx) {
-        return queryVisitor.visitUnionParenthesis(ctx);
+    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx) {
+        return queryVisitor.visitUnionStatement(ctx);
     }
 
     @Override
     @Nonnull
-    public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx) {
-        return queryVisitor.visitUnionStatement(ctx);
+    public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx) {
+        return queryVisitor.visitUnionSelectSpecification(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx) {
+        return queryVisitor.visitUnionSelectExpression(ctx);
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx) {
+        return visitUnionSelectSpecification(ctx.unionSelectSpecification());
+    }
+
+    @Override
+    @Nonnull
+    public LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx) {
+        return visitUnionSelectExpression(ctx.unionSelectExpression());
     }
 
     @Override

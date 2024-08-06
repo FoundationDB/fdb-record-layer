@@ -33,9 +33,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -405,5 +407,48 @@ public class LogicalOperator {
                 .map(Quantifier::getAlias)
                 .collect(Collectors.toList()); // not sure if this is correct
         return aliases.stream().findFirst().orElseThrow();
+    }
+
+    @Nonnull
+    public static LogicalOperator generateUnionAll(@Nonnull LogicalOperators unionLegs,
+                                                   @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
+        Assert.thatUnchecked(!unionLegs.isEmpty());
+        final var quantifiers = unionLegs.getQuantifiers();
+        final var maybeType = SemanticAnalyzer.validateUnionTypes(LogicalOperators.of(unionLegs));
+        if (maybeType.isEmpty()) {
+            // proceed to create a vanilla union all.
+            final var union = Quantifier.forEach(Reference.of(new LogicalUnionExpression(quantifiers)));
+            final var output = unionLegs.first().getOutput().pullUp(union.getRangesOver().get().getResultValue(), union.getAlias(), outerCorrelations);
+            return LogicalOperator.newUnnamedOperator(output, union);
+        }
+
+        // create union all with promotions.
+        // navigate to the actual fields and perform the promotion; a better way of doing this would be to
+        // promote (if necessary) the entire record, once we have this resolved:
+        // TODO (Make type promotion logic able to work with nested data types)
+        final var type = maybeType.get();
+        final ImmutableList.Builder<LogicalOperator> promotedUnionLegsBuilder = ImmutableList.builder();
+        for (final var unionLeg : unionLegs) {
+            final var unionLegType = unionLeg.getQuantifier().getFlowedObjectType();
+            if (unionLegType.equals(type)) {
+                promotedUnionLegsBuilder.add(unionLeg);
+                continue;
+            }
+            final var expressions = unionLeg.getOutput();
+            Assert.thatUnchecked(expressions.size() == type.getFields().size());
+            final ImmutableList.Builder<Expression> promotedExpressions = ImmutableList.builder();
+            for (int i = 0; i < expressions.size(); i++) {
+                final var currentExpression = expressions.asList().get(i);
+                final var newValue = PromoteValue.inject(currentExpression.getUnderlying(), type.getField(i).getFieldType());
+                promotedExpressions.add(currentExpression.withUnderlying(newValue));
+            }
+            final var promotedUnionLeg = LogicalOperator.generateSimpleSelect(Expressions.of(promotedExpressions.build()),
+                    LogicalOperators.ofSingle(unionLeg), Optional.empty(), Optional.empty(), outerCorrelations, false);
+            promotedUnionLegsBuilder.add(promotedUnionLeg);
+        }
+        final var promotedUnionLegs = LogicalOperators.of(promotedUnionLegsBuilder.build());
+        final var union = Quantifier.forEach(Reference.of(new LogicalUnionExpression(promotedUnionLegs.getQuantifiers())));
+        final var output = promotedUnionLegs.first().getOutput().rewireQov(union.getFlowedObjectValue());
+        return LogicalOperator.newUnnamedOperator(output, union);
     }
 }

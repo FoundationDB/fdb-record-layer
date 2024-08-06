@@ -218,4 +218,9 @@ public class YamlIntegrationTests extends YamlTestBase {
     public void indexedFunctions() throws Exception {
         doRun("indexed-functions.yamsql");
     }
+
+    @Test
+    public void union() throws Exception {
+        doRun("union.yamsql");
+    }
 }

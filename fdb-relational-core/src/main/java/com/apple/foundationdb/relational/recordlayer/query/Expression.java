@@ -113,7 +113,7 @@ public class Expression {
         if (getUnderlying().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
             return this;
         }
-        return new Expression(getName(), getDataType(), underlying);
+        return new Expression(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
     }
 
     @Nonnull
