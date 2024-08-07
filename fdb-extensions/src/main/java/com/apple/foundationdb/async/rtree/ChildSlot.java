@@ -34,8 +34,8 @@ import java.math.BigInteger;
  * rooted at the child.
  */
 public class ChildSlot implements NodeSlot {
-    public static final int SLOT_KEY_TUPLE_SIZE = 4;
-    public static final int SLOT_VALUE_TUPLE_SIZE = 2;
+    static final int SLOT_KEY_TUPLE_SIZE = 4;
+    static final int SLOT_VALUE_TUPLE_SIZE = 2;
 
     @Nonnull
     private final byte[] childId;
@@ -52,9 +52,9 @@ public class ChildSlot implements NodeSlot {
     private final Tuple largestKey;
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-    public ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
-                     @Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
-                     @Nonnull final byte[] childId, @Nonnull final RTree.Rectangle mbr) {
+    ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
+              @Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
+              @Nonnull final byte[] childId, @Nonnull final RTree.Rectangle mbr) {
         this.smallestHilbertValue = smallestHilbertValue;
         this.smallestKey = smallestKey;
         this.largestHilbertValue = largestHilbertValue;

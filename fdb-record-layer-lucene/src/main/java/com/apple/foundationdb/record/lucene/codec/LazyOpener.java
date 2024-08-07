@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.codec;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
@@ -80,12 +81,14 @@ public class LazyOpener<T> {
         try {
             return getInternal();
         } catch (ExecutionException e) {
-            if (e.getCause() instanceof UncheckedIOException) {
-                final IOException cause = ((UncheckedIOException)e.getCause()).getCause();
-                cause.addSuppressed(e);
-                throw cause;
+            final Throwable outerCause = e.getCause();
+            if (outerCause instanceof UncheckedIOException) {
+                final IOException innerCause = ((UncheckedIOException)outerCause).getCause();
+                innerCause.addSuppressed(e);
+                throw innerCause;
+            } else {
+                throw LuceneExceptions.toIoException(outerCause, e);
             }
-            throw new RecordCoreException(e);
         }
     }
 
@@ -99,12 +102,18 @@ public class LazyOpener<T> {
         try {
             return getInternal();
         } catch (ExecutionException e) {
-            if (e.getCause() instanceof UncheckedIOException) {
-                final UncheckedIOException cause = ((UncheckedIOException)e.getCause());
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException) {
+                // Runtime exception - just rethrow - for example, RecordCoreException, UncheckedIOException
                 cause.addSuppressed(e);
-                throw cause;
+                throw (RuntimeException)cause;
+            } else if (cause instanceof IOException) {
+                // Try to unwrap the cause for the IOException
+                throw LuceneExceptions.toRecordCoreException(cause.getMessage(), (IOException)cause);
+            } else {
+                // Otherwise, wrap with generic RecordCoreException
+                throw new RecordCoreException(cause);
             }
-            throw new RecordCoreException(e);
         }
     }
 

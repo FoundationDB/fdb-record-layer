@@ -131,6 +131,10 @@ public class FDBExceptions {
         public FDBStoreTransactionIsTooOldException(FDBException cause) {
             super(cause);
         }
+
+        public FDBStoreTransactionIsTooOldException(String message, FDBException cause) {
+            super(message, cause);
+        }
     }
 
     /**
@@ -162,6 +166,10 @@ public class FDBExceptions {
     public static class FDBStoreRetriableException extends RecordCoreRetriableTransactionException {
         public FDBStoreRetriableException(FDBException cause) {
             super(cause.getMessage(), cause);
+        }
+
+        public FDBStoreRetriableException(String message, FDBException cause) {
+            super(message, cause);
         }
     }
 

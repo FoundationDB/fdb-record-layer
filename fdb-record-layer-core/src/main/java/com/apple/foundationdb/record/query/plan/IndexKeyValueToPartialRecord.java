@@ -115,7 +115,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
     @Override
     public int hashCode() {
-        return Objects.hash(copiers);
+        return Objects.hash(BASE_HASH, copiers, isRequired);
     }
 
     @Override
@@ -234,7 +234,6 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
     /**
      * Copier for basic fields.
      */
-    @SuppressWarnings("UnstableApiUsage")
     public static class FieldCopier implements Copier {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Copier");
 
@@ -336,7 +335,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
 
         @Override
         public int hashCode() {
-            return Objects.hash(field, source, ordinalPath, invertibleFunctionName);
+            return Objects.hash(field, source.name(), ordinalPath, invertibleFunctionName);
         }
 
         @Override

@@ -50,4 +50,9 @@ public class MatchPartition {
                                     @Nonnull final RelationalExpression relationalExpression) {
         return new MatchPartition(reference.getPartialMatchesForExpression(relationalExpression));
     }
+
+    @Override
+    public String toString() {
+        return partialMatches.toString();
+    }
 }

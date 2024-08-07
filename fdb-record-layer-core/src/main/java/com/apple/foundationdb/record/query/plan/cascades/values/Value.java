@@ -622,45 +622,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
-        if (other == null) {
-            return BooleanWithConstraint.falseValue();
-        }
-
-        if (this == other) {
-            return BooleanWithConstraint.alwaysTrue();
-        }
-
-        if (subsumedByWithoutChildren(other).isFalse()) {
-            return BooleanWithConstraint.falseValue();
-        }
-
-        final Iterator<? extends Value> children = getChildren().iterator();
-        final Iterator<? extends Value> otherChildren = other.getChildren().iterator();
-
-        var subsumedBy = BooleanWithConstraint.alwaysTrue();
-        while (children.hasNext()) {
-            if (!otherChildren.hasNext()) {
-                return BooleanWithConstraint.falseValue();
-            }
-
-            final var childSubsumedBy =
-                    children.next()
-                            .subsumedBy(otherChildren.next(), valueEquivalence);
-            if (childSubsumedBy.isFalse()) {
-                return BooleanWithConstraint.falseValue();
-            }
-            subsumedBy = subsumedBy.composeWithOther(childSubsumedBy);
-        }
-
-        if (!otherChildren.hasNext()) {
-            return subsumedBy;
-        }
-
-        return BooleanWithConstraint.falseValue();
-    }
-
-    @Nonnull
-    default BooleanWithConstraint subsumedByWithoutChildren(@Nonnull final Value other) {
-        return equalsWithoutChildren(other);
+        // delegate to semanticEquals()
+        return semanticEquals(other, valueEquivalence);
     }
 }
