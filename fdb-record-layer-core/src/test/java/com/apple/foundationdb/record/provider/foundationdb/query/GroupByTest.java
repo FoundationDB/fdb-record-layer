@@ -259,15 +259,18 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testBitMapWithStreamAggregation() {
-        RecordMetaDataHook hook = setupHookAndAddData(true, true);
+        int bitBucketSize = 4;
+        RecordMetaDataHook hook = setupHookAndAddData(true, false, false, bitBucketSize);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
+
         final var plan = cascadesPlanner.planGraph(
-                () -> constructBitMapGroupByPlan(4, false),
+                () -> constructBitMapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
 
+        plan.show(false);
         assertMatchesExactly(plan,
                 mapPlan(
                         streamingAggregationPlan(
@@ -277,6 +280,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 )).where(aggregations(recordConstructorValue(exactly(bitmapAggregationValue(anyValue()))))
                                 .and(groupings(ValueMatchers.anyValue())))));
 
+        int expectedByteArrayLength = bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1;
         final Map<String, List<Long>> expectedResult = new HashMap<>();
         expectedResult.put("1", List.of(1L, 3L));
         expectedResult.put("2", List.of(1L));
@@ -300,6 +304,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
                     String strValue = (String) queriedMessage.getField(recDescriptor.findFieldByName("str_value_indexed"));
                     byte[] value = ((ByteString) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"))).toByteArray();
+                    //assertEquals(expectedByteArrayLength, value.length);
                     bitMapGroupByStrValue.put(strValue, AggregateValueTest.collectOnBits(value));
                 }).join();
             }
@@ -312,12 +317,14 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         int bitBucketSize = 4;
         RecordMetaDataHook hook = setupHookAndAddData(true, true, true, bitBucketSize);
         final var cascadesPlanner = (CascadesPlanner)planner;
+        constructBitMapGroupByPlan(bitBucketSize, true).show(false);
         final var plan = cascadesPlanner.planGraph(
                 () -> constructBitMapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+        plan.show(false);
         assertEquals(1, plan.getUsedIndexes().size());
         assertTrue(plan.getUsedIndexes().contains("BitMapIndex"));
 
@@ -337,7 +344,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         expectedResult.put(Pair.of("10", 4), List.of(0L)); // str_value_indexed = "10", num_value_2 = 4
         expectedResult.put(Pair.of("11", 4), List.of(0L)); // str_value_indexed = "11", num_value_2 = 4
 
+        plan.show(false);
         final Map<Pair<String, Integer>, List<Long>> bitMapGroupByStrValue = new HashMap<>();
+        int expectedByteArrayLength = bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1;
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -348,6 +357,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     String strValue = (String) queriedMessage.getField(recDescriptor.findFieldByName("str_value_indexed"));
                     Integer bitBucketValue = (int) queriedMessage.getField(recDescriptor.findFieldByName("bit_bucket_num_value_2"));
                     byte[] value = ((ByteString) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"))).toByteArray();
+                    assertEquals(expectedByteArrayLength, value.length);
                     bitMapGroupByStrValue.put(Pair.of(strValue, bitBucketValue), AggregateValueTest.collectOnBits(value));
                 }).join();
             }
@@ -384,6 +394,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // 2.1. construct aggregate expression.
             final var num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
+            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitBucketFn().encapsulate(List.of(num2, bucketSizeValue));
+
             final Value bitMapValue = (Value) new NumericAggregationValue.BitMapFn().encapsulate(List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue))));
             final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES), Optional.of("bitmap_field")), bitMapValue);
             final var aggregationExpr = RecordConstructorValue.ofColumns(ImmutableList.of(aggCol));
@@ -392,7 +404,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var strValueIndexed = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "str_value_indexed"));
             final var groupingColStrValueIndexed = Column.of(Optional.of("str_value_indexed"), strValueIndexed);
 
-            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitBucketFn().encapsulate(List.of(num2, bucketSizeValue));
             final var groupingColNumValue2 = Column.of(Optional.of("bit_bucket_num_value_2"), bitBucketNumValue2FieldValue);
 
             RecordConstructorValue groupingExpr;
@@ -440,7 +451,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
+                    // metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
+                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
                 }
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
@@ -490,7 +502,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private static FunctionKeyExpression modExpression(@Nonnull KeyExpression fieldExpression, int mod) {
-        return Key.Expressions.function("mod", concat(fieldExpression, Key.Expressions.value(mod)));
+    private static FunctionKeyExpression subExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
+        return Key.Expressions.function("sub", concat(fieldExpression, bitBucketExpression(fieldExpression, bucketSize)));
+    }
+
+    @Nonnull
+    private static FunctionKeyExpression modExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
+        return Key.Expressions.function("mod", concat(fieldExpression, Key.Expressions.value(bucketSize)));
     }
 }

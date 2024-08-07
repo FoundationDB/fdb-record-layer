@@ -233,6 +233,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<? extends Typed> arguments) {
+            System.out.println("Bitmap:encapsulate arguments:" + arguments);
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitMap::new);
         }
 
