@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.AsyncLockRegistry;
+import com.apple.foundationdb.record.locking.AsyncLock;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -42,12 +42,12 @@ import java.util.concurrent.Executor;
 @API(API.Status.MAINTAINED)
 public class AsyncLockCursor<T> implements RecordCursor<T> {
     @Nonnull
-    private final AsyncLockRegistry.AsyncLock lock;
+    private final AsyncLock lock;
     @Nonnull
     private final RecordCursor<T> inner;
-    private boolean innerExhausted = false;
+    private volatile boolean innerExhausted = false;
 
-    public AsyncLockCursor(@Nonnull AsyncLockRegistry.AsyncLock lock, @Nonnull RecordCursor<T> inner) {
+    public AsyncLockCursor(@Nonnull final AsyncLock lock, @Nonnull final RecordCursor<T> inner) {
         this.inner = inner;
         this.lock = lock;
     }
@@ -55,17 +55,18 @@ public class AsyncLockCursor<T> implements RecordCursor<T> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        if (!lock.isLockNotReleased()) {
+        if (lock.isLockReleased()) {
             if (!innerExhausted && !isClosed()) {
                 throw new RecordCoreException("AsyncLockCursor: lock released before the downstream cursor is exhausted or closed.");
             }
         }
-        return inner.onNext().thenApply(result -> {
-            if (!result.hasNext()) {
+        return inner.onNext().whenComplete((result, err) -> {
+            if (err != null) {
+                close();
+            } else if (!result.hasNext()) {
                 innerExhausted = true;
-                lock.release();
+                close();
             }
-            return result;
         });
     }
 
