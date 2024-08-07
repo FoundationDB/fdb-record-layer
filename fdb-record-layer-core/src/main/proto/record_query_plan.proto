@@ -237,6 +237,7 @@ message PValue {
     PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
+    PRecursivePriorValue recursive_prior_value = 41;
   }
 }
 
@@ -1119,6 +1120,7 @@ message PRecordQueryPlan {
     PRecordQueryUnorderedPrimaryKeyDistinctPlan unordered_primary_key_distinct_plan = 30;
     PRecordQueryUnorderedUnionPlan unordered_union_plan = 31;
     PRecordQueryUpdatePlan update_plan = 32;
+    PRecordQueryRecursivePlan recursive_plan = 33;
   }
 }
 
@@ -1642,4 +1644,19 @@ message PRecordQueryUnionPlanBase {
 //
 message PRecordQueryUpdatePlan {
   optional PRecordQueryAbstractDataModificationPlan super = 1;
+}
+
+//
+// PRecordQueryRecursivePlan
+//
+message PRecordQueryRecursivePlan {
+  optional PPhysicalQuantifier root_quantifier = 1;
+  optional PPhysicalQuantifier child_quantifier = 2;
+  optional PValue result_value = 3;
+  optional bool inherit_record_properties = 4;
+}
+
+message PRecursivePriorValue {
+  optional string alias = 1;
+  optional PType result_type = 2;
 }
