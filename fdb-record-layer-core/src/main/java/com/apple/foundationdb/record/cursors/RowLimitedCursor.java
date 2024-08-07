@@ -58,6 +58,7 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
             return CompletableFuture.completedFuture(nextResult);
         }
         if (limitReached()) {
+            inner.close();
             NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
                                   ? nextResult.getNoNextReason() : NoNextReason.RETURN_LIMIT_REACHED;
             nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), reason);

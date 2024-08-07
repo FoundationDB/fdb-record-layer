@@ -35,7 +35,6 @@ import com.apple.foundationdb.async.rtree.OnReadListener;
 import com.apple.foundationdb.async.rtree.OnWriteListener;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.async.rtree.RTreeHilbertCurveHelpers;
-import com.apple.foundationdb.record.AsyncLockRegistry;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -54,6 +53,7 @@ import com.apple.foundationdb.record.cursors.AsyncLockCursor;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.LazyCursor;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -154,7 +154,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId,
                                     OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
-                            return new LazyCursor<>(state.context.acquireReadLock(new AsyncLockRegistry.LockIdentifier(rtSubspace),
+                            return new LazyCursor<>(state.context.acquireReadLock(new LockIdentifier(rtSubspace),
                                     (lock) -> new AsyncLockCursor<>(lock, new ItemSlotCursor(getExecutor(),
                                             rTree.scan(transaction, lastHilbertValue, lastKey,
                                                     mDScanBounds::overlapsMbrApproximately,
@@ -267,7 +267,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 rtSubspace = indexSubspace;
                 rtNodeSlotIndexSubspace = nodeSlotIndexSubspace;
             }
-            return state.context.doWithWriteLock(new AsyncLockRegistry.LockIdentifier(rtSubspace), () -> {
+            return state.context.doWithWriteLock(new LockIdentifier(rtSubspace), () -> {
                 final RTree.Point point =
                         validatePoint(new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize))));
 

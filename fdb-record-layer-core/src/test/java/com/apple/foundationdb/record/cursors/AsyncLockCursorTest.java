@@ -20,10 +20,12 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.record.AsyncLockRegistry;
-import com.apple.foundationdb.record.AsyncLockRegistryTest;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.locking.AsyncLock;
+import com.apple.foundationdb.record.LockRegistryTest;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,7 +64,7 @@ public class AsyncLockCursorTest {
     protected final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     protected FDBDatabase fdb;
-    final AsyncLockRegistry.LockIdentifier identifier = new AsyncLockRegistry.LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
+    final LockIdentifier identifier = new LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
 
     @BeforeEach
     void initDatabaseAndPath() {
@@ -70,50 +73,49 @@ public class AsyncLockCursorTest {
 
     @Test
     public void asyncLockCursorTest() throws InterruptedException, ExecutionException {
-        try (final var context = fdb.openContext()) {
-            final var writeLockAndWait1 = acquireWriteLock(context);
-            final var readLockAndCursor = getReadAsyncLockCursor(context, () -> new ListCursor<>(ImmutableList.of(1, 2, 3, 4, 5), null));
-            final var writeLockAndWait2 = acquireWriteLock(context);
+        try (final FDBRecordContext context = fdb.openContext()) {
+            final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait1 = acquireWriteLock(context);
+            final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<AsyncLockCursor<Integer>>> readLockAndCursor = getReadAsyncLockCursor(context, () -> new ListCursor<>(ImmutableList.of(1, 2, 3, 4, 5), null));
+            final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait2 = acquireWriteLock(context);
 
             // check that the first write don't wait
-            AsyncLockRegistryTest.checkAllCompletedNormally(ImmutableList.of(writeLockAndWait1.getRight()));
+            LockRegistryTest.checkAllCompletedNormally(ImmutableList.of(writeLockAndWait1.getRight()));
             // check that the cursor is not ready
-            AsyncLockRegistryTest.checkWaiting(ImmutableList.of(readLockAndCursor.getRight()));
+            LockRegistryTest.checkWaiting(ImmutableList.of(readLockAndCursor.getRight()));
             // check that the second write is waiting
-            AsyncLockRegistryTest.checkWaiting(ImmutableList.of(writeLockAndWait2.getRight()));
+            LockRegistryTest.checkWaiting(ImmutableList.of(writeLockAndWait2.getRight()));
 
             // complete the first write and check that cursor is ready and all result futures complete
             writeLockAndWait1.getLeft().get().release();
-            AsyncLockRegistryTest.checkAllCompletedNormally(ImmutableList.of(readLockAndCursor.getRight()));
-            final var cursor = readLockAndCursor.getRight().get();
-            final var futures = IntStream.rangeClosed(1, 5).mapToObj(ignore -> cursor.onNext()).collect(Collectors.toList());
-            AsyncLockRegistryTest.checkAllCompletedNormally(futures);
+            LockRegistryTest.checkAllCompletedNormally(ImmutableList.of(readLockAndCursor.getRight()));
+            final AsyncLockCursor<Integer> cursor = readLockAndCursor.getRight().get();
+            final List<CompletableFuture<RecordCursorResult<Integer>>> futures = IntStream.rangeClosed(1, 5).mapToObj(ignore -> cursor.onNext()).collect(Collectors.toList());
+            LockRegistryTest.checkAllCompletedNormally(futures);
 
             // read the cursor to get no result
             Assertions.assertFalse(cursor.onNext().get().hasNext());
             // check that the other write don't wait
-            AsyncLockRegistryTest.checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
+            LockRegistryTest.checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
         }
     }
 
-
     @Test
     public void asyncLockCursorPreemptiveReleaseTest() throws InterruptedException, ExecutionException {
-        try (final var context = fdb.openContext()) {
-            final var writeLockAndWait1 = acquireWriteLock(context);
-            final var readLockAndCursor = getReadAsyncLockCursor(context, () -> new ListCursor<>(ImmutableList.of(1, 2, 3, 4, 5), null));
+        try (final FDBRecordContext context = fdb.openContext()) {
+            final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait1 = acquireWriteLock(context);
+            final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<AsyncLockCursor<Integer>>> readLockAndCursor = getReadAsyncLockCursor(context, () -> new ListCursor<>(ImmutableList.of(1, 2, 3, 4, 5), null));
 
             // check that the first write don't wait
-            AsyncLockRegistryTest.checkAllCompletedNormally(ImmutableList.of(writeLockAndWait1.getRight()));
+            LockRegistryTest.checkAllCompletedNormally(ImmutableList.of(writeLockAndWait1.getRight()));
             // check that the cursor is not ready
-            AsyncLockRegistryTest.checkWaiting(ImmutableList.of(readLockAndCursor.getRight()));
+            LockRegistryTest.checkWaiting(ImmutableList.of(readLockAndCursor.getRight()));
 
             // complete the first write and check that cursor is ready and all result futures complete
             writeLockAndWait1.getLeft().get().release();
-            AsyncLockRegistryTest.checkAllCompletedNormally(ImmutableList.of(readLockAndCursor.getRight()));
-            final var cursor = readLockAndCursor.getRight().get();
-            final var futures = IntStream.rangeClosed(1, 3).mapToObj(ignore -> cursor.onNext()).collect(Collectors.toList());
-            AsyncLockRegistryTest.checkAllCompletedNormally(futures);
+            LockRegistryTest.checkAllCompletedNormally(ImmutableList.of(readLockAndCursor.getRight()));
+            final AsyncLockCursor<Integer> cursor = readLockAndCursor.getRight().get();
+            final List<CompletableFuture<RecordCursorResult<Integer>>> futures = IntStream.rangeClosed(1, 3).mapToObj(ignore -> cursor.onNext()).collect(Collectors.toList());
+            LockRegistryTest.checkAllCompletedNormally(futures);
 
             // release the lock preemptively
             readLockAndCursor.getLeft().get().release();
@@ -123,8 +125,8 @@ public class AsyncLockCursorTest {
         }
     }
 
-    private NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<Void>> acquireWriteLock(@Nonnull FDBRecordContext context) {
-        final var asyncLockRef = new AtomicReference<AsyncLockRegistry.AsyncLock>();
+    private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock(@Nonnull FDBRecordContext context) {
+        final AtomicReference<AsyncLock> asyncLockRef = new AtomicReference<>();
         return NonnullPair.of(asyncLockRef,
                 context.acquireWriteLock(identifier, (lock) -> {
                     asyncLockRef.set(lock);
@@ -132,8 +134,8 @@ public class AsyncLockCursorTest {
                 }));
     }
 
-    private NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<Void>> acquireReadLock(@Nonnull FDBRecordContext context) {
-        final var asyncLockRef = new AtomicReference<AsyncLockRegistry.AsyncLock>();
+    private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireReadLock(@Nonnull FDBRecordContext context) {
+        final AtomicReference<AsyncLock> asyncLockRef = new AtomicReference<>();
         return NonnullPair.of(asyncLockRef,
                 context.acquireReadLock(identifier, (lock) -> {
                     asyncLockRef.set(lock);
@@ -141,8 +143,8 @@ public class AsyncLockCursorTest {
                 }));
     }
 
-    private <T> NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<AsyncLockCursor<T>>> getReadAsyncLockCursor(@Nonnull FDBRecordContext context, Supplier<RecordCursor<T>> innerSupplier) {
-        final var asyncLockRef = new AtomicReference<AsyncLockRegistry.AsyncLock>();
+    private <T> NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<AsyncLockCursor<T>>> getReadAsyncLockCursor(@Nonnull FDBRecordContext context, Supplier<RecordCursor<T>> innerSupplier) {
+        final AtomicReference<AsyncLock> asyncLockRef = new AtomicReference<>();
         return NonnullPair.of(asyncLockRef, context.acquireReadLock(identifier, (asyncLock) -> {
             asyncLockRef.set(asyncLock);
             return new AsyncLockCursor<>(asyncLock, innerSupplier.get());

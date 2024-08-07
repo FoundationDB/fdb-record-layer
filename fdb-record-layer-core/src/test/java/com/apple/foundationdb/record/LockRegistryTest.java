@@ -21,12 +21,18 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.locking.AsyncLock;
+import com.apple.foundationdb.record.locking.LockIdentifier;
+import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -39,75 +45,87 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
- * Test for {@link AsyncLockRegistry}.
+ * Test for {@link LockRegistry}.
  */
-public class AsyncLockRegistryTest {
+public class LockRegistryTest {
 
     @Nonnull
     private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
     @Nonnull
-    final AsyncLockRegistry registry = new AsyncLockRegistry();
+    final LockRegistry registry = new LockRegistry(null);
 
     @Nonnull
-    final AsyncLockRegistry.LockIdentifier identifier = new AsyncLockRegistry.LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
+    final LockIdentifier identifier = new LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
 
-    @Test
-    public void orderedWriteTest() {
-        final var resource = new ArrayList<Integer>();
-        final var writeLockAndWaits = new ArrayList<NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<Void>>>();
-        for (int i = 0; i < 1000; i++) {
+    static Stream<Arguments> argumentsForTests() {
+        return Stream.of(Arguments.of(50),
+                Arguments.of(100),
+                Arguments.of(500),
+                Arguments.of(1000),
+                Arguments.of(5000)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForTests")
+    public void orderedWriteTest(int numRuns) {
+        final List<Integer> resource = new ArrayList<>();
+        final List<NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>>> writeLockAndWaits = new ArrayList<>();
+        for (int i = 0; i < numRuns; i++) {
             writeLockAndWaits.add(acquireWriteLock());
         }
-        final var futures = new ArrayList<CompletableFuture<Void>>();
-        for (int i = 1000 - 1; i >= 0; i--) {
-            final var finalI = i;
+        final List<CompletableFuture<Void>> futures = new ArrayList<>();
+        for (int i = numRuns - 1; i >= 0; i--) {
+            final int finalI = i;
             futures.add(runWithLock(() -> resource.add(finalI), writeLockAndWaits.get(i)));
         }
         checkAllCompletedNormally(futures);
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < numRuns; i++) {
             Assertions.assertEquals(i, resource.get(i));
         }
     }
 
-    @Test
-    public void sharedReadsExclusiveWriteTest() throws ExecutionException, InterruptedException {
-        final var resource = IntStream.range(0, 1000).boxed().collect(Collectors.toList());
+    @ParameterizedTest
+    @MethodSource("argumentsForTests")
+    public void sharedReadsExclusiveWriteTest(int numRuns) throws ExecutionException, InterruptedException {
+        final List<Integer> resource = IntStream.range(0, numRuns).boxed().collect(Collectors.toList());
 
         // get 2 read locks, that will be shared
-        final var readLockAndWait1 = acquireReadLock();
-        final var readLockAndWait2 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait2 = acquireReadLock();
         // get a write lock, that should wait on the previous reads to finish
-        final var writeLockAndWait = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
         // get 2 other read locks, that will be shared and wait for write to finish
-        final var readLockAndWait3 = acquireReadLock();
-        final var readLockAndWait4 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait3 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait4 = acquireReadLock();
 
-        final var futures = new ArrayList<CompletableFuture<Void>>();
+        final List<CompletableFuture<Void>> futures = new ArrayList<>();
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(2000, resource.size());
-            for (int i = 0; i < 2000; i++) {
+            Assertions.assertEquals(numRuns * 2, resource.size());
+            for (int i = 0; i < numRuns * 2; i++) {
                 Assertions.assertEquals(i, resource.get(i));
             }
         }, readLockAndWait4));
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(2000, resource.size());
-            for (int i = 0; i < 2000; i++) {
+            Assertions.assertEquals(numRuns * 2, resource.size());
+            for (int i = 0; i < numRuns * 2; i++) {
                 Assertions.assertEquals(i, resource.get(i));
             }
         }, readLockAndWait3));
         checkWaiting(futures);
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(1000, resource.size());
-            for (int i = 0; i < 1000; i++) {
+            Assertions.assertEquals(numRuns, resource.size());
+            for (int i = 0; i < numRuns; i++) {
                 Assertions.assertEquals(i, resource.get(i));
             }
         }, readLockAndWait2));
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(1000, resource.size());
-            for (int i = 0; i < 1000; i++) {
+            Assertions.assertEquals(numRuns, resource.size());
+            for (int i = 0; i < numRuns; i++) {
                 Assertions.assertEquals(i, resource.get(i));
             }
         }, readLockAndWait1));
@@ -116,9 +134,9 @@ public class AsyncLockRegistryTest {
         // other 2 are still waiting
         checkWaiting(ImmutableList.of(futures.get(0), futures.get(1)));
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(1000, resource.size());
-            for (int i = 0; i < 1000; i++) {
-                resource.add(1000 + i);
+            Assertions.assertEquals(numRuns, resource.size());
+            for (int i = 0; i < numRuns; i++) {
+                resource.add(numRuns + i);
             }
         }, writeLockAndWait));
         checkAllCompletedNormally(futures);
@@ -127,8 +145,8 @@ public class AsyncLockRegistryTest {
 
     @Test
     public void writeWaitForReadTest() throws InterruptedException {
-        final var readLockAndWait = acquireReadLock();
-        final var writeLockAndWait = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
 
         // check that the read don't wait
         checkAllCompletedNormally(ImmutableList.of(readLockAndWait.getRight()));
@@ -142,10 +160,10 @@ public class AsyncLockRegistryTest {
     @Test
     public void writeWaitForMultipleReadsTest() throws InterruptedException {
         // get multiple read locks
-        final var readLockAndWait1 = acquireReadLock();
-        final var readLockAndWait2 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait2 = acquireReadLock();
         // get a write lock
-        final var writeLockAndWait = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
 
         // check that the read don't wait
         checkAllCompletedNormally(ImmutableList.of(readLockAndWait1.getRight(), readLockAndWait2.getRight()));
@@ -161,8 +179,8 @@ public class AsyncLockRegistryTest {
 
     @Test
     public void writeWaitForWriteTest() throws InterruptedException {
-        final var writeLockAndWait1 = acquireWriteLock();
-        final var writeLockAndWait2 = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait1 = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait2 = acquireWriteLock();
 
         // check that the first write don't wait
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait1.getRight()));
@@ -175,10 +193,10 @@ public class AsyncLockRegistryTest {
 
     @Test
     public void multipleReadsWaitForWriteTest() throws InterruptedException {
-        final var writeLockAndWait = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
         // get multiple read lock
-        final var readLockAndWait1 = acquireReadLock();
-        final var readLockAndWait2 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait2 = acquireReadLock();
 
         // check that the first write don't wait
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait.getRight()));
@@ -191,9 +209,9 @@ public class AsyncLockRegistryTest {
 
     @Test
     public void doWithReadLockTest() throws InterruptedException, ExecutionException {
-        final var writeLockAndWait1 = acquireWriteLock();
-        final var read = registry.doWithReadLock(identifier, () -> CompletableFuture.completedFuture(1));
-        final var writeLockAndWait2 = acquireWriteLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait1 = acquireWriteLock();
+        final CompletableFuture<Integer> read = registry.doWithReadLock(identifier, () -> CompletableFuture.completedFuture(1));
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait2 = acquireWriteLock();
 
         // check that the first write don't wait
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait1.getRight()));
@@ -207,8 +225,8 @@ public class AsyncLockRegistryTest {
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
     }
 
-    private NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<Void>> acquireWriteLock() {
-        final var asyncLock = new AtomicReference<AsyncLockRegistry.AsyncLock>();
+    private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock() {
+        final AtomicReference<AsyncLock> asyncLock = new AtomicReference<>();
         return NonnullPair.of(asyncLock,
                 registry.acquireWriteLock(identifier, (lock) -> {
                     asyncLock.set(lock);
@@ -216,8 +234,8 @@ public class AsyncLockRegistryTest {
                 }));
     }
 
-    private NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<Void>> acquireReadLock() {
-        final var asyncLock = new AtomicReference<AsyncLockRegistry.AsyncLock>();
+    private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireReadLock() {
+        final AtomicReference<AsyncLock> asyncLock = new AtomicReference<>();
         return NonnullPair.of(asyncLock,
                 registry.acquireReadLock(identifier, (lock) -> {
                     asyncLock.set(lock);
@@ -225,7 +243,7 @@ public class AsyncLockRegistryTest {
                 }));
     }
 
-    private CompletableFuture<Void> runWithLock(@Nonnull Runnable runCheck, @Nonnull NonnullPair<AtomicReference<AsyncLockRegistry.AsyncLock>, CompletableFuture<Void>> lockAndWait) {
+    private CompletableFuture<Void> runWithLock(@Nonnull Runnable runCheck, @Nonnull NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait) {
         return lockAndWait.getRight().thenRunAsync(runCheck, executorService).whenComplete((ignore, throwable) -> {
             lockAndWait.getLeft().get().release();
             if (throwable != null) {
@@ -240,7 +258,7 @@ public class AsyncLockRegistryTest {
         } catch (Exception e) {
             Assertions.fail("Tasks didn't complete normally", e);
         }
-        for (var f: futures) {
+        for (CompletableFuture<T> f: futures) {
             Assertions.assertTrue(f.isDone());
             Assertions.assertFalse(f.isCompletedExceptionally());
         }
@@ -248,7 +266,7 @@ public class AsyncLockRegistryTest {
 
     public static <T> void checkWaiting(@Nonnull List<CompletableFuture<T>> futures) throws InterruptedException {
         Thread.sleep(1000);
-        for (var f: futures) {
+        for (CompletableFuture<T> f: futures) {
             Assertions.assertFalse(f.isDone());
         }
     }
