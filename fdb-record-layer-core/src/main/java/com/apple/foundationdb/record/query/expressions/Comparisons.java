@@ -1009,7 +1009,7 @@ public class Comparisons {
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, toClassWithRealEquals(comparand));
+            return Objects.hash(type.name(), toClassWithRealEquals(comparand));
         }
 
         @Override

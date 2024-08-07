@@ -20,7 +20,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fail fast when Batch GRV rate limit exceeded [(Issue #2813)](https://github.com/FoundationDB/fdb-record-layer/issues/2813)
+* **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,34 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.531.0
+
+* **Bug fix** LazyOpener throws more precise exceptions [(Issue #2852)](https://github.com/FoundationDB/fdb-record-layer/issues/2852)
+* **Bug fix** Fix flaky test - testMutualIndexingWeirdBoundaries [(Issue #2854)](https://github.com/FoundationDB/fdb-record-layer/issues/2854)
+
+### 3.4.530.0
+
+* **Bug fix** Unordered union implementation pre condition is too strict [(Issue #2856)](https://github.com/FoundationDB/fdb-record-layer/issues/2856)
+
+### 3.4.529.0
+
+* **Bug fix** Lucene exception management [(Issue #2850)](https://github.com/FoundationDB/fdb-record-layer/issues/2850)
+
+### 3.4.528.0
+
+* **Bug fix** Fix sporadic timeout in test [(Issue #2839)](https://github.com/FoundationDB/fdb-record-layer/issues/2839)
+* **Feature** IndexOperation for getting Lucene index metadata [(Issue #2826)](https://github.com/FoundationDB/fdb-record-layer/issues/2826)
+
+### 3.4.527.0
+
+* **Bug fix** `Value` subsumption should default to semantic equality [(Issue #2825)](https://github.com/FoundationDB/fdb-record-layer/issues/2825)
+* **Bug fix** `Value` simplification is not constructing the top-level simplified expression correctly [(Issue #2837)](https://github.com/FoundationDB/fdb-record-layer/issues/2837)
+* **Bug fix** Memoization is not behaving correctly in some edge cases [(Issue #2836)](https://github.com/FoundationDB/fdb-record-layer/issues/2836)
+
+### 3.4.526.0
+
+* **Bug fix** Fail fast when Batch GRV rate limit exceeded [(Issue #2813)](https://github.com/FoundationDB/fdb-record-layer/issues/2813)
 
 ### 3.4.524.0
 

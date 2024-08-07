@@ -279,7 +279,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             }
 
             for (final var commonReferencingExpression : commonReferencingExpressions) {
-                if (Reference.containsInMember(commonReferencingExpression, expression)) {
+                if (Reference.isMemoizedExpression(commonReferencingExpression, expression)) {
                     Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
                     final var reference = expressionToReferenceMap.get(commonReferencingExpression);
                     Verify.verifyNotNull(reference);
@@ -308,7 +308,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
 
             for (final var leafRef : leafRefs) {
                 for (final var member : leafRef.getMembers()) {
-                    if (Reference.containsInMember(expression, member)) {
+                    if (Reference.isMemoizedExpression(expression, member)) {
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.InsertIntoMemoEvent(Debugger.Location.REUSED)));
                         return leafRef;
                     }

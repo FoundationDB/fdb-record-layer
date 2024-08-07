@@ -353,7 +353,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     public int hashCode() {
         // Note that the NullStandIn is NOT included in the hash code. It will be replaced with
         // https://github.com/FoundationDB/fdb-record-layer/issues/677
-        return fieldName.hashCode() + fanType.hashCode();
+        return fieldName.hashCode() + fanType.name().hashCode();
     }
 
     @Override

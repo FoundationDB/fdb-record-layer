@@ -59,7 +59,7 @@ public class IndexingCommon {
     @Nonnull private final AtomicLong totalRecordsScanned;
     private final boolean trackProgress;
 
-    @Nonnull public OnlineIndexOperationConfig config; // this item may be modified on the fly
+    @Nonnull OnlineIndexOperationConfig config; // this item may be modified on the fly
     @Nullable private final Function<OnlineIndexOperationConfig, OnlineIndexOperationConfig> configLoader;
     private int configLoaderInvocationCount = 0;
 
