@@ -943,7 +943,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             addAdditionalValueMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues, useNodeSlotIndex);
         };
         loadRecordsWithNulls(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
-        deleteRecordsWhere(additionalIndexes, Query.field("rec_domain").isNull());
+        Assertions.assertDoesNotThrow(() -> deleteRecordsWhere(additionalIndexes, Query.field("rec_domain").isNull()));
         final long intervalStartInclusive = epochMean + 3600L;
         final long intervalEndInclusive = epochMean + 5L * 3600L;
         final QueryComponent filter =
