@@ -147,28 +147,10 @@ tasks.withType(Test) { theTask ->
     }
     beforeTest { descriptor -> 
         println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
-    }
+    } 
     afterTest { descriptor, result ->
         def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
         println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
-        // investigative tool to help with: https://github.com/FoundationDB/fdb-record-layer/issues/2842
-        // The theory is that we have broken the FDB cluster under test, hopefully this will give some information.
-        // This is a bit aggressive, and will dump extra text for unrelated test failures
-        if (result.resultType == TestResult.ResultType.FAILURE) {
-            println('----------')
-            println('printing fdb status in case a broken FDB cluster caused the failure')
-            try {
-                def fdbStatus = new ProcessBuilder('fdbcli', '--exec', 'status details').start()
-                fdbStatus.waitFor()
-                println(fdbStatus.exitValue())
-                println(fdbStatus.err.text)
-                println(fdbStatus.text)
-            } catch (Exception e) {
-                println("Failed to print status")
-                e.printStackTrace();
-            }
-            println('----------')
-        }
         println()
     }
     reports {
