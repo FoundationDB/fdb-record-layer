@@ -57,7 +57,6 @@ import com.apple.test.RandomizedTestUtils;
 import com.apple.test.SuperSlow;
 import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +71,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Comparator;
@@ -114,9 +114,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     void setUp() {
         fdb.setAsyncToSyncTimeout(waitEvent -> {
             if (waitEvent == FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX) {
-                return org.apache.commons.lang3.tuple.Pair.of(30L, TimeUnit.SECONDS);
+                return Duration.ofSeconds(30L);
             } else {
-                return org.apache.commons.lang3.tuple.Pair.of(7L, TimeUnit.SECONDS);
+                return Duration.ofSeconds(7L);
             }
         });
     }
@@ -370,10 +370,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final int transactionCount = dataModel.nextInt(15) + 10;
         generateDocuments(isGrouped, isSynthetic, minDocumentCount, dataModel.random, contextProps, dataModel.schemaSetup, transactionCount, dataModel.groupingKeyToPrimaryKeyToPartitionKey, dataModel.textGenerator, new AtomicInteger(), new AtomicInteger());
 
-        final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
+        final Function<StoreTimer.Wait, Duration> oldAsyncToSyncTimeout = fdb.getAsyncToSyncTimeout();
         AtomicInteger waitCounts = new AtomicInteger();
         try {
-            final Function<StoreTimer.Wait, Pair<Long, TimeUnit>> asyncToSyncTimeout = (wait) -> {
+            final Function<StoreTimer.Wait, Duration> asyncToSyncTimeout = (wait) -> {
                 if (wait.getClass().equals(LuceneEvents.Waits.class) &&
                         // don't have the timeout on FILE_LOCK_CLEAR because that will leave the file lock around,
                         // and the next iteration will fail on that.
@@ -383,9 +383,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         wait != LuceneEvents.Waits.WAIT_LUCENE_FILE_LOCK_SET &&
                         waitCounts.getAndDecrement() == 0) {
 
-                    return Pair.of(1L, TimeUnit.NANOSECONDS);
+                    return Duration.ofNanos(1L);
                 } else {
-                    return oldAsyncToSyncTimeout == null ? Pair.of(1L, TimeUnit.DAYS) : oldAsyncToSyncTimeout.apply(wait);
+                    return oldAsyncToSyncTimeout == null ? Duration.ofDays(1L) : oldAsyncToSyncTimeout.apply(wait);
                 }
             };
             for (int i = 0; i < 100; i++) {

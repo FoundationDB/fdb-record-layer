@@ -87,11 +87,11 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     private final Iterable<? extends Value> children;
 
     @Nonnull
-    private static final Supplier<Map<UnaryOperatorSignature, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
+    private static final Supplier<Map<UnaryComparisonSignature, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeUnaryOperatorMap);
 
     @Nonnull
-    private static final Supplier<Map<BinaryOperatorSignature, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
+    private static final Supplier<Map<BinaryComparisonSignature, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
     protected RelOpValue(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PRelOpValue relOpValueProto) {
@@ -276,7 +276,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         SemanticException.check(res0.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
         if (arguments.size() == 1) {
             final UnaryPhysicalOperator physicalOperator =
-                    getUnaryOperatorMap().get(new UnaryOperatorSignature(comparisonType, res0.getTypeCode()));
+                    getUnaryOperatorMap().get(new UnaryComparisonSignature(comparisonType, res0.getTypeCode()));
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
@@ -290,7 +290,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             SemanticException.check(res1.isPrimitive(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
-                    getBinaryOperatorMap().get(new BinaryOperatorSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
+                    getBinaryOperatorMap().get(new BinaryComparisonSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
 
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
@@ -302,29 +302,29 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     @Nonnull
-    private static Map<UnaryOperatorSignature, UnaryPhysicalOperator> computeUnaryOperatorMap() {
-        final ImmutableMap.Builder<UnaryOperatorSignature, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<UnaryComparisonSignature, UnaryPhysicalOperator> computeUnaryOperatorMap() {
+        final ImmutableMap.Builder<UnaryComparisonSignature, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final UnaryPhysicalOperator operator : UnaryPhysicalOperator.values()) {
-            mapBuilder.put(new UnaryOperatorSignature(operator.getType(), operator.getArgType()), operator);
+            mapBuilder.put(new UnaryComparisonSignature(operator.getType(), operator.getArgType()), operator);
         }
         return mapBuilder.build();
     }
 
     @Nonnull
-    private static Map<UnaryOperatorSignature, UnaryPhysicalOperator> getUnaryOperatorMap() {
+    private static Map<UnaryComparisonSignature, UnaryPhysicalOperator> getUnaryOperatorMap() {
         return unaryOperatorMapSupplier.get();
     }
 
-    private static Map<BinaryOperatorSignature, BinaryPhysicalOperator> computeBinaryOperatorMap() {
-        final ImmutableMap.Builder<BinaryOperatorSignature, BinaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
+    private static Map<BinaryComparisonSignature, BinaryPhysicalOperator> computeBinaryOperatorMap() {
+        final ImmutableMap.Builder<BinaryComparisonSignature, BinaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final BinaryPhysicalOperator operator : BinaryPhysicalOperator.values()) {
-            mapBuilder.put(new BinaryOperatorSignature(operator.getType(), operator.getLeftArgType(), operator.getRightArgType()), operator);
+            mapBuilder.put(new BinaryComparisonSignature(operator.getType(), operator.getLeftArgType(), operator.getRightArgType()), operator);
         }
         return mapBuilder.build();
     }
 
     @Nonnull
-    private static Map<BinaryOperatorSignature, BinaryPhysicalOperator> getBinaryOperatorMap() {
+    private static Map<BinaryComparisonSignature, BinaryPhysicalOperator> getBinaryOperatorMap() {
         return binaryOperatorMapSupplier.get();
     }
 
@@ -1019,14 +1019,14 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }
     }
 
-    static final class UnaryOperatorSignature {
+    static final class UnaryComparisonSignature {
 
         @Nonnull
         private final Comparisons.Type comparisonType;
         @Nonnull
         private final Type.TypeCode argumentType;
 
-        UnaryOperatorSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode argumentType) {
+        UnaryComparisonSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode argumentType) {
             this.comparisonType = comparisonType;
             this.argumentType = argumentType;
         }
@@ -1049,7 +1049,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final UnaryOperatorSignature that = (UnaryOperatorSignature)o;
+            final UnaryComparisonSignature that = (UnaryComparisonSignature)o;
             return comparisonType == that.comparisonType && argumentType == that.argumentType;
         }
 
@@ -1064,7 +1064,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }
     }
 
-    static final class BinaryOperatorSignature {
+    static final class BinaryComparisonSignature {
         @Nonnull
         private final Comparisons.Type comparisonType;
         @Nonnull
@@ -1072,7 +1072,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Nonnull
         private final Type.TypeCode rightType;
 
-        BinaryOperatorSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode leftType, @Nonnull Type.TypeCode rightType) {
+        BinaryComparisonSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode leftType, @Nonnull Type.TypeCode rightType) {
             this.comparisonType = comparisonType;
             this.leftType = leftType;
             this.rightType = rightType;
@@ -1101,7 +1101,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final BinaryOperatorSignature that = (BinaryOperatorSignature)o;
+            final BinaryComparisonSignature that = (BinaryComparisonSignature)o;
             return comparisonType == that.comparisonType && leftType == that.leftType && rightType == that.rightType;
         }
 

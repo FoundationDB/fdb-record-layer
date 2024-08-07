@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -403,11 +402,77 @@ public class KeySpaceTreeResolver {
         }
     }
 
-    public CompletableFuture<Pair<Resolved, Tuple>> resolveKeySpacePath(@Nonnull KeySpace keySpace, @Nonnull Tuple tuple) {
+    /**
+     * Result of resolving a {@link Tuple} into a {@link Resolved} key space path or other
+     * resolved element in the tree. This value is computed by taking a {@link Tuple} and
+     * walking through the key space to a leaf node. Any remaining elements in the {@link Tuple}
+     * become the "remainder".
+     *
+     * @see #resolveKeySpacePath(KeySpace, Tuple)
+     */
+    public static final class ResolvedAndRemainder {
+        @Nonnull
+        private final Resolved resolved;
+        @Nonnull
+        private final Tuple remainder;
+
+        private ResolvedAndRemainder(@Nonnull Resolved resolved, @Nonnull Tuple remainder) {
+            this.resolved = resolved;
+            this.remainder = remainder;
+        }
+
+        /**
+         * A {@link Resolved} key space path, etc. This represents some prefix of an original
+         * {@link Tuple} that has been resolved to a value with known meaning. For instance,
+         * a {@link ResolvedIndexKeyspace}, representing the index subspace of a record store.
+         *
+         * @return the portion of a {@link Tuple} that has been resolved to a known value
+         */
+        @Nonnull
+        public Resolved getResolved() {
+            return resolved;
+        }
+
+        /**
+         * The suffix of a {@link Tuple} representing unmatched fields from the {@link KeySpace}.
+         * This, for instance, may represent an individual index key whose elements do not have
+         * semantic meaning.
+         *
+         * @return the unresovled suffix of some larger {@link Tuple}
+         */
+        @Nonnull
+        public Tuple getRemainder() {
+            return remainder;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final ResolvedAndRemainder that = (ResolvedAndRemainder)o;
+            return Objects.equals(resolved, that.resolved) && Objects.equals(remainder, that.remainder);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(resolved, remainder);
+        }
+
+        @Override
+        public String toString() {
+            return resolved + "+" + remainder;
+        }
+    }
+
+    public CompletableFuture<ResolvedAndRemainder> resolveKeySpacePath(@Nonnull KeySpace keySpace, @Nonnull Tuple tuple) {
         return resolvePathAndRemainder(new ResolvedRoot(keySpace), tuple);
     }
 
-    public CompletableFuture<Pair<Resolved, Tuple>> resolvePathAndRemainder(@Nonnull Resolved resolvedSubRoot, @Nonnull Tuple tuple) {
+    public CompletableFuture<ResolvedAndRemainder> resolvePathAndRemainder(@Nonnull Resolved resolvedSubRoot, @Nonnull Tuple tuple) {
         AtomicReference<Resolved> current = new AtomicReference<>(resolvedSubRoot);
         AtomicInteger index = new AtomicInteger(0);
         return AsyncUtil.whileTrue(() -> {
@@ -422,7 +487,7 @@ public class KeySpaceTreeResolver {
                 index.incrementAndGet();
                 return true;
             });
-        }).thenApply(vignore -> Pair.of(current.get(), TupleHelpers.subTuple(tuple, index.get(), tuple.size())));
+        }).thenApply(vignore -> new ResolvedAndRemainder(current.get(), TupleHelpers.subTuple(tuple, index.get(), tuple.size())));
     }
 
     @SuppressWarnings("PMD.CloseResource")

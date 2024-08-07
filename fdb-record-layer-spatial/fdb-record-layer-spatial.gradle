@@ -27,7 +27,6 @@ dependencies {
     implementation "org.locationtech.jts.io:jts-io-common:${jtsVersion}"
     implementation "com.geophile:geophile:${geophileVersion}"
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
-    implementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     implementation "org.slf4j:jul-to-slf4j:${slf4jVersion}"
     compileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"

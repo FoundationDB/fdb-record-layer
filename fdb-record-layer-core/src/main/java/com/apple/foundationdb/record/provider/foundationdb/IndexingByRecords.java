@@ -44,7 +44,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -543,8 +542,9 @@ public class IndexingByRecords extends IndexingBase {
     }
 
     // support splitIndexBuildRange
+    @Deprecated
     @Nonnull
-    public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
+    public List<TupleRange> splitIndexBuildRange(int minSplit, int maxSplit) {
         TupleRange originalRange = getRunner().asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS, buildEndpoints());
 
         // There is no range needing to be built.
@@ -560,23 +560,21 @@ public class IndexingByRecords extends IndexingBase {
 
         // The range only spans across very few FDB servers so parallelism is not necessary.
         if (boundaries.size() - 1 < minSplit) {
-            return Collections.singletonList(Pair.of(originalRange.getLow(), originalRange.getHigh()));
+            return Collections.singletonList(originalRange);
         }
 
-        List<Pair<Tuple, Tuple>> splitRanges = new ArrayList<>(Math.min(boundaries.size() - 1, maxSplit));
+        List<TupleRange> splitRanges = new ArrayList<>(Math.min(boundaries.size() - 1, maxSplit));
 
         // step size >= 1
         int stepSize = -Math.floorDiv(-(boundaries.size() - 1), maxSplit);  // Read ceilDiv(boundaries.size() - 1, maxSplit).
         int start = 0;
-        while (true) {
-            int next = start + stepSize;
-            if (next < boundaries.size() - 1) {
-                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(next)));
-            } else {
-                splitRanges.add(Pair.of(boundaries.get(start), boundaries.get(boundaries.size() - 1)));
-                break;
-            }
+        Tuple startTuple = boundaries.get(0);
+        while (start < boundaries.size() - 1) {
+            int next = Math.min(start + stepSize, boundaries.size() - 1);
+            Tuple nextTuple = boundaries.get(next);
+            splitRanges.add(TupleRange.between(startTuple, nextTuple));
             start = next;
+            startTuple = nextTuple;
         }
 
         if (LOGGER.isInfoEnabled()) {

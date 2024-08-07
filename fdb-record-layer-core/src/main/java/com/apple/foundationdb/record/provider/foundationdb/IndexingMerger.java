@@ -25,7 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.record.util.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +89,7 @@ public class IndexingMerger {
                                     mergeControl.setRepartitionCapped(false);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 }).thenApply(ignore -> false),
-                        Pair::of,
+                        Result::of,
                         common.indexLogMessageKeyValues()
                 ).handle((ignore, e) -> {
                     if (timer != null && mergeStartTime.get() > 0) {
