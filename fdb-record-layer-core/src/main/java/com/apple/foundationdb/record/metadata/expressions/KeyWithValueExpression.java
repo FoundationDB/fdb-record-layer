@@ -115,6 +115,8 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
             List<KeyExpression> allKeys = normalizeKeyForPositions();
             if (splitPoint == allKeys.size()) {
                 valueExpression = EmptyKeyExpression.EMPTY;
+            } else if ((allKeys.size() - splitPoint) == 1) {
+                valueExpression = allKeys.get(splitPoint);
             } else {
                 valueExpression = new ThenKeyExpression(allKeys, splitPoint, allKeys.size());
             }
