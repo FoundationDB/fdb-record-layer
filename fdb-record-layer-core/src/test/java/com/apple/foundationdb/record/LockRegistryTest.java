@@ -228,7 +228,7 @@ public class LockRegistryTest {
     private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock() {
         final AtomicReference<AsyncLock> asyncLock = new AtomicReference<>();
         return NonnullPair.of(asyncLock,
-                registry.acquireWriteLock(identifier, (lock) -> {
+                registry.acquireWriteLock(identifier).thenApply(lock -> {
                     asyncLock.set(lock);
                     return null;
                 }));
@@ -237,7 +237,7 @@ public class LockRegistryTest {
     private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireReadLock() {
         final AtomicReference<AsyncLock> asyncLock = new AtomicReference<>();
         return NonnullPair.of(asyncLock,
-                registry.acquireReadLock(identifier, (lock) -> {
+                registry.acquireReadLock(identifier).thenApply(lock -> {
                     asyncLock.set(lock);
                     return null;
                 }));

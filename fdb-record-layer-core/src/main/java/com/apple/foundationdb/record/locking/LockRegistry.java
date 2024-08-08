@@ -31,48 +31,61 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 /**
  * The {@link LockRegistry} keeps track of locking over resources in the context of a single transaction. In essence,
  * it maps a resource (by means of a {@link LockIdentifier}) to the latest lock that has been assigned on that resource.
- *
+ * <p>
+ * The registry can be requested to grant the lock in either the {@code read} mode or the {@code write} mode. The
+ * difference between the 2 modes is as follows:
+ * <ul>
+ *     <li>{@code write}: This mode gives exclusive access over the resource, i.e., no other read or write operation can
+ *     happen concurrently when the lock has been granted in the current context.</li>
+ *     <li>{@code read}: This mode gives access over the resource that can be shared by other read locks concurrently.
+ *     Hence, it is possible to have multiple threads that have read access to the the resource at a time, but no write
+ *     can happen at that time.</li>
+ * </ul>
+ * Example, for a bunch of read and write locks accepted in an arbitrary order given by r1, r2, r3, w1, w2, r4, r5, w3,
+ * we can expect r1, r2, r3 to occur concurrently. w1 'waits' for all of r1, r2, r3 to complete, completion of which
+ * itself is waited by w2. After w2 is completed, r4 and r5 can run concurrently.
+ * <p>
  * There are 2 set of methods to interact with the registry:
  * <ul>
- *     <li>acquire: {@link LockRegistry#acquireReadLock} and {@link LockRegistry#acquireWriteLock}</li>
- *     <li>do: {@link LockRegistry#doWithReadLock} and {@link LockRegistry#doWithWriteLock}</li>
+ *     <li>{@code acquire}: {@link LockRegistry#acquireReadLock} and {@link LockRegistry#acquireWriteLock}</li>
+ *     <li>{@code do}: {@link LockRegistry#doWithReadLock} and {@link LockRegistry#doWithWriteLock}</li>
  * </ul>
- * While the acquire methods hands over the lock to the consumer, thereby expecting the consumer to release the lock
- * on completion of the task, the do method abstracts the lock management. Typically, acquire is only to be used in case
- * if the task requires cannot be completed atomically and requires persisting the lock to be released later. For
- * everything else, do methods offer a more abstract way of dealing with locks.
- *
- * The sample usage with do method can be:
+ * For most cases, the {@code do} methods should be preferred. However, the {@code acquire} methods can be useful if the
+ * lock needs to outlast the supplied lambda. For instance, for APIs that want to return a cursor over results that
+ * retain the lock for the entire duration of a scan, the {@link #acquireReadLock} method can be used in conjunction
+ * with an {@link com.apple.foundationdb.record.cursors.AsyncLockCursor}.
+ * <p>
+ * The sample usage with {@code do} method can be:
  * <pre>{@code
  *      final CompletableFuture<Void> task = registry.doWithReadLock(identifier, () -> {
  *          // do your task...
  *      });
  * }</pre>
  *
- * The usage with the acquire methods is more involved as it expects the caller to provide a function that will hand off
- * the produced lock object to its owner for managing. An illustrative example:
+ * The usage with the {@code acquire} methods is more straight-forward as it returns a {@link CompletableFuture} of the
+ * held lock which gets completed after the lock has been granted. This could then be chained to perform required
+ * operations and lock management. The thing to take note here, the ownership of the 'granted' lock is returned to the
+ * caller, who should most likely keep hold of it for the duration of the operation and ultimately 'releases' it when
+ * done. An illustrative example:
  * <pre>{@code
  *      final AtomicReference<AsyncLock> lockRef = new AtomicReference<>();
- *      final CompletableFuture<Void> lock = registry.acquireWithReadLock(identifier, asyncLock -> {
- *          // hand off the lock to owner
+ *      final CompletableFuture<Void> lock = registry.acquireWithReadLock(identifier).thenApply(asyncLock -> {
+ *          // persist the lock
  *          lockRef.set(asyncLock)
- *      });
- *      lock.thenCompose(ignore -> {
  *          // do your task...
  *      }).whenComplete((ignore, error) -> {
  *          lockRef.get().release();
  *      })
+ * }</pre>
  *
- * NOTE: Since the lock is handed-off to the owner, care should be taken to release it after the task has been completed.
- *
- * }</pre> */
+ * Note that when the task is completed, whether normally or with an exception, the lock is explicitly released.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class LockRegistry {
 
@@ -87,40 +100,34 @@ public class LockRegistry {
 
     /**
      * Attempts to get access for performing read operations on the resource represented by the id and returns a
-     * {@link CompletableFuture} of the owning object that will be completed after the access has been granted followed
-     * by the operation being completed.
+     * {@link CompletableFuture} of the lock after the access has been granted.
 
-     * @param <T> owning class for the granted lock object.
      * @param id the {@link LockIdentifier} for the resource.
-     * @param operation the function that performs the hand-off of the {@link AsyncLock} to the owning object.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
-    public <T> CompletableFuture<T> acquireReadLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
-        return acquire(id, operation, AsyncLock::withNewRead);
+    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull LockIdentifier id) {
+        return acquire(id, AsyncLock::withNewRead);
     }
 
     /**
      * Attempts to get access for performing write operations on the resource represented by the id and returns a
-     * {@link CompletableFuture} of the owning object that will be completed after the access has been granted followed
-     * by the operation being completed.
-
-     * @param <T> owning class for the granted lock object.
+     * {@link CompletableFuture} of the lock after the access has been granted.
+     *
      * @param id the {@link LockIdentifier} for the resource.
-     * @param operation the function that performs the hand-off of the {@link AsyncLock} to the owning object.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
-    public <T> CompletableFuture<T> acquireWriteLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
-        return acquire(id, operation, AsyncLock::withNewWrite);
+    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull LockIdentifier id) {
+        return acquire(id, AsyncLock::withNewWrite);
     }
 
-    private <T> CompletableFuture<T> acquire(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation, UnaryOperator<AsyncLock> getNewLock) {
+    private CompletableFuture<AsyncLock> acquire(@Nonnull LockIdentifier id, UnaryOperator<AsyncLock> getNewLock) {
         final AsyncLock lock = updateRefAndGetNewLock(id, getNewLock);
         final long startTime = System.currentTimeMillis();
         return lock.onAcquired().thenApply(ignore -> {
             if (timer != null) {
-                timer.record(FDBStoreTimer.DetailEvents.LOCKS_WAIT, System.currentTimeMillis() - startTime);
+                timer.record(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED, System.currentTimeMillis() - startTime);
             }
-            return operation.apply(lock);
+            return lock;
         });
     }
 
@@ -151,14 +158,11 @@ public class LockRegistry {
     }
 
     private <T> CompletableFuture<T> doOp(LockIdentifier id, Supplier<CompletableFuture<T>> operation, UnaryOperator<AsyncLock> getNewLock) {
-        final AsyncLock lock = updateRefAndGetNewLock(id, getNewLock);
-        final long startTime = System.currentTimeMillis();
-        return lock.onAcquired().thenCompose(ignore -> {
-            if (timer != null) {
-                timer.record(FDBStoreTimer.DetailEvents.LOCKS_WAIT, System.currentTimeMillis() - startTime);
-            }
+        final AtomicReference<AsyncLock> lockRef = new AtomicReference<>();
+        return acquire(id, getNewLock).thenCompose(lock -> {
+            lockRef.set(lock);
             return operation.get();
-        }).whenComplete((ignore, err) -> lock.release());
+        }).whenComplete((ignore, err) -> lockRef.get().release());
     }
 
     private AsyncLock updateRefAndGetNewLock(@Nonnull LockIdentifier identifier, UnaryOperator<AsyncLock> getNewLock) {
@@ -167,7 +171,7 @@ public class LockRegistry {
                 new AtomicReference<>(new AsyncLock(timer, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE)));
         final AsyncLock newLock = parentLockRef.updateAndGet(getNewLock);
         if (timer != null) {
-            timer.record(FDBStoreTimer.DetailEvents.LOCKS_REGISTER, System.currentTimeMillis() - startTime);
+            timer.record(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED, System.currentTimeMillis() - startTime);
         }
         return newLock;
     }

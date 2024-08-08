@@ -309,9 +309,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent scanning the directory subspace after a hard miss in {@link FDBReverseDirectoryCache}. */
         RD_CACHE_DIRECTORY_SCAN("reverse directory cache hard miss, scanning directory subspace"),
         /** Time taken to register a lock in the registry. */
-        LOCKS_REGISTER("register lock"),
+        LOCKS_REGISTERED("register lock"),
         /** Time spent in waiting for the lock to be acquired. */
-        LOCKS_WAIT("register lock")
+        LOCKS_ACQUIRED("acquire lock"),
         ;
 
         private final String title;

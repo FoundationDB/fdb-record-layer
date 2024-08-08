@@ -154,8 +154,8 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId,
                                     OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
-                            return new LazyCursor<>(state.context.acquireReadLock(new LockIdentifier(rtSubspace),
-                                    (lock) -> new AsyncLockCursor<>(lock, new ItemSlotCursor(getExecutor(),
+                            return new LazyCursor<>(state.context.acquireReadLock(new LockIdentifier(rtSubspace))
+                                    .thenApply(lock -> new AsyncLockCursor<>(lock, new ItemSlotCursor(getExecutor(),
                                             rTree.scan(transaction, lastHilbertValue, lastKey,
                                                     mDScanBounds::overlapsMbrApproximately,
                                                     (low, high) -> mDScanBounds.getSuffixRange().overlaps(low, high)),

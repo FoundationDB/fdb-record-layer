@@ -1515,13 +1515,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @API(API.Status.INTERNAL)
-    public <T> CompletableFuture<T> acquireReadLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
-        return lockRegistry.acquireReadLock(id, operation);
+    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull LockIdentifier id) {
+        return lockRegistry.acquireReadLock(id);
     }
 
     @API(API.Status.INTERNAL)
-    public <T> CompletableFuture<T> acquireWriteLock(@Nonnull LockIdentifier id, Function<AsyncLock, T> operation) {
-        return lockRegistry.acquireWriteLock(id, operation);
+    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull LockIdentifier id) {
+        return lockRegistry.acquireWriteLock(id);
     }
 
     @API(API.Status.INTERNAL)
