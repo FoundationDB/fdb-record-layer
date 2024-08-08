@@ -439,7 +439,7 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void concurrentReadsAndWrites(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) {
+    void concurrentReadsAndWrites(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
         final RecordQueryIndexPlan indexPlan =
@@ -482,8 +482,6 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             for (var future: writeFutures) {
                 expectedMessages.add(future.get().getRecord());
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
         // Assert that the index have all written records intact.
         final var actualMessages = new HashSet<Message>();
@@ -492,8 +490,6 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
             try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
                 cursor.asStream().forEach(result -> actualMessages.add(result.getMessage()));
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
         Assertions.assertEquals(expectedMessages, actualMessages);
     }
