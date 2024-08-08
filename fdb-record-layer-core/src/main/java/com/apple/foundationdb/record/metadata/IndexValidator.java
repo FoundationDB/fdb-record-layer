@@ -49,6 +49,7 @@ public class IndexValidator {
     }
 
     public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+        System.out.println("IndexValidator::validate index:" + index.getName() + " type:" + index.getType() + " rootExpression:" + index.getRootExpression() + " options:" + index.getOptions());
         metaDataValidator.validateIndexForRecordTypes(index, this);
         if (index.getAddedVersion() > index.getLastModifiedVersion()) {
             throw new MetaDataException("Index " + index.getName() + " has added version " + index.getAddedVersion() +

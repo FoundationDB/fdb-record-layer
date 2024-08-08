@@ -71,6 +71,7 @@ public class FunctionNames {
     public static final String BITOR = "bitor";
     public static final String BITXOR = "bitxor";
     public static final String BITNOT = "bitnot";
+    public static final String BIT_BUCKET = "bit_bucket";
 
     private FunctionNames() {
     }

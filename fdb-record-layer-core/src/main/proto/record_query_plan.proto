@@ -237,6 +237,7 @@ message PValue {
     PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
+    PNumericAggregationValue.PBitMap numeric_aggregation_value_bitmap = 41;
   }
 }
 
@@ -370,6 +371,9 @@ message PArithmeticValue {
       BITXOR_IL = 99;
       BITXOR_LI = 100;
       BITXOR_LL = 101;
+
+      BITBUCKET_L = 102;
+      BITBUCKET_I = 103;
   }
 
   optional PPhysicalOperator operator = 1;
@@ -498,10 +502,16 @@ message PNumericAggregationValue {
       MAX_L = 14;
       MAX_F = 15;
       MAX_D = 16;
+
+      BITMAP_LL = 17;
+      BITMAP_II = 18;
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;
 
+  message PBitMap {
+    optional PNumericAggregationValue super = 1;
+  }
   message PSum {
     optional PNumericAggregationValue super = 1;
   }

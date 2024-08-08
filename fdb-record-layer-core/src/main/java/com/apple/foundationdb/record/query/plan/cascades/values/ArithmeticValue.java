@@ -138,7 +138,7 @@ public class ArithmeticValue extends AbstractValue {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
@@ -218,7 +218,6 @@ public class ArithmeticValue extends AbstractValue {
         final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase(Locale.ROOT)).toJavaUtil();
         Verify.verify(logicalOperatorOptional.isPresent());
         final LogicalOperator logicalOperator = logicalOperatorOptional.get();
-
         final PhysicalOperator physicalOperator =
                 getOperatorMap().get(Triple.of(logicalOperator, type0.getTypeCode(), type1.getTypeCode()));
 
@@ -324,6 +323,17 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
+     * The bitwise {@code bitbucket} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class BitBucketFn extends BuiltInFunction<Value> {
+        public BitBucketFn() {
+            super("bit_bucket",
+                    ImmutableList.of(Type.any(), Type.any()), ArithmeticValue::encapsulateInternal);
+        }
+    }
+
+    /**
      * Logical operator.
      */
     public enum LogicalOperator {
@@ -332,9 +342,11 @@ public class ArithmeticValue extends AbstractValue {
         MUL("*"),
         DIV("/"),
         MOD("%"),
+
         BITOR("|"),
         BITAND("&"),
         BITXOR("^"),
+        BIT_BUCKET("bit_bucket")
         ;
 
         @Nonnull
@@ -463,6 +475,8 @@ public class ArithmeticValue extends AbstractValue {
         BITXOR_IL(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l ^ (long)r),
         BITXOR_LI(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l ^ (int)r),
         BITXOR_LL(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l ^ (long)r),
+        BITBUCKET_L(LogicalOperator.BIT_BUCKET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
+        BITBUCKET_I(LogicalOperator.BIT_BUCKET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
         ;
 
         @Nonnull

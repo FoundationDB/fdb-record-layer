@@ -272,6 +272,7 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
                 .add(Builder.binaryFunction(FunctionNames.BITAND, (l, r) -> l & r))
                 .add(Builder.binaryFunction(FunctionNames.BITXOR, (l, r) -> l ^ r))
                 .add(Builder.unaryFunction(FunctionNames.BITNOT, x -> ~x))
+                .add(Builder.binaryFunction(FunctionNames.BIT_BUCKET, (l, r) -> Math.multiplyExact(Math.floorDiv(l, r), r)))
                 .build();
 
         @Nonnull

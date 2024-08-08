@@ -263,6 +263,7 @@ public interface TreeLike<T extends TreeLike<T>> {
         for (int i = 0; i < childrenCount; i++) {
             final var child = Iterables.get(children, i);
             final var maybeReplacedChild = child.replace(replacementOperator);
+
             if (maybeReplacedChild == null) {
                 return null;
             }
