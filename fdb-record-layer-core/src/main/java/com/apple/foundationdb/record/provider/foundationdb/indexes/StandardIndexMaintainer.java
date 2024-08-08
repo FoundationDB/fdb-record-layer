@@ -800,7 +800,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
         // store data at the prefix key itself.
         final byte[] key = state.indexSubspace.pack(prefix);
-        tr.clear(key, ByteArrayUtil.strinc(key));
+        Range indexRange = new Range(key, ByteArrayUtil.strinc(key));
+        tr.clear(indexRange);
+        state.context.removeVersionMutationRange(indexRange);
         return AsyncUtil.DONE;
     }
 

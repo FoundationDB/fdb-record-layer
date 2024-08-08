@@ -1990,11 +1990,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final Transaction tr = ensureContextActive();
 
             final Tuple prefix = evaluated.toTuple();
-            final Subspace recordSubspace = recordsSubspace().subspace(prefix);
-            tr.clear(recordSubspace.range());
+            final Range recordRange = recordsSubspace().subspace(prefix).range();
+            tr.clear(recordRange);
             if (useOldVersionFormat() && getRecordMetaData().isStoreRecordVersions()) {
-                final Subspace versionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix));
-                tr.clear(versionSubspace.range());
+                final Range versionRange = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix)).range();
+                tr.clear(versionRange);
+                context.removeVersionMutationRange(versionRange);
+                context.removeLocalVersionRange(versionRange);
+            } else {
+                context.removeVersionMutationRange(recordRange);
+                context.removeLocalVersionRange(recordRange);
             }
 
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
