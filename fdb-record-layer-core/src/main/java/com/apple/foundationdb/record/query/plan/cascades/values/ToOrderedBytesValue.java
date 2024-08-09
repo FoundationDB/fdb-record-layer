@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.planprotos.PToOrderedBytesValue;
 import com.apple.foundationdb.record.planprotos.PValue;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
@@ -52,7 +54,7 @@ import java.util.Objects;
  * {@link Direction}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild {
+public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild, Ordering.OrderPreservingValue {
     /**
      * The hash value of this expression.
      */
@@ -103,6 +105,21 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
     @Override
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
         return new ToOrderedBytesValue(rebasedChild, direction);
+    }
+
+    @Nonnull
+    @Override
+    public Ordering.OrderPreservingKind getOrderPreservingKind() {
+        switch (getDirection()) {
+            case ASC_NULLS_FIRST:
+            case ASC_NULLS_LAST:
+                return Ordering.OrderPreservingKind.DIRECT_ORDER_PRESERVING;
+            case DESC_NULLS_FIRST:
+            case DESC_NULLS_LAST:
+                return Ordering.OrderPreservingKind.INVERSE_ORDER_PRESERVING;
+            default:
+                throw new RecordCoreException("unexpected enum");
+        }
     }
 
     @Nullable

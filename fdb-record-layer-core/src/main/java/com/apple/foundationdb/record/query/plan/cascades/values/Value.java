@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
@@ -52,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ComparisonCompensation;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ExtractFromIndexKeyValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
@@ -62,6 +64,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.V
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Functions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,6 +80,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -187,7 +191,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      */
     @Nonnull
     default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
-        return Placeholder.newInstance(this, parameterAlias);
+        return Placeholder.newInstanceWithoutRanges(this, parameterAlias);
     }
 
     /**
@@ -457,7 +461,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         @Override
         default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                                 @Nonnull final EvaluationContext context) {
-            throw new RecordCoreException("value is compile-time only and cannot be evaluated");
+            throw new RecordCoreException("value cannot be evaluated");
         }
     }
 
@@ -653,5 +657,28 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     default BooleanWithConstraint subsumedBy(@Nullable final Value other, @Nonnull final ValueEquivalence valueEquivalence) {
         // delegate to semanticEquals()
         return semanticEquals(other, valueEquivalence);
+    }
+
+    @Nonnull
+    default Optional<NonnullPair<ComparisonCompensation, QueryPlanConstraint>> matchAndCompensateComparisonMaybe(@Nonnull final Value otherValue,
+                                                                                                                 @Nonnull final ValueEquivalence valueEquivalence) {
+        return Optional.ofNullable(
+                otherValue.foldNullable(Functions.identity(),
+                        (otherCurrent, childrenResults) -> {
+                            if (Streams.stream(childrenResults).allMatch(Objects::isNull)) {
+                                final var semanticEquals = semanticEquals(otherCurrent, valueEquivalence);
+                                if (semanticEquals.isTrue()) {
+                                    return NonnullPair.of(ComparisonCompensation.noCompensation(), semanticEquals.getConstraint());
+                                }
+                                return null;
+                            } else if (Iterables.size(childrenResults) == 1) {
+                                // this child is present
+                                final var childPair =
+                                        Iterables.getOnlyElement(childrenResults);
+                                final var compensation = new ComparisonCompensation.NestedComparisonCompensation(otherCurrent, childPair);
+                                return NonnullPair.of(compensation, childPair.getRight());
+                            }
+                            return null;
+                        }));
     }
 }

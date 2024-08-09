@@ -20,16 +20,21 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -172,6 +177,64 @@ class ValueComputationTest {
                 record_type, new RecordTypeValue(QuantifiedObjectValue.of(UPPER_ALIAS, new Type.AnyRecord(true))),
                 _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
+    }
+
+    @Test
+    void testMatchAndCompensateRemainder1() {
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.x.xa
+        final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
+        // tob(_x_xa)
+        final var tob__x_xa = new ToOrderedBytesValue(_x_xa, TupleOrdering.Direction.DESC_NULLS_FIRST);
+
+        final var matchOptional = _x_xa.matchAndCompensateComparisonMaybe(tob__x_xa, ValueEquivalence.empty());
+        Assertions.assertTrue(matchOptional.isPresent());
+        final var match = matchOptional.get();
+        Assertions.assertTrue(match.getValue().getPredicate().isTautology());
+
+        final var literalValue = LiteralValue.ofScalar("hello");
+        final var expectedCompensatedValue = new ToOrderedBytesValue(literalValue, TupleOrdering.Direction.DESC_NULLS_FIRST);
+        final var compensatedValue = match.getLeft().compensateValue(literalValue);
+        Assertions.assertEquals(expectedCompensatedValue, compensatedValue);
+    }
+
+    @Test
+    void testMatchAndCompensateRemainder2() {
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.x.xa
+        final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
+
+        final var matchOptional = _x_xa.matchAndCompensateComparisonMaybe(_x_xa, ValueEquivalence.empty());
+        Assertions.assertTrue(matchOptional.isPresent());
+        final var match = matchOptional.get();
+        Assertions.assertTrue(match.getValue().getPredicate().isTautology());
+
+        final var literalValue = LiteralValue.ofScalar("hello");
+        final var compensatedValue = match.getLeft().compensateValue(literalValue);
+        Assertions.assertEquals(literalValue, compensatedValue);
+    }
+
+    @Test
+    void testMatchAndCompensateRemainder3() {
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.x.xa
+        final var _x_xa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa"));
+        // tob(_x_xa)
+        final var tob__x_xa = new ToOrderedBytesValue(_x_xa, TupleOrdering.Direction.DESC_NULLS_FIRST);
+
+        final var matchOptional = _x_xa.matchAndCompensateComparisonMaybe(tob__x_xa, ValueEquivalence.empty());
+        Assertions.assertTrue(matchOptional.isPresent());
+        final var match = matchOptional.get();
+        Assertions.assertTrue(match.getValue().getPredicate().isTautology());
+
+        final var literalValue = LiteralValue.ofScalar("hello");
+        final var expectedCompensatedComparison = new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN,
+                new ToOrderedBytesValue(literalValue, TupleOrdering.Direction.DESC_NULLS_FIRST));
+
+        final var comparison = new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, literalValue);
+        final var compensatedComparisonMaybe = match.getLeft().compensateComparisonMaybe(comparison);
+        Assertions.assertTrue(compensatedComparisonMaybe.isPresent());
+        Assertions.assertEquals(expectedCompensatedComparison, compensatedComparisonMaybe.get());
     }
 
     @Nonnull

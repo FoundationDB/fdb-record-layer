@@ -756,7 +756,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 for (final var predicateMapping : predicateMappings) {
                     final Optional<ExpandCompensationFunction> injectCompensationFunctionForCandidatePredicateOptional =
                             predicateMapping
-                                    .compensatePredicateFunction()
+                                    .getCompensatePredicateFunction()
                                     .injectCompensationFunctionMaybe(partialMatch, boundParameterPrefixMap);
 
                     if (injectCompensationFunctionForCandidatePredicateOptional.isEmpty()) {
