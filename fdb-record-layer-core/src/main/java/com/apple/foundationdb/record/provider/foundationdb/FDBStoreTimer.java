@@ -307,7 +307,12 @@ public class FDBStoreTimer extends StoreTimer {
         /** The amount of time spent reading the lock state of a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver}. */
         RESOLVER_STATE_READ("read resolver state"),
         /** The amount of time spent scanning the directory subspace after a hard miss in {@link FDBReverseDirectoryCache}. */
-        RD_CACHE_DIRECTORY_SCAN("reverse directory cache hard miss, scanning directory subspace");
+        RD_CACHE_DIRECTORY_SCAN("reverse directory cache hard miss, scanning directory subspace"),
+        /** Time taken to register a lock in the registry. */
+        LOCKS_REGISTERED("register lock"),
+        /** Time spent in waiting for the lock to be acquired. */
+        LOCKS_ACQUIRED("acquire lock"),
+        ;
 
         private final String title;
         private final String logKey;
@@ -745,6 +750,10 @@ public class FDBStoreTimer extends StoreTimer {
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITES("intermediate nodes written", false),
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITE_BYTES("intermediate node bytes written", true),
         MULTIDIMENSIONAL_CHILD_NODE_DISCARDS("child node discards", false),
+        /** Count of the locks created. */
+        LOCKS_ATTEMPTED("number of attempts to register a lock", false),
+        /** Count of the locks released. */
+        LOCKS_RELEASED("number of locks released", false),
         ;
 
         private final String title;

@@ -1,9 +1,9 @@
 /*
- * RowLimitedCursor.java
+ * AsyncLockCursor.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2024 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,64 +21,59 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.locking.AsyncLock;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * A cursor that limits the number of elements that it allows through.
+ * A wrapper cursor that manages the locking of resources before operating on inner cursor. Implementation-wise, it
+ * requests for the read/write lock from the current {@link FDBRecordContext} and composes the inner {@link RecordCursor#onNext()}
+ * on top of the backlog tasks that are locking the resources.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.MAINTAINED)
-public class RowLimitedCursor<T> implements RecordCursor<T> {
+public class AsyncLockCursor<T> implements RecordCursor<T> {
+    @Nonnull
+    private final AsyncLock lock;
     @Nonnull
     private final RecordCursor<T> inner;
+    private volatile boolean innerExhausted = false;
 
-    private final int limit;
-    private int soFar;
-
-    @Nullable
-    protected RecordCursorResult<T> nextResult;
-
-    public RowLimitedCursor(@Nonnull RecordCursor<T> inner, int limit) {
+    public AsyncLockCursor(@Nonnull final AsyncLock lock, @Nonnull final RecordCursor<T> inner) {
         this.inner = inner;
-        this.limit = limit;
-        this.soFar = 0;
+        this.lock = lock;
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        if (nextResult != null && !nextResult.hasNext()) {
-            return CompletableFuture.completedFuture(nextResult);
+        if (lock.isLockReleased()) {
+            if (!innerExhausted && !isClosed()) {
+                throw new RecordCoreException("AsyncLockCursor: lock released before the downstream cursor is exhausted or closed.");
+            }
         }
-        if (limitReached()) {
-            inner.close();
-            NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
-                                  ? nextResult.getNoNextReason() : NoNextReason.RETURN_LIMIT_REACHED;
-            nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), reason);
-            return CompletableFuture.completedFuture(nextResult);
-        } else {
-            return inner.onNext().thenApply(result -> {
-                soFar++;
-                nextResult = result;
-                return result;
-            });
-        }
-    }
-
-    protected boolean limitReached() {
-        return soFar >= limit;
+        return inner.onNext().whenComplete((result, err) -> {
+            if (err != null) {
+                close();
+            } else if (!result.hasNext()) {
+                innerExhausted = true;
+                close();
+            }
+        });
     }
 
     @Override
     public void close() {
         inner.close();
+        lock.release();
     }
 
     @Override
@@ -93,7 +88,7 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }
