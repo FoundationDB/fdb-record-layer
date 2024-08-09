@@ -21,11 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -103,21 +101,25 @@ public class PredicateMultiMap {
         @Nonnull
         private final Optional<CorrelationIdentifier> parameterAliasOptional;
         @Nonnull
+        private final Optional<ComparisonRange> comparisonRangeOptional;
+        @Nonnull
         private final QueryPlanConstraint constraint;
-
         @Nonnull
         private final Optional<QueryPredicate> translatedQueryPredicateOptional;
+
 
         private PredicateMapping(@Nonnull final QueryPredicate queryPredicate,
                                  @Nonnull final QueryPredicate candidatePredicate,
                                  @Nonnull final MappingKind mappingKind,
                                  @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
                                  @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
+                                 @Nonnull final Optional<ComparisonRange> comparisonRangeOptional,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final Optional<QueryPredicate> translatedQueryPredicateOptional) {
             this.mappingKey = new MappingKey(queryPredicate, candidatePredicate, mappingKind);
             this.compensatePredicateFunction = compensatePredicateFunction;
             this.parameterAliasOptional = parameterAlias;
+            this.comparisonRangeOptional = comparisonRangeOptional;
             this.constraint = constraint;
             this.translatedQueryPredicateOptional = translatedQueryPredicateOptional;
         }
@@ -143,7 +145,7 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public CompensatePredicateFunction compensatePredicateFunction() {
+        public CompensatePredicateFunction getCompensatePredicateFunction() {
             return compensatePredicateFunction;
         }
 
@@ -154,14 +156,7 @@ public class PredicateMultiMap {
 
         @NonNull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
-            final var queryPredicate = getQueryPredicate();
-            if (parameterAliasOptional.isEmpty() ||
-                    !(queryPredicate instanceof PredicateWithValueAndRanges &&
-                              ((PredicateWithValueAndRanges)queryPredicate).isSargable())) {
-                return Optional.empty();
-            }
-            final var predicateConjunctionPredicate = (PredicateWithValueAndRanges)queryPredicate;
-            return Optional.of(Iterables.getOnlyElement(predicateConjunctionPredicate.getRanges()).asComparisonRange());
+            return comparisonRangeOptional;
         }
 
         @Nonnull
@@ -170,61 +165,34 @@ public class PredicateMultiMap {
         }
 
         @Nonnull
-        public Optional<QueryPredicate> getTranslatedQueryPredicate() {
+        public Optional<QueryPredicate> getTranslatedQueryPredicateOptional() {
             return translatedQueryPredicateOptional;
         }
 
         @Nonnull
         public PredicateMapping withTranslatedQueryPredicate(@Nonnull final Optional<QueryPredicate> translatedCandidatePredicate) {
-            return new PredicateMapping(getQueryPredicate(), getCandidatePredicate(), getMappingKind(), compensatePredicateFunction, parameterAliasOptional, constraint, translatedCandidatePredicate);
+            return toBuilder().setTranslatedQueryPredicateOptional(translatedCandidatePredicate).build();
         }
 
         @Nonnull
-        public static PredicateMapping regularMappingWithoutCompensation(@Nonnull final QueryPredicate queryPredicate,
-                                                                         @Nonnull final QueryPredicate candidatePredicate,
-                                                                         @Nonnull final QueryPlanConstraint constraint) {
-            return regularMapping(queryPredicate, candidatePredicate, CompensatePredicateFunction.noCompensationNeeded(),
-                    Optional.empty(), constraint, Optional.empty());
+        public Builder toBuilder() {
+            return new Builder(getQueryPredicate(), getCandidatePredicate(), getMappingKind())
+                    .setCompensatePredicateFunction(getCompensatePredicateFunction())
+                    .setParameterAliasOptional(getParameterAliasOptional())
+                    .setConstraint(getConstraint())
+                    .setTranslatedQueryPredicateOptional(getTranslatedQueryPredicateOptional());
         }
 
         @Nonnull
-        public static PredicateMapping regularMapping(@Nonnull final QueryPredicate queryPredicate,
-                                                      @Nonnull final QueryPredicate candidatePredicate,
-                                                      @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
-                                                      @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return regularMapping(queryPredicate, candidatePredicate, compensatePredicateFunction,
-                    Optional.empty(), QueryPlanConstraint.tautology(), translatedQueryPredicate);
+        public static PredicateMapping.Builder regularMappingBuilder(@Nonnull final QueryPredicate queryPredicate,
+                                                                     @Nonnull final QueryPredicate candidatePredicate) {
+            return new Builder(queryPredicate, candidatePredicate, MappingKind.REGULAR_IMPLIES_CANDIDATE);
         }
 
         @Nonnull
-        public static PredicateMapping regularMapping(@Nonnull final QueryPredicate queryPredicate,
-                                                      @Nonnull final QueryPredicate candidatePredicate,
-                                                      @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
-                                                      @Nonnull final Optional<CorrelationIdentifier> parameterAliasOptional,
-                                                      @Nonnull final QueryPlanConstraint constraint,
-                                                      @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return new PredicateMapping(queryPredicate, candidatePredicate, MappingKind.REGULAR_IMPLIES_CANDIDATE,
-                    compensatePredicateFunction, parameterAliasOptional, constraint, translatedQueryPredicate);
-        }
-
-        @Nonnull
-        public static PredicateMapping orTermMapping(@Nonnull final QueryPredicate queryPredicate,
-                                                     @Nonnull final QueryPredicate candidatePredicate,
-                                                     @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
-                                                     @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return orTermMapping(queryPredicate, candidatePredicate, compensatePredicateFunction,
-                    Optional.empty(), QueryPlanConstraint.tautology(), translatedQueryPredicate);
-        }
-
-        @Nonnull
-        public static PredicateMapping orTermMapping(@Nonnull final QueryPredicate queryPredicate,
-                                                     @Nonnull final QueryPredicate candidatePredicate,
-                                                     @Nonnull final CompensatePredicateFunction compensatePredicateFunction,
-                                                     @Nonnull final Optional<CorrelationIdentifier> parameterAliasOptional,
-                                                     @Nonnull final QueryPlanConstraint constraint,
-                                                     @Nonnull final Optional<QueryPredicate> translatedQueryPredicate) {
-            return new PredicateMapping(queryPredicate, candidatePredicate, MappingKind.OR_TERM_IMPLIES_CANDIDATE,
-                    compensatePredicateFunction, parameterAliasOptional, constraint, translatedQueryPredicate);
+        public static PredicateMapping.Builder orTermMappingBuilder(@Nonnull final QueryPredicate queryPredicate,
+                                                                    @Nonnull final QueryPredicate candidatePredicate) {
+            return new Builder(queryPredicate, candidatePredicate, MappingKind.OR_TERM_IMPLIES_CANDIDATE);
         }
 
         /**
@@ -276,6 +244,101 @@ public class PredicateMultiMap {
             @Override
             public int hashCode() {
                 return Objects.hash(queryPredicate, candidatePredicate, mappingKind);
+            }
+        }
+
+        /**
+         * Builder class for {@link PredicateMapping}.
+         */
+        public static class Builder {
+            @Nonnull
+            private final QueryPredicate queryPredicate;
+            @Nonnull
+            private final QueryPredicate candidatePredicate;
+            @Nonnull
+            private final MappingKind mappingKind;
+            @Nonnull
+            private CompensatePredicateFunction compensatePredicateFunction;
+            @Nonnull
+            private Optional<CorrelationIdentifier> parameterAliasOptional;
+            @Nonnull
+            private Optional<ComparisonRange> comparisonRangeOptional;
+            @Nonnull
+            private QueryPlanConstraint constraint;
+            @Nonnull
+            private Optional<QueryPredicate> translatedQueryPredicateOptional;
+
+            public Builder(@Nonnull final QueryPredicate queryPredicate,
+                           @Nonnull final QueryPredicate candidatePredicate,
+                           @Nonnull final MappingKind mappingKind) {
+                this.queryPredicate = queryPredicate;
+                this.candidatePredicate = candidatePredicate;
+                this.mappingKind = mappingKind;
+                this.compensatePredicateFunction = CompensatePredicateFunction.noCompensationNeeded();
+                this.parameterAliasOptional = Optional.empty();
+                this.comparisonRangeOptional = Optional.empty();
+                this.constraint = QueryPlanConstraint.tautology();
+                this.translatedQueryPredicateOptional = Optional.empty();
+            }
+
+            @Nonnull
+            public Builder setCompensatePredicateFunction(@Nonnull final CompensatePredicateFunction compensatePredicateFunction) {
+                this.compensatePredicateFunction = compensatePredicateFunction;
+                return this;
+            }
+
+            @Nonnull
+            public Builder setParameterAlias(@Nonnull final CorrelationIdentifier parameterAlias) {
+                return setParameterAliasOptional(Optional.of(parameterAlias));
+            }
+
+            @Nonnull
+            public Builder setParameterAliasOptional(@Nonnull final Optional<CorrelationIdentifier> parameterAliasOptional) {
+                this.parameterAliasOptional = parameterAliasOptional;
+                return this;
+            }
+
+            @Nonnull
+            public Builder setComparisonRange(@Nonnull final ComparisonRange comparisonRange) {
+                return setComparisonRangeOptional(Optional.of(comparisonRange));
+            }
+
+            @Nonnull
+            public Builder setComparisonRangeOptional(@Nonnull final Optional<ComparisonRange> comparisonRangeOptional) {
+                this.comparisonRangeOptional = comparisonRangeOptional;
+                return this;
+            }
+
+            @Nonnull
+            public Builder setSargable(@Nonnull final CorrelationIdentifier parameterAlias,
+                                       @Nonnull final ComparisonRange comparisonRange) {
+                return setParameterAlias(parameterAlias)
+                        .setComparisonRange(comparisonRange);
+            }
+
+            @Nonnull
+            public Builder setConstraint(@Nonnull final QueryPlanConstraint constraint) {
+                this.constraint = constraint;
+                return this;
+            }
+
+            @Nonnull
+            public Builder setTranslatedQueryPredicate(@Nonnull final QueryPredicate translatedQueryPredicate) {
+                this.translatedQueryPredicateOptional = Optional.of(translatedQueryPredicate);
+                return this;
+            }
+
+            @Nonnull
+            public Builder setTranslatedQueryPredicateOptional(@Nonnull final Optional<QueryPredicate> translatedQueryPredicateOptional) {
+                this.translatedQueryPredicateOptional = translatedQueryPredicateOptional;
+                return this;
+            }
+
+            @Nonnull
+            public PredicateMapping build() {
+                return new PredicateMapping(queryPredicate,  candidatePredicate, mappingKind,
+                        compensatePredicateFunction, parameterAliasOptional, comparisonRangeOptional, constraint,
+                        translatedQueryPredicateOptional);
             }
         }
     }

@@ -46,7 +46,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
@@ -85,14 +87,16 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ValuePredicate translateValues(@Nonnull final UnaryOperator<Value> translator) {
-        final var newValue = Verify.verifyNotNull(translator.apply(this.getValue()));
-        final var newComparison = comparison.translateValue(translator);
-        if (newValue == value && newComparison == comparison) {
-            return this;
-        }
-        return new ValuePredicate(newValue, newComparison);
+    public Optional<PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull final UnaryOperator<Value> valueTranslator,
+                                                                          @Nonnull final Function<Comparison, Optional<Comparison>> comparisonTranslator) {
+        final var newValue = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
+        return comparisonTranslator.apply(comparison)
+                .flatMap(newComparison -> {
+                    if (newValue == value && newComparison == comparison) {
+                        return Optional.of(this);
+                    }
+                    return Optional.of(new ValuePredicate(newValue, newComparison));
+                });
     }
 
     @Nonnull

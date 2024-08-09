@@ -297,7 +297,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
         final List<CorrelationIdentifier> finalPlaceholders;
         if (isPermuted()) {
-            Placeholder placeholder = Placeholder.newInstance(aggregateValueReference, newParameterAlias());
+            Placeholder placeholder = Placeholder.newInstanceWithoutRanges(aggregateValueReference, newParameterAlias());
             placeholderAliases.add(placeholder.getParameterAlias());
             selectHavingGraphExpansionBuilder.addPlaceholder(placeholder).addPredicate(placeholder);
             if (columnPermutations > 0) {

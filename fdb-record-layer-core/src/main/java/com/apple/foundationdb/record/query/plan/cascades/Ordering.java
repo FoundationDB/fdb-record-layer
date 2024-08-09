@@ -1479,4 +1479,62 @@ public class Ordering {
             return createOrdering(ordering.getBindingMap(), ordering.getOrderingSet(), ordering.isDistinct());
         }
     }
+
+    /**
+     * Enum to differentiate the different kinds of preserving order.
+     * <ul>
+     *     <li>
+     *         direct order: {@code for all x1, x2 with x1 <= x2 holds f(x1) <= f(x2)},
+     *     </li>
+     *     <li>
+     *         inverse order: {@code for all x1, x2 with x1 <= x2 holds f(x1) >= f(x2)},
+     *     </li>* </ul>
+     */
+    public enum OrderPreservingKind {
+        NOT_ORDER_PRESERVING,
+        DIRECT_ORDER_PRESERVING,
+        INVERSE_ORDER_PRESERVING;
+    }
+
+    /**
+     * Interface that declares that this {@link Value} preserves the order of the input value in some way.
+     */
+    public interface OrderPreservingValue extends Value {
+        @Nonnull
+        OrderPreservingKind getOrderPreservingKind();
+    }
+
+    /**
+     * Interface that declares that <em>all</em> instances of the implementing class are directly order-preserving.
+     */
+    public interface DirectOrderPreservingValue extends OrderPreservingValue {
+        @Nonnull
+        @Override
+        default OrderPreservingKind getOrderPreservingKind() {
+            return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        default <T extends DirectOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
+            return OrderPreservingKind.DIRECT_ORDER_PRESERVING;
+        }
+    }
+
+    /**
+     * Interface that declares that <em>all</em> instances of the implementing class are inverse order-preserving.
+     */
+    public interface InverseOrderPreservingValue extends OrderPreservingValue {
+        @Nonnull
+        @Override
+        default OrderPreservingKind getOrderPreservingKind() {
+            return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
+        }
+
+        @Nonnull
+        @SuppressWarnings("unused")
+        default <T extends InverseOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
+            return getOrderPreservingKind();
+        }
+    }
 }

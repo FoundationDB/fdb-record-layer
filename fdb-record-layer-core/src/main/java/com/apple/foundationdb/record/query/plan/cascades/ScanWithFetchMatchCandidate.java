@@ -20,13 +20,21 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -84,29 +92,6 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
 
     static boolean addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
                                     @Nonnull final FieldValue fieldValue,
-                                    @Nonnull final AvailableFields.FieldData fieldData) {
-        final var parentBuilderForFieldOptional = getParentBuilderForFieldMaybe(builder, fieldValue);
-        if (parentBuilderForFieldOptional.isEmpty()) {
-            return false;
-        }
-
-        final var parentBuilderForField = parentBuilderForFieldOptional.get();
-
-        // TODO not sure what to do with the null standing requirement
-        final var maybeFieldName = fieldValue.getLastFieldName();
-        if (maybeFieldName.isEmpty()) {
-            return false;
-        }
-        final String fieldName = maybeFieldName.get();
-        if (!parentBuilderForField.hasField(fieldName)) {
-            parentBuilderForField.addField(fieldName, fieldData.getSource(),
-                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
-        }
-        return true;
-    }
-
-    static boolean addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
-                                    @Nonnull final FieldValue fieldValue,
                                     @Nonnull final Value extractFromIndexEntryValue) {
         final var parentBuilderForFieldOptional = getParentBuilderForFieldMaybe(builder, fieldValue);
         if (parentBuilderForFieldOptional.isEmpty()) {
@@ -139,5 +124,106 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         }
 
         return Optional.of(builder);
+    }
+
+    @Nonnull
+    static Optional<ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord> computeIndexEntryToLogicalRecord(@Nonnull final Collection<RecordType> queriedRecordTypes,
+                                                                                                            @Nonnull final CorrelationIdentifier baseAlias,
+                                                                                                            @Nonnull final Type baseType,
+                                                                                                            @Nonnull final List<Value> indexKeyValues,
+                                                                                                            @Nonnull final List<Value> indexValueValues) {
+        if (queriedRecordTypes.size() > 1) {
+            return Optional.empty();
+        }
+        final var queriedRecordType = Iterables.getOnlyElement(queriedRecordTypes);
+        final var builder = IndexKeyValueToPartialRecord.newBuilder(queriedRecordType);
+        final var baseObjectValue = QuantifiedObjectValue.of(baseAlias, baseType);
+        final var logicalKeyValuesBuilder = ImmutableList.<Value>builder();
+        for (int i = 0; i < indexKeyValues.size(); i++) {
+            final Value keyValue = indexKeyValues.get(i);
+
+            final var extractFromIndexEntryPairOptional =
+                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
+                            IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+            if (extractFromIndexEntryPairOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                    extractFromIndexEntryPair.getValue())) {
+                return Optional.empty();
+            }
+            logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
+        }
+
+        final var logicalValueValuesBuilder = ImmutableList.<Value>builder();
+        for (int i = 0; i < indexValueValues.size(); i++) {
+            final Value valueValue = indexValueValues.get(i);
+            final var extractFromIndexEntryPairOptional =
+                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
+                            IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
+            if (extractFromIndexEntryPairOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                    extractFromIndexEntryPair.getValue())) {
+                return Optional.empty();
+            }
+            logicalValueValuesBuilder.add(extractFromIndexEntryPair.getLeft());
+        }
+
+        if (!builder.isValid()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(
+                new ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord(queriedRecordType, builder.build(),
+                        logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build()));
+    }
+
+
+    /**
+     * Helper structure that allows us to precompute the mapping from index entry to the logical (partial record).
+     */
+    class IndexEntryToLogicalRecord {
+        @Nonnull
+        private final RecordType queriedRecordType;
+        @Nonnull
+        private final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord;
+        @Nonnull
+        private final List<Value> logicalKeyValues;
+        @Nonnull
+        private final List<Value> logicalValueValues;
+
+        public IndexEntryToLogicalRecord(@Nonnull final RecordType queriedRecordType,
+                                         @Nonnull final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord,
+                                         @Nonnull final List<Value> logicalKeyValues,
+                                         @Nonnull final List<Value> logicalValueValues) {
+            this.queriedRecordType = queriedRecordType;
+            this.indexKeyValueToPartialRecord = indexKeyValueToPartialRecord;
+            this.logicalKeyValues = logicalKeyValues;
+            this.logicalValueValues = logicalValueValues;
+        }
+
+        @Nonnull
+        public RecordType getQueriedRecordType() {
+            return queriedRecordType;
+        }
+
+        @Nonnull
+        public IndexKeyValueToPartialRecord getIndexKeyValueToPartialRecord() {
+            return indexKeyValueToPartialRecord;
+        }
+
+        @Nonnull
+        public List<Value> getLogicalKeyValues() {
+            return logicalKeyValues;
+        }
+
+        @Nonnull
+        public List<Value> getLogicalValueValues() {
+            return logicalValueValues;
+        }
     }
 }

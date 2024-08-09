@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
@@ -55,8 +54,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -355,10 +354,27 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Nonnull
-    public RangeConstraints translateValue(@Nonnull final UnaryOperator<Value> translator) {
-        final var newEvaluableRange = evaluableRange == null ? null : evaluableRange.translateValue(translator);
-        final var newDeferredRange = deferredRanges.stream().map(deferredRange -> deferredRange.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
-        return new RangeConstraints(newEvaluableRange, newDeferredRange);
+    public Optional<RangeConstraints> translateRanges(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+        final CompilableRange newEvaluableRange;
+
+        if (evaluableRange != null) {
+            final var newEvaluableRangeOptional = evaluableRange.translateRange(comparisonTranslator);
+            if (newEvaluableRangeOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            newEvaluableRange = newEvaluableRangeOptional.get();
+        } else {
+            newEvaluableRange = null;
+        }
+        final var newDeferredRangesBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+        for (final var deferredRange : deferredRanges) {
+            final var newDeferredRangeOptional = comparisonTranslator.apply(deferredRange);
+            if (newDeferredRangeOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            newDeferredRangesBuilder.add(newDeferredRangeOptional.get());
+        }
+        return Optional.of(new RangeConstraints(newEvaluableRange, newDeferredRangesBuilder.build()));
     }
 
     @Override
@@ -588,9 +604,16 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         @Nonnull
-        public CompilableRange translateValue(@Nonnull final UnaryOperator<Value> translator) {
-            final var newCompilableComparisons = compilableComparisons.stream().map(compilableComparison -> compilableComparison.translateValue(translator)).collect(ImmutableSet.toImmutableSet());
-            return new CompilableRange(newCompilableComparisons);
+        public Optional<CompilableRange> translateRange(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+            final var newCompilableComparisonsBuilder = ImmutableSet.<Comparisons.Comparison>builder();
+            for (final var compilableComparison : compilableComparisons) {
+                final var newCompilableComparisonOptional = comparisonTranslator.apply(compilableComparison);
+                if (newCompilableComparisonOptional.isEmpty()) {
+                    return Optional.empty();
+                }
+                newCompilableComparisonsBuilder.add(newCompilableComparisonOptional.get());
+            }
+            return Optional.of(new CompilableRange(newCompilableComparisonsBuilder.build()));
         }
 
         @Nonnull

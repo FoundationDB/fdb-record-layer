@@ -173,17 +173,19 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         }
 
         if (candidatePredicate.isTautology()) {
-            return Optional.of(PredicateMapping.regularMapping(this,
-                    candidatePredicate,
-                    getDefaultCompensatePredicateFunction(),
-                    Optional.empty()));  // TODO: provide a translated predicate value here.
+            return Optional.of(
+                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
+                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                            .build());
         }
 
         final var semanticEquals = this.semanticEquals(candidatePredicate, valueEquivalence);
         return semanticEquals
                 .mapToOptional(queryPlanConstraint ->
-                        PredicateMapping.regularMappingWithoutCompensation(this,
-                                candidatePredicate, queryPlanConstraint));
+                        PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                                .setConstraint(queryPlanConstraint)
+                                .build());
     }
 
     /**

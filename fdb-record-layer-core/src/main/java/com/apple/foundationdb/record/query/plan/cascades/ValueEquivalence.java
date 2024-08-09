@@ -123,6 +123,31 @@ public abstract class ValueEquivalence {
     }
 
     @Nonnull
+    public static ValueEquivalence empty() {
+        return EMPTY_EQUIVALENCE;
+    }
+
+    static final ValueEquivalence EMPTY_EQUIVALENCE = new ValueEquivalence() {
+        @Nonnull
+        @Override
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        @Nonnull
+        @Override
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return BooleanWithConstraint.falseValue();
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<ValueEquivalence> computeInverseMaybe() {
+            return Optional.of(this);
+        }
+    };
+
+    @Nonnull
     public ValueEquivalence then(@Nonnull final ValueEquivalence thenEquivalence) {
         return new ThenEquivalence(this, thenEquivalence);
     }
@@ -299,7 +324,7 @@ public abstract class ValueEquivalence {
             final var leftAlias = ((QuantifiedValue)left).getAlias();
             final var rightAlias = ((QuantifiedValue)right).getAlias();
 
-            if (leftAlias.equals(rightAlias) || aliasMap.containsMapping(leftAlias, rightAlias)) {
+            if (aliasMap.containsMapping(leftAlias, rightAlias)) {
                 return alwaysTrue();
             }
 
