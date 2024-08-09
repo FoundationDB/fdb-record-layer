@@ -88,7 +88,7 @@ public class AsyncLockCursor<T> implements RecordCursor<T> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

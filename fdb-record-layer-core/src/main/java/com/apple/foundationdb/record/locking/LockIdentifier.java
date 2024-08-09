@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 public class LockIdentifier {
     @Nonnull
     private final Subspace lockingSubspace;
+    @Nonnull
     private final Supplier<Integer> memoizedHashCode = Suppliers.memoize(this::calculateHashCode);
 
     public LockIdentifier(@Nonnull final Subspace lockingSubspace) {

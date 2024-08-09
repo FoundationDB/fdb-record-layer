@@ -1,5 +1,5 @@
 /*
- * AsyncLoadingCacheTest.java
+ * LockRegistryTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -72,7 +72,7 @@ public class LockRegistryTest {
 
     @ParameterizedTest
     @MethodSource("argumentsForTests")
-    public void orderedWriteTest(int numRuns) {
+    public void orderedWriteTest(final int numRuns) {
         final List<Integer> resource = new ArrayList<>();
         final List<NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>>> writeLockAndWaits = new ArrayList<>();
         for (int i = 0; i < numRuns; i++) {
@@ -91,7 +91,7 @@ public class LockRegistryTest {
 
     @ParameterizedTest
     @MethodSource("argumentsForTests")
-    public void sharedReadsExclusiveWriteTest(int numRuns) throws ExecutionException, InterruptedException {
+    public void sharedReadsExclusiveWriteTest(final int numRuns) throws ExecutionException, InterruptedException {
         final List<Integer> resource = IntStream.range(0, numRuns).boxed().collect(Collectors.toList());
 
         // get 2 read locks, that will be shared
