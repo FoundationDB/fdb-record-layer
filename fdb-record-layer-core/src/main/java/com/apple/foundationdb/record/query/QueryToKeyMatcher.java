@@ -109,7 +109,8 @@ public class QueryToKeyMatcher {
             FunctionKeyExpression.class,
             LiteralKeyExpression.class,
             EmptyKeyExpression.class,
-            RecordTypeKeyExpression.class
+            RecordTypeKeyExpression.class,
+            DimensionsKeyExpression.class
     );
 
     /**
@@ -216,6 +217,10 @@ public class QueryToKeyMatcher {
             KeyExpression group = extractGroupingKey((GroupingKeyExpression) key, matchingMode);
             return group == null ? Match.none() : matches(query, group, matchingMode, filterMask);
         }
+        if (key instanceof DimensionsKeyExpression) {
+            KeyExpression group = extractPrefixKey((DimensionsKeyExpression) key, matchingMode);
+            return group == null ? Match.none() : matches(query, group, matchingMode, filterMask);
+        }
         if (key instanceof KeyWithValueExpression) {
             KeyExpression onlyKey = extractKeyFromKeyWithValue((KeyWithValueExpression)key, matchingMode);
             return onlyKey == null ? Match.none() : matches(query, onlyKey, matchingMode, filterMask);
@@ -314,6 +319,9 @@ public class QueryToKeyMatcher {
     @Nonnull
     private Match matches(@Nonnull NestedField query, @Nonnull KeyExpression key,
                           @Nonnull MatchingMode matchingMode, @Nullable FilterSatisfiedMask filterMask) {
+        if (key instanceof DimensionsKeyExpression) {
+            key = ((DimensionsKeyExpression)key).getWholeKey();
+        }
         if (key instanceof NestingKeyExpression) {
             return matches(query, (NestingKeyExpression) key, matchingMode, filterMask);
         } else if (key instanceof ThenKeyExpression) {
@@ -497,6 +505,17 @@ public class QueryToKeyMatcher {
         } catch (BaseKeyExpression.UnsplittableKeyExpressionException err) {
             if (matchingMode == MatchingMode.SATISFY_QUERY) {
                 return extractPrefixUntilSplittable(grouping.getWholeKey(), grouping.getGroupingCount());
+            }
+        }
+        return null;
+    }
+
+    private KeyExpression extractPrefixKey(DimensionsKeyExpression dimensionsKeyExpression, MatchingMode matchingMode) {
+        try {
+            return dimensionsKeyExpression.getPrefixSubKey();
+        } catch (BaseKeyExpression.UnsplittableKeyExpressionException err) {
+            if (matchingMode == MatchingMode.SATISFY_QUERY) {
+                return extractPrefixUntilSplittable(dimensionsKeyExpression.getWholeKey(), dimensionsKeyExpression.getPrefixSize());
             }
         }
         return null;

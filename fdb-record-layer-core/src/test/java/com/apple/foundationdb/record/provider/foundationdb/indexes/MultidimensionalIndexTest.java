@@ -346,6 +346,14 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
         batch(hook, recNosToBeDeleted.size(), 500, recNo -> recordStore.deleteRecord(Tuple.from(recNo)));
     }
 
+    public void deleteRecordsWhere(@Nonnull final RecordMetaDataHook hook, @Nonnull final QueryComponent queryComponent) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            recordStore.deleteRecordsWhereAsync(queryComponent).get();
+            commit(context);
+        }
+    }
+
     public void loadSpecificRecordsWithNullsAndMins(@Nonnull final RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
@@ -922,6 +930,74 @@ class MultidimensionalIndexTest extends FDBRecordStoreQueryTestBase {
                 Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), false, true),
                 Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), true, false),
                 Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), true, true)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("argumentsForDeleteWhere")
+    void deleteWhereTest(final long seed, final int numRecords, @Nonnull final String storage, final boolean storeHilbertValues,
+                                final boolean useNodeSlotIndex) throws Exception {
+        final RecordMetaDataHook additionalIndexes = metaDataBuilder -> {
+            metaDataBuilder.removeIndex("MyMultidimensionalRecord$calendar_name");
+            metaDataBuilder.removeIndex("calendarNameEndEpochStartEpoch");
+            addAdditionalValueMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues, useNodeSlotIndex);
+        };
+        loadRecordsWithNulls(additionalIndexes, seed, ImmutableList.of("business"), numRecords);
+        Assertions.assertDoesNotThrow(() -> deleteRecordsWhere(additionalIndexes, Query.field("rec_domain").isNull()));
+        final long intervalStartInclusive = epochMean + 3600L;
+        final long intervalEndInclusive = epochMean + 5L * 3600L;
+        final QueryComponent filter =
+                Query.and(
+                        Query.field("calendar_name").equalsValue("business"),
+                        Query.or(Query.field("start_epoch").isNull(),
+                                Query.field("start_epoch").lessThanOrEquals(intervalEndInclusive)),
+                        Query.field("end_epoch").greaterThanOrEquals(intervalStartInclusive));
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyMultidimensionalRecord")
+                .setFilter(filter)
+                .setIndexQueryabilityFilter(noMultidimensionalIndexes)
+                .build();
+        final RecordQueryPlan plan = planQuery(query);
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
+        Assertions.assertEquals(expectedResults, Set.of());
+    }
+
+    static Stream<Arguments> argumentsForDeleteWhere() {
+        final Random random = new Random(System.currentTimeMillis());
+        return Stream.of(
+                Arguments.of(random.nextLong(), 10, BY_SLOT.toString(), false, false),
+                Arguments.of(random.nextLong(), 10, BY_SLOT.toString(), false, true),
+                Arguments.of(random.nextLong(), 10, BY_SLOT.toString(), true, false),
+                Arguments.of(random.nextLong(), 10, BY_SLOT.toString(), true, true),
+                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), false, false),
+                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), false, true),
+                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), true, false),
+                Arguments.of(random.nextLong(), 100, BY_SLOT.toString(), true, true),
+                Arguments.of(random.nextLong(), 300, BY_SLOT.toString(), false, false),
+                Arguments.of(random.nextLong(), 300, BY_SLOT.toString(), false, true),
+                Arguments.of(random.nextLong(), 300, BY_SLOT.toString(), true, false),
+                Arguments.of(random.nextLong(), 300, BY_SLOT.toString(), true, true),
+                Arguments.of(random.nextLong(), 1000, BY_SLOT.toString(), false, false),
+                Arguments.of(random.nextLong(), 1000, BY_SLOT.toString(), false, true),
+                Arguments.of(random.nextLong(), 1000, BY_SLOT.toString(), true, false),
+                Arguments.of(random.nextLong(), 1000, BY_SLOT.toString(), true, true),
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), false, false),
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), false, true),
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), true, false),
+                Arguments.of(random.nextLong(), 10, BY_NODE.toString(), true, true),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), false, false),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), false, true),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), true, false),
+                Arguments.of(random.nextLong(), 100, BY_NODE.toString(), true, true),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), false, false),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), false, true),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), true, false),
+                Arguments.of(random.nextLong(), 300, BY_NODE.toString(), true, true),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), false, false),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), false, true),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), true, false),
+                Arguments.of(random.nextLong(), 1000, BY_NODE.toString(), true, true)
         );
     }
 
