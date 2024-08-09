@@ -17,7 +17,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
