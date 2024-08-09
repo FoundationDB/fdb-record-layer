@@ -287,7 +287,7 @@ class AdditionalMultidimensionalIndexTest extends MultidimensionalIndexTestBase 
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadWithIn")
-    void indexReadWithIn(final boolean useAsync, final long seed, final int numRecords, final int numIns) throws Exception {
+    void indexReadWithIn(final long seed, final int numRecords, final int numIns) throws Exception {
         super.indexReadWithIn(false, seed, numRecords, numIns);
     }
 
@@ -309,7 +309,7 @@ class AdditionalMultidimensionalIndexTest extends MultidimensionalIndexTestBase 
             final var writeFutures = new ArrayList<CompletableFuture<FDBStoredRecord<Message>>>();
             final var readFutures = new ArrayList<CompletableFuture<Void>>();
             openRecordStore(context, additionalIndex);
-            for (int i = 0; i < 50; i++) {
+            for (int i = 0; i < 500; i++) {
                 if (random.nextBoolean()) {
                     // write single record.
                     writeFutures.add(recordStore.saveRecordAsync(getRecordGenerator(random, ImmutableList.of("business")).apply(writeNum++)));
