@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 
@@ -77,7 +76,7 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Nonnull
     private final TextCollatorRegistry collatorRegistry;
     @Nullable
-    private TextCollator invariableCollator;
+    private final TextCollator invariableCollator;
 
     protected CollateFunctionKeyExpression(@Nonnull TextCollatorRegistry collatorRegistry,
                                            @Nonnull String name, @Nonnull KeyExpression arguments) {
@@ -180,9 +179,13 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
-                         @Nonnull final Type baseType,
-                         @Nonnull final List<String> fieldNamePrefix) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+        return visitor.visitExpression(this);
+    }
+
+    @Nonnull
+    @Override
+    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
         // TODO support this
         throw new UnsupportedOperationException();
     }

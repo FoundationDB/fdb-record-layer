@@ -148,6 +148,16 @@ public class GraphExpansion {
         return builder;
     }
 
+    @Nonnull
+    public Sealed distinctSeal() {
+        return seal(true);
+    }
+
+    @Nonnull
+    public Sealed seal() {
+        return seal(false);
+    }
+
     /**
      * Method to <em>seal</em> a graph expansion in an instance of {@link Sealed}. A sealed graph expansion is immutable
      * and can only be used to (repeatedly) build actual expressions.
@@ -159,24 +169,39 @@ public class GraphExpansion {
      * @return a sealed graph expansion
      */
     @Nonnull
-    public Sealed seal() {
+    public Sealed seal(final boolean isDistinctColumns) {
         final GraphExpansion graphExpansion;
 
         final var seenFieldNames = Sets.<String>newHashSet();
         final var duplicateFieldNamesBuilder = ImmutableSet.<String>builder();
+        final var seenResultValues = isDistinctColumns ? Sets.<Value>newHashSet() : null;
+        final var distinctResultColumnsBuilder =
+                isDistinctColumns ? ImmutableList.<Column<? extends Value>>builder() : null;
         for (final Column<? extends Value> resultColumn : resultColumns) {
             final var fieldNameOptional = resultColumn.getField().getFieldNameOptional();
-            fieldNameOptional.ifPresent(fieldName -> {
+            final boolean isDuplicateValue;
+            if (seenResultValues != null) {
+                isDuplicateValue = !seenResultValues.add(resultColumn.getValue());
+                if (!isDuplicateValue) {
+                    distinctResultColumnsBuilder.add(resultColumn);
+                }
+            } else {
+                isDuplicateValue = false;
+            }
+            if (fieldNameOptional.isPresent() && !isDuplicateValue) {
+                final var fieldName = fieldNameOptional.get();
                 if (!seenFieldNames.add(fieldName)) {
                     duplicateFieldNamesBuilder.add(fieldName);
                 }
-            });
+            }
         }
 
         final var duplicateFieldNames = duplicateFieldNamesBuilder.build();
+        var normalizedResultColumns = distinctResultColumnsBuilder != null
+                                      ? distinctResultColumnsBuilder.build() : resultColumns;
 
-        final var normalizedResultColumns =
-                resultColumns.stream()
+        normalizedResultColumns =
+                normalizedResultColumns.stream()
                         .map(resultColumn -> {
                             final var fieldNameOptional = resultColumn.getField().getFieldNameOptional();
                             // no name, all good

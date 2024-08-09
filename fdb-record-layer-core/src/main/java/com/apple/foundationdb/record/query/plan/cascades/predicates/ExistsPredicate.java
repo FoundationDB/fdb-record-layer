@@ -86,7 +86,7 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         throw new RecordCoreException("this predicate cannot be evaluated per record");
     }
 
@@ -185,12 +185,18 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
             if (aliasEquals.isFalse()) {
                 return Optional.empty();
             }
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate,
-                    this::injectCompensationFunctionMaybe, Optional.empty(),
-                    aliasEquals.getConstraint(), Optional.empty()));  // TODO: provide a translated predicate value here.
+            return Optional.of(
+                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
+                            .setConstraint(aliasEquals.getConstraint())
+                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                            .build());
         } else if (candidatePredicate.isTautology()) {
-            return Optional.of(PredicateMapping.regularMapping(this, candidatePredicate,
-                    this::injectCompensationFunctionMaybe, Optional.empty()));  // TODO: provide a translated predicate value here.
+            return Optional.of(
+                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            .setCompensatePredicateFunction(this::injectCompensationFunctionMaybe)
+                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                            .build());
         }
         return Optional.empty();
     }

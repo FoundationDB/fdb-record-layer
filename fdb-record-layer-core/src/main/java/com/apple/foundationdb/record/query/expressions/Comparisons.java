@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -784,10 +785,16 @@ public class Comparisons {
         @Nonnull
         Comparison withType(@Nonnull Type newType);
 
+        @Nullable
+        @Override
+        default Value getValue() {
+            return null;
+        }
+
         @Nonnull
         @Override
         default Comparison withValue(@Nonnull Value value) {
-            return this;
+            throw new RecordCoreException("withValue is not implemented");
         }
 
         /**
@@ -860,12 +867,6 @@ public class Comparisons {
         @Override
         default int semanticHashCode() {
             return hashCode();
-        }
-
-        @Nullable
-        @Override
-        default Value getValue() {
-            return null;
         }
 
         @Nonnull
@@ -975,6 +976,18 @@ public class Comparisons {
                 return this;
             }
             return new SimpleComparison(newType, comparand);
+        }
+
+        @Nullable
+        @Override
+        public Value getValue() {
+            return LiteralValue.ofScalar(getComparand());
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withValue(@Nonnull final Value value) {
+            return new ValueComparison(getType(), value);
         }
 
         @Nullable

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
 
@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
  * @param <TYPE> the type of object that this rule helps simplify
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class QueryPredicateComputationRule<ARGUMENT, RESULT, TYPE extends QueryPredicate> extends AbstractQueryPredicateRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, TYPE> {
+public abstract class QueryPredicateComputationRule<ARGUMENT, RESULT, TYPE extends QueryPredicate> extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, TYPE> {
     public QueryPredicateComputationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
         super(matcher);
     }

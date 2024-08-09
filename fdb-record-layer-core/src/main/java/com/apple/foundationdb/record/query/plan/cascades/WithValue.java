@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Objects;
-import java.util.function.UnaryOperator;
 
 /**
  * Trait for classes containing a {@code Value}.
@@ -38,10 +36,4 @@ public interface WithValue<T extends WithValue<T>> {
 
     @Nonnull
     T withValue(@Nonnull Value value);
-
-    @Nonnull
-    default T translateValue(@Nonnull final UnaryOperator<Value> translator) {
-        final var value = Objects.requireNonNull(getValue());
-        return withValue(translator.apply(value));
-    }
 }

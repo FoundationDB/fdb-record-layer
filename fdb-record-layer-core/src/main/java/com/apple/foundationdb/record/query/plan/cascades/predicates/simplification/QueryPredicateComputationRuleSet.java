@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
@@ -35,10 +35,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public abstract class QueryPredicateComputationRuleSet<ARGUMENT, RESULT> extends AbstractQueryPredicateRuleSet<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>> {
+public abstract class QueryPredicateComputationRuleSet<ARGUMENT, RESULT> extends AbstractQueryPredicateRuleSet<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>> {
 
-    public QueryPredicateComputationRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate>> rules,
-                                            @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate>> dependsOn) {
+    public QueryPredicateComputationRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate>> rules,
+                                            @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate>> dependsOn) {
         super(rules, dependsOn);
     }
 }

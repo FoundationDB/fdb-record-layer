@@ -86,7 +86,7 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         // TODO this "if" can be encoded in encapsulation code implementing type promotion rules
         final var binding = (QueryResult)context.getBinding(alias);
         if (resultType.isRecord()) {

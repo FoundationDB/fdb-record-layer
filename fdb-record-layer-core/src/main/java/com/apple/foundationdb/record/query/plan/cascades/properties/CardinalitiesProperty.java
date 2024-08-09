@@ -223,7 +223,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     public Cardinalities visitRecordQueryRangePlan(@Nonnull final RecordQueryRangePlan rangePlan) {
         final var limitValue = rangePlan.getExclusiveLimitValue();
         if (limitValue instanceof LiteralValue) {
-            final var limit = (int)Verify.verifyNotNull(limitValue.compileTimeEval(EvaluationContext.EMPTY));
+            final var limit = (int)Verify.verifyNotNull(limitValue.evalWithoutStore(EvaluationContext.EMPTY));
             return new Cardinalities(Cardinality.ofCardinality(limit), Cardinality.ofCardinality(limit));
         }
         return Cardinalities.unknownMaxCardinality();

@@ -79,7 +79,7 @@ public class ConditionSelectorValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         for (int i = 0; i < implications.size(); ++i) {
             final var result = (Boolean)implications.get(i).eval(store, context);
             if (Boolean.TRUE.equals(result)) {

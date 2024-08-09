@@ -67,7 +67,7 @@ public class VersionValue extends AbstractValue implements QuantifiedValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         QueryResult binding = (QueryResult) context.getBinding(baseAlias);
         return binding.getQueriedRecordMaybe()
                 .map(FDBRecord::getVersion)

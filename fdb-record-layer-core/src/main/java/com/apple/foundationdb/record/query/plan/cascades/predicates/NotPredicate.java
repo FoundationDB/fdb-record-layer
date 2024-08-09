@@ -73,7 +73,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
         return invert(child.eval(store, context));
     }
 

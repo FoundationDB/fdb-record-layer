@@ -104,7 +104,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var typeRepository = context.getTypeRepository();
         final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();

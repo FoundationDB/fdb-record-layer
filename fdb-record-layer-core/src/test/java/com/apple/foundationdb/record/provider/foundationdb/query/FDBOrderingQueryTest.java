@@ -237,7 +237,7 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         assertTrue(planner.planQuery(query).getPlan() instanceof RecordQueryUnionOnKeyExpressionPlan);
     }
 
-    @Test
+    @DualPlannerTest
     void testCoveringOrdered() throws Exception {
         final RecordMetaDataHook hook = indexHook("order_desc_nulls_last");
         loadRecords(hook);

@@ -425,6 +425,10 @@ public class AliasMap {
         return builder.build();
     }
 
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
+
     /**
      * Determine if two {@link AliasMap}s are compatible.
      * @param other second alias map

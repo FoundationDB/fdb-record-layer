@@ -46,9 +46,9 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     @Nonnull
     private final CorrelationIdentifier parameterAlias;
 
-    private Placeholder(@Nonnull Value value,
-                       @Nonnull final Set<RangeConstraints> ranges,
-                       @Nonnull final CorrelationIdentifier alias) {
+    private Placeholder(@Nonnull final Value value,
+                        @Nonnull final Set<RangeConstraints> ranges,
+                        @Nonnull final CorrelationIdentifier alias) {
         super(value, ranges);
         this.parameterAlias = alias;
     }
@@ -76,12 +76,18 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
     }
 
     @Nonnull
-    public static Placeholder newInstance(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
+    public static Placeholder newInstanceWithoutRanges(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ImmutableSet.of(), parameterAlias);
     }
 
     public boolean isConstraining() {
         return getRanges().stream().anyMatch(RangeConstraints::isConstraining);
+    }
+
+    @Nonnull
+    @Override
+    public Placeholder withValueAndRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+        return new Placeholder(value, ranges, parameterAlias);
     }
 
     @Nonnull

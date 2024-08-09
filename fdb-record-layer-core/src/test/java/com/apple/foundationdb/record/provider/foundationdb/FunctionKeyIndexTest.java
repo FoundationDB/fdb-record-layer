@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -554,6 +555,12 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 }
