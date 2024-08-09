@@ -750,8 +750,9 @@ public class FDBStoreTimer extends StoreTimer {
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITES("intermediate nodes written", false),
         MULTIDIMENSIONAL_INTERMEDIATE_NODE_WRITE_BYTES("intermediate node bytes written", true),
         MULTIDIMENSIONAL_CHILD_NODE_DISCARDS("child node discards", false),
-
+        /** Count of the locks created. */
         LOCKS_ATTEMPTED("number of attempts to register a lock", false),
+        /** Count of the locks released. */
         LOCKS_RELEASED("number of locks released", false),
         ;
 

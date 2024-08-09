@@ -105,7 +105,7 @@ public class LockRegistry {
      * @param id the {@link LockIdentifier} for the resource.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
-    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull LockIdentifier id) {
+    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull final LockIdentifier id) {
         return acquire(id, AsyncLock::withNewRead);
     }
 
@@ -116,19 +116,16 @@ public class LockRegistry {
      * @param id the {@link LockIdentifier} for the resource.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
-    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull LockIdentifier id) {
+    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull final LockIdentifier id) {
         return acquire(id, AsyncLock::withNewWrite);
     }
 
-    private CompletableFuture<AsyncLock> acquire(@Nonnull LockIdentifier id, UnaryOperator<AsyncLock> getNewLock) {
+    private CompletableFuture<AsyncLock> acquire(@Nonnull final LockIdentifier id, @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
         final AsyncLock lock = updateRefAndGetNewLock(id, getNewLock);
-        final long startTime = System.currentTimeMillis();
-        return lock.onAcquired().thenApply(ignore -> {
-            if (timer != null) {
-                timer.record(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED, System.currentTimeMillis() - startTime);
-            }
-            return lock;
-        });
+        if (timer != null) {
+            timer.instrument(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED, lock.onAcquired()).thenApply(ignore -> lock);
+        }
+        return lock.onAcquired().thenApply(ignore -> lock);
     }
 
     /**
@@ -140,7 +137,7 @@ public class LockRegistry {
      * @param operation to be called after the access is granted.
      * @return the {@link CompletableFuture} of T which is the result of the operation.
      */
-    public <T> CompletableFuture<T> doWithReadLock(LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
+    public <T> CompletableFuture<T> doWithReadLock(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation) {
         return doOp(id, operation, AsyncLock::withNewRead);
     }
 
@@ -153,11 +150,12 @@ public class LockRegistry {
      * @param operation to be called after the access is granted.
      * @return the {@link CompletableFuture} of T which is the result of the operation.
      */
-    public <T> CompletableFuture<T> doWithWriteLock(LockIdentifier id, Supplier<CompletableFuture<T>> operation) {
+    public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation) {
         return doOp(id, operation, AsyncLock::withNewWrite);
     }
 
-    private <T> CompletableFuture<T> doOp(LockIdentifier id, Supplier<CompletableFuture<T>> operation, UnaryOperator<AsyncLock> getNewLock) {
+    private <T> CompletableFuture<T> doOp(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation,
+                                          @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
         final AtomicReference<AsyncLock> lockRef = new AtomicReference<>();
         return acquire(id, getNewLock).thenCompose(lock -> {
             lockRef.set(lock);
@@ -165,7 +163,7 @@ public class LockRegistry {
         }).whenComplete((ignore, err) -> lockRef.get().release());
     }
 
-    private AsyncLock updateRefAndGetNewLock(@Nonnull LockIdentifier identifier, UnaryOperator<AsyncLock> getNewLock) {
+    private AsyncLock updateRefAndGetNewLock(@Nonnull final LockIdentifier identifier, @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
         final long startTime = System.currentTimeMillis();
         final AtomicReference<AsyncLock> parentLockRef = heldLocks.computeIfAbsent(identifier, ignore ->
                 new AtomicReference<>(new AsyncLock(timer, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE)));
