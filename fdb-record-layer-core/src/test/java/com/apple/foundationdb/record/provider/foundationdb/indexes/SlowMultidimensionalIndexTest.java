@@ -1,5 +1,5 @@
 /*
- * AdditionalMultidimensionalIndexTest.java
+ * SlowMultidimensionalIndexTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -49,7 +49,7 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
  * Additional tests for Multidimensional Index around concurrency and large data-sets.
  */
 @Tag(Tags.Slow)
-class AdditionalMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
+class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     static Stream<Arguments> argumentsForBasicReads() {
         return SimpleMultidimensionalIndexTest.argumentsForBasicReads();
