@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -79,7 +78,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         this.safeBuild = safeBuild;
     }
 
-    @SuppressWarnings("deprecation")
     <M extends Message> void singleRebuild(
             @Nonnull OnlineIndexerTestRecordHandler<M> recordHandler,
             @Nonnull List<M> records,

@@ -1221,7 +1221,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         final String throwMsg = "Intentionally thrown during test";
         final AtomicLong counter = new AtomicLong(0);
-        UnaryOperator<OnlineIndexer.Config> configLoader = old -> {
+        UnaryOperator<OnlineIndexOperationConfig> configLoader = old -> {
             if (counter.incrementAndGet() > 1) {
                 counter.set(0);
                 throw new RecordCoreException(throwMsg);
@@ -2754,7 +2754,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         runLocalityTest(() -> testBoundaryPrimaryKeysImpl());
     }
 
-    @SuppressWarnings("deprecation")
     @SuppressWarnings("removal")
     public void testBoundaryPrimaryKeysImpl() {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
