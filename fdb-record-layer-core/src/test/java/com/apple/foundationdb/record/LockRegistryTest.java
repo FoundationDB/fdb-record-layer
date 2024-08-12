@@ -225,6 +225,34 @@ public class LockRegistryTest {
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
     }
 
+    @Test
+    public void readsDependOnEachOtherTest() throws ExecutionException, InterruptedException {
+        final CompletableFuture<Void> future1 = new CompletableFuture<>();
+        final CompletableFuture<Void> future2 = new CompletableFuture<>();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait2 = acquireReadLock();
+        final List<CompletableFuture<Void>> tasks = new ArrayList<>();
+
+        tasks.add(runWithLock(() -> {
+            try {
+                future1.complete(null);
+                future2.get();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, readLockAndWait1));
+        future1.get();
+        tasks.add(runWithLock(() -> {
+            try {
+                future2.complete(null);
+                future1.get();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, readLockAndWait2));
+        checkAllCompletedNormally(tasks);
+    }
+
     private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock() {
         final AtomicReference<AsyncLock> asyncLock = new AtomicReference<>();
         return NonnullPair.of(asyncLock,
