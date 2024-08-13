@@ -677,9 +677,10 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        final AtomicLong counter = new AtomicLong(0);
+        final AtomicLong counter = new AtomicLong();
         final String throwMsg = "Intentionally thrown during test";
         for (long i = 0; (i + 1) * 10 < numRecords; i ++) {
+            counter.set(0);
             try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0), timer)
                     .setLimit(3)
                     .setConfigLoader(old -> {
