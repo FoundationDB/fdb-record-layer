@@ -1197,7 +1197,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void markReadable() throws Exception {
+    void markReadableTest() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -1219,36 +1219,21 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        final String throwMsg = "Intentionally thrown during test";
-        final AtomicLong counter = new AtomicLong(0);
-        UnaryOperator<OnlineIndexOperationConfig> configLoader = old -> {
-            if (counter.incrementAndGet() > 1) {
-                counter.set(0);
-                throw new RecordCoreException(throwMsg);
-            }
-            return old;
-        };
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
-                    .setLimit(1)
-                    .setConfigLoader(configLoader)
-                    .build()) {
-                RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(ex.getMessage().contains(throwMsg));
-                Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
-                assertTrue(firstUnbuilt.isPresent());
-                recordStore.markIndexReadable(index).handle((built, e) -> {
-                    assertNotNull(e);
-                    assertThat(e, instanceOf(CompletionException.class));
-                    assertNotNull(e.getCause());
-                    assertThat(e.getCause(), instanceOf(FDBRecordStore.IndexNotBuiltException.class));
-                    return null;
-                }).get();
-                assertThat(recordStore.isIndexReadable(index), is(false));
-            }
+            buildIndexAndCrashHalfway(indexName, 4);
+            Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
+            assertTrue(firstUnbuilt.isPresent());
+            recordStore.markIndexReadable(index).handle((built, e) -> {
+                assertNotNull(e);
+                assertThat(e, instanceOf(CompletionException.class));
+                assertNotNull(e.getCause());
+                assertThat(e.getCause(), instanceOf(FDBRecordStore.IndexNotBuiltException.class));
+                return null;
+            }).get();
+            assertThat(recordStore.isIndexReadable(index), is(false));
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -1283,13 +1268,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
             assertThat(recordStore.isIndexReadable(index), is(false));
-            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
-                    .setLimit(1)
-                    .setConfigLoader(configLoader)
-                    .build()) {
-                RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(ex.getMessage().contains(throwMsg));
-            }
+            buildIndexAndCrashHalfway(indexName, 7);
             Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
             assertTrue(firstUnbuilt.isPresent());
             assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).get());
@@ -1302,6 +1281,26 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertTrue(firstUnbuilt.isPresent());
             assertFalse(recordStore.markIndexReadable(index.getName()).get());
             assertThat(recordStore.isIndexReadable(index), is(true));
+        }
+    }
+
+    private void buildIndexAndCrashHalfway(String indexName, int indexedRecordsCount) {
+        final String throwMsg = "Intentionally thrown during test";
+        final AtomicLong counter = new AtomicLong(0);
+        UnaryOperator<OnlineIndexOperationConfig> configLoader = old -> {
+            if (counter.incrementAndGet() > indexedRecordsCount) {
+                counter.set(0);
+                throw new RecordCoreException(throwMsg);
+            }
+            return old;
+        };
+
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(indexName)
+                .setLimit(1)
+                .setConfigLoader(configLoader)
+                .build()) {
+            RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(ex.getMessage().contains(throwMsg));
         }
     }
 

@@ -733,14 +733,12 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
 
         openSimpleMetaData(hook);
-        final FDBStoreTimer timer = new FDBStoreTimer();
-
         try (FDBRecordContext context = openContext()) {
-            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            recordStore.clearAndMarkIndexWriteOnly(index.getName()).join();
             context.commit();
         }
 
-        timer.reset();
+        final FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = openContext()) {
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
@@ -749,14 +747,19 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                          OnlineIndexer.newBuilder()
                                  .setRecordStore(recordStore)
                                  .setTimer(timer)
-                                 .setIndex("newIndex")
+                                 .setIndex(index.getName())
                                  .setLimit(100000)
                                  .setMaxWriteLimitBytes(1)
                                  .build()) {
 
                 indexer.rebuildIndex(recordStore);
             }
-            recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
+            assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+            assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+            assertEquals(numRecords - 1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+            recordStore.clearAndMarkIndexWriteOnly(index.getName()).join();
             context.commit();
         }
 
@@ -772,8 +775,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(numRecords - 1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+        assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 
     @Test

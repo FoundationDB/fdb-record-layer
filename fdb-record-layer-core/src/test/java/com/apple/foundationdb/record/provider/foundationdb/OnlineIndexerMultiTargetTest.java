@@ -682,7 +682,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                     .setLimit(3)
                     .setConfigLoader(old -> {
                         if (counter.incrementAndGet() > 1) {
-                            counter.set(0);
                             throw new RecordCoreException(throwMsg);
                         }
                         return old;
