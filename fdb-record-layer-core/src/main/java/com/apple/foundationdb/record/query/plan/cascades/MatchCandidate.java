@@ -317,6 +317,8 @@ public interface MatchCandidate {
                         new WindowedIndexExpansionVisitor(index, queriedRecordTypes)
                 ).ifPresent(resultBuilder::add);
                 break;
+            case IndexTypes.MIN_EVER_TUPLE: // fallthrough
+            case IndexTypes.MAX_EVER_TUPLE: // fallthrough
             case IndexTypes.MAX_EVER_LONG: // fallthrough
             case IndexTypes.MIN_EVER_LONG: // fallthrough
             case IndexTypes.BITMAP_VALUE: // fallthrough
