@@ -59,15 +59,15 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
-            getComparison().eval(store, context, null);
+            getComparison().eval(store.getRecordMetaData(), context, null);
         }
         final Object value = getFieldValue(message);
         if (value == null) {
-            return getComparison().eval(store, context, null);
+            return getComparison().eval(store.getRecordMetaData(), context, null);
         } else if (value instanceof MessageOrBuilder && !allowWholeMessage()) {
             throw new Query.InvalidExpressionException("Expression requiring primitive found a message value");
         } else {
-            return getComparison().eval(store, context, value);
+            return getComparison().eval(store.getRecordMetaData(), context, value);
         }
     }
 

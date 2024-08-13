@@ -66,7 +66,7 @@ public class QueryKeyExpressionWithOneOfComparison implements ComponentWithCompa
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
         final List<Object> values = keyExpression.evalForOneOfQuery(store, context, rec, message);
         for (Object value : values) {
-            final Boolean comp = getComparison().eval(store, context, value);
+            final Boolean comp = getComparison().eval(store.getRecordMetaData(), context, value);
             if (Boolean.TRUE.equals(comp)) {
                 return comp;
             }

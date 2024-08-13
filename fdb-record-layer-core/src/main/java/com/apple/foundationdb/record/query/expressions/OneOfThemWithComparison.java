@@ -64,14 +64,14 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null ) {
-            return getComparison().eval(store, context, null);
+            return getComparison().eval(store.getRecordMetaData(), context, null);
         }
         List<Object> values = getValues(message);
         if (values == null) {
             return null;
         } else {
             for (Object value : values) {
-                final Boolean val = getComparison().eval(store, context, value);
+                final Boolean val = getComparison().eval(store.getRecordMetaData(), context, value);
                 if (val != null && val) {
                     return true;
                 }

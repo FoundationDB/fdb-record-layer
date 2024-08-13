@@ -290,11 +290,11 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         }
 
         if (isEquality()) {
-            return equalityComparison.eval(store, context, value);
+            return equalityComparison.eval(store.getRecordMetaData(), context, value);
         }
         if (isInequality()) {
             for (final Comparisons.Comparison inequalityComparison : inequalityComparisons) {
-                final Boolean comparisonResult = inequalityComparison.eval(store, context, value);
+                final Boolean comparisonResult = inequalityComparison.eval(store.getRecordMetaData(), context, value);
                 if (comparisonResult == null) {
                     return null;
                 }

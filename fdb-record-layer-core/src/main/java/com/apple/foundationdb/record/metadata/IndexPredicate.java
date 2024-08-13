@@ -77,7 +77,7 @@ public abstract class IndexPredicate {
         String bindingName = Bindings.Internal.CORRELATION.bindingName(objectQuantifier.getId());
         Bindings bindings = Bindings.newBuilder().set(bindingName, QueryResult.ofComputed(savedRecord.getRecord())).build();
 
-        return Boolean.TRUE.equals(queryPredicate.eval(store, EvaluationContext.forBindings(bindings), store.getRecordMetaData()));
+        return Boolean.TRUE.equals(queryPredicate.eval(EvaluationContext.forBindings(bindings), store.getRecordMetaData(), store.getRecordStoreState()));
     }
 
     private QueryPredicate getQueryPredicate(RecordMetaData metaData, RecordType type, CorrelationIdentifier objectQuantifier) {

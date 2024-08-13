@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.base.Verify;
@@ -355,7 +354,7 @@ public class QueryKeyExpression {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
             final Object comparand = context.getBinding(parameter);
             if (comparand == null) {
                 return null;

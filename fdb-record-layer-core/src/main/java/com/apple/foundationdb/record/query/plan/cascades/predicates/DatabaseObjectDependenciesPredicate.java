@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredicate;
 import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredicate.PUsedIndex;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -78,8 +77,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,// TODO remove store
-                                            @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData) {
+    public <M extends Message> Boolean eval(// TODO remove store
+                                            @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData, final RecordStoreState recordStoreState) {
         for (final UsedIndex usedIndex : usedIndexes) {
             if (!recordMetaData.hasIndex(usedIndex.getName())) {
                 return false;
@@ -88,7 +87,6 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
             if (usedIndex.getLastModifiedVersion() != currentIndex.getLastModifiedVersion()) {
                 return false;
             }
-            final RecordStoreState recordStoreState = store.getRecordStoreState();
             if (!recordStoreState.isReadable(currentIndex)) {
                 return false;
             }

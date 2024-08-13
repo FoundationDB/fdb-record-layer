@@ -64,7 +64,7 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     @Override
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
-        return getComparison().eval(store, context, keyExpression.evalForQuery(store, context, rec, message));
+        return getComparison().eval(store.getRecordMetaData(), context, keyExpression.evalForQuery(store, context, rec, message));
     }
 
     @Override

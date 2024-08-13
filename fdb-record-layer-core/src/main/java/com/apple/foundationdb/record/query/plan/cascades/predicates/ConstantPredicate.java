@@ -28,9 +28,9 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.planprotos.PConstantPredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -89,7 +89,7 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData) {
+    public <M extends Message> Boolean eval(@Nonnull final EvaluationContext context, final RecordMetaData recordMetaData, final RecordStoreState recordStoreState) {
         return value;
     }
 

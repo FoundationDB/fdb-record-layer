@@ -29,12 +29,12 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PCompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.planprotos.PCompatibleTypeEvolutionPredicate.PRecordTypeNameFieldAccessPair;
 import com.apple.foundationdb.record.planprotos.PFieldAccessTrieNode;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -115,8 +115,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData) {
+    public <M extends Message> Boolean eval(@Nonnull final EvaluationContext context, final RecordMetaData recordMetaData, final RecordStoreState recordStoreState) {
         final Map<String, RecordType> currentRecordTypes = recordMetaData.getRecordTypes();
         for (final Map.Entry<String, FieldAccessTrieNode> entry : recordTypeNameFieldAccessMap.entrySet()) {
             final FieldAccessTrieNode fieldAccessTrieNode = entry.getValue();

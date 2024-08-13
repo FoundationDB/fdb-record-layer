@@ -83,7 +83,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     @Nullable
     public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
-        return getComparison().eval(store, context, message);
+        return getComparison().eval(store.getRecordMetaData(), context, message);
     }
 
     @Override
@@ -170,7 +170,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }

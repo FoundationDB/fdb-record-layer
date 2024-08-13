@@ -28,9 +28,9 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.planprotos.PNotPredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -74,8 +74,8 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
-        return invert(child.eval(store, context, recordMetaData));
+    public <M extends Message> Boolean eval(@Nonnull EvaluationContext context, final RecordMetaData recordMetaData, final RecordStoreState recordStoreState) {
+        return invert(child.eval(context, recordMetaData, recordStoreState));
     }
 
     @Nullable

@@ -51,7 +51,6 @@ import com.apple.foundationdb.record.planprotos.PValueComparison;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -760,13 +759,15 @@ public class Comparisons {
     public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
-         * @param store the record store for the query
+         *
+         * @param recordMetaData the record store for the query
          * @param context the evaluation context for getting the other comparison value
          * @param value the value taken from the record
+         *
          * @return the tri-valued logic result of the comparison
          */
         @Nullable
-        Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value);
+        Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value);
 
         /**
          * Validate that this comparison is compatible with a given record field.
@@ -981,8 +982,8 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalComparison(type, value, getComparand(context, store.getRecordMetaData()));
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
+            return evalComparison(type, value, getComparand(context, recordMetaData.getRecordMetaData()));
         }
 
         @Nonnull
@@ -1271,9 +1272,9 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
             // this is at evaluation time --> always use the context binding
-            final Object comparand = getComparand(context, store.getRecordMetaData());
+            final Object comparand = getComparand(context, recordMetaData.getRecordMetaData());
             if (comparand == null) {
                 return null;
             } else if (comparand == COMPARISON_SKIPPED_BINDING) {
@@ -1536,9 +1537,9 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object v) {
             // this is at evaluation time --> always use the context binding
-            final Object comparand = getComparand(context, store.getRecordMetaData());
+            final Object comparand = getComparand(context, recordMetaData.getRecordMetaData());
             if (comparand == null) {
                 return null;
             } else if (comparand == COMPARISON_SKIPPED_BINDING) {
@@ -1767,8 +1768,8 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalListComparison(type, value, getComparand(context, store.getRecordMetaData()));
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
+            return evalListComparison(type, value, getComparand(context, recordMetaData.getRecordMetaData()));
         }
 
         @Nonnull
@@ -1889,7 +1890,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (type == Type.IS_NULL) {
                 return value == null;
             } else {
@@ -2021,7 +2022,7 @@ public class Comparisons {
     public static class OpaqueEqualityComparison implements Comparison {
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
             return false;
         }
 
@@ -2197,7 +2198,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nonnull RecordMetaData recordMetaData, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
@@ -2559,8 +2560,8 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
-            return inner.eval(store, context, value);
+        public Boolean eval(@Nonnull final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+            return inner.eval(recordMetaData, context, value);
         }
 
         @Override
@@ -2779,8 +2780,8 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
-            Object comparand = getComparand(context, store.getRecordMetaData());
+        public Boolean eval(@Nonnull final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+            Object comparand = getComparand(context, recordMetaData.getRecordMetaData());
             return evalComparison(type, value, comparand);
         }
 

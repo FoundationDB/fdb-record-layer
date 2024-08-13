@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -275,11 +275,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @Nullable
     @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
-        return eval(null, context, null);
+        return eval(context, null, null);
     }
 
     @Nullable
-    <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData);
+    <M extends Message> Boolean eval(@Nonnull EvaluationContext context, final RecordMetaData recordMetaData, final RecordStoreState recordStoreState);
 
     @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
