@@ -99,7 +99,7 @@ public class RecordQueryFirstOrDefaultPlan implements RecordQueryPlanWithChild, 
         return new FutureCursor<>(store.getExecutor(),
                 getChild().executePlan(store, context, continuation, executeProperties).first()
                         .thenApply(resultOptional ->
-                                resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))));
+                                resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store.getRecordMetaData(), context)))));
     }
 
     @Override

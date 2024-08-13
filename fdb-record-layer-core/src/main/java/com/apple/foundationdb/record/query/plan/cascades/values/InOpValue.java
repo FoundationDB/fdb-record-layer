@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PInOpValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
@@ -93,9 +93,9 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var probeResult = probeValue.eval(store, context);
-        final var inArrayResult = inArrayValue.eval(store, context);
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        final var probeResult = probeValue.eval(recordMetaData, context);
+        final var inArrayResult = inArrayValue.eval(recordMetaData, context);
         Verify.verify(inArrayResult instanceof List<?>);
         if (((List<?>) inArrayResult).stream().anyMatch(object -> Boolean.TRUE.equals(Comparisons.evalComparison(Comparisons.Type.EQUALS, object, probeResult)))) {
             return true;

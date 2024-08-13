@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
@@ -99,14 +100,14 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
         throw new IllegalStateException("unable to eval an aggregation function with eval()");
     }
 
     @Nullable
     @Override
     public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operator.evalInitialToPartial(child.eval(store, context));
+        return operator.evalInitialToPartial(child.eval(store.getRecordMetaData(), context));
     }
 
     @Nonnull

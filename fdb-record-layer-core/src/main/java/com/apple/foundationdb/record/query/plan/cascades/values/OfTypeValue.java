@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.POfTypeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -88,9 +88,8 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
-        final var value = child.eval(store, context);
+    public <M extends Message> Boolean eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        final var value = child.eval(recordMetaData, context);
         if (value == null) {
             return expectedType.isNullable();
         }

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -163,7 +164,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nullable
-    <M extends Message> Object eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    <M extends Message> Object eval(@Nullable final RecordMetaData recordMetaData, @Nonnull EvaluationContext context);
 
     /**
      * Method to create a {@link QueryPredicate} that is based on this value and a
@@ -454,8 +455,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     interface CompileTimeValue extends Value {
         @Nullable
         @Override
-        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context) {
+        default <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is compile-time only and cannot be evaluated");
         }
     }
@@ -477,15 +477,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     interface IndexOnlyValue extends Value {
         @Nullable
         @Override
-        default <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context) {
+        default <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value is index-only and cannot be evaluated");
         }
     }
 
     /**
      * Tag interface for marking a {@link Value} that is non-deterministic, i.e. each time we call
-     * {@link Value#eval(FDBRecordStoreBase, EvaluationContext)} it might produce a different
+     * {@link Value#eval(RecordMetaData, EvaluationContext)} it might produce a different
      * result.
      */
     @API(API.Status.EXPERIMENTAL)

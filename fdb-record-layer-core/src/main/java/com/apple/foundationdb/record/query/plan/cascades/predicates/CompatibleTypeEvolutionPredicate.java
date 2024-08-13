@@ -116,8 +116,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
-        final RecordMetaData recordMetaData = store.getRecordMetaData();
+                                            @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData) {
         final Map<String, RecordType> currentRecordTypes = recordMetaData.getRecordTypes();
         for (final Map.Entry<String, FieldAccessTrieNode> entry : recordTypeNameFieldAccessMap.entrySet()) {
             final FieldAccessTrieNode fieldAccessTrieNode = entry.getValue();

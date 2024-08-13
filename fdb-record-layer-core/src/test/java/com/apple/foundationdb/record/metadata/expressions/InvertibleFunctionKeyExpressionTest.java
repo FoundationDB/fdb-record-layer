@@ -109,7 +109,7 @@ public class InvertibleFunctionKeyExpressionTest {
             EvaluationContext evaluationContext = EvaluationContext.forBindings(Bindings.newBuilder()
                     .set("foo", "i:" + value)
                     .build());
-            assertEquals(value, invertedFunctionComparison.getComparand(null, evaluationContext));
+            assertEquals(value, invertedFunctionComparison.getComparand(evaluationContext, null));
             for (long comparisonValue : values) {
                 assertEquals(comparisonValue == value, invertedFunctionComparison.eval(null, evaluationContext, comparisonValue));
             }
@@ -142,7 +142,7 @@ public class InvertibleFunctionKeyExpressionTest {
             EvaluationContext evaluationContext = EvaluationContext.forBindings(Bindings.newBuilder()
                     .set("foo", absValue)
                     .build());
-            Object comparand = invertedFunctionComparison.getComparand(null, evaluationContext);
+            Object comparand = invertedFunctionComparison.getComparand(evaluationContext, null);
             assertThat(comparand, instanceOf(List.class));
             List<?> listComparand = (List<?>)comparand;
             if (absValue < 0L) {
@@ -168,7 +168,7 @@ public class InvertibleFunctionKeyExpressionTest {
         Comparisons.InvertedFunctionComparison invertedFunctionComparison = Comparisons.InvertedFunctionComparison.from(asInvertible(ABS_VALUE), comparison);
         assertEquals(Comparisons.Type.IN, invertedFunctionComparison.getType());
 
-        Object comparand = invertedFunctionComparison.getComparand(null, EvaluationContext.EMPTY);
+        Object comparand = invertedFunctionComparison.getComparand(EvaluationContext.EMPTY, null);
         assertThat(comparand, instanceOf(List.class));
         List<?> listComparand = (List<?>) comparand;
         assertThat(listComparand, containsInAnyOrder(0L, 2L, -2L, 5L, -5L));

@@ -502,7 +502,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         @Nonnull
         private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
-            var comparand = comparison.getComparand(null, evaluationContext);
+            var comparand = comparison.getComparand(evaluationContext, null);
             if (comparison.hasMultiColumnComparand()) {
                 items.addAll(((Tuple)comparand).getItems());
             } else {

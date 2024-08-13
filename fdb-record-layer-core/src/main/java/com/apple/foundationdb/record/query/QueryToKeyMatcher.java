@@ -574,7 +574,7 @@ public class QueryToKeyMatcher {
             List<Object> evaluated = new ArrayList<>();
             for (Comparison comparison : comparisons) {
                 if (comparison.getType().isEquality()) {
-                    evaluated.add(comparison.getComparand(store, context));
+                    evaluated.add(comparison.getComparand(context, store.getRecordMetaData()));
                 } else {
                     throw new RecordCoreException(
                             "Match is not equal, has comparison of type " + comparison.getType());

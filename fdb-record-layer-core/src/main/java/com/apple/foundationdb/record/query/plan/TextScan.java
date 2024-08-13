@@ -109,7 +109,7 @@ public class TextScan implements PlanHashable {
     // Get the comparand as a list of strings. This might involve tokenizing the
     // query string if the comparison didn't do that already.
     private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, boolean removeStopWords) {
-        final Object comparand = textComparison.getComparand(store, context);
+        final Object comparand = textComparison.getComparand(context, store.getRecordMetaData());
         List<String> tokenList;
         if (comparand instanceof List<?>) {
             tokenList = ((List<?>)comparand).stream().map(Object::toString).collect(Collectors.toList());

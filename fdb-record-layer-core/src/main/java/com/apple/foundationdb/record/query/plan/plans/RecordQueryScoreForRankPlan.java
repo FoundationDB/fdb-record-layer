@@ -99,7 +99,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                                                                    @Nonnull EvaluationContext context,
                                                                    ScoreForRank scoreForRank,
                                                                    @Nonnull IsolationLevel isolationLevel) {
-        final Tuple operand = Tuple.fromList(scoreForRank.comparisons.stream().map(c -> c.getComparand(store, context)).collect(Collectors.toList()));
+        final Tuple operand = Tuple.fromList(scoreForRank.comparisons.stream().map(c -> c.getComparand(context, store.getRecordMetaData())).collect(Collectors.toList()));
         return store.evaluateAggregateFunction(context, Collections.emptyList(), scoreForRank.function, TupleRange.allOf(operand), isolationLevel);
     }
     

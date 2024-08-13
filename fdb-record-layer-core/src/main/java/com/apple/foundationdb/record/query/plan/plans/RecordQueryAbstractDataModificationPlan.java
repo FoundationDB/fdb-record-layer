@@ -210,7 +210,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
                                             .setBinding(inner.getAlias(), pair.getLeft()) // pre-mutation
                                             .setBinding(currentModifiedRecordAlias, storedRecord.getRecord()) // post-mutation
                                             .build(context.getTypeRepository());
-                                    final var result = computationValue.eval(store, nestedContext);
+                                    final var result = computationValue.eval(store.getRecordMetaData(), nestedContext);
                                     return QueryResult.ofComputed(result, null, storedRecord.getPrimaryKey(), null);
                                 }),
                         store.getPipelineSize(getPipelineOperation()));

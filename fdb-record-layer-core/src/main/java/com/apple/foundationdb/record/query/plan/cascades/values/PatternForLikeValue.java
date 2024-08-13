@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PPatternForLikeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -77,9 +77,9 @@ public class PatternForLikeValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> String eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        String patternStr = (String)patternChild.eval(store, context);
-        String escapeChar = (String)escapeChild.eval(store, context);
+    public <M extends Message> String eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        String patternStr = (String)patternChild.eval(recordMetaData, context);
+        String escapeChar = (String)escapeChild.eval(recordMetaData, context);
         if (patternStr == null) {
             return null;
         }

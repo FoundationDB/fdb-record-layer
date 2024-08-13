@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PComparison;
 import com.apple.foundationdb.record.planprotos.PRecordTypeComparison;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -204,11 +205,8 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
-            if (store == null) {
-                throw Comparisons.EvaluationContextRequiredException.instance();
-            }
-            return store.getRecordMetaData().getIndexableRecordType(recordTypeName).getRecordTypeKey();
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) { // TODO handle null metadata
+            return recordMetaData.getIndexableRecordType(recordTypeName).getRecordTypeKey();
         }
 
         @Nonnull

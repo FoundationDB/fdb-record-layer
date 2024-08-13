@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
@@ -801,12 +802,13 @@ public class Comparisons {
 
         /**
          * Get the comparison value from the evaluation context.
-         * @param store the record store for the query
+         *
          * @param context the context for query evaluation
+         *
          * @return the value to be compared
          */
         @Nullable
-        Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context);
+        Object getComparand(@Nullable EvaluationContext context, @Nullable final RecordMetaData recordMetaData);
 
         /**
          * Get whether the comparison is with the result of a multi-column key.
@@ -958,7 +960,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             return comparand;
         }
 
@@ -980,7 +982,7 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalComparison(type, value, getComparand(store, context));
+            return evalComparison(type, value, getComparand(context, store.getRecordMetaData()));
         }
 
         @Nonnull
@@ -1189,7 +1191,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             if (context == null) {
                 throw EvaluationContextRequiredException.instance();
             }
@@ -1271,7 +1273,7 @@ public class Comparisons {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             // this is at evaluation time --> always use the context binding
-            final Object comparand = getComparand(store, context);
+            final Object comparand = getComparand(context, store.getRecordMetaData());
             if (comparand == null) {
                 return null;
             } else if (comparand == COMPARISON_SKIPPED_BINDING) {
@@ -1489,11 +1491,11 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             if (context == null) {
                 throw EvaluationContextRequiredException.instance();
-            }
-            return comparandValue.eval(store, context);
+            } // TODO this didn't previously handle null store
+            return comparandValue.eval(recordMetaData, context);
         }
 
         @Nonnull
@@ -1536,7 +1538,7 @@ public class Comparisons {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
             // this is at evaluation time --> always use the context binding
-            final Object comparand = getComparand(store, context);
+            final Object comparand = getComparand(context, store.getRecordMetaData());
             if (comparand == null) {
                 return null;
             } else if (comparand == COMPARISON_SKIPPED_BINDING) {
@@ -1732,7 +1734,7 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("rawtypes")
-        public List getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public List getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             return comparand;
         }
 
@@ -1766,7 +1768,7 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalListComparison(type, value, getComparand(store, context));
+            return evalListComparison(type, value, getComparand(context, store.getRecordMetaData()));
         }
 
         @Nonnull
@@ -1919,7 +1921,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             // Requires special handling in TupleRange.
             return null;
         }
@@ -2042,7 +2044,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             return null;
         }
 
@@ -2263,7 +2265,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        public Object getComparand(@Nullable EvaluationContext context, final RecordMetaData recordMetaData) {
             if (tokenList != null) {
                 return tokenList;
             } else {
@@ -2274,7 +2276,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public String typelessString() {
-            final Object comparand = getComparand(null, EvaluationContext.EMPTY);
+            final Object comparand = getComparand(EvaluationContext.EMPTY, null);
             if (comparand == null) {
                 return "null";
             } else {
@@ -2644,8 +2646,8 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
-            return inner.getComparand(store, context);
+        public Object getComparand(@Nullable final EvaluationContext context, final RecordMetaData recordMetaData) {
+            return inner.getComparand(context, recordMetaData);
         }
 
         @Override
@@ -2778,7 +2780,7 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
-            Object comparand = getComparand(store, context);
+            Object comparand = getComparand(context, store.getRecordMetaData());
             return evalComparison(type, value, comparand);
         }
 
@@ -2812,8 +2814,8 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
-            Object originalComparandValue = originalComparison.getComparand(store, context);
+        public Object getComparand(@Nullable final EvaluationContext context, final RecordMetaData recordMetaData) {
+            Object originalComparandValue = originalComparison.getComparand(context, recordMetaData);
             if (originalComparison.getType() == Type.IN) {
                 if (!(originalComparandValue instanceof List<?>)) {
                     throw new RecordCoreException("cannot evaluate IN comparison on non-list type");

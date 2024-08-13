@@ -148,7 +148,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
                     .toString());
         }
 
-        final LuceneQueryClause.BoundQuery boundQuery = query.bind(store, index, context);
+        final LuceneQueryClause.BoundQuery boundQuery = query.bind(index, context, store.getRecordMetaData());
         if (luceneQueryHighlightParameters != null) {
             luceneQueryHighlightParameters.query = boundQuery.getLuceneQuery();
             Objects.requireNonNull(boundQuery.getHighlightingTermsMap());

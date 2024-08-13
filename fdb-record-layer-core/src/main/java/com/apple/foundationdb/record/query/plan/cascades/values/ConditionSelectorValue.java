@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PConditionSelectorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -79,9 +79,9 @@ public class ConditionSelectorValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
         for (int i = 0; i < implications.size(); ++i) {
-            final var result = (Boolean)implications.get(i).eval(store, context);
+            final var result = (Boolean)implications.get(i).eval(recordMetaData, context);
             if (Boolean.TRUE.equals(result)) {
                 return i;
             }

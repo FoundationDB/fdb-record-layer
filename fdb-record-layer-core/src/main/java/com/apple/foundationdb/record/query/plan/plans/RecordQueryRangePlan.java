@@ -92,7 +92,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final int exclusiveLimit = (int)Verify.verifyNotNull(exclusiveLimitValue.eval(store, context));
+        final int exclusiveLimit = (int)Verify.verifyNotNull(exclusiveLimitValue.eval(store.getRecordMetaData(), context));
         return new RangeCursor(store.getExecutor(), exclusiveLimit, continuation).map(QueryResult::ofComputed);
     }
 

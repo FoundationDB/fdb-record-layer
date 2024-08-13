@@ -78,9 +78,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
-        final RecordMetaData recordMetaData = store.getRecordMetaData();
+    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,// TODO remove store
+                                            @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData) {
         for (final UsedIndex usedIndex : usedIndexes) {
             if (!recordMetaData.hasIndex(usedIndex.getName())) {
                 return false;

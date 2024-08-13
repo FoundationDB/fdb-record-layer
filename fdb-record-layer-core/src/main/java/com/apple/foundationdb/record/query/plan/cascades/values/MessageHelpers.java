@@ -352,7 +352,7 @@ public class MessageHelpers {
                             targetFieldType,
                             targetDescriptorForField,
                             currentFieldType,
-                            transformationValue.eval(store, context));
+                            transformationValue.eval(store.getRecordMetaData(), context));
                 }
                 if (fieldResult != null) {
                     resultMessageBuilder.setField(targetFieldDescriptor, fieldResult);

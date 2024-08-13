@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PPredicateWithValueAndRanges;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -502,11 +503,11 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, final RecordMetaData recordMetaData) {
         if (!(value instanceof Value.RangeMatchableValue)) {
             throw new RecordCoreException("attempt to compile-time predicate with non-compile-time value.");
         }
-        final var valueObject = value.eval(store, context);
+        final var valueObject = value.eval(recordMetaData, context);
         if (valueObject == null) {
             return null;
         }

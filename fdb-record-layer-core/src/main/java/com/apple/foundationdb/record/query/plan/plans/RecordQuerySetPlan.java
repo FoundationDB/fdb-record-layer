@@ -332,7 +332,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     final var nestedContext = evaluationContext.withBinding(baseAlias, queryResult);
                     final var resultList = Lists.newArrayList();
                     for (final Value comparisonKeyValue : comparisonKeyValues) {
-                        resultList.add(comparisonKeyValue.eval(store, nestedContext));
+                        resultList.add(comparisonKeyValue.eval(store.getRecordMetaData(), nestedContext));
                     }
                     return resultList;
                 };

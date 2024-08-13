@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PFirstOrDefaultValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -97,15 +97,15 @@ public class FirstOrDefaultValue extends AbstractValue {
     }
 
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var childResult = childValue.eval(store, context);
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        final var childResult = childValue.eval(recordMetaData, context);
         if (childResult == null) {
             return null;
         }
 
         final var childrenObjects = (List<?>)childResult;
         if (childrenObjects.isEmpty()) {
-            return onEmptyResultValue.eval(store, context);
+            return onEmptyResultValue.eval(recordMetaData, context);
         }
         return childrenObjects.get(0);
     }

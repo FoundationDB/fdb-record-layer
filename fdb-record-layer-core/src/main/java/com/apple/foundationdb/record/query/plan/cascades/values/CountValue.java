@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PCountValue;
 import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
@@ -98,7 +99,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
         throw new IllegalStateException("unable to eval an aggregation function with eval()");
     }
 
@@ -106,7 +107,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     @Override
     public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         if (child != null) {
-            return operator.evalInitialToPartial(child.eval(store, context));
+            return operator.evalInitialToPartial(child.eval(store.getRecordMetaData(), context));
         } else {
             return operator.evalInitialToPartial(null);
         }

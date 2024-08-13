@@ -295,7 +295,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         if (inequalityComparisons.size() == 1) {
             final Comparisons.Comparison inequalityComparison = inequalityComparisons.iterator().next();
             if (inequalityComparison.getType() == Comparisons.Type.STARTS_WITH) {
-                final Tuple startTuple = baseTuple.addObject(toTupleItem(inequalityComparison.getComparand(store, context)));
+                final Tuple startTuple = baseTuple.addObject(toTupleItem(inequalityComparison.getComparand(context, store.getRecordMetaData())));
                 return new TupleRange(startTuple, startTuple, EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING);
             }
         }
@@ -316,9 +316,9 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     protected static void addComparandToList(@Nonnull List<Object> items, @Nonnull Comparisons.Comparison comparison,
                                              @Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         if (comparison.hasMultiColumnComparand()) {
-            items.addAll(((Tuple)comparison.getComparand(store, context)).getItems());
+            items.addAll(((Tuple)comparison.getComparand(context, store.getRecordMetaData())).getItems());
         } else {
-            items.add(toTupleItem(comparison.getComparand(store, context)));
+            items.add(toTupleItem(comparison.getComparand(context, store.getRecordMetaData())));
         }
     }
 
@@ -569,7 +569,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public void addComparison(Comparisons.Comparison comparison) {
-            final Object comparand = comparison.getComparand(store, context);
+            final Object comparand = comparison.getComparand(context, store.getRecordMetaData());
             if (comparand == Comparisons.COMPARISON_SKIPPED_BINDING) {
                 return;
             }

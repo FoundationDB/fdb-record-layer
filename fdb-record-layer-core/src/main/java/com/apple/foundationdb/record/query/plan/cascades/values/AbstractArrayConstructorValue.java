@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PAbstractArrayConstructorValue;
 import com.apple.foundationdb.record.planprotos.PLightArrayConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -199,9 +199,9 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Nullable
         @Override
         @SuppressWarnings("java:S6213")
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
             return Streams.stream(getChildren())
-                    .map(child -> child.eval(store, context))
+                    .map(child -> child.eval(recordMetaData, context))
                     .collect(ImmutableList.toImmutableList());
         }
 

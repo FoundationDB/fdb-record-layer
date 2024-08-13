@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -66,11 +66,11 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         Map<String, Set<String>> highlightingTermsMap = null;
         for (LuceneQueryClause child : children) {
-            final BoundQuery childBoundQuery = child.bind(store, index, context);
+            final BoundQuery childBoundQuery = child.bind(index, context, recordMetaData);
             builder.add(childBoundQuery.getLuceneQuery(), occur);
             final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
             if (childHighlightingTermsMap != null) {

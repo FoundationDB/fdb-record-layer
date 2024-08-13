@@ -110,7 +110,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
         final var nestedContext = context.withBinding(getInner().getAlias(), queryResult);
-        return conjunctedPredicate.eval(store, nestedContext);
+        return conjunctedPredicate.eval(store, nestedContext, store.getRecordMetaData());
     }
 
     @Nullable
@@ -120,7 +120,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
         return new AsyncBoolean<>(false,
                 getPredicates(),
-                predicate -> CompletableFuture.completedFuture(predicate.eval(store, nestedContext)),
+                predicate -> CompletableFuture.completedFuture(predicate.eval(store, nestedContext, store.getRecordMetaData())),
                 store).eval();
     }
 

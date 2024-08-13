@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PAndPredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -72,10 +73,10 @@ public class AndPredicate extends AndOrPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
         Boolean defaultValue = Boolean.TRUE;
         for (QueryPredicate child : getChildren()) {
-            final Boolean val = child.eval(store, context);
+            final Boolean val = child.eval(store, context, recordMetaData);
             if (val == null) {
                 defaultValue = null;
             } else if (!val) {

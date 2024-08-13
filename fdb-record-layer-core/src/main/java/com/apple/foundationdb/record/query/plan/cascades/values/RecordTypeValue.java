@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PRecordTypeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -60,13 +60,13 @@ public class RecordTypeValue extends AbstractValue {
     @SuppressWarnings("unchecked")
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var inRecord = in.eval(store, context);
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        final var inRecord = in.eval(recordMetaData, context);
         if (!(inRecord instanceof Message)) {
             return null;
         }
 
-        return store.getRecordMetaData().getRecordType(((M)inRecord).getDescriptorForType().getName()).getRecordTypeKey();
+        return recordMetaData.getRecordType(((M)inRecord).getDescriptorForType().getName()).getRecordTypeKey();
     }
 
     @Nonnull

@@ -125,7 +125,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                             .map(innerResult -> {
                                 final EvaluationContext nestedContext =
                                         fromOuterContext.withBinding(innerQuantifier.getAlias(), innerResult);
-                                final var computed = resultValue.eval(store, nestedContext);
+                                final var computed = resultValue.eval(store.getRecordMetaData(), nestedContext);
                                 return inheritOuterRecordProperties
                                        ? outerResult.withComputed(computed)
                                        : QueryResult.ofComputed(computed);

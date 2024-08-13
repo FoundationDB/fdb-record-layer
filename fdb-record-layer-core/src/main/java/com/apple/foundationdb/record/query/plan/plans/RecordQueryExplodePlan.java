@@ -86,7 +86,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final var result = collectionValue.eval(store, context);
+        final var result = collectionValue.eval(store.getRecordMetaData(), context);
         return RecordCursor.fromList(result == null ? ImmutableList.of() : (List<?>)result, continuation)
                 .map(QueryResult::ofComputed);
     }

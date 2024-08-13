@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PPickValue;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -99,14 +99,14 @@ public class PickValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var boxedSelectedIndex = (Integer)selectorValue.eval(store, context);
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        final var boxedSelectedIndex = (Integer)selectorValue.eval(recordMetaData, context);
         if (boxedSelectedIndex == null) {
             return null;
         }
 
         final var selectedIndex = (int)boxedSelectedIndex;
-        return alternativeValues.get(selectedIndex).eval(store, context);
+        return alternativeValues.get(selectedIndex).eval(recordMetaData, context);
     }
 
     @Nonnull

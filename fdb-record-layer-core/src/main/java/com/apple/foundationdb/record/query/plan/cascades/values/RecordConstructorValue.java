@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -104,7 +105,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
         final var typeRepository = context.getTypeRepository();
         final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
@@ -115,7 +116,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         for (final var child : getChildren()) {
             final var field = fields.get(i);
             final var fieldType = field.getFieldType();
-            var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(store, context));
+            var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(recordMetaData, context));
             if (childResult != null) {
                 final var fieldDescriptor = fieldDescriptors.get(i);
                 if (fieldType.isArray() && fieldType.isNullable()) {

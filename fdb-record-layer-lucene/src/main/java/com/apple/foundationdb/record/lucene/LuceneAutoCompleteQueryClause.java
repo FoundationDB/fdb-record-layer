@@ -24,12 +24,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactory;
 import com.apple.foundationdb.record.lucene.search.LuceneQueryParserFactoryProvider;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
@@ -104,7 +104,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
         final String searchArgument =
                 isParameter
                 ? Verify.verifyNotNull((String)context.getBinding(search))
@@ -112,14 +112,14 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
 
         final boolean phraseQueryNeeded = LuceneAutoCompleteHelpers.isPhraseSearch(searchArgument);
         final String searchKey = LuceneAutoCompleteHelpers.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
-        final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+        final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, recordMetaData);
 
         // The analyzer used to construct the Lucene query should be the FULL_TEXT-index one in order to match how the text was indexed
         final var analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance()
                         .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldDerivationMap);
 
-        final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(index, recordMetaData);
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
         final QueryParser parser = parserFactory.createMultiFieldQueryParser(fields.toArray(new String[0]),
                 analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);

@@ -407,7 +407,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan, planMatcher);
 
         final var compatibleTypeEvolutionPredicate = CompatibleTypeEvolutionPredicate.fromPlan(plannedPlan);
-        final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
+        final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty(), recordStore.getRecordMetaData()));
         Assertions.assertTrue(isCompatible);
     }
 
@@ -442,7 +442,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final DatabaseObjectDependenciesPredicate predicate =
                 DatabaseObjectDependenciesPredicate.fromPlan(recordStore.getRecordMetaData(), plannedPlan);
-        Assertions.assertTrue(Objects.requireNonNull(predicate.eval(recordStore, EvaluationContext.empty())));
+        Assertions.assertTrue(Objects.requireNonNull(predicate.eval(recordStore, EvaluationContext.empty(), recordStore.getRecordMetaData())));
 
         final var usedIndexes = predicate.getUsedIndexes();
         Assertions.assertTrue(usedIndexes.contains(
@@ -518,7 +518,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
         final var compatibleTypeEvolutionPredicate = new CompatibleTypeEvolutionPredicate(fieldAccesses);
 
-        final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty()));
+        final boolean isCompatible = Objects.requireNonNull(compatibleTypeEvolutionPredicate.eval(recordStore, EvaluationContext.empty(), recordStore.getRecordMetaData()));
         Assertions.assertTrue(isCompatible);
 
         //

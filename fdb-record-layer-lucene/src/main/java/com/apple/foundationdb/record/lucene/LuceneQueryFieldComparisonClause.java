@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.google.common.collect.ImmutableList;
@@ -230,7 +230,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         }
 
         @Override
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
             Query allValues = new TermRangeQuery(field, null, null, true, true);
             if (comparison.getType() == Comparisons.Type.NOT_NULL) {
                 return toBoundQuery(allValues);
@@ -249,8 +249,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-            Object comparand = comparison.getComparand(store, context);
+        public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
+            Object comparand = comparison.getComparand(context, recordMetaData);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
@@ -277,7 +277,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
                 case TEXT_CONTAINS_PHRASE:
                     // PhraseQuery will require tokenizing, so may as well just use parser.
                     try {
-                        final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+                        final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, recordMetaData);
                         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
                         final QueryParser parser = new QueryParser(field, analyzerSelector.provideQueryAnalyzer((String) comparand).getAnalyzer());
                         return toBoundQuery(parser.parse("\"" + comparand + "\""));
@@ -332,8 +332,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-            Object comparand = comparison.getComparand(store, context);
+        public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
+            Object comparand = comparison.getComparand(context, recordMetaData);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
@@ -380,8 +380,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-            Object comparand = comparison.getComparand(store, context);
+        public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
+            Object comparand = comparison.getComparand(context, recordMetaData);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }
@@ -452,8 +452,8 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
-            Object comparand = comparison.getComparand(store, context);
+        public BoundQuery bind(@Nonnull Index index, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
+            Object comparand = comparison.getComparand(context, recordMetaData);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
             }

@@ -27,13 +27,13 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PBinaryRelOpValue;
 import com.apple.foundationdb.record.planprotos.PBinaryRelOpValue.PBinaryPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PRelOpValue;
 import com.apple.foundationdb.record.planprotos.PUnaryRelOpValue;
 import com.apple.foundationdb.record.planprotos.PUnaryRelOpValue.PUnaryPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -844,10 +844,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
             final var evaluatedChildrenIterator =
                     Streams.stream(getChildren())
-                            .map(child -> child.eval(store, context))
+                            .map(child -> child.eval(recordMetaData, context))
                             .iterator();
 
             return operator.eval(evaluatedChildrenIterator.next(), evaluatedChildrenIterator.next());
@@ -954,10 +954,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
             final var evaluatedChildrenIterator =
                     Streams.stream(getChildren())
-                            .map(child -> child.eval(store, context))
+                            .map(child -> child.eval(recordMetaData, context))
                             .iterator();
 
             return operator.eval(evaluatedChildrenIterator.next());

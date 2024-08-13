@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
@@ -348,8 +349,8 @@ public class QueryKeyExpression {
 
         @Nonnull
         @Override
-        public Object getComparand(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context) {
-            return conversion.apply(super.getComparand(store, context));
+        public Object getComparand(@Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
+            return conversion.apply(super.getComparand(context, recordMetaData));
         }
 
         @Nullable

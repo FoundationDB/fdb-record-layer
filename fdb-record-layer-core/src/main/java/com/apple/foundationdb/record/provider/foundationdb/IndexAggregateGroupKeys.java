@@ -104,7 +104,7 @@ public abstract class IndexAggregateGroupKeys {
             if (comparisons.isEmpty()) {
                 return Key.Evaluated.EMPTY;
             } else {
-                return Key.Evaluated.concatenate(comparisons.stream().map(c -> c.getComparand(store, context)).collect(Collectors.toList()));
+                return Key.Evaluated.concatenate(comparisons.stream().map(c -> c.getComparand(context, store.getRecordMetaData())).collect(Collectors.toList()));
             }
         }
 

@@ -98,7 +98,7 @@ public class InComparandSource extends InSource {
     @Override
     @SuppressWarnings("unchecked")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
-        return (List<Object>)comparison.getComparand(null, context);
+        return (List<Object>)comparison.getComparand(context, null);
     }
 
     @Nonnull

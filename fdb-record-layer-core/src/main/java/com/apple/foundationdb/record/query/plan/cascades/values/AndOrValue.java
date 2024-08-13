@@ -28,10 +28,10 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PAndOrValue;
 import com.apple.foundationdb.record.planprotos.PAndOrValue.POperator;
 import com.apple.foundationdb.record.planprotos.PValue;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -173,16 +173,15 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
-        final Object leftResult = leftChild.eval(store, context);
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        final Object leftResult = leftChild.eval(recordMetaData, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(leftResult)) {
             return false;
         }
         if (operator == Operator.OR && Boolean.TRUE.equals(leftResult)) {
             return true;
         }
-        final Object rightResult = rightChild.eval(store, context);
+        final Object rightResult = rightChild.eval(recordMetaData, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(rightResult)) {
             return false;
         }

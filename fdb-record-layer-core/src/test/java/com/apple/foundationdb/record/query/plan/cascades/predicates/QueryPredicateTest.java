@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -69,7 +70,7 @@ public class QueryPredicateTest {
     }
 
     private Boolean evaluate(@Nonnull QueryPredicate predicate, @Nonnull Bindings bindings) {
-        return predicate.eval(null, EvaluationContext.forBindings(bindings));
+        return predicate.eval(null, EvaluationContext.forBindings(bindings), null);
     }
 
     private QueryPredicate and(@Nonnull QueryPredicate... predicates) {
@@ -120,7 +121,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate TRUE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
             return Boolean.TRUE;
         }
 
@@ -140,7 +141,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate FALSE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
             return Boolean.FALSE;
         }
 
@@ -160,7 +161,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate NULL = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final RecordMetaData recordMetaData) {
             return null;
         }
 

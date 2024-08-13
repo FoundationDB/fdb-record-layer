@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
@@ -247,15 +246,14 @@ public class LuceneIndexExpressions {
 
     /**
      * Constructs a point-config map for a given {@link Index} fields.
-     * @param store The record store, used to retrieve metadata.
      * @param index The index.
+     * @param recordMetaData
      * @return a mapping between an index field name and its {@link PointsConfig}.
      */
     @Nonnull
-    public static Map<String, PointsConfig> constructPointConfigMap(@Nonnull final FDBRecordStoreBase<?> store,
-                                                                    @Nonnull Index index) {
+    public static Map<String, PointsConfig> constructPointConfigMap(@Nonnull Index index, final RecordMetaData recordMetaData) {
         final Map<String, PointsConfig> result = new HashMap<>();
-        for (final RecordType type : store.getRecordMetaData().recordTypesForIndex(index)) {
+        for (final RecordType type : recordMetaData.recordTypesForIndex(index)) {
             LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), type.getDescriptor()).forEach((key, value) -> {
                 final PointsConfig valueConfig = value.getPointsConfig();
                 if (valueConfig != null) {

@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue;
 import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue.PPhysicalOperator;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
@@ -90,8 +90,8 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return operator.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
+    public <M extends Message> Object eval(final RecordMetaData recordMetaData, @Nonnull final EvaluationContext context) {
+        return operator.eval(children.stream().map(c -> c.eval(recordMetaData, context)).collect(Collectors.toList()));
     }
 
     @Nonnull
