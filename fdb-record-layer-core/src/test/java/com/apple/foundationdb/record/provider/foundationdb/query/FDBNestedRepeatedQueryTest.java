@@ -1360,7 +1360,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             final Quantifier outerQun = outerRecQun();
             final Quantifier entryQun = explodeEntryQun(outerQun, "key", "int_value");
             final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryQun);
-            final Quantifier groupBy = groupAggregateByKey(selectWhere, new IndexOnlyAggregateValue.MaxEverLongFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryQun.getAlias().getId(), "int_value")));
+            final Quantifier groupBy = groupAggregateByKey(selectWhere, new IndexOnlyAggregateValue.MaxEverFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryQun.getAlias().getId(), "int_value")));
             return unsorted(selectHaving(groupBy));
         });
     }
@@ -1424,7 +1424,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             final Quantifier entryKeyQun = explodeEntryQun(outerQun, "key");
             final Quantifier entryValueQun = explodeEntryQun(outerQun, "int_value");
             final Quantifier selectWhere = selectWhereGroupByKey(outerQun, entryKeyQun, entryValueQun);
-            final Quantifier groupBy = groupAggregateByKey(selectWhere, new IndexOnlyAggregateValue.MaxEverLongFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryValueQun.getAlias().getId(), "int_value")));
+            final Quantifier groupBy = groupAggregateByKey(selectWhere, new IndexOnlyAggregateValue.MaxEverFn(), FieldValue.ofFieldNames(selectWhere.getFlowedObjectValue(), List.of(entryValueQun.getAlias().getId(), "int_value")));
             return unsorted(selectHaving(groupBy));
         });
     }
