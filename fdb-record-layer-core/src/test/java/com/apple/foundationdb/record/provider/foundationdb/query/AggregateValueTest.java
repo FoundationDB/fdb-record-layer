@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -104,14 +105,15 @@ class AggregateValueTest {
 
     @Test
     void testBitMap() {
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(new Object[]{0L, 1L, 2L, 0L}), Arrays.asList(0L, 1L, 2L)); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L)); // 111
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(longs), Arrays.asList(longs)); // 1111110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(longsWithNulls), List.of(1L, 2L, 4L, 5L, 6L)); // 1110110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), byteArrayForBitMap(longsOnlyNull), null);
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), byteArrayForBitMap(ints), Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L)); // 1111110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), byteArrayForBitMap(intsWithNulls), Arrays.asList(1L, 2L, 4L, 5L, 6L)); // 1110110
-        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), byteArrayForBitMap(intsOnlyNull), null);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L}), Arrays.asList(0L, 1L, 2L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), bitsetForBitMap(new Object[]{0L, 1L, 2L, 0L, 64L, 65L, 66L, 10000L, 10001L, 10100L}), Arrays.asList(0L, 1L, 2L, 64L, 65L, 66L, 10000L, 10001L, 10100L)); // 111
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), bitsetForBitMap(longs), Arrays.asList(longs)); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), bitsetForBitMap(longsWithNulls), List.of(1L, 2L, 4L, 5L, 6L)); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_LL, ofScalar(1)), bitsetForBitMap(longsOnlyNull), null);
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), bitsetForBitMap(ints), Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L)); // 1111110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), bitsetForBitMap(intsWithNulls), Arrays.asList(1L, 2L, 4L, 5L, 6L)); // 1110110
+        accumulateAndAssertByteArray(new NumericAggregationValue.BitMap(PhysicalOperator.BITMAP_II, ofScalar(1)), bitsetForBitMap(intsOnlyNull), null);
     }
 
     @Test
@@ -211,6 +213,23 @@ class AggregateValueTest {
                     s1[Math.toIntExact(divRes)] = (byte)(1 << modRes);
                     return s1;
                 })
+                .toArray();
+    }
+
+    private Object[] bitsetForBitMap(Object[] objects) {
+        return Arrays.stream(objects)
+                .map(object -> {
+                    if (object == null) {
+                        return null;
+                    }
+                    BitSet result = new BitSet();
+                    if (object instanceof Integer) {
+                        result.set((int)object);
+                    } else {
+                        result.set(((Long)object).intValue());
+                    }
+                    return result;
+                }) // left for the sum, right for the count
                 .toArray();
     }
 

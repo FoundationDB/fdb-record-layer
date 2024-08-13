@@ -54,10 +54,16 @@ class ArithmeticValueTest {
     private static final LiteralValue<Integer> INT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1);
     private static final LiteralValue<Integer> INT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2);
     private static final LiteralValue<Integer> INT_5 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 5);
+    private static final LiteralValue<Integer> INT_minus_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), -1);
+    private static final LiteralValue<Integer> INT_10000 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 10000);
 
     private static final LiteralValue<Integer> INT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), null);
     private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
     private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
+    private static final LiteralValue<Long> LONG_minus_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), -1L);
+    private static final LiteralValue<Long> LONG_10000 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 10000L);
+
+
     private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
     private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
     private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
@@ -73,19 +79,34 @@ class ArithmeticValueTest {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
             return Stream.of(
-                    Arguments.of(List.of(INT_5, INT_2), new ArithmeticValue.BitBucketFn(), 4, false),
-
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.AddFn(), 2, false),
                     Arguments.of(List.of(INT_1, INT_1), new ArithmeticValue.SubFn(), 0, false),
                     Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.MulFn(), 4, false),
                     Arguments.of(List.of(INT_2, INT_2), new ArithmeticValue.DivFn(), 1, false),
                     Arguments.of(List.of(INT_2, INT_1), new ArithmeticValue.ModFn(), 0, false),
+                    Arguments.of(List.of(INT_5, INT_2), new ArithmeticValue.BitMapBucketOffsetFn(), 4, false),
+                    Arguments.of(List.of(INT_1, INT_2), new ArithmeticValue.BitMapBucketOffsetFn(), 0, false),
+                    Arguments.of(List.of(INT_1, INT_10000), new ArithmeticValue.BitMapBucketOffsetFn(), 0, false),
+                    Arguments.of(List.of(INT_10000, INT_10000), new ArithmeticValue.BitMapBucketOffsetFn(), 10000, false),
+                    Arguments.of(List.of(INT_minus_1, INT_10000), new ArithmeticValue.BitMapBucketOffsetFn(), -10000, false),
+                    Arguments.of(List.of(INT_5, INT_2), new ArithmeticValue.BitMapBucketNumberFn(), 2, false),
+                    Arguments.of(List.of(INT_1, INT_2), new ArithmeticValue.BitMapBucketNumberFn(), 0, false),
+                    Arguments.of(List.of(INT_1, INT_10000), new ArithmeticValue.BitMapBucketNumberFn(), 0, false),
+                    Arguments.of(List.of(INT_10000, INT_10000), new ArithmeticValue.BitMapBucketNumberFn(), 1, false),
+                    Arguments.of(List.of(INT_minus_1, INT_10000), new ArithmeticValue.BitMapBucketNumberFn(), -1, false),
+                    Arguments.of(List.of(INT_1, INT_2), new ArithmeticValue.BitMapBitPositionFn(), 1, false),
+                    Arguments.of(List.of(INT_1, INT_10000), new ArithmeticValue.BitMapBitPositionFn(), 1, false),
+                    Arguments.of(List.of(INT_10000, INT_10000), new ArithmeticValue.BitMapBitPositionFn(), 0, false),
+                    Arguments.of(List.of(INT_minus_1, INT_10000), new ArithmeticValue.BitMapBitPositionFn(), 9999, false),
 
                     Arguments.of(List.of(LONG_1, LONG_1), new ArithmeticValue.AddFn(), 2L, false),
                     Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.SubFn(), -1L, false),
                     Arguments.of(List.of(LONG_2, LONG_2), new ArithmeticValue.MulFn(), 4L, false),
                     Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.DivFn(), 0L, false),
                     Arguments.of(List.of(LONG_1, LONG_2), new ArithmeticValue.ModFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, LONG_10000), new ArithmeticValue.ModFn(), 1L, false),
+                    Arguments.of(List.of(LONG_10000, LONG_10000), new ArithmeticValue.ModFn(), 0L, false),
+                    Arguments.of(List.of(LONG_minus_1, LONG_10000), new ArithmeticValue.ModFn(), -1L, false),
 
                     Arguments.of(List.of(FLOAT_1, FLOAT_1), new ArithmeticValue.AddFn(), 2.0F, false),
                     Arguments.of(List.of(FLOAT_1, FLOAT_2), new ArithmeticValue.SubFn(), -1.0F, false),
@@ -114,12 +135,25 @@ class ArithmeticValueTest {
                     Arguments.of(List.of(LONG_1, INT_1), new ArithmeticValue.MulFn(), 1L, false),
                     Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.DivFn(), 0L, false),
                     Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.ModFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.BitMapBucketOffsetFn(), 0L, false),
+                    Arguments.of(List.of(LONG_1, INT_10000), new ArithmeticValue.BitMapBucketOffsetFn(), 0L, false),
+                    Arguments.of(List.of(LONG_10000, INT_10000), new ArithmeticValue.BitMapBucketOffsetFn(), 10000L, false),
+                    Arguments.of(List.of(LONG_minus_1, INT_10000), new ArithmeticValue.BitMapBucketOffsetFn(), -10000L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.BitMapBucketNumberFn(), 0L, false),
+                    Arguments.of(List.of(LONG_1, INT_10000), new ArithmeticValue.BitMapBucketNumberFn(), 0L, false),
+                    Arguments.of(List.of(LONG_10000, INT_10000), new ArithmeticValue.BitMapBucketNumberFn(), 1L, false),
+                    Arguments.of(List.of(LONG_minus_1, INT_10000), new ArithmeticValue.BitMapBucketNumberFn(), -1L, false),
+                    Arguments.of(List.of(LONG_1, INT_2), new ArithmeticValue.BitMapBitPositionFn(), 1L, false),
+                    Arguments.of(List.of(LONG_1, INT_10000), new ArithmeticValue.BitMapBitPositionFn(), 1L, false),
+                    Arguments.of(List.of(LONG_10000, INT_10000), new ArithmeticValue.BitMapBitPositionFn(), 0L, false),
+                    Arguments.of(List.of(LONG_minus_1, INT_10000), new ArithmeticValue.BitMapBitPositionFn(), 9999L, false),
 
                     Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.AddFn(), 2L, false),
                     Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.SubFn(), -1L, false),
                     Arguments.of(List.of(INT_1, LONG_1), new ArithmeticValue.MulFn(), 1L, false),
                     Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.DivFn(), 0L, false),
                     Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.ModFn(), 1L, false),
+
 
                     Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.AddFn(), 2.0F, false),
                     Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.SubFn(), -1.0F, false),

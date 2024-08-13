@@ -265,7 +265,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = (CascadesPlanner)planner;
 
         final var plan = cascadesPlanner.planGraph(
-                () -> constructBitMapGroupByPlan(bitBucketSize, true),
+                () -> constructBitMapGroupByPlan(bitBucketSize, false),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
@@ -281,6 +281,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 .and(groupings(ValueMatchers.anyValue())))));
 
         int expectedByteArrayLength = bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1;
+
         final Map<String, List<Long>> expectedResult = new HashMap<>();
         expectedResult.put("1", List.of(1L, 3L));
         expectedResult.put("2", List.of(1L));
@@ -304,7 +305,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
                     String strValue = (String) queriedMessage.getField(recDescriptor.findFieldByName("str_value_indexed"));
                     byte[] value = ((ByteString) queriedMessage.getField(recDescriptor.findFieldByName("bitmap_field"))).toByteArray();
-                    //assertEquals(expectedByteArrayLength, value.length);
+                    assertEquals(expectedByteArrayLength, value.length);
                     bitMapGroupByStrValue.put(strValue, AggregateValueTest.collectOnBits(value));
                 }).join();
             }
@@ -394,7 +395,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         {
             // 2.1. construct aggregate expression.
             final var num2 = FieldValue.ofFieldNames(qun.getFlowedObjectValue(), ImmutableList.of(scanAlias.getId(), "num_value_2"));
-            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitBucketFn().encapsulate(List.of(num2, bucketSizeValue));
+            final var bitBucketNumValue2FieldValue = (Value)new ArithmeticValue.BitMapBucketOffsetFn().encapsulate(List.of(num2, bucketSizeValue));
 
             final Value bitMapValue = (Value) new NumericAggregationValue.BitMapFn().encapsulate(List.of(new ArithmeticValue.ModFn().encapsulate(List.of(num2, bucketSizeValue))));
             final var aggCol = Column.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES), Optional.of("bitmap_field")), bitMapValue);
@@ -451,14 +452,15 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
-                    // metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
-                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
+                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
+                    // metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
                 }
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
                 if (addBitMapIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE, Map.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE));
+                            //, Map.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                 }
             };
             openSimpleRecordStore(context, hook);

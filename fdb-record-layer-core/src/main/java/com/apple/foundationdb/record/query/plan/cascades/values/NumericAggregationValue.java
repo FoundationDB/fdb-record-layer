@@ -59,6 +59,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -678,17 +679,28 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
         BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.BYTES,
                 s -> {
-                    int MAX_ENTRY_SIZE = 250_000;
+            BitSet sset = new BitSet();
+            sset.set(((Long)s).intValue());
+            return sset;
+            /*
+                    int DEFAULT_ENTRY_SIZE = 2500;
                     int pos = (int)s / 8;
-                    if (pos >= MAX_ENTRY_SIZE) {
+                    if (pos >= DEFAULT_ENTRY_SIZE) {
                         throw new RecordCoreArgumentException("entry size option is too large")
-                                .addLogInfo("entrySize", pos, "maxEntrySize", MAX_ENTRY_SIZE);
+                                .addLogInfo("entrySize", pos, "maxEntrySize", DEFAULT_ENTRY_SIZE);
                     }
-                    byte[] s1 = new byte[MAX_ENTRY_SIZE];
+                    byte[] s1 = new byte[DEFAULT_ENTRY_SIZE];
                     s1[pos] = (byte) (1 << ((int)s % 8));
                     return s1;
+
+             */
                 },
                 (s, v) -> {
+            int v2 = ((BitSet)v).nextSetBit(0);
+              BitSet sset =      (BitSet)s;
+              sset.set(v2);
+              return sset;
+            /*
                     byte[] s1 = (byte[])s;
                     byte[] v1 = (byte[])v;
                     Verify.verify(s1.length == v1.length);
@@ -697,17 +709,35 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                         result[i] = (byte) (s1[i] | v1[i]);
                     }
                     return result;
+
+             */
                 },
-                identity()),
+                s -> ((BitSet)s).toByteArray()),
+                //identity()),
         BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.BYTES,
                 s -> {
-                    int MAX_ENTRY_SIZE = 250_000;
+                    BitSet sset = new BitSet();
+                    sset.set((int)s);
+                    return sset;
+                    /*
+                    int DEFAULT_ENTRY_SIZE = 2500;
                     int pos = (int)s / 8;
-                    byte[] s1 = new byte[MAX_ENTRY_SIZE];
+                    if (pos >= DEFAULT_ENTRY_SIZE) {
+                        throw new RecordCoreArgumentException("entry size option is too large")
+                                .addLogInfo("entrySize", pos, "maxEntrySize", DEFAULT_ENTRY_SIZE);
+                    }
+                    byte[] s1 = new byte[DEFAULT_ENTRY_SIZE];
                     s1[pos] = (byte) (1 << ((int)s % 8));
                     return s1;
+
+                     */
                 },
                 (s, v) -> {
+                    int v2 = ((BitSet)v).nextSetBit(0);
+                    BitSet sset =      (BitSet)s;
+                    sset.set(v2);
+                    return sset;
+                    /*
                     byte[] s1 = (byte[])s;
                     byte[] v1 = (byte[])v;
                     Verify.verify(s1.length == v1.length);
@@ -716,8 +746,11 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                         result[i] = (byte) (s1[i] | v1[i]);
                     }
                     return result;
+
+                     */
                 },
-                identity());
+                        s -> ((BitSet)s).toByteArray());
+                //identity());
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
