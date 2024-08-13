@@ -76,6 +76,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setConfigLoader(old -> {
                     if (counter.incrementAndGet() > count) {
+                        // crash/abort after indexing "count" chunks of "chunkSize" records
                         throw new RecordCoreException("Intentionally crash during test");
                     }
                     return old;
@@ -635,6 +636,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .setConfigLoader(old -> {
                     if (counter.incrementAndGet() > 2) {
+                        // crash/abort after indexing two chunks of records
                         throw new RecordCoreException(testThrowMsg);
                     }
                     return old;
@@ -682,6 +684,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                     .setLimit(3)
                     .setConfigLoader(old -> {
                         if (counter.incrementAndGet() > 1) {
+                            // crash/abort after indexing one chunk of 3 records
                             throw new RecordCoreException(throwMsg);
                         }
                         return old;
