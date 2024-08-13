@@ -54,8 +54,6 @@ public class Values {
             final var recordConstructorValue = (RecordConstructorValue)recordValue;
             final List<Value> children = ImmutableList.copyOf(recordConstructorValue.getChildren());
             Verify.verify(Objects.requireNonNull(resultRecordType.getFields()).size() == children.size());
-            System.out.println("Values:deconstructRecord called:" + recordValue + " class:" + recordValue.getClass());
-            System.out.println("return:" + children);
             return children;
         }
 
@@ -64,8 +62,6 @@ public class Values {
         for (int i = 0; i < fields.size(); i++) {
             resultBuilder.add(FieldValue.ofOrdinalNumberAndFuseIfPossible(recordValue, i));
         }
-        System.out.println("Values:deconstructRecord called:" + recordValue + " class:" + recordValue.getClass());
-        System.out.println("return:" + resultBuilder.build());
         return resultBuilder.build();
     }
 

@@ -194,28 +194,6 @@ class AggregateValueTest {
                 .toArray();
     }
 
-    private Object[] byteArrayForBitMap(Object[] objects) {
-        return Arrays.stream(objects)
-                .map(object -> {
-                    if (object == null) {
-                        return null;
-                    }
-                    byte[] s1 = new byte[1024];
-                    long divRes = 0;
-                    long modRes = 0;
-                    if (object instanceof Long) {
-                        divRes = (long)object / 8;
-                        modRes = (long)object % 8;
-                    } else if (object instanceof Integer) {
-                        divRes = (int)object / 8;
-                        modRes = (int)object % 8;
-                    }
-                    s1[Math.toIntExact(divRes)] = (byte)(1 << modRes);
-                    return s1;
-                })
-                .toArray();
-    }
-
     private Object[] bitsetForBitMap(Object[] objects) {
         return Arrays.stream(objects)
                 .map(object -> {

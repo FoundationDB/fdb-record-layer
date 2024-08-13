@@ -348,8 +348,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testTupleInList() throws Exception {
         RecordMetaDataHook hook = metaData -> {
-            //final Index compoundIndex = new Index("compoundIndex", Key.Expressions.field("str_value_indexed"));
-            //metaData.addIndex("MySimpleRecord", compoundIndex);
+            final Index compoundIndex = new Index("compoundIndex", Key.Expressions.concat(Key.Expressions.field("str_value_indexed"), Key.Expressions.field("num_value_3_indexed")));
+            metaData.addIndex("MySimpleRecord", compoundIndex);
         };
 
         complexQuerySetup(hook);

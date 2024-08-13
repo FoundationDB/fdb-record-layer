@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
@@ -234,7 +233,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final List<? extends Typed> arguments) {
-            System.out.println("Bitmap:encapsulate arguments:" + arguments);
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitMap::new);
         }
 
@@ -679,78 +677,30 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
         BITMAP_LL(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.BYTES,
                 s -> {
-            BitSet sset = new BitSet();
-            sset.set(((Long)s).intValue());
-            return sset;
-            /*
-                    int DEFAULT_ENTRY_SIZE = 2500;
-                    int pos = (int)s / 8;
-                    if (pos >= DEFAULT_ENTRY_SIZE) {
-                        throw new RecordCoreArgumentException("entry size option is too large")
-                                .addLogInfo("entrySize", pos, "maxEntrySize", DEFAULT_ENTRY_SIZE);
-                    }
-                    byte[] s1 = new byte[DEFAULT_ENTRY_SIZE];
-                    s1[pos] = (byte) (1 << ((int)s % 8));
-                    return s1;
-
-             */
+                    BitSet sset = new BitSet();
+                    sset.set(((Long)s).intValue());
+                    return sset;
                 },
                 (s, v) -> {
-            int v2 = ((BitSet)v).nextSetBit(0);
-              BitSet sset =      (BitSet)s;
-              sset.set(v2);
-              return sset;
-            /*
-                    byte[] s1 = (byte[])s;
-                    byte[] v1 = (byte[])v;
-                    Verify.verify(s1.length == v1.length);
-                    byte[] result = new byte[s1.length];
-                    for (int i = 0; i < s1.length; i++) {
-                        result[i] = (byte) (s1[i] | v1[i]);
-                    }
-                    return result;
-
-             */
+                    int v2 = ((BitSet)v).nextSetBit(0);
+                    BitSet sset = (BitSet)s;
+                    sset.set(v2);
+                    return sset;
                 },
                 s -> ((BitSet)s).toByteArray()),
-                //identity()),
         BITMAP_II(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.BYTES,
                 s -> {
                     BitSet sset = new BitSet();
                     sset.set((int)s);
                     return sset;
-                    /*
-                    int DEFAULT_ENTRY_SIZE = 2500;
-                    int pos = (int)s / 8;
-                    if (pos >= DEFAULT_ENTRY_SIZE) {
-                        throw new RecordCoreArgumentException("entry size option is too large")
-                                .addLogInfo("entrySize", pos, "maxEntrySize", DEFAULT_ENTRY_SIZE);
-                    }
-                    byte[] s1 = new byte[DEFAULT_ENTRY_SIZE];
-                    s1[pos] = (byte) (1 << ((int)s % 8));
-                    return s1;
-
-                     */
                 },
                 (s, v) -> {
-                    int v2 = ((BitSet)v).nextSetBit(0);
-                    BitSet sset =      (BitSet)s;
-                    sset.set(v2);
-                    return sset;
-                    /*
-                    byte[] s1 = (byte[])s;
-                    byte[] v1 = (byte[])v;
-                    Verify.verify(s1.length == v1.length);
-                    byte[] result = new byte[s1.length];
-                    for (int i = 0; i < s1.length; i++) {
-                        result[i] = (byte) (s1[i] | v1[i]);
-                    }
-                    return result;
-
-                     */
+                        int v2 = ((BitSet)v).nextSetBit(0);
+                        BitSet sset = (BitSet)s;
+                        sset.set(v2);
+                        return sset;
                 },
-                        s -> ((BitSet)s).toByteArray());
-                //identity());
+                s -> ((BitSet)s).toByteArray());
 
         @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =

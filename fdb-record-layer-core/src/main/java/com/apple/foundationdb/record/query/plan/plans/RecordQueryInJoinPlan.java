@@ -166,6 +166,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Override
     public Set<Type> getDynamicTypes() {
         final var resultType = inSource.getResultType();
+
         if (!resultType.isAny()) {
             final var resultTypesBuilder = ImmutableSet.<Type>builder();
             resultTypesBuilder.addAll(RecordQueryPlanWithChild.super.getDynamicTypes());
