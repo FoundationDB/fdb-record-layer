@@ -1627,7 +1627,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     public void deleteAllRecords() {
         preloadCache.invalidateAll();
-        Transaction tr = ensureContextActive();
 
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
