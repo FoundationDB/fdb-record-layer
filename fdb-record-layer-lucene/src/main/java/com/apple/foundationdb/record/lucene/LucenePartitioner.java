@@ -1059,10 +1059,6 @@ public class LucenePartitioner {
                 savePartitionMetadata(groupingKey, builder);
             }
 
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(repartitionLogMessage("Repartitioned records", groupingKey, records.size(), partitionInfo));
-            }
-
             // value of the "destination" partition's `from` value
             final Tuple overflowPartitioningKey = toPartitionKey(records.get(0));
             LucenePartitionInfoProto.LucenePartitionInfo destinationPartition = removingOldest ?
@@ -1080,7 +1076,12 @@ public class LucenePartitioner {
             final int destinationPartitionId = destinationPartition.getId();
             return AsyncUtil.whileTrue(() -> indexMaintainer.update(null, recordIterator.next(), destinationPartitionId)
                     .thenApply(ignored -> recordIterator.hasNext()), state.context.getExecutor())
-                    .thenApply(ignored -> records.size());
+                    .thenApply(ignored -> {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(repartitionLogMessage("Repartitioned records", groupingKey, records.size(), partitionInfo));
+                        }
+                        return records.size();
+                    });
         });
     }
 

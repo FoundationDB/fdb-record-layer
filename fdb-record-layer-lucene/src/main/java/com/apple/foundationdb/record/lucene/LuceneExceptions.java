@@ -50,7 +50,7 @@ public class LuceneExceptions {
             if (cause instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
                 return (FDBExceptions.FDBStoreTransactionIsTooOldException)cause;
             } else {
-                // Create a new wrapper without a cause
+                // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause
                 RecordCoreException result = new FDBExceptions.FDBStoreTransactionIsTooOldException(message + ": " + ex.getMessage(), null)
                         .addLogInfo(additionalLogInfo);
                 result.addSuppressed(ex);
@@ -67,16 +67,22 @@ public class LuceneExceptions {
      * @param ex the exception thrown by FDB
      * @return the {@link IOException} that can be thrown through Lucene APIs
      */
-    public static IOException toIoException(Throwable ex) {
+    public static IOException toIoException(Throwable ex, Throwable suppressed) {
+        IOException result;
         if (ex instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
-            return new LuceneExceptions.LuceneTransactionTooOldException(ex);
+            result = new LuceneExceptions.LuceneTransactionTooOldException((FDBExceptions.FDBStoreTransactionIsTooOldException)ex);
         } else if (ex instanceof FDBDirectoryLockFactory.FDBDirectoryLockException) {
-            return new LockObtainFailedException(ex.getMessage(), ex);
+            result = new LockObtainFailedException(ex.getMessage(), ex);
         } else if (ex instanceof IOException) {
-            return (IOException)ex;
+            result = (IOException)ex;
         } else {
-            return new IOException(ex);
+            result = new IOException(ex);
         }
+
+        if (suppressed != null) {
+            result.addSuppressed(suppressed);
+        }
+        return result;
     }
 
     private LuceneExceptions() {
@@ -93,11 +99,11 @@ public class LuceneExceptions {
             super(message);
         }
 
-        public LuceneTransactionTooOldException(final Throwable cause) {
+        public LuceneTransactionTooOldException(final FDBExceptions.FDBStoreTransactionIsTooOldException cause) {
             super(cause);
         }
 
-        public LuceneTransactionTooOldException(final String message, final Throwable cause) {
+        public LuceneTransactionTooOldException(final String message, final FDBExceptions.FDBStoreTransactionIsTooOldException cause) {
             super(message, cause);
         }
     }
