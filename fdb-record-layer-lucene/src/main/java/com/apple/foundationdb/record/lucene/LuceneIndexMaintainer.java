@@ -408,6 +408,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
+        runner.setMaxAttempts(1); // retries (and throttling) are performed by the caller
         return rebalancePartitions(runner, storeBuilder, state, mergeControl)
                 .whenComplete((result, error) -> {
                     runner.close();
