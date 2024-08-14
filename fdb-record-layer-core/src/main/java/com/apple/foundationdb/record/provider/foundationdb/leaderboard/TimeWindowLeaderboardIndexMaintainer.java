@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
@@ -590,9 +591,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                         // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we
                         // may store something at the group root as well.
                         final byte[] indexKey = indexSubspace.pack(leaderboardGroupKey);
-                        tr.clear(indexKey, ByteArrayUtil.strinc(indexKey));
+                        state.context.clear(new Range(indexKey, ByteArrayUtil.strinc(indexKey)));
                         final byte[] ranksetKey = extraSubspace.pack(leaderboardGroupKey);
-                        tr.clear(ranksetKey, ByteArrayUtil.strinc(ranksetKey));
+                        state.context.clear(new Range(ranksetKey, ByteArrayUtil.strinc(ranksetKey)));
                     }
                 }
             }

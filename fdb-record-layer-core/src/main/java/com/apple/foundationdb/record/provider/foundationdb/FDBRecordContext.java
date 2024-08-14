@@ -1340,6 +1340,34 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         versionMutationCache.subMap(range.begin, range.end).clear();
     }
 
+    /**
+     * Clear a single key. This is an internal method that wraps {@link Transaction#clear(byte[])}.
+     * This method should generally be preferred to calling {@code clear} on the transaction directly as it
+     * handles clearing out associated version information with the key.
+     *
+     * @param key the key to clear out
+     */
+    @API(API.Status.INTERNAL)
+    public void clear(@Nonnull byte[] key) {
+        ensureActive().clear(key);
+        removeVersionMutation(key);
+        removeLocalVersion(key);
+    }
+
+    /**
+     * Clear a key range. This is an internal method that wraps {@link Transaction#clear(Range)}.
+     * This method should generally be preferred to calling {@code clear} on the transaction directly as it
+     * handles clearing out associated version information with the key.
+     *
+     * @param range the range to clear out
+     */
+    @API(API.Status.INTERNAL)
+    public void clear(@Nonnull Range range) {
+        ensureActive().clear(range);
+        removeVersionMutationRange(range);
+        removeLocalVersionRange(range);
+    }
+
     @Nullable
     public byte[] updateVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value,
                                         @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {

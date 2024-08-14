@@ -582,7 +582,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                 .build();
         return uniquenessViolationEntries.getCount().thenAccept(count -> {
             if (count == 1) {
-                state.transaction.clear(Range.startsWith(uniqueValueSubspace.pack()));
+                state.context.clear(Range.startsWith(uniqueValueSubspace.pack()));
             }
         });
     }
@@ -801,8 +801,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // store data at the prefix key itself.
         final byte[] key = state.indexSubspace.pack(prefix);
         Range indexRange = new Range(key, ByteArrayUtil.strinc(key));
-        tr.clear(indexRange);
-        state.context.removeVersionMutationRange(indexRange);
+        state.context.clear(indexRange);
         return AsyncUtil.DONE;
     }
 

@@ -187,7 +187,7 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
 
     public void wipeFDB() {
         database.run((context -> {
-            context.ensureActive().clear(new Range(new byte[] {(byte)0x00}, new byte[] {(byte)0xFF}));
+            context.clear(new Range(new byte[] {(byte)0x00}, new byte[] {(byte)0xFF}));
             return null;
         }));
         database.clearCaches();

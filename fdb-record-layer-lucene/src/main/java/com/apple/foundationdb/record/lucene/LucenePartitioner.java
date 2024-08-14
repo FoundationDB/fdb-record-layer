@@ -1036,7 +1036,7 @@ public class LucenePartitioner {
             LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
             if (repartitioningContext.emptyingPartition) {
                 Range partitionDataRange = Range.startsWith(state.indexSubspace.subspace(groupingKey.add(PARTITION_DATA_SUBSPACE).add(partitionInfo.getId())).pack());
-                state.context.ensureActive().clear(partitionDataRange);
+                state.context.clear(partitionDataRange);
             } else {
                 // shortcut delete docs from current partition
                 // (we do this, instead of calling LuceneIndexMaintainer.update() in order to avoid a chicken-and-egg
