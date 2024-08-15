@@ -335,7 +335,7 @@ public interface Compensation {
                                                            @Nonnull final Set<Quantifier> unmatchedQuantifiers,
                                                            @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
                                                            @Nonnull final Optional<Value> remainingComputationOptional) {
-        Verify.verify(!predicateCompensationMap.isEmpty() || remainingComputationOptional.isPresent());
+        Verify.verify(!predicateCompensationMap.isEmpty() || !unmatchedQuantifiers.isEmpty() || remainingComputationOptional.isPresent());
         return new ForMatch(isImpossible, childCompensation, predicateCompensationMap, matchedQuantifiers, unmatchedQuantifiers, compensatedAliases, remainingComputationOptional);
     }
 

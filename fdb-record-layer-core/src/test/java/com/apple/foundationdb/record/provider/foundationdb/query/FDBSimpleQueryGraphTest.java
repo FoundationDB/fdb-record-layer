@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -58,11 +59,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -70,7 +73,9 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -88,6 +93,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.firstOrDefaultPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.flatMapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
@@ -101,9 +108,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -281,6 +290,70 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan()
                                         .where(scanComparisons(range("([1],>")))))
                         .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("name"), fieldValueWithFieldNames("rest_no"))))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest
+    @BooleanSource
+    void testSimpleExistentialPredicate(boolean inComparison) throws Exception {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        CascadesPlanner cascadesPlanner = setUpWithNullableArray();
+        final var tagValueParam = "tag";
+        final var plan = planGraph(
+                () -> {
+                    // Equivalent to something like:
+                    //   SELECT R.name FROM RestaurantRecord AS R WHERE EXISTS (SELECT 1 FROM R.tags WHERE tag.value = $tag)
+                    // Or, for the IN case
+                    //   SELECT R.name FROM RestaurantRecord AS R WHERE EXISTS (SELECT 1 FROM R.tags WHERE tag.value IN $tag)
+
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    final var explodeTagsQun = Quantifier.forEach(Reference.of(new ExplodeExpression(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "tags"))));
+                    final var existentialQun = Quantifier.existential(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(explodeTagsQun)
+                            .addResultValue(LiteralValue.ofScalar(1))
+                            .addPredicate(new ValuePredicate(FieldValue.ofFieldName(explodeTagsQun.getFlowedObjectValue(), "value"),
+                                    new Comparisons.ParameterComparison(inComparison ? Comparisons.Type.IN : Comparisons.Type.EQUALS, tagValueParam)))
+                            .build()
+                            .buildSelect()));
+
+                    qun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                            .addQuantifier(qun)
+                            .addQuantifier(existentialQun)
+                            .addPredicate(new ExistsPredicate(existentialQun.getAlias()))
+                            .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "name"))
+                            .build()
+                            .buildSelect()));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        if (inComparison) {
+            // IN-comparison is done via a complete scan followed by executing a full scan and then compensating
+            //   flatMap(Scan(<,>) | [RestaurantRecord], map(firstOrDefault(flatMap(explode([$tag]), explode([$q2.tags]) | $q4.value EQUALS $q73) || null) | $q6 NOT_NULL[(1 as _0)]))
+            assertMatchesExactly(plan,
+                    flatMapPlan(
+                            typeFilterPlan(scanPlan().where(scanComparisons(unbounded())))
+                                    .where(recordTypes(containsAll(ImmutableSet.of("RestaurantRecord")))),
+                            mapPlan(
+                                    predicatesFilterPlan(firstOrDefaultPlan(
+                                            flatMapPlan(explodePlan(), predicatesFilterPlan(explodePlan()))
+                                    )).where(predicates(valuePredicate(anyValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))))
+                            )
+                    )
+            );
+            assertEquals(-942025470, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1159752603, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        } else {
+            // Simple existential query with equality predicate done via a simple index scan:
+            //   map(Index(tag [EQUALS $tag])[($q2.name as name)])
+            assertMatchesExactly(plan,
+                    mapPlan(indexPlan()
+                            .where(indexName("tag"))
+                            .and(scanComparisons(range("[EQUALS $" + tagValueParam + "]")))
+                    ));
+            assertEquals(-1168279277, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-1651488980, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
