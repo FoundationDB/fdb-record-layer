@@ -21,8 +21,8 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
-* **Bug fix** Lucene merges: false no merges found [(Issue #2864)](https://github.com/FoundationDB/fdb-record-layer/issues/2864)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -41,6 +41,13 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.532.0
+
+* **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)
+* **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
+* **Bug fix** Lucene merges: false no merges found [(Issue #2864)](https://github.com/FoundationDB/fdb-record-layer/issues/2864)
+* **Feature** Deprecate special IndexingByRecords functions [(Issue #2259)](https://github.com/FoundationDB/fdb-record-layer/issues/2259) 
 
 ### 3.4.531.0
 

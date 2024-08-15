@@ -430,6 +430,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         // This only makes sense at 'scan by records' mode.
         return getIndexerByRecordsOrThrow().buildRange(store, start, end);
@@ -454,6 +455,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will be ready when the build has completed
      */
     @Nonnull
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         // This only makes sense at 'scan by records' mode.
         return getIndexerByRecordsOrThrow().buildRange(start, end);
@@ -489,6 +491,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @throws RecordBuiltRangeException if the given range contains keys already processed by the index build
      */
     @Nonnull
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
                                                               @Nullable Key.Evaluated start,
                                                               @Nullable Key.Evaluated end) {
@@ -497,6 +500,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @VisibleForTesting
     @Nonnull
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
         return getIndexerByRecordsOrThrow().buildUnbuiltRange(start, end);
     }
@@ -567,7 +571,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will contain the range of records in the interior of the record store
      */
     @Nonnull
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store) {
         // endpoints only make sense in 'scan by records' mode.
         return getIndexerByRecordsOrThrow().buildEndpoints(store, null);
@@ -582,7 +586,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will contain the range of records in the interior of the record store
      */
     @Nonnull
-    @Deprecated
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     public CompletableFuture<TupleRange> buildEndpoints() {
         return getIndexerByRecordsOrThrow().buildEndpoints();
     }
@@ -715,6 +719,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @VisibleForTesting
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     protected void buildIndexSingleTarget() {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsyncSingleTarget());
     }
@@ -730,6 +735,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
+    @Deprecated(since = "3.3.443.0", forRemoval = true)
     public List<Pair<Tuple, Tuple>> splitIndexBuildRange(int minSplit, int maxSplit) {
         return getIndexerByRecordsOrThrow().splitIndexBuildRange(minSplit, maxSplit);
     }
