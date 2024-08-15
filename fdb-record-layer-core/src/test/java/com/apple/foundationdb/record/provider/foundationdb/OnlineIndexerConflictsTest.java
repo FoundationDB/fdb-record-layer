@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -43,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
 
     @Test
-    public void testAddRecordToRangeWhileIndexedIdempotent() {
+    void testAddRecordToRangeWhileIndexedIdempotent() {
 
         List<TestRecords1Proto.MySimpleRecord> records =
                 LongStream.range(0, 20).mapToObj(val -> TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
@@ -75,7 +74,7 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
                                      .setRecordStore(recordStore)
                                      .setIndex("newIndex")
                                      .build()) {
-                    indexer.buildRange(recordStore, null, null).join();
+                    indexer.rebuildIndex(recordStore);
                     try (FDBRecordContext context2 = openContext()) {
                         recordStore.saveRecord(records.get(record_i));
                         // This record might be added in the indexer's range, but the transaction still commits because it doesn't
@@ -130,7 +129,7 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
                                      .setRecordStore(recordStore)
                                      .setIndex("newIndex")
                                      .build()) {
-                    indexer.buildRange(recordStore, null, null).join();
+                    indexer.rebuildIndex(recordStore);
                     try (FDBRecordContext context2 = openContext()) {
                         recordStore.saveRecord(rec);
                         // This record's type is different than the indexer's, so both commits should succeed
@@ -148,7 +147,7 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testModifyRecordInRangeWhileIndexedIdempotentFailure() {
+    void testModifyRecordInRangeWhileIndexedIdempotentFailure() {
 
         List<TestRecords1Proto.MySimpleRecord> records =
                 LongStream.range(0, 20).mapToObj(val -> TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
@@ -171,16 +170,14 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
         }
 
         int[] inserts = {10, 4, 16};
-        for (int i = 0; i < inserts.length; i++) {
-            int record_i = inserts[i];
-
+        for (int record_i : inserts) {
             try (FDBRecordContext context1 = openContext()) {
                 try (OnlineIndexer indexer =
                              OnlineIndexer.newBuilder()
                                      .setRecordStore(recordStore)
                                      .setIndex("newIndex")
                                      .build()) {
-                    indexer.buildRange(recordStore, null, null).join();
+                    indexer.rebuildIndex(recordStore);
                     try (FDBRecordContext context2 = openContext()) {
                         recordStore.saveRecord(records.get(record_i));
                         context2.commit();
@@ -198,7 +195,7 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
 
     @Test
     @SuppressWarnings("deprecation")
-    public void testAddRecordOutsideRangeWhileIndexedIdempotent() {
+    void testAddRecordOutsideRangeWhileIndexedIdempotent() {
 
         List<TestRecords1Proto.MySimpleRecord> records =
                 LongStream.range(0, 20).mapToObj(val -> TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
@@ -221,19 +218,14 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
         }
 
         int[] inserts = {2, 1, 18, 19};
-        for (int i = 0; i < inserts.length; i++) {
-            int record_i = inserts[i];
-
+        for (int record_i : inserts) {
             try (FDBRecordContext context1 = openContext()) {
                 try (OnlineIndexer indexer =
                              OnlineIndexer.newBuilder()
                                      .setRecordStore(recordStore)
                                      .setIndex("newIndex")
                                      .build()) {
-                    indexer.buildEndpoints(recordStore).thenApply(tupleRange -> {
-                        return indexer.buildRange(recordStore, Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh()));
-                    }).join();
-
+                    indexer.rebuildIndex(recordStore);
                     try (FDBRecordContext context2 = openContext()) {
                         recordStore.saveRecord(records.get(record_i));
                         // This record is added outside of the indexer's range
