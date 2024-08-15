@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
@@ -77,6 +76,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setConfigLoader(old -> {
                     if (counter.incrementAndGet() > count) {
+                        // crash/abort after indexing "count" chunks of "chunkSize" records
                         throw new RecordCoreException("Intentionally crash during test");
                     }
                     return old;
@@ -614,6 +614,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
+    @SuppressWarnings("removal")
     void testSingleTargetContinuation() {
         // Build a single target with the old module, crash halfway, then continue indexing as a single index in the Multi Target module
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -635,6 +636,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .setConfigLoader(old -> {
                     if (counter.incrementAndGet() > 2) {
+                        // crash/abort after indexing two chunks of records
                         throw new RecordCoreException(testThrowMsg);
                     }
                     return old;
@@ -675,10 +677,22 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             context.commit();
         }
 
+        final AtomicLong counter = new AtomicLong();
+        final String throwMsg = "Intentionally thrown during test";
         for (long i = 0; (i + 1) * 10 < numRecords; i ++) {
-            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0), timer).build()) {
-                // Build just a small segment of the index, using the old module
-                indexBuilder.buildUnbuiltRange(Key.Evaluated.scalar(i * 10 + 5), Key.Evaluated.scalar(i * 10 + 8)).join();
+            counter.set(0);
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0), timer)
+                    .setLimit(3)
+                    .setConfigLoader(old -> {
+                        if (counter.incrementAndGet() > 1) {
+                            // crash/abort after indexing one chunk of 3 records
+                            throw new RecordCoreException(throwMsg);
+                        }
+                        return old;
+                    })
+                    .build()) {
+                RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                assertTrue(ex.getMessage().contains(throwMsg));
             }
             assertEquals((i + 1) * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals((i + 1) * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
