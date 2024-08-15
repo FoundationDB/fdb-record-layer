@@ -265,7 +265,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         final var cascadesPlanner = (CascadesPlanner)planner;
 
         final var plan = cascadesPlanner.planGraph(
-                () -> constructBitMapGroupByPlan(bitBucketSize, false),
+                () -> constructBitMapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
@@ -453,7 +453,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
-                    // metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
+                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
                 }
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));

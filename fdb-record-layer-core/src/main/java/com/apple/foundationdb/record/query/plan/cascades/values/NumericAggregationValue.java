@@ -695,10 +695,10 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     return sset;
                 },
                 (s, v) -> {
-                        int v2 = ((BitSet)v).nextSetBit(0);
-                        BitSet sset = (BitSet)s;
-                        sset.set(v2);
-                        return sset;
+                    int v2 = ((BitSet)v).nextSetBit(0);
+                    BitSet sset = (BitSet)s;
+                    sset.set(v2);
+                    return sset;
                 },
                 s -> ((BitSet)s).toByteArray());
 
