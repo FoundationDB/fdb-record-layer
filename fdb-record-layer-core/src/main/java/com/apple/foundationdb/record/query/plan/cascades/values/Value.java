@@ -56,7 +56,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.A
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ComparisonCompensation;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ExtractFromIndexKeyValueRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationPerPartRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
@@ -612,16 +611,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      */
     @Nonnull
     default List<Value> simplifyOrderingValue(@Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        final var simplifiedOrderingValue =
-                Simplification.simplify(this, aliasMap, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules());
-
-        if (simplifiedOrderingValue instanceof RecordConstructorValue) {
-            return Streams.stream(simplifiedOrderingValue.getChildren())
-                    .map(partValue -> Simplification.simplify(partValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()))
-                    .collect(ImmutableList.toImmutableList());
-        } else {
-            return ImmutableList.of(Simplification.simplify(simplifiedOrderingValue, aliasMap, constantAliases, OrderingValueSimplificationPerPartRuleSet.ofOrderingSimplificationPerPartRules()));
-        }
+        // TODO this is just this way to make compilation
+        return ImmutableList.of(
+                Simplification.simplify(this, aliasMap, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules()));
     }
 
     @Nonnull
@@ -649,7 +641,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         return Optional.of(NonnullPair.of((FieldValue)matchedValue,
                 matchedValueCompensation.compensate(new IndexEntryObjectValue(Quantifier.current(), source,
-                        ordinalPath, matchedValue.getResultType()))));
+                        ordinalPath, getResultType()))));
     }
 
     @Nonnull

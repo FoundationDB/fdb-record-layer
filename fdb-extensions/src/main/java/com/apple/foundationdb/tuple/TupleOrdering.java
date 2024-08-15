@@ -44,17 +44,19 @@ public class TupleOrdering {
      * {@link #ASC_NULLS_FIRST} corresponds to the default {@code Tuple} packing and is included for completeness.
      */
     public enum Direction {
-        ASC_NULLS_FIRST(false, false),
-        ASC_NULLS_LAST(false, true),
-        DESC_NULLS_FIRST(true, true),
-        DESC_NULLS_LAST(true, false);
+        ASC_NULLS_FIRST(false, false, "↑"),
+        ASC_NULLS_LAST(false, true, "↗"),
+        DESC_NULLS_FIRST(true, true, "↙"),
+        DESC_NULLS_LAST(true, false, "↓");
 
         private final boolean inverted;
         private final boolean counterflowNulls;
+        private final String arrowIndicator;
 
-        Direction(boolean inverted, boolean counterflowNulls) {
+        Direction(boolean inverted, boolean counterflowNulls, String arrowIndicator) {
             this.inverted = inverted;
             this.counterflowNulls = counterflowNulls;
+            this.arrowIndicator = arrowIndicator;
         }
 
         /**
@@ -71,6 +73,14 @@ public class TupleOrdering {
          */
         public boolean isCounterflowNulls() {
             return counterflowNulls;
+        }
+
+        /**
+         * Returns a string that symbolizes the meaning of this enum constant.
+         * @return the arrow indicator
+         */
+        public String getArrowIndicator() {
+            return arrowIndicator;
         }
 
         /**

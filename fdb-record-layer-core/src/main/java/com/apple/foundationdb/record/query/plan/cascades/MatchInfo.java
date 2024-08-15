@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.google.common.base.Equivalence;
@@ -79,7 +79,7 @@ public class MatchInfo {
     private final PredicateMultiMap accumulatedPredicateMap;
 
     @Nonnull
-    private final List<MatchedOrderingPart> matchedOrderingParts;
+    private final List<LogicalOrderingPart> logicalOrderingParts;
 
     @Nonnull
     private final Optional<Value> remainingComputationValueOptional;
@@ -101,7 +101,7 @@ public class MatchInfo {
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMultiMap predicateMap,
                       @Nonnull final PredicateMultiMap accumulatedPredicateMap,
-                      @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
+                      @Nonnull final List<LogicalOrderingPart> logicalOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional,
                       @Nonnull final Optional<MaxMatchMap> maxMatchMapOptional,
                       @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
@@ -121,7 +121,7 @@ public class MatchInfo {
             return targetBuilder.build();
         });
 
-        this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
+        this.logicalOrderingParts = ImmutableList.copyOf(logicalOrderingParts);
         this.remainingComputationValueOptional = remainingComputationValueOptional;
         this.maxMatchMapOptional = maxMatchMapOptional;
         this.additionalPlanConstraint = additionalPlanConstraint;
@@ -173,8 +173,8 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public List<MatchedOrderingPart> getMatchedOrderingParts() {
-        return matchedOrderingParts;
+    public List<LogicalOrderingPart> getMatchedOrderingParts() {
+        return logicalOrderingParts;
     }
 
     @Nonnull
@@ -193,12 +193,12 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public MatchInfo withOrderingInfo(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
+    public MatchInfo withOrderingInfo(@Nonnull final List<LogicalOrderingPart> logicalOrderingParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
                 accumulatedPredicateMap,
-                matchedOrderingParts,
+                logicalOrderingParts,
                 remainingComputationValueOptional,
                 maxMatchMapOptional,
                 additionalPlanConstraint);
@@ -249,7 +249,7 @@ public class MatchInfo {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
         
-        final List<MatchedOrderingPart> orderingParts;
+        final List<LogicalOrderingPart> orderingParts;
         if (regularQuantifiers.size() == 1) {
             final var regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));

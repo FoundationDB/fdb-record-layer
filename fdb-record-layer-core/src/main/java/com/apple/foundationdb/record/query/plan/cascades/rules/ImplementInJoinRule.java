@@ -245,19 +245,19 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     inSource = new SortedInValuesSource(
                             bindingName,
                             (List<Object>)literalValue,
-                            requestedSortOrder.isReverse());
+                            requestedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descendings
                 } else {
                     return ImmutableList.of();
                 }
             } else if (explodeCollectionValue instanceof QuantifiedObjectValue) {
                 inSource = new SortedInParameterSource(bindingName,
                         ((QuantifiedObjectValue)explodeCollectionValue).getAlias().getId(),
-                        requestedSortOrder.isReverse());
+                        requestedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descendings
             } else if (explodeCollectionValue.isConstant()) {
                 inSource = new SortedInComparandSource(
                         bindingName,
                         new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue),
-                        requestedSortOrder.isReverse());
+                        requestedSortOrder.isAnyAscending()); // TODO needs to distinguish between different descendings
             } else {
                 return ImmutableList.of();
             }

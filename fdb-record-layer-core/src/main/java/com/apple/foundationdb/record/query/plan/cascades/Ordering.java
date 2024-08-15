@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOr
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
@@ -573,7 +572,7 @@ public class Ordering {
         for (final Value value : bindingMap.keySet()) {
             final boolean isFixed = areAllBindingsFixed(bindingMap.get(value));
             final var bindings = bindingMap.get(value);
-            SortOrder seenSortOrder = null;
+            ProvidedSortOrder seenSortOrder = null;
             for (final Binding binding : bindings) {
                 if (seenSortOrder != null) {
                     switch (binding.getSortOrder()) {
@@ -692,9 +691,13 @@ public class Ordering {
         return Iterables.getOnlyElement(bindings);
     }
 
-    public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+    public static boolean isSingularBinding(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
-        if (bindings.size() == 1) {
+        return bindings.size() == 1;
+    }
+
+    public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+        if (isSingularBinding(bindings)) {
             return Iterables.getOnlyElement(bindings).getSortOrder().isDirectional();
         }
         return false;
@@ -1091,7 +1094,7 @@ public class Ordering {
                                                @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
         for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
             final var bindings = valueBindingsEntry.getValue();
-            if (isSingularDirectionalBinding(bindings)) {
+            if (isSingularBinding(bindings)) {
                 Verify.verify(sortOrder(bindings) != ProvidedSortOrder.CHOOSE);
             }
         }
@@ -1213,7 +1216,7 @@ public class Ordering {
 
         @Override
         public String toString() {
-            return sortOrder.getArrowIndicator() + (comparison == null ? "" : ":" + comparison);
+            return sortOrder.getTupleDirection() + (comparison == null ? "" : ":" + comparison);
         }
 
         @Nonnull

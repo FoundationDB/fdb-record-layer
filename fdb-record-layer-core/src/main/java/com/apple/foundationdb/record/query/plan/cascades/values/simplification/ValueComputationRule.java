@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
@@ -37,5 +39,26 @@ import javax.annotation.Nonnull;
 public abstract class ValueComputationRule<A, R, T extends Value> extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, T> {
     public ValueComputationRule(@Nonnull final BindingMatcher<T> matcher) {
         super(matcher);
+    }
+
+    @Nonnull
+    static <A, R, T extends Value> ValueComputationRule<A, R, T> fromSimplificationRule(@Nonnull final ValueSimplificationRule<T> simplificationRule,
+                                                                                        @Nonnull final Function<Value, R> defaultComputationResultFunction) {
+        return new ValueComputationRule<>(simplificationRule.getMatcher()) {
+            @Nonnull
+            @Override
+            public Optional<Class<?>> getRootOperator() {
+                return simplificationRule.getRootOperator();
+            }
+
+            @Override
+            public void onMatch(@Nonnull final ValueComputationRuleCall<A, R> call) {
+                final var simplificationRuleCall =
+                        call.toValueSimplificationRuleCall(simplificationRule);
+                simplificationRule.onMatch(simplificationRuleCall);
+                final var results = simplificationRuleCall.getResults();
+                results.forEach(resultValue -> call.yieldValue(resultValue, defaultComputationResultFunction.apply(resultValue)));
+            }
+        };
     }
 }

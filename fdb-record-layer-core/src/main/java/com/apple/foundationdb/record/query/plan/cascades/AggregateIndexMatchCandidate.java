@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -182,14 +182,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nonnull
     @Override
-    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo,
+    public List<LogicalOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo,
                                                                  @Nonnull final List<CorrelationIdentifier> sortParameterIds,
                                                                  final boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<MatchedOrderingPart>builder();
+        final var builder = ImmutableList.<LogicalOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
@@ -229,8 +229,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             if (normalizedValues.add(value)) {
                 builder.add(
-                        MatchedOrderingPart.of(parameterId, value, comparisonRange,
-                                MatchedSortOrder.ASCENDING));
+                        LogicalOrderingPart.of(parameterId, value, comparisonRange,
+                                LogicalSortOrder.ASCENDING));
             }
         }
 

@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
@@ -593,7 +593,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 orderingParts
                         .stream()
                         .filter(orderingPart -> orderingPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                        .map(MatchedOrderingPart::getValue)
+                        .map(LogicalOrderingPart::getValue)
                         .collect(ImmutableSet.toImmutableSet());
 
         final var orderingPartIterator = orderingParts.iterator();
@@ -619,10 +619,10 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     final var requestedSortOrder = requestedOrderingPart.getSortOrder();
                     if (requestedSortOrder != OrderingPart.RequestedSortOrder.ANY) {
                         final var matchedSortOrder = orderingPart.getSortOrder();
-
-                        // TODO: Will matchedSortOrder have counterflow nulls?
-
-                        if (matchedSortOrder.isReverse() == requestedSortOrder.isReverse()) {
+                        if (matchedSortOrder.isCounterflowNulls() != requestedSortOrder.isCounterflowNulls()) {
+                            return Optional.empty();
+                        }
+                        if (matchedSortOrder.isAnyDescending() == requestedSortOrder.isAnyDescending()) {
                             scanDirectionForPart = ScanDirection.FORWARD;
                         } else {
                             scanDirectionForPart = ScanDirection.REVERSE;
@@ -755,7 +755,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                 orderingPartsPair.getKey()
                                         .stream()
                                         .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                        .map(MatchedOrderingPart::getValue))
+                                        .map(LogicalOrderingPart::getValue))
                         .collect(ImmutableSet.toImmutableSet());
 
         final var intersectionOrdering = intersectOrderings(partitionOrderings);
@@ -821,7 +821,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         computed from
      */
     @Nonnull
-    private static List<NonnullPair<List<MatchedOrderingPart>, Boolean>> adjustMatchedOrderingParts(@Nonnull final List<Vectored<SingleMatchedAccess>> singleMatchedAccesses) {
+    private static List<NonnullPair<List<LogicalOrderingPart>, Boolean>> adjustMatchedOrderingParts(@Nonnull final List<Vectored<SingleMatchedAccess>> singleMatchedAccesses) {
         return singleMatchedAccesses
                 .stream()
                 .map(pair -> {
@@ -829,7 +829,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                     final var partialMatch = partialMatchWithCompensation.getPartialMatch();
                     final var boundParametersPrefixMap =
                             partialMatch.getBoundParameterPrefixMap();
-                    final List<MatchedOrderingPart> adjustedMatchOrderingParts =
+                    final List<LogicalOrderingPart> adjustedMatchOrderingParts =
                             partialMatch.getMatchInfo()
                                     .getMatchedOrderingParts()
                                     .stream()
@@ -850,7 +850,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @SuppressWarnings("java:S1066")
     @Nonnull
-    private static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<MatchedOrderingPart>, Boolean>> partitionOrderingPairs) {
+    private static Ordering.Intersection intersectOrderings(@Nonnull final List<NonnullPair<List<LogicalOrderingPart>, Boolean>> partitionOrderingPairs) {
         final var orderings =
                 partitionOrderingPairs.stream()
                         .map(orderingPartsPair -> {

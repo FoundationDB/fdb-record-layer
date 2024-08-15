@@ -72,4 +72,10 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     public void yieldValue(@Nonnull final Value value, @Nonnull final RESULT result) {
         super.yieldExpression(NonnullPair.of(value, result));
     }
+
+    @Nonnull
+    public ValueSimplificationRuleCall toValueSimplificationRuleCall(@Nonnull final AbstractRule<Value, ValueSimplificationRuleCall, Value, ? extends Value> rule) {
+        return new ValueSimplificationRuleCall(rule, getRoot(), getCurrent(), getBindings(), getEquivalenceMap(),
+                getConstantAliases());
+    }
 }

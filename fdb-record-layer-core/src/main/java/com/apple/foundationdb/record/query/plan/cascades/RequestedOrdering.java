@@ -182,7 +182,8 @@ public class RequestedOrdering {
                         .collect(ImmutableList.toImmutableList());
 
         final var pushedDownOrderingValues =
-                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(), aliasMap, constantAliases, Quantifier.current());
+                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(),
+                        aliasMap, constantAliases, Quantifier.current());
 
         final var translationMap = AliasMap.ofAliases(lowerBaseAlias, Quantifier.current());
 
