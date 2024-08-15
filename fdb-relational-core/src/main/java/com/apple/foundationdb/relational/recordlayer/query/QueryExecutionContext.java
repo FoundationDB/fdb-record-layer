@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.base.Suppliers;
@@ -190,7 +191,8 @@ public interface QueryExecutionContext {
             for (final OrderedLiteral nestedArrayLiteral : nestedArrayLiterals) {
                 final var currentElementType = nestedArrayLiteral.getType();
                 if (elementType != null) {
-                    Verify.verify(currentElementType.equals(elementType));
+                    Assert.thatUnchecked(currentElementType.equals(elementType), ErrorCode.DATATYPE_MISMATCH,
+                            "Elements of array literal are not of identical type!");
                 } else {
                     elementType = currentElementType;
                 }

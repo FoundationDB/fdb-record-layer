@@ -358,7 +358,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     public Value processPreparedStatementStructParameter(@Nonnull Struct param,
-                                                         Type.Record type,
+                                                         @Nullable Type.Record type,
                                                          @Nullable Integer unnamedParameterIndex,
                                                          @Nullable String parameterName,
                                                          int tokenIndex) {

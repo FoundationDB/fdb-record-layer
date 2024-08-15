@@ -167,7 +167,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Void visitChildren(RuleNode node) {
         if (literalNodes.containsKey(node.getClass())) {
             final var ruleContext = (ParserRuleContext) node;
-            processQueryLiteral(literalNodes.get(node.getClass()).apply(ruleContext), ruleContext.getStart().getTokenIndex());
+            processScalarLiteral(literalNodes.get(node.getClass()).apply(ruleContext), ruleContext.getStart().getTokenIndex());
             return null;
         }
         if (allowTokenAddition) {
@@ -348,7 +348,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             Assert.notNullUnchecked(continuation, ErrorCode.INVALID_CONTINUATION, "Illegal query with BEGIN continuation.");
             Assert.thatUnchecked(continuation.length != 0, ErrorCode.INVALID_CONTINUATION, "Illegal query with END continuation.");
             context.setContinuation(continuation);
-            processQueryLiteral(continuation, ctx.getStart().getTokenIndex());
+            processScalarLiteral(continuation, ctx.getStart().getTokenIndex());
         } else {
             final var continuation = visit(ctx.preparedStatementParameter());
             Assert.thatUnchecked(continuation instanceof byte[]);
@@ -492,7 +492,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             try (ResultSet rs = param.getResultSet()) {
                 int i = 0;
                 while (rs.next()) {
-                    processQueryLiteral(rs.getObject(2), i);
+                    processParameterValue(rs.getObject(2), unnamedParameterIndex, parameterName, i);
                     i++;
                 }
             }
@@ -508,14 +508,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             context.startStructLiteral();
             Object[] attributes = param.getAttributes();
             for (int i = 0; i < attributes.length; i++) {
-                final Object o = attributes[i];
-                if (o instanceof Array) {
-                    processArrayParameter((Array) o, unnamedParameterIndex, parameterName, i);
-                } else if (o instanceof Struct) {
-                    processStructParameter((Struct) o, unnamedParameterIndex, parameterName, i);
-                } else {
-                    processQueryLiteral(o, i);
-                }
+                processParameterValue(attributes[i], unnamedParameterIndex, parameterName, i);
             }
             final var resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
             context.finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
@@ -524,7 +517,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
     }
 
-    private void processQueryLiteral(@Nonnull final Object literal, final int tokenIndex) {
+    private void processParameterValue(@Nonnull final Object parameterValue,
+                                       @Nullable Integer unnamedParameterIndex,
+                                       @Nullable String parameterName,
+                                       final int tokenIndex) {
+        if (parameterValue instanceof Array) {
+            processArrayParameter((Array) parameterValue, unnamedParameterIndex, parameterName, tokenIndex);
+        } else if (parameterValue instanceof Struct) {
+            processStructParameter((Struct) parameterValue, unnamedParameterIndex, parameterName, tokenIndex);
+        } else {
+            processScalarLiteral(parameterValue, tokenIndex);
+        }
+    }
+
+    private void processScalarLiteral(@Nonnull final Object literal, final int tokenIndex) {
         processLiteral(literal, tokenIndex, null, null);
     }
 

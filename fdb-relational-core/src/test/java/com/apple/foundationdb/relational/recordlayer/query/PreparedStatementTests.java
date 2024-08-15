@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalArray;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -31,9 +33,9 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.AutoCloseableSoftAssertions;
 import org.junit.Assert;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
@@ -45,13 +47,16 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -508,6 +513,152 @@ public class PreparedStatementTests {
     }
 
     @Test
+    void prepareInListWithMixedTypes() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (5), (6), (7), (8)");
+            }
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no in ?")) {
+                final var array = ps.getConnection().createArrayOf("BIGINT", new Object[]{5, "hello", false});
+                ps.setArray(1, array);
+                RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
+                        .hasErrorCode(ErrorCode.DATATYPE_MISMATCH)
+                        .hasMessageContaining("could not determine type of array literal");
+            }
+        }
+    }
+
+    @Disabled("equals does work with structs") // TODO ([SQL] Equals comparison does not support tuples)
+    @Test
+    void prepareSelectWithStruct() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantReviewer(id, name, email) VALUES " +
+                        "(1, 'alpha', 'alpha@example.com'), " +
+                        "(2, 'beta', 'beta@example.com'), " +
+                        "(3, 'gamma', 'gamma@example.com') "
+                );
+            }
+
+            final var query = "SELECT id FROM RestaurantReviewer WHERE (name, email) = ?nameAndEmail";
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                var s = ps.getConnection().createStruct("NA", new Object[]{"alpha", "alpha@example.com"});
+                ps.setObject("nameAndEmail", s);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("ID", 1)
+                            .hasNoNextRow();
+                }
+            }
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                var s = ps.getConnection().createStruct("NA", new Object[]{"beta", "beta@example.com"});
+                ps.setObject("nameAndEmail", s);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("ID", 1)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                var s = ps.getConnection().createStruct("NA", new Object[]{"gamma", "gamma@example.com"});
+                ps.setObject("nameAndEmail", s);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("ID", 1)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                var s = ps.getConnection().createStruct("NA", new Object[]{"delta", "delta@example.com"});
+                ps.setObject("nameAndEmail", s);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+        }
+    }
+
+    @Test
+    void prepareSelectWithStructList() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantReviewer(id, name, email) VALUES " +
+                        "(1, 'alpha', 'alpha@example.com'), " +
+                        "(2, 'beta', 'beta@example.com'), " +
+                        "(3, 'gamma', 'gamma@example.com'), " +
+                        "(4, 'delta', 'delta@example.com'), " +
+                        "(5, 'epsilon', 'epsilon@example.com') "
+                );
+            }
+
+            final var query = "SELECT id FROM RestaurantReviewer WHERE (name, email) IN ?nameAndEmailList OPTIONS (LOG QUERY)";
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                var s1 = ps.getConnection().createStruct("NA", new Object[]{"alpha", "alpha@example.com"});
+                var s2 = ps.getConnection().createStruct("NA", new Object[]{"beta", "beta@example.com"});
+                var s3 = ps.getConnection().createStruct("NA", new Object[]{"gamma", "gamma@example.com"});
+                var arr = ps.getConnection().createArrayOf("STRUCT", new Object[]{s1, s2, s3});
+                ps.setArray("nameAndEmailList", arr);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    Set<Integer> ids = new HashSet<>();
+                    while (resultSet.next()) {
+                        ids.add(resultSet.getInt("id"));
+                    }
+                    Assertions.assertThat(ids)
+                            .containsExactlyInAnyOrder(1, 2, 3);
+                }
+            }
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                var s1 = ps.getConnection().createStruct("NA", new Object[]{"beta", "beta@example.com"});
+                var s2 = ps.getConnection().createStruct("NA", new Object[]{"delta", "delta@example.com"});
+                var arr = ps.getConnection().createArrayOf("STRUCT", new Object[]{s1, s2});
+                ps.setArray("nameAndEmailList", arr);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    Set<Integer> ids = new HashSet<>();
+                    while (resultSet.next()) {
+                        ids.add(resultSet.getInt("id"));
+                    }
+                    Assertions.assertThat(ids)
+                            .containsExactlyInAnyOrder(2, 4);
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                // Mix up names and emails so we get no results
+                var s1 = ps.getConnection().createStruct("NA", new Object[]{"delta", "alpha@example.com"});
+                var s2 = ps.getConnection().createStruct("NA", new Object[]{"gamma", "beta@example.com"});
+                var s3 = ps.getConnection().createStruct("NA", new Object[]{"epsilon", "gamma@example.com"});
+                var arr = ps.getConnection().createArrayOf("STRUCT", new Object[]{s1, s2, s3});
+                ps.setArray("nameAndEmailList", arr);
+
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+        }
+    }
+
+    @Test
     void prepareUpdateWithStruct() throws Exception {
         final var statsAttributes = new Object[]{3L, "c", "d"};
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
@@ -607,38 +758,76 @@ public class PreparedStatementTests {
         }
     }
 
-    @Disabled
-    // owing to: TODO (Array parameter in Relational does not work with nested types)
     @Test
     void prepareUpdateWithArrayOfStructs() throws Exception {
-        final var restaurantTagAttributes = new Object[][]{{"chinese", 343}, {"top-rated", 2356}, {"exotic", 10}};
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no, name) VALUES (1, 'mango & miso'), (2, 'basil & brawn'), (3, 'peach & pepper'), (4, 'smoky skillet'), (5, 'the tin pot')");
             }
             // "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
-            final var query = "UPDATE RestaurantComplexRecord SET customer = ?param WHERE rest_no = 1 RETURNING \"new\".customer";
+            final var query = "UPDATE RestaurantComplexRecord SET tags = ?param WHERE rest_no = 1 RETURNING \"new\".tags OPTIONS (LOG QUERY)";
+            final var restaurantTagAttributes = new Object[][]{{"chinese", 343}, {"top-rated", 2356}, {"exotic", 10}};
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
-                final var restaurantTags = ddl.getConnection().createArrayOf("STRUCT",
-                        Arrays.stream(restaurantTagAttributes)
-                                .map(o -> {
-                                    try {
-                                        return ddl.getConnection().createStruct("RESTAURANTTAG", o);
-                                    } catch (SQLException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                }).toArray());
-                ps.setArray("param", restaurantTags);
+                ps.setArray("param", createTagArray(ddl.getConnection(), restaurantTagAttributes));
                 //                final var expectedRestaurantTags = new EmbeddedRelationalArray(
                 //                        Arrays.stream(restaurantTagAttributes).map(ArrayRow::new).collect(Collectors.toList()),
                 //                        RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls));
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
-                            .hasNextRow().hasColumn("TAGS", EmbeddedRelationalArray.newBuilder().build())
+                            .hasNextRow();
+                    assertTags(resultSet, restaurantTagAttributes);
+                    ResultSetAssert.assertThat(resultSet)
                             .hasNoNextRow();
                 }
             }
+
+            final var newTagAttributes = new Object[][]{{"fusion", 42}, {"ace", 100}};
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement(query)) {
+                ps.setArray("param", createTagArray(ddl.getConnection(), newTagAttributes));
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow();
+                    assertTags(resultSet, newTagAttributes);
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
         }
+    }
+
+    private Array createTagArray(RelationalConnection connection, Object[][] restaurantTagAttributes) throws SQLException {
+        return connection.createArrayOf("STRUCT",
+                Arrays.stream(restaurantTagAttributes)
+                        .map(o -> {
+                            try {
+                                return connection.createStruct("RESTAURANTTAG", o);
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }).toArray());
+    }
+
+    private void assertTags(RelationalResultSet resultSet, Object[][] restaurantTagAttributes) throws SQLException {
+        RelationalArray array = resultSet.getArray("tags");
+        int i = 0;
+        try (RelationalResultSet arrResultSet = array.getResultSet()) {
+            while (arrResultSet.next()) {
+                Assertions.assertThat(arrResultSet.getInt("INDEX"))
+                        .isEqualTo(i + 1);
+                var struct = arrResultSet.getStruct("VALUE");
+                try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+                    softly.assertThat(struct.getString("TAG"))
+                            .isEqualTo(restaurantTagAttributes[i][0]);
+                    softly.assertThat(struct.getInt("WEIGHT"))
+                            .isEqualTo(restaurantTagAttributes[i][1]);
+                }
+                i++;
+            }
+        }
+        Assertions.assertThat(i)
+                .as("Tag count should match expected")
+                .isEqualTo(restaurantTagAttributes.length);
     }
 
     @Test
@@ -679,7 +868,7 @@ public class PreparedStatementTests {
                 final var structB = ddl.getConnection().createStruct("na", new Object[]{20L, "b", 100L, "c"});
                 ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{structA, structB}));
                 RelationalAssertions.assertThrowsSqlException(ps::executeQuery)
-                        .hasMessage("Elements of struct array literal are not of identical shape!")
+                        .hasMessage("Elements of array literal are not of identical type!")
                         .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
             }
         }
