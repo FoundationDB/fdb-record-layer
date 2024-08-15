@@ -500,7 +500,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private static FunctionKeyExpression bitBucketExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
-        return Key.Expressions.function("bit_bucket", concat(fieldExpression, Key.Expressions.value(bucketSize)));
+        return Key.Expressions.function("bitmap_bucket_offset", concat(fieldExpression, Key.Expressions.value(bucketSize)));
     }
 
     @Nonnull
