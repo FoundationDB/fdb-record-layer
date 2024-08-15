@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
@@ -775,6 +776,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
      *  Class to capture both minimum and maximum cardinality of an expression. Also contains some helpers to combine
      *  cardinality information.
      */
+    @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "False positive as this is not a singleton class")
     public static class Cardinalities {
         private static final Cardinalities unknownCardinalities = new Cardinalities(Cardinality.unknownCardinality(), Cardinality.unknownCardinality());
 

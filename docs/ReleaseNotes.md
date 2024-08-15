@@ -17,17 +17,17 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Log Repartitioned records after writing them [(Issue #2867)](https://github.com/FoundationDB/fdb-record-layer/issues/2867)
+* **Bug fix** Lucene merges: false no merges found [(Issue #2864)](https://github.com/FoundationDB/fdb-record-layer/issues/2864)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Deprecate special IndexingByRecords functions [(Issue #2259)](https://github.com/FoundationDB/fdb-record-layer/issues/2259) 
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,19 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.531.0
+
+* **Bug fix** LazyOpener throws more precise exceptions [(Issue #2852)](https://github.com/FoundationDB/fdb-record-layer/issues/2852)
+* **Bug fix** Fix flaky test - testMutualIndexingWeirdBoundaries [(Issue #2854)](https://github.com/FoundationDB/fdb-record-layer/issues/2854)
+
+### 3.4.530.0
+
+* **Bug fix** Unordered union implementation pre condition is too strict [(Issue #2856)](https://github.com/FoundationDB/fdb-record-layer/issues/2856)
+
+### 3.4.529.0
+
+* **Bug fix** Lucene exception management [(Issue #2850)](https://github.com/FoundationDB/fdb-record-layer/issues/2850)
 
 ### 3.4.528.0
 

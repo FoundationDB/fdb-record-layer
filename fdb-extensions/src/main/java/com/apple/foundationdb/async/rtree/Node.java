@@ -319,6 +319,11 @@ public interface Node {
      * when a node is written, mostly to avoid re-persisting all slots if not necessary.
      */
     interface ChangeSet {
+        /**
+         * Apply all mutations for the change set. These happen transactionally using the {@link Transaction}
+         * provided.
+         * @param transaction transaction to use when making all modifications
+         */
         void apply(@Nonnull Transaction transaction);
     }
 }

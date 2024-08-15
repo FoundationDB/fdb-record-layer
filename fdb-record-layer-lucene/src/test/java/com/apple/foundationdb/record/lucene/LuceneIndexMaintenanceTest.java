@@ -59,7 +59,6 @@ import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -120,14 +119,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 return Duration.ofSeconds(7L);
             }
         });
-    }
-
-    @AfterEach
-    void tearDown() throws InterruptedException {
-        // A fairly hacky attempt to solving: https://github.com/FoundationDB/fdb-record-layer/issues/2842
-        // The theory is that these tests put *a lot* of load on the system, and can overwhelm it if you are just
-        // pointing to a single-instance cluster. The hope here is that this will allow the system to recover.
-        Thread.sleep(1000);
     }
 
     static Stream<Arguments> configurationArguments() {
@@ -947,7 +938,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                    final int transactionCount,
                                    final Map<Tuple, Map<Tuple, Tuple>> ids,
                                    final RandomTextGenerator textGenerator,
-                                   AtomicInteger transactionCounter, final AtomicInteger documentCount) {
+                                   AtomicInteger transactionCounter,
+                                   final AtomicInteger documentCount) {
         final long start = Instant.now().toEpochMilli();
         int i = 0;
         while (i < transactionCount ||

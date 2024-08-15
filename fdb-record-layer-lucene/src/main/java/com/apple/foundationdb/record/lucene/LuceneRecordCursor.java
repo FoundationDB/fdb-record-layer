@@ -294,8 +294,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     // but this should be interpreted as there not being any data to read
                     nextResult = RecordCursorResult.exhausted();
                 } catch (IOException ioException) {
-                    throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
-                            .addLogInfo(LogMessageKeys.QUERY, query);
+                    throw LuceneExceptions.toRecordCoreException("Record Cursor failed", ioException, LogMessageKeys.QUERY, query);
                 }
                 return CompletableFuture.completedFuture(leftToSkip >= pageSize);
             }, executor);
@@ -311,8 +310,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                             nextResult = RecordCursorResult.exhausted();
                             return CompletableFuture.completedFuture(nextResult);
                         } catch (IOException ioException) {
-                            throw new RecordCoreException("Exception to lookup the auto complete suggestions", ioException)
-                                    .addLogInfo(LogMessageKeys.QUERY, query);
+                            throw LuceneExceptions.toRecordCoreException("Record Cursor failed", ioException, LogMessageKeys.QUERY, query);
                         }
                         return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
                     }, executor).thenCompose(Function.identity());

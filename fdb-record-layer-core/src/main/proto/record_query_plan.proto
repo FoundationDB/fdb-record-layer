@@ -210,8 +210,8 @@ message PValue {
     PExistsValue exists_value = 11;
     PFieldValue field_value = 12;
     PIndexedValue indexed_value = 13;
-    PMaxEverLongValue max_ever_long_value = 14;
-    PMinEverLongValue min_ever_long_value = 15;
+    PMaxEverValue max_ever_value = 14;
+    PMinEverValue min_ever_value = 15;
     PInOpValue in_op_value = 16;
     PLikeOperatorValue like_operator_value = 17;
     PLiteralValue literal_value = 18;
@@ -451,11 +451,11 @@ message PInOpValue {
   optional PValue in_array_value = 2;
 }
 
-message PMaxEverLongValue {
+message PMaxEverValue {
   optional PIndexOnlyAggregateValue super = 1;
 }
 
-message PMinEverLongValue {
+message PMinEverValue {
   optional PIndexOnlyAggregateValue super = 1;
 }
 

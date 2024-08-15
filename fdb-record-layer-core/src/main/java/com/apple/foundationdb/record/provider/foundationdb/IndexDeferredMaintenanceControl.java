@@ -35,6 +35,7 @@ public class IndexDeferredMaintenanceControl {
     private long mergesLimit = 0;
     private long mergesFound;
     private long mergesTried;
+    private long totalMerges;
     private long timeQuotaMillis;
     private long sizeQuotaBytes;
     private int repartitionDocumentCount = 0;
@@ -136,6 +137,24 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setMergesTried(final long mergesTried) {
         this.mergesTried = mergesTried;
+        this.totalMerges += mergesTried;
+    }
+
+    /**
+     * Adjust merge stats after a failure.
+     */
+    public void mergeHadFailed() {
+        if (mergesTried > 0 && totalMerges >= mergesTried) {
+            totalMerges -= mergesTried;
+        }
+    }
+
+    /**
+     * Return to the total number of merges attempted, yet hadn't failed.
+     * @return total number of merges
+     */
+    public long getTotalMerges() {
+        return totalMerges;
     }
 
     /**

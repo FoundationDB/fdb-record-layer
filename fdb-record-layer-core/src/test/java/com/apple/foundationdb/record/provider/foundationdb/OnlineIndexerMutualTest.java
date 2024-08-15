@@ -34,10 +34,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -90,21 +88,6 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             records.forEach(recordStore::saveRecord);
             context.commit();
         }
-    }
-
-    private List<Tuple> getBoundariesList(final long numRecords, final long step) {
-        List<Tuple> boundaries = new ArrayList<>();
-        boundaries.add(null);
-        for (long i = step; i < numRecords; i += step) {
-            final TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).build();
-            final RecordType recordType = metaData.getRecordTypeForDescriptor(rec.getDescriptorForType());
-            final KeyExpression primaryKeyExpression = recordType.getPrimaryKey();
-            final FDBStoredRecordBuilder<TestRecords1Proto.MySimpleRecord> recordBuilder = FDBStoredRecord.newBuilder(rec).setRecordType(recordType);
-            final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
-            boundaries.add(primaryKey);
-        }
-        boundaries.add(null);
-        return boundaries;
     }
 
     @Test
@@ -245,7 +228,16 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .setMutualIndexingBoundaries(boundaries)
                         .build())
                 .build()) {
-            indexBuilder.buildIndex(true);
+            try {
+                indexBuilder.buildIndex(true);
+            } catch (IndexingBase.ValidationException ex) {
+                if (!wasAnotherThreadChangingStatesToReadable(ex, indexes)) {
+                    // Unlike the real world, these tests are executed with a small set of records and a tight timing. The likelihood of
+                    // verifying uniform indexes states while another thread had finished indexing and is changing them (one by one) to
+                    // readable is big enough to require this protection.
+                    throw ex;
+                }
+            }
         }
         int numScanned = timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
         if (callerTimer == null && LOGGER.isInfoEnabled()) {
@@ -255,6 +247,23 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             ));
         }
         return numScanned;
+    }
+
+    private boolean wasAnotherThreadChangingStatesToReadable(IndexingBase.ValidationException ex, List<Index> indexes) {
+        if (!ex.getMessage().contains("A target index state doesn't match the primary index state")) {
+            return false;
+        }
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            // do nothing
+        }
+        openSimpleMetaData(allIndexesHook(indexes));
+        try (FDBRecordContext context = openContext()) {
+            final boolean allReadable = indexes.stream().allMatch(i -> recordStore.isIndexReadable(i));
+            context.commit();
+            return allReadable;
+        }
     }
 
     void oneThreadIndexingCrashHalfway(List<Index> indexes, FDBStoreTimer timer, List<Tuple> boundaries, int after) {
@@ -458,7 +467,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final FDBStoreTimer timer = new FDBStoreTimer();
         int boundarySize = 10;
         final List<Tuple> boundariesList = getBoundariesList(numRecords, boundarySize);
-        assertEquals(11, boundariesList.size());
+        assertEquals(boundarySize + 1, boundariesList.size());
 
         // Add null in the middle, causing fragments to overlap
         boundariesList.add(0, null);

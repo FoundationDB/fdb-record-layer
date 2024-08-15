@@ -60,12 +60,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
@@ -926,7 +926,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             String name;
             // Yes, a collision is exceedingly unlikely, but...
             do {
-                name = INTERNAL_COMMIT_HOOK_PREFIX + "anon-" + (new Random()).nextInt(Integer.MAX_VALUE);
+                name = INTERNAL_COMMIT_HOOK_PREFIX + "anon-" + ThreadLocalRandom.current().nextInt(Integer.MAX_VALUE);
             } while (map.containsKey(name));
             map.put(name, item);
         }

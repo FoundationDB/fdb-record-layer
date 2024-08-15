@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.search;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.apple.foundationdb.record.util.pair.Pair;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -116,7 +117,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      *          manager of collectors that receive hits
      */
     @Override
-    @SuppressWarnings("PMD.EmptyCatchBlock")
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.PreserveStackTrace"})
     public <C extends Collector, T> T search(Query query, CollectorManager<C, T> collectorManager) throws IOException {
         final var leafSlices = getSlices();
         final var executor = getExecutor();
@@ -156,7 +157,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
                 } catch (InterruptedException e) {
                     throw new ThreadInterruptedException(e);
                 } catch (ExecutionException e) {
-                    throw new RuntimeException(e);
+                    throw LuceneExceptions.toIoException(e.getCause(), e);
                 } catch (WrapperException we) {
                     throw we.unwrap();
                 }

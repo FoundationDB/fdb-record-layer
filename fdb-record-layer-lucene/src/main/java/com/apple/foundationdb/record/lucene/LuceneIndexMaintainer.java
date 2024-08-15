@@ -479,7 +479,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             try {
                 return tryDelete(Objects.requireNonNull(oldRecord), t);
             } catch (IOException e) {
-                throw LuceneExceptions.wrapException("Issue deleting", e, "record", Objects.requireNonNull(oldRecord).getPrimaryKey());
+                throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", Objects.requireNonNull(oldRecord).getPrimaryKey());
             }
         }).collect(Collectors.toList())).thenCompose(ignored ->
                 // update new
@@ -490,12 +490,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                     try {
                                         writeDocument(entry.getValue(), entry.getKey(), partitionId, newRecord.getPrimaryKey());
                                     } catch (IOException e) {
-                                        throw LuceneExceptions.wrapException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
+                                        throw LuceneExceptions.toRecordCoreException("Issue updating new index keys", e, "newRecord", newRecord.getPrimaryKey());
                                     }
                                     return null;
                                 }));
                     } catch (IOException e) {
-                        throw LuceneExceptions.wrapException("Issue updating", e, "record", Objects.requireNonNull(newRecord).getPrimaryKey());
+                        throw LuceneExceptions.toRecordCoreException("Issue updating", e, "record", Objects.requireNonNull(newRecord).getPrimaryKey());
                     }
                 }).collect(Collectors.toList())));
     }
@@ -549,7 +549,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     }
                     return countDeleted;
                 } catch (IOException e) {
-                    throw LuceneExceptions.wrapException("Issue deleting", e, "record", record.getPrimaryKey());
+                    throw LuceneExceptions.toRecordCoreException("Issue deleting", e, "record", record.getPrimaryKey());
                 }
             }
             return 0;
