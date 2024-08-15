@@ -230,7 +230,7 @@ public class FDBMetaDataStoreTest {
                 Transaction tr = context.ensureActive();
                 List<KeyValue> kvs = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_META_DATA,
                         tr.getRange(metaDataStore.getSubspace().range(FDBMetaDataStore.CURRENT_KEY)).asList());
-                context.ensureActive().clear(metaDataStore.getSubspace().range());
+                context.clear(metaDataStore.getSubspace().range());
                 for (KeyValue kv : kvs) {
                     Tuple tuple = Tuple.fromBytes(kv.getKey());
                     List<Object> items = tuple.getItems();

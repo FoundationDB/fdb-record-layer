@@ -1620,22 +1620,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // meta-data is cacheable, but we can't know that from here.
         context.setMetaDataVersionStamp();
         context.setDirtyStoreState(true);
-        final Transaction transaction = context.ensureActive();
-        transaction.clear(subspace.range());
+        context.clear(subspace.range());
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public void deleteAllRecords() {
         preloadCache.invalidateAll();
-        Transaction tr = ensureContextActive();
 
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
         Range indexStateRange = indexStateSubspace().range();
-        tr.clear(recordsSubspace().getKey(), indexStateRange.begin);
-        tr.clear(indexStateRange.end, getSubspace().range().end);
+        context.clear(new Range(recordsSubspace().getKey(), indexStateRange.begin));
+        context.clear(new Range(indexStateRange.end, getSubspace().range().end));
     }
 
     @Override
@@ -1990,21 +1988,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final Transaction tr = ensureContextActive();
 
             final Tuple prefix = evaluated.toTuple();
-            final Subspace recordSubspace = recordsSubspace().subspace(prefix);
-            tr.clear(recordSubspace.range());
+            final Range recordRange = recordsSubspace().subspace(prefix).range();
+            context.clear(recordRange);
             if (useOldVersionFormat() && getRecordMetaData().isStoreRecordVersions()) {
-                final Subspace versionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix));
-                tr.clear(versionSubspace.range());
+                final Range versionRange = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY).addAll(prefix)).range();
+                context.clear(versionRange);
             }
 
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
             if (recordCountKey != null) {
                 if (prefix.size() == recordCountKey.getColumnSize()) {
                     // Delete a single record used for counting
-                    tr.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(prefix)));
+                    context.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(prefix)));
                 } else {
                     // Delete multiple records used for counting
-                    tr.clear(getSubspace().subspace(Tuple.from(RECORD_COUNT_KEY)).subspace(prefix).range());
+                    context.clear(getSubspace().subspace(Tuple.from(RECORD_COUNT_KEY)).subspace(prefix).range());
                 }
             }
 
@@ -2769,12 +2767,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Void> rebuildAllIndexes() {
-        Transaction tr = ensureContextActive();
         // Note that index states are *not* cleared, as rebuilding the indexes resets each state
-        tr.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY)));
+        context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
         addRebuildRecordCountsJob(work);
         return rebuildIndexes(getRecordMetaData().getIndexesToBuildSince(-1), Collections.emptyMap(), work, RebuildIndexReason.REBUILD_ALL, null);
@@ -4653,12 +4650,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // TODO: Better to go through the index maintainer?
     @SuppressWarnings("PMD.CloseResource")
     void clearIndexData(@Nonnull Index index) {
-        Transaction tr = ensureContextActive();
-        tr.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
-        tr.clear(indexSecondarySubspace(index).range());
+        context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
+        context.clear(indexSecondarySubspace(index).range());
         IndexingRangeSet.forIndexBuild(this, index).clear();
         if (index.isUnique()) {
-            tr.clear(indexUniquenessViolationsSubspace(index).range());
+            context.clear(indexUniquenessViolationsSubspace(index).range());
         }
         // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
         // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
@@ -4666,8 +4662,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // * the scanned records subspace. Which, roughly speaking, counts how many records of this store are covered in
         // index range subspace.
         // * the type/stamp subspace. Which indicates which type of indexing is in progress.
-        tr.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
-        tr.clear(Range.startsWith(OnlineIndexer.indexBuildTypeSubspace(this, index).pack()));
+        context.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
+        context.clear(Range.startsWith(OnlineIndexer.indexBuildTypeSubspace(this, index).pack()));
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -4682,12 +4678,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             LOGGER.debug(msg.toString());
         }
         final long startTime = System.nanoTime();
-        Transaction tr = ensureContextActive();
-        tr.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        tr.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);
         }
@@ -4724,8 +4719,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (rebuildRecordCounts) {
             // We want to clear all record counts.
             if (existingStore) {
-                final Transaction tr = ensureContextActive();
-                tr.clear(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
+                context.clear(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
             }
 
             // Set the new record count key if we have one.

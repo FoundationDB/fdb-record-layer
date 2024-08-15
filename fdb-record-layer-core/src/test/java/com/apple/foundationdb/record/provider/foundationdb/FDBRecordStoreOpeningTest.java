@@ -628,8 +628,8 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
             // Clear out record data so that the first element seen is an index entry
             FDBRecordStore store = storeBuilder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-            store.ensureContextActive().clear(getStoreInfoKey(store));
-            store.ensureContextActive().clear(store.recordsSubspace().range(Tuple.from(1066L)));
+            store.getContext().clear(getStoreInfoKey(store));
+            store.getContext().clear(store.recordsSubspace().range(Tuple.from(1066L)));
 
             commit(context);
         }

@@ -360,7 +360,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
         return super.deleteWhere(tr, prefix).thenApply(v -> {
             final Subspace permutedSubspace = getSecondarySubspace();
-            tr.clear(permutedSubspace.subspace(prefix).range());
+            state.context.clear(permutedSubspace.subspace(prefix).range());
             return v;
         });
     }
