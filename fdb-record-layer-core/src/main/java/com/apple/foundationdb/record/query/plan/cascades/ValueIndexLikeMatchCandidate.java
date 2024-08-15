@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -41,8 +41,8 @@ import java.util.Objects;
  */
 public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
-     This synthesizes a list of {@link LogicalOrderingPart}s from the partial match and the ordering information
-     * passed in. Using a list of parameter ids, each {@link LogicalOrderingPart} links together the
+     This synthesizes a list of {@link MatchedOrderingPart}s from the partial match and the ordering information
+     * passed in. Using a list of parameter ids, each {@link MatchedOrderingPart} links together the
      * (1) normalized key expression that originally produced the key (from index, or common primary key)
      * (2) a comparison range for this parameter which is contained in the already existent partial match
      * (3) the predicate on the query part that participated and bound this parameter (and implicitly was used to
@@ -56,7 +56,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
      */
     @Nonnull
     @Override
-    default List<LogicalOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+    default List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
                                                                   @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                                   boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
@@ -64,7 +64,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<LogicalOrderingPart>builder();
+        final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
@@ -97,7 +97,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             getBaseType());
             if (normalizedValues.add(value)) {
                 builder.add(
-                        LogicalOrderingPart.of(parameterId, value, comparisonRange,
+                        MatchedOrderingPart.of(parameterId, value, comparisonRange,
                                 LogicalSortOrder.ASCENDING));
             }
         }

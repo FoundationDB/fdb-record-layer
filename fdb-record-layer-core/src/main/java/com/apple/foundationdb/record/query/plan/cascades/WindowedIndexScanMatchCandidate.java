@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -240,7 +240,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
 
     @Nonnull
     @Override
-    public List<LogicalOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
                                                                  boolean isReverse) {
         final var parameterBindingMap = matchInfo.getParameterBindingMap();
@@ -248,7 +248,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         final var normalizedKeyExpressions =
                 getFullKeyExpression().normalizeKeyForPositions();
 
-        final var builder = ImmutableList.<LogicalOrderingPart>builder();
+        final var builder = ImmutableList.<MatchedOrderingPart>builder();
         final var candidateParameterIds = getOrderingAliases();
         final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
@@ -287,10 +287,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                     builder.add(
-                            LogicalOrderingPart.of(rankAlias, normalizedValue, rankComparisonRange, LogicalSortOrder.ASCENDING));
+                            MatchedOrderingPart.of(rankAlias, normalizedValue, rankComparisonRange, LogicalSortOrder.ASCENDING));
                 } else {
                     builder.add(
-                            LogicalOrderingPart.of(parameterId, normalizedValue, comparisonRange, LogicalSortOrder.ASCENDING));
+                            MatchedOrderingPart.of(parameterId, normalizedValue, comparisonRange, LogicalSortOrder.ASCENDING));
                 }
             }
         }

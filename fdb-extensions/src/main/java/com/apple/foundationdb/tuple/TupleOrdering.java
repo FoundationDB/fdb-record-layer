@@ -120,6 +120,22 @@ public class TupleOrdering {
         public boolean isNullsLast() {
             return inverted != counterflowNulls;
         }
+
+        @Nonnull
+        public Direction reverseDirection() {
+            switch (this) {
+                case ASC_NULLS_FIRST:
+                    return DESC_NULLS_LAST;
+                case ASC_NULLS_LAST:
+                    return DESC_NULLS_FIRST;
+                case DESC_NULLS_FIRST:
+                    return ASC_NULLS_LAST;
+                case DESC_NULLS_LAST:
+                    return ASC_NULLS_FIRST;
+                default:
+                    throw new IllegalArgumentException("cannot reverse this direction");
+            }
+        }
     }
 
     private TupleOrdering() {

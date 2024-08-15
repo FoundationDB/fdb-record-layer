@@ -1,5 +1,5 @@
 /*
- * OrderingValueComputationPerPartRuleSet.java
+ * OrderingComputationRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -37,32 +38,34 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class OrderingValueComputationPerPartRuleSet extends ValueComputationRuleSet<Void, ProvidedOrderingPart> {
+public class OrderingComputationRuleSet extends ValueComputationRuleSet<Void, LogicalOrderingPart> {
     @Nonnull
     protected static final ValueComputationRule<Void, ProvidedOrderingPart, ArithmeticValue> eliminateArithmeticValueWithConstantRule =
-            ValueComputationRule.fromSimplificationRule(new EliminateArithmeticValueWithConstantRule(), value -> new ProvidedOrderingPart(value, OrderingPart.ProvidedSortOrder.ASCENDING));
+            ValueComputationRule.fromSimplificationRule(
+                    new EliminateArithmeticValueWithConstantRule(),
+                    value -> new ProvidedOrderingPart(value, OrderingPart.ProvidedSortOrder.ASCENDING));
 
-    private static final Set<ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>> ORDERING_RULES;
+    private static final Set<ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>> ORDERING_RULES;
 
-    private static final SetMultimap<ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>, ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>> ORDERING_DEPENDS_ON;
+    private static final SetMultimap<ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>, ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>> ORDERING_DEPENDS_ON;
 
     static {
         final var transformedRules =
-                ValueComputationRuleSet.<Void, ProvidedOrderingPart>fromSimplificationRules(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES,
-                        DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON, v -> new ProvidedOrderingPart(v, OrderingPart.ProvidedSortOrder.ASCENDING));
-        final Set<ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>> localOrderingRules =
-                ImmutableSet.<ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>>builder()
+                ValueComputationRuleSet.<Void, LogicalOrderingPart>fromSimplificationRules(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES,
+                        DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON, v -> new LogicalOrderingPart(v, OrderingPart.LogicalSortOrder.ASCENDING));
+        final Set<ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>> localOrderingRules =
+                ImmutableSet.<ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>>builder()
                         .add(eliminateArithmeticValueWithConstantRule)
                         .build();
 
         ORDERING_RULES =
-                ImmutableSet.<ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>>builder()
+                ImmutableSet.<ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>>builder()
                         .addAll(transformedRules.getComputationRules())
                         .addAll(localOrderingRules)
                         .build();
 
         final var dependsOnBuilder =
-                ImmutableSetMultimap.<ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>, ValueComputationRule<Void, ProvidedOrderingPart, ? extends Value>>builder();
+                ImmutableSetMultimap.<ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>, ValueComputationRule<Void, LogicalOrderingPart, ? extends Value>>builder();
 
         dependsOnBuilder.putAll(transformedRules.getComputationDependsOn());
 
@@ -75,11 +78,11 @@ public class OrderingValueComputationPerPartRuleSet extends ValueComputationRule
         ORDERING_DEPENDS_ON = dependsOnBuilder.build();
     }
 
-    private OrderingValueComputationPerPartRuleSet() {
+    private OrderingComputationRuleSet() {
         super(ORDERING_RULES, ORDERING_DEPENDS_ON);
     }
 
-    public static OrderingValueComputationPerPartRuleSet ofOrderingValueComputationPerPartRules() {
-        return new OrderingValueComputationPerPartRuleSet();
+    public static OrderingComputationRuleSet ofOrderingValueComputationPerPartRules() {
+        return new OrderingComputationRuleSet();
     }
 }
