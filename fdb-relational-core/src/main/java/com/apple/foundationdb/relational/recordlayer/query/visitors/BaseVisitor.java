@@ -382,6 +382,16 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
+    public Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitIndexAttribute(RelationalParser.IndexAttributeContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
     @Nonnull
     public Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx) {
         return visitChildren(ctx);

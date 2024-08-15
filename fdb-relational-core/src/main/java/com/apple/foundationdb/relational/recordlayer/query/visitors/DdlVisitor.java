@@ -157,8 +157,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var viewPlan = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                 visitQuerySpecification(ctx.querySpecification()).getQuantifier().getRangesOver().get());
 
+        final var useLegacyBasedExtremumEver = ctx.indexAttributes() != null && ctx.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = ctx.UNIQUE() != null;
-        final var generator = IndexGenerator.from(viewPlan);
+        final var generator = IndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
         final var table = metadataBuilder.findTable(generator.getRecordTypeName());
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
         return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray);

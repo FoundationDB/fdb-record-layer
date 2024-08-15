@@ -142,7 +142,15 @@ enumDefinition
     ;
 
 indexDefinition
-    : (UNIQUE)? INDEX indexName=uid AS querySpecification
+    : (UNIQUE)? INDEX indexName=uid AS querySpecification indexAttributes?
+    ;
+
+indexAttributes
+    : WITH ATTRIBUTES indexAttribute (COMMA indexAttribute)*
+    ;
+
+indexAttribute
+    : LEGACY_EXTREMUM_EVER
     ;
 
 charSet

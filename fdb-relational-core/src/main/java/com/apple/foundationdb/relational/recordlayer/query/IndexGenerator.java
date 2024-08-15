@@ -118,7 +118,9 @@ public final class IndexGenerator {
     @Nonnull
     private final RelationalExpression relationalExpression;
 
-    private IndexGenerator(@Nonnull RelationalExpression relationalExpression) {
+    private final boolean useLegacyBasedExtremumEver;
+
+    private IndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
         final var partialOrder = ReferencesAndDependenciesProperty.evaluate(Reference.of(relationalExpression));
         relationalExpressions =
@@ -128,6 +130,7 @@ public final class IndexGenerator {
                         .map(Reference::get)
                         .collect(toList());
         this.relationalExpression = relationalExpression;
+        this.useLegacyBasedExtremumEver = useLegacyBasedExtremumEver;
     }
 
     @Nonnull
@@ -330,16 +333,18 @@ public final class IndexGenerator {
         return ImmutableList.<Value>builder().addAll(orderByValues).addAll(remaining).build();
     }
 
-    @SuppressWarnings("OptionalIsPresent")
+    @SuppressWarnings({"OptionalIsPresent", "deprecation"})
     @Nonnull
     private Pair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
                                                                             @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
         Assert.thatUnchecked(aggregateValue instanceof IndexableAggregateValue);
+        final var indexableAggregateValue = (IndexableAggregateValue)aggregateValue;
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
+        var indexTypeName = indexableAggregateValue.getIndexTypeName();
         final KeyExpression groupedValue;
         final GroupingKeyExpression keyExpression;
         // COUNT(*) is a special case.
-        if (aggregateValue instanceof CountValue && ((CountValue) aggregateValue).getIndexTypeName().equals(IndexTypes.COUNT)) {
+        if (aggregateValue instanceof CountValue && indexTypeName.equals(IndexTypes.COUNT)) {
             if (maybeGroupingExpression.isPresent()) {
                 keyExpression = new GroupingKeyExpression(maybeGroupingExpression.get(), 0);
             } else {
@@ -359,7 +364,26 @@ public final class IndexGenerator {
                         ((ThenKeyExpression) groupedValue).ungrouped();
             }
         }
-        return Pair.of(keyExpression, ((IndexableAggregateValue) aggregateValue).getIndexTypeName());
+        // special handling of min_ever and max_ever, depending on index attributes we either create the
+        // long-based version or the tuple-based version.
+        if (indexTypeName.equals(IndexTypes.MAX_EVER)) {
+            if (useLegacyBasedExtremumEver) {
+                final var indexValue = Iterables.getOnlyElement(indexableAggregateValue.getChildren());
+                Verify.verify(indexValue.getResultType().isNumeric(), "only numeric types allowed in " + IndexTypes.MAX_EVER_LONG + " aggregation operation");
+                indexTypeName = IndexTypes.MAX_EVER_LONG;
+            } else {
+                indexTypeName = IndexTypes.MAX_EVER_TUPLE;
+            }
+        } else if (indexTypeName.equals(IndexTypes.MIN_EVER)) {
+            if (useLegacyBasedExtremumEver) {
+                final var indexValue = Iterables.getOnlyElement(indexableAggregateValue.getChildren());
+                Verify.verify(indexValue.getResultType().isNumeric(), "only numeric types allowed in " + IndexTypes.MIN_EVER_LONG + " aggregation operation");
+                indexTypeName = IndexTypes.MIN_EVER_LONG;
+            } else {
+                indexTypeName = IndexTypes.MIN_EVER_TUPLE;
+            }
+        }
+        return Pair.of(keyExpression, indexTypeName);
     }
 
     @Nonnull
@@ -636,7 +660,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    public static IndexGenerator from(@Nonnull RelationalExpression relationalExpression) {
-        return new IndexGenerator(relationalExpression);
+    public static IndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
+        return new IndexGenerator(relationalExpression, useLongBasedExtremumEver);
     }
 }

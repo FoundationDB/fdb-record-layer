@@ -821,7 +821,7 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT MIN_EVER(col1) FROM T1 group by col2";
         indexIs(stmt,
                 field("COL1").groupBy(field("COL2")),
-                IndexTypes.MIN_EVER_LONG
+                IndexTypes.MIN_EVER_TUPLE
         );
     }
 
@@ -832,7 +832,29 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT MAX_EVER(col1) FROM T1 group by col2";
         indexIs(stmt,
                 field("COL1").groupBy(field("COL2")),
-                IndexTypes.MAX_EVER_LONG
+                IndexTypes.MAX_EVER_TUPLE
+        );
+    }
+
+    @Test
+    void createMaxEverTupleIncorrectType() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 string, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT MAX_EVER(col2) FROM T1 group by col1";
+        indexIs(stmt,
+                field("COL2").groupBy(field("COL1")),
+                IndexTypes.MAX_EVER_TUPLE
+        );
+    }
+
+    @Test
+    void createMinEverTupleIncorrectType() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 string, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT MIN_EVER(col2) FROM T1 group by col1";
+        indexIs(stmt,
+                field("COL2").groupBy(field("COL1")),
+                IndexTypes.MIN_EVER_TUPLE
         );
     }
 
@@ -840,8 +862,16 @@ public class IndexTest {
     void createMaxEverLongIncorrectType() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 string, primary key(col1)) " +
-                "CREATE INDEX mv1 AS SELECT MAX_EVER(col2) FROM T1 group by col1";
-        shouldFailWith(stmt, ErrorCode.INTERNAL_ERROR, "unknown reason only numeric types allowed in max_ever_long aggregation operation");
+                "CREATE INDEX mv1 AS SELECT MAX_EVER(col2) FROM T1 group by col1 WITH ATTRIBUTES LEGACY_EXTREMUM_EVER";
+        shouldFailWith(stmt, ErrorCode.INTERNAL_ERROR, "only numeric types allowed in max_ever_long aggregation operation");
+    }
+
+    @Test
+    void createMinEverLongIncorrectType() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 string, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT MIN_EVER(col2) FROM T1 group by col1 WITH ATTRIBUTES LEGACY_EXTREMUM_EVER";
+        shouldFailWith(stmt, ErrorCode.INTERNAL_ERROR, "only numeric types allowed in min_ever_long aggregation operation");
     }
 
     @Test

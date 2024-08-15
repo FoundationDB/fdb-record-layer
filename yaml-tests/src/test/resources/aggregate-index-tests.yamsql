@@ -28,12 +28,17 @@ schema_template:
     create index mv3 as select col1, col3 from t2 order by col1, col3
     create index mv4 as select min_ever(col3) from T2 group by col1, col2
     create index mv5 as select max_ever(col3) from t2 group by col1, col2
+    create index mv12 as select min_ever(col2) from t1 group by col1 with attributes LEGACY_EXTREMUM_EVER
+    create index mv13 as select max_ever(col2) from t1 group by col1 with attributes LEGACY_EXTREMUM_EVER
     create index mv9 as select col1, max(col2), col3 from T2 group by col1, col3 order by col1, max(col2), col3
     create index vi1 as select col1 from t1
     create index mv7 as select min_ever(col3) from t2
     create table t3(id bigint, a bigint, b bigint, primary key(id))
     create index mv10 as select a+3, max(b) from t3 group by a+3
     create index mv11 as select a+b, b+10, min(b) from t3 group by a+b, b+10
+    create table t4(id bigint, col1 string, col2 bigint, primary key(id))
+    create index mv14 as select min_ever(col1) from t4 group by col2
+    create index mv15 as select max_ever(col1) from t4 group by col2
 ---
 setup:
   steps:
@@ -72,6 +77,13 @@ setup:
                (8, 30, 6),
                (9, 30, 900),
                (10, 30, 6)
+    - query: INSERT INTO T4
+        VALUES (1, 'value1', 10),
+               (2, 'value2', 10),
+               (3, 'value3', 10),
+               (4, 'value4', 10),
+               (5, 'valueA', 20),
+               (6, 'valueZ', 20)
 ---
 test_block:
   tests:
@@ -219,6 +231,24 @@ test_block:
     -
       - query: select min_ever(col3) from t2
       - explainContains: "AggregateIndexScan(Index(MV7 <,> BY_GROUP)"
+    -
+      - query: select col1, max_ever(col2) from T1 group by col1;
+      - result: [{!l 10, !l 5}, {!l 20, !l 13}]
+      - explainContains: "AggregateIndexScan(Index(MV13 <,> BY_GROUP)"
+    -
+      - query: select col1, min_ever(col2) from T1 group by col1;
+      - result: [{!l 10, !l 1}, {!l 20, !l 6}]
+      - explainContains: "AggregateIndexScan(Index(MV12 <,> BY_GROUP)"
+    -
+      # TODO, check how this aligns with COLLATION support
+      - query: select col2, max_ever(col1) from T4 group by col2;
+      - result: [{!l 10, 'value4'}, {!l 20, 'valueZ'}]
+      - explainContains: "AggregateIndexScan(Index(MV15 <,> BY_GROUP)"
+    -
+      # TODO, check how this aligns with COLLATION support
+      - query: select col2, min_ever(col1) from T4 group by col2;
+      - result: [{!l 10, 'value1'}, {!l 20, 'valueA'}]
+      - explainContains: "AggregateIndexScan(Index(MV14 <,> BY_GROUP)"
     -
       - query: select col1, sum(col2) from T1 where col1 > 15 group by col1;
       - explainContains: "map(AggregateIndexScan(Index(MV1 "

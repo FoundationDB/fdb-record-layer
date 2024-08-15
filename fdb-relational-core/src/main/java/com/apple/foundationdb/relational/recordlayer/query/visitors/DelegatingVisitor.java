@@ -220,6 +220,16 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx) {
+        return getDelegate().visitIndexAttributes(ctx);
+    }
+
+    @Override
+    public Object visitIndexAttribute(RelationalParser.IndexAttributeContext ctx) {
+        return getDelegate().visitIndexAttribute(ctx);
+    }
+
+    @Override
     @Nonnull
     public Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx) {
         return getDelegate().visitCharSet(ctx);
