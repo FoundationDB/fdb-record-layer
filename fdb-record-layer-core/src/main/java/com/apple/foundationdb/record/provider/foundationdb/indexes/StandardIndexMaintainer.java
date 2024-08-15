@@ -267,6 +267,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             switch (stamp.getMethod()) {
                 case BY_RECORDS:
                 case MULTI_TARGET_BY_RECORDS:
+                case MUTUAL_BY_RECORDS:
                     return updateWriteOnlyByRecords(oldRecord, newRecord);
                 case BY_INDEX:
                     Object sourceIndexKey = Tuple.fromBytes(stamp.getSourceIndexSubspaceKey().toByteArray()).get(0);
