@@ -298,6 +298,27 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("name"), fieldValueWithFieldNames("rest_no"))))));
     }
 
+    /**
+     * Test a query running a simple existential query against a FanOut index on the relevant field. This test
+     * is actually designed to exercise a code path that was hit by
+     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2881">Issue #2881</a>. This makes the
+     * test somewhat brittle in the sense that if the planner changes in a way that means that it no longer needs
+     * to construct certain kinds {@link com.apple.foundationdb.record.query.plan.cascades.Compensation}s to make the
+     * plan work, then we may lose coverage (absent other changes to our testing strategy).
+     *
+     * <p>
+     * There are several elements of this test that are necessary at time of writing to make it hit the code
+     * path under test:
+     * </p>
+     * <ol>
+     *     <li>A nested existential query on a single field</li>
+     *     <li>The inner query has an IN predicate on that field</li>
+     *     <li>The inner query projects the column (even though the result value is effectively erased by the existential quantifier)</li>
+     *     <li>An index that contains that precisely that field</li>
+     * </ol>
+     *
+     * @param inComparison whether the inner existential predicate should be an IN or EQUALS predicate
+     */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     @ParameterizedTest
     @BooleanSource
