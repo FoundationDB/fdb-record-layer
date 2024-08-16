@@ -88,6 +88,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -103,6 +104,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -537,6 +539,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         AtomicInteger docCount = new AtomicInteger();
         AtomicInteger conflicts = new AtomicInteger();
         AtomicInteger fileLockFailures = new AtomicInteger();
+        AtomicReference<Throwable> failedInsert = new AtomicReference<>();
+        AtomicReference<Throwable> failedMerge = new AtomicReference<>();
         Thread inserter = new Thread(() -> {
             try {
                 int i = 0;
@@ -578,10 +582,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             } else if (e instanceof FDBExceptions.FDBStoreLockTakenException) {
                                 fileLockFailures.incrementAndGet();
                             } else {
-                                LOGGER.debug("couldn't commit for key {}", (1000L + i), e);
+                                LOGGER.debug("Failing: couldn't commit for key {}", (1000L + i), e);
+                                failedInsert.set(e);
+                                return;
                             }
                             // commit failed due to conflict with other thread. Continue trying to create docs.
-                            LOGGER.debug("couldn't commit for key {}", (1000L + i));
+                            LOGGER.debug("Ignoring: couldn't commit for key {} due to {}", (1000L + i), e.getClass().getSimpleName());
                         }
                     }
                 }
@@ -605,7 +611,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         explicitMergeIndex(index, contextProps, schemaSetup);
                         successfulMerges.incrementAndGet();
                     } catch (Exception e) {
-                        LOGGER.debug("couldn't merge at iteration{}", i);
+                        LOGGER.debug("couldn't merge at iteration {}", i);
+                        failedMerge.set(e);
+                        return;
                     }
                 }
             } catch (InterruptedException e) {
@@ -617,6 +625,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         merger.start();
 
         inserter.join();
+        assertNull(failedInsert.get());
         // This could happen if the cluster is down, or something that otherwise prevents us from inserting any documents
         // by asserting that there are documents we prevent the `join` below from waiting forever.
         if (insertedDocs.isEmpty()) {
@@ -624,6 +633,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
         assertThat(insertedDocs, Matchers.not(Matchers.anEmptyMap()));
         merger.join();
+        assertNull(failedMerge.get());
         assertThat(successfulMerges.get(), Matchers.greaterThan(10));
         assertThat(conflicts.get(), Matchers.greaterThan(10));
         assertThat(fileLockFailures.get(), Matchers.greaterThan(10));
