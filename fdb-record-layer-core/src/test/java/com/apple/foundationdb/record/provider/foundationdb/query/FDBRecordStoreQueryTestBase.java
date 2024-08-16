@@ -287,7 +287,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         };
     }
 
-    protected void openHierarchicalRecordStore(FDBRecordContext context) throws Exception {
+    protected void openHierarchicalRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords3Proto.getDescriptor());
         metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.getRecordType("MyHierarchicalRecord").setPrimaryKey(
@@ -295,15 +295,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
-    protected void openNestedRecordStore(FDBRecordContext context) throws Exception {
+    protected void openNestedRecordStore(FDBRecordContext context) {
         openNestedRecordStore(context, null);
     }
 
-    protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
+    protected void openNestedRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
         createOrOpenRecordStore(context, nestedMetaData(hook));
     }
 
-    protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context) throws Exception {
+    protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
@@ -312,6 +312,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         metaDataBuilder.addIndex("RestaurantRecord", "customers", field("customer", FanType.None).nest(field("values", FanType.FanOut)));
         metaDataBuilder.addIndex("RestaurantRecord", "customers-name", concat(field("customer", FanType.None).nest(field("values", FanType.FanOut)), field("name")));
         metaDataBuilder.addIndex("RestaurantReviewer", "stats$school", field("stats").nest(field("start_date")));
+        if (hook != null) {
+            hook.apply(metaDataBuilder);
+        }
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
 
