@@ -289,7 +289,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             }
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
-        }).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+        }, false).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nonnull
