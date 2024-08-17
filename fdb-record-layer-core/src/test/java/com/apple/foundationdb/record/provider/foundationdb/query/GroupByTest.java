@@ -261,7 +261,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testBitMapWithStreamAggregation() {
         int bitBucketSize = 4;
-        RecordMetaDataHook hook = setupHookAndAddData(true, false, false, bitBucketSize);
+        RecordMetaDataHook hook = setupHookAndAddData(true, false, false, true, bitBucketSize);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
 
@@ -286,9 +286,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testBitMapWithBitMapIndex() {
         int bitBucketSize = 4;
-        RecordMetaDataHook hook = setupHookAndAddData(true, true, true, bitBucketSize);
+        RecordMetaDataHook hook = setupHookAndAddData(true, true, true, false, bitBucketSize);
         final var cascadesPlanner = (CascadesPlanner)planner;
-        constructBitMapGroupByPlan(bitBucketSize, true).show(false);
         final var plan = cascadesPlanner.planGraph(
                 () -> constructBitMapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
@@ -414,22 +413,24 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected RecordMetaDataHook setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex) {
-        return setupHookAndAddData(addIndex, addAggregateIndex, false, 0);
+        return setupHookAndAddData(addIndex, addAggregateIndex, false, false, 0);
     }
 
-    protected RecordMetaDataHook setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex, final boolean addBitMapIndex, int bucketSize) {
+    protected RecordMetaDataHook setupHookAndAddData(final boolean addIndex, final boolean addAggregateIndex, final boolean addBitMapIndex, final boolean addBitBucketFunctionIndex, int bucketSize) {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataHook hook = (metaDataBuilder) -> {
                 complexQuerySetupHook().apply(metaDataBuilder);
                 if (addIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$num_value_2", field("num_value_2"));
-                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
                 }
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
                 if (addBitMapIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE, Map.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
+                }
+                if (addBitBucketFunctionIndex) {
+                    metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));
                 }
             };
             openSimpleRecordStore(context, hook);
@@ -470,11 +471,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private static FunctionKeyExpression bitBucketExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
         return Key.Expressions.function("bitmap_bucket_offset", concat(fieldExpression, Key.Expressions.value(bucketSize)));
-    }
-
-    @Nonnull
-    private static FunctionKeyExpression subExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
-        return Key.Expressions.function("sub", concat(fieldExpression, bitBucketExpression(fieldExpression, bucketSize)));
     }
 
     @Nonnull

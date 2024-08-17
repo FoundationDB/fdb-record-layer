@@ -374,6 +374,10 @@ message PArithmeticValue {
 
       BITBUCKET_L = 102;
       BITBUCKET_I = 103;
+      BITMAP_BUCKET_NUMER_L = 104;
+      BITMAP_BUCKET_NUMER_I = 105;
+      BITMAPBITPOSITION_L = 106;
+      BITMAPBITPOSITION_I = 107;
   }
 
   optional PPhysicalOperator operator = 1;
