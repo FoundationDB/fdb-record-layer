@@ -1,5 +1,5 @@
 /*
- * OrderingValueSimplificationRuleSet.java
+ * RequestedOrderingValueSimplificationRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,27 +34,28 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class OrderingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
+public class RequestedOrderingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> liftConstructorRule = new LiftConstructorRule();
+    protected static final ValueSimplificationRule<? extends Value> elminuateArithmeticValueWithConstantRule =
+            new EliminateArithmeticValueWithConstantRule();
 
     private static final Set<ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_RULES =
             ImmutableSet.<ValueSimplificationRule<? extends Value>>builder()
                     .addAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES)
-                    .add(liftConstructorRule)
+                    .add(elminuateArithmeticValueWithConstantRule)
                     .build();
 
     private static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>>builder()
                     .putAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON)
-                    .put(liftConstructorRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
+                    .put(elminuateArithmeticValueWithConstantRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
                     .build();
 
-    private OrderingValueSimplificationRuleSet() {
+    private RequestedOrderingValueSimplificationRuleSet() {
         super(ORDERING_SIMPLIFICATION_RULES, ORDERING_SIMPLIFICATION_DEPENDS_ON);
     }
 
-    public static OrderingValueSimplificationRuleSet ofOrderingSimplificationRules() {
-        return new OrderingValueSimplificationRuleSet();
+    public static RequestedOrderingValueSimplificationRuleSet ofRequestedOrderSimplificationRules() {
+        return new RequestedOrderingValueSimplificationRuleSet();
     }
 }

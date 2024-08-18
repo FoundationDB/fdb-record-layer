@@ -309,9 +309,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var groupingValueType = groupingValue.getResultType();
         Verify.verify(groupingValueType.isRecord());
 
-        return new RequestedOrdering(
-                ImmutableList.of(new RequestedOrderingPart(groupingValue, RequestedSortOrder.ASCENDING)), //TODO this should be deconstructed
-                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+        final var currentGroupingValue =
+                groupingValue.rebase(AliasMap.ofAliases(inner.getAlias(), Quantifier.current()));
+
+        return RequestedOrdering.ofParts(
+                ImmutableList.of(new RequestedOrderingPart(currentGroupingValue, RequestedSortOrder.ANY)),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                inner.getCorrelatedTo());
     }
 
     @Nonnull

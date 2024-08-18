@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -63,19 +62,23 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     public LogicalSortExpression(@Nonnull List<Value> sortValues,
                                  final boolean reverse,
                                  @Nonnull final Quantifier inner) {
-        this(buildOrdering(sortValues, reverse), inner);
+        this(buildRequestedOrdering(sortValues, reverse, inner.getCorrelatedTo()), inner);
     }
 
     @Nonnull
-    private static RequestedOrdering buildOrdering(@Nonnull List<Value> sortValues, boolean reverse) {
+    private static RequestedOrdering buildRequestedOrdering(@Nonnull List<Value> sortValues,
+                                                            boolean reverse,
+                                                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final OrderingPart.RequestedSortOrder order = OrderingPart.RequestedSortOrder.fromIsReverse(reverse);
         final RequestedOrdering.Distinctness distinctness = RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS;
-        return new RequestedOrdering(sortValues.stream().map(value -> new OrderingPart.RequestedOrderingPart(value, order)).collect(Collectors.toList()), distinctness);
+        final var requestedOrderingParts =
+                sortValues.stream().map(value -> new OrderingPart.RequestedOrderingPart(value, order)).collect(Collectors.toList());
+        return RequestedOrdering.ofParts(requestedOrderingParts, distinctness, constantAliases);
     }
 
     @Nonnull
     public static LogicalSortExpression unsorted(@Nonnull final Quantifier inner) {
-        return new LogicalSortExpression(new RequestedOrdering(Collections.emptyList(), RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS), inner);
+        return new LogicalSortExpression(RequestedOrdering.preserve(), inner);
     }
 
     @Nonnull

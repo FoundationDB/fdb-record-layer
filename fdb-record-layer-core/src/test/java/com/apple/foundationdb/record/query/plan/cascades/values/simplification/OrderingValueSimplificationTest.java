@@ -23,28 +23,31 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Optional;
 
 /**
  * Test cases that test logic around the simplification of {@link Value} trees.
  */
-class ValueOrderingSimplificationTest {
+class OrderingValueSimplificationTest {
     private static final CorrelationIdentifier ALIAS = CorrelationIdentifier.of("_");
 
     @Test
@@ -70,7 +73,7 @@ class ValueOrderingSimplificationTest {
                 new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
                         fieldValue2, LiteralValue.ofScalar(3));
 
-        final var simplifiedValue = Iterables.getOnlyElement(simplifyOrderingValue(arithmeticValue));
+        final var simplifiedValue = simplifyOrderingValue(arithmeticValue);
 
         // ('fieldValue' as a, _ as b, 'World' as c).b + 3 => _
         // meaning ORDER BY ('fieldValue' as a, _ as b, 'World' as c).b + 3 <=> ORDER BY _
@@ -80,7 +83,7 @@ class ValueOrderingSimplificationTest {
     @Test
     void testOrderingSimplification2() {
         // _
-        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        final var someCurrentValue = ObjectValue.of(Quantifier.current(), someRecordType());
 
         // ('fieldValue' as a, _ as b, 'World' as c)
         ImmutableList<Column<? extends Value>> columns =
@@ -113,14 +116,29 @@ class ValueOrderingSimplificationTest {
         // record : = ('fieldValue' as a, _ as b, 'World' as c)
         // (record.b + 3, record.a), record.c) -> (record.b, record.a, record.c) -> (_, 'fieldValue', 'World')
         // meaning ORDER BY (record.b + 3, record.a), record.c) <-> ORDER BY (_, 'fieldValue', 'World')
-        final var simplifiedValues = simplifyOrderingValue(outerRecordConstructor);
+        final var requestedOrdering = RequestedOrdering.ofParts(
+                ImmutableList.of(new OrderingPart.RequestedOrderingPart(outerRecordConstructor, OrderingPart.RequestedSortOrder.ANY)),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                ImmutableSet.of());
 
+        final var simplifiedValues =
+                requestedOrdering.getOrderingParts()
+                        .stream()
+                        .map(OrderingPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
 
+        final var expectedResult =
+                ImmutableList.of(
+                        someCurrentValue,
+                        LiteralValue.ofScalar("fieldValue"),
+                        LiteralValue.ofScalar("World"));
+
+        Assertions.assertEquals(expectedResult, simplifiedValues);
     }
 
     @Test
-    void testOrderingSimplification3() {
-        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+    void testRequestedOrderingSimplification() {
+        final var someCurrentValue = ObjectValue.of(Quantifier.current(), someRecordType());
         final var recordConstructor1 =
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(
                         FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
@@ -141,7 +159,16 @@ class ValueOrderingSimplificationTest {
         final var recordConstructor4 =
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(recordConstructor1, recordConstructor2, recordConstructor3));
 
-        final var simplifiedValues = simplifyOrderingValue(recordConstructor4);
+        final var requestedOrdering = RequestedOrdering.ofParts(
+                ImmutableList.of(new OrderingPart.RequestedOrderingPart(recordConstructor4, OrderingPart.RequestedSortOrder.ANY)),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                ImmutableSet.of());
+
+        final var simplifiedValues =
+                requestedOrdering.getOrderingParts()
+                        .stream()
+                        .map(OrderingPart::getValue)
+                        .collect(ImmutableList.toImmutableList());
 
         // ((_.x.xb as _0, _.z as _1) as _0, (_.x.xa as _0, (_.x.xb as _0, _.z as _1) as _1, _.z as _2) as _1, ((_.x.xb as _0, _.z as _1) as _0, _.x.xc as _1, _.z as _2) as _2)
         // ((_.x.xb, _.z), (_.x.xa, (_.x.xb, _.z), _.z), ((_.x.xb, _.z), _.x.xc, _.z))
@@ -164,25 +191,39 @@ class ValueOrderingSimplificationTest {
     }
 
     @Test
-    void testDeriveOrderingValues() {
-        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
-        final var type = someRecordType();
+    void testDeriveOrderingValues1() {
+        final var someCurrentValue = ObjectValue.of(Quantifier.current(), someRecordType());
 
-        final var orderingValues = Values.primitiveAccessorsForType(type, () -> someCurrentValue, ImmutableSet.of());
+        final var _a_aa_aaa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa"));
+
+        final var orderingPart =
+                _a_aa_aaa.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                        OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
         final var expectedResult =
-                ImmutableSet.of(
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aab")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aac")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ac")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xa")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb")),
-                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xc")),
-                        FieldValue.ofFieldName(someCurrentValue, "z"));
+                FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa"));
 
-        Assertions.assertEquals(expectedResult, orderingValues);
+        Assertions.assertEquals(ProvidedSortOrder.ASCENDING, orderingPart.getSortOrder());
+        Assertions.assertEquals(expectedResult, orderingPart.getValue());
+    }
+
+    @Test
+    void testDeriveOrderingValues2() {
+        final var someCurrentValue = ObjectValue.of(Quantifier.current(), someRecordType());
+        final var type = someRecordType();
+
+        final var _a_aa_aaa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa"));
+        final var tob = new ToOrderedBytesValue(_a_aa_aaa, TupleOrdering.Direction.DESC_NULLS_LAST);
+
+        final var orderingPart =
+                tob.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                        OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+
+        final var expectedResult =
+                FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa"));
+
+        Assertions.assertEquals(ProvidedSortOrder.DESCENDING, orderingPart.getSortOrder());
+        Assertions.assertEquals(expectedResult, orderingPart.getValue());
     }
 
     @Nonnull
@@ -209,7 +250,8 @@ class ValueOrderingSimplificationTest {
     }
 
     @Nonnull
-    private static List<Value> simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
-        return toBeSimplified.simplifyOrderingValue(AliasMap.emptyMap(), ImmutableSet.of());
+    private static Value simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
+        return Simplification.simplify(toBeSimplified, AliasMap.emptyMap(), ImmutableSet.of(),
+                RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules());
     }
 }

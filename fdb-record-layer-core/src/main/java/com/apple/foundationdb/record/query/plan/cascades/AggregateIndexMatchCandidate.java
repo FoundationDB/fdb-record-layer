@@ -37,12 +37,12 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.LogicalSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -228,9 +228,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
             if (normalizedValues.add(value)) {
-                builder.add(
-                        MatchedOrderingPart.of(parameterId, value, comparisonRange,
-                                LogicalSortOrder.ASCENDING));
+                final var matchedOrderingPart =
+                        value.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                                (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                                OrderingValueComputationRuleSet.usingMatchedOrderingParts());
+                builder.add(matchedOrderingPart);
             }
         }
 
@@ -275,14 +277,14 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
         // We keep a set for normalized values in order to check for duplicate values in the index definition.
         // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
-        final var normalizedValues = Sets.newHashSetWithExpectedSize(orderingColumnCount);
+        final var seenValues = Sets.newHashSetWithExpectedSize(orderingColumnCount);
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
             final var comparison = equalityComparisons.get(i);
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
             bindingMapBuilder.put(value, Binding.fixed(comparison));
-            normalizedValues.add(value);
+            seenValues.add(value);
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
@@ -297,10 +299,16 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            if (!normalizedValues.contains(normalizedValue)) {
-                normalizedValues.add(normalizedValue);
-                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
-                orderingSequenceBuilder.add(normalizedValue);
+            final var providedOrderingPart =
+                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                            OrderingPart.ProvidedOrderingPart::new,
+                            OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+
+            final var providedOrderingValue = providedOrderingPart.getValue();
+            if (!seenValues.contains(providedOrderingValue)) {
+                seenValues.add(providedOrderingValue);
+                bindingMapBuilder.put(providedOrderingValue, Binding.sorted(providedOrderingPart.getSortOrder()));
+                orderingSequenceBuilder.add(providedOrderingValue);
             }
         }
 

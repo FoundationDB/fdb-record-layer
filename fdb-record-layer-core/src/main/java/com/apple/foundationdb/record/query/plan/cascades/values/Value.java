@@ -39,6 +39,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.OrderingPartCreator;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
@@ -56,7 +59,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.A
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ComparisonCompensation;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ExtractFromIndexKeyValueRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.PullUpValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
@@ -594,28 +597,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                 .collect(ImmutableList.toImmutableList());
     }
 
-    /**
-     * Method to simplify the current value using the specific rule set for orderings. When values pertaining to
-     * orderings are simplified we often can simplify more aggressively knowing that this value is only used to
-     * express ordering parts.
-     * <br>
-     * For instance, a value representing {@code ((_.a, (_.b, _.c)) as x, d).x} can be
-     * simplified to {@code (_.a, (_.b, _.c))} with regular default simplification rules, but it can further be
-     * simplified to {@code (_.a, _.b, _.c)} as the additional level of nesting is not important for orderings.
-     * The record constructor {@code (_.a, _.b, _.c)} is then deconstructed a list consisting of the values
-     * {@code [_.a, _.b, _.c]} is returned.
-     * @param aliasMap an alias map of equalities
-     * @param constantAliases a set of aliases that are considered to be constant
-     * @return a list of values that is the deconstructed simplified representation of this value using
-     *         ordering simplification rules
-     */
-    @Nonnull
-    default List<Value> simplifyOrderingValue(@Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        // TODO this is just this way to make compilation
-        return ImmutableList.of(
-                Simplification.simplify(this, aliasMap, constantAliases, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules()));
-    }
-
     @Nonnull
     default Optional<NonnullPair<FieldValue, Value>> extractFromIndexEntryMaybe(@Nonnull final Value baseValue,
                                                                                 @Nonnull final AliasMap aliasMap,
@@ -642,6 +623,18 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         return Optional.of(NonnullPair.of((FieldValue)matchedValue,
                 matchedValueCompensation.compensate(new IndexEntryObjectValue(Quantifier.current(), source,
                         ordinalPath, getResultType()))));
+    }
+
+    @Nonnull
+    default <O extends SortOrder, P extends OrderingPart<O>> P deriveOrderingPart(@Nonnull final AliasMap aliasMap,
+                                                                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                                                  @Nonnull final OrderingPartCreator<O, P> orderingPartCreator,
+                                                                                  @Nonnull final OrderingValueComputationRuleSet<O, P> ruleSet) {
+        final var resultPair =
+                Objects.requireNonNull(
+                        Simplification.compute(this, orderingPartCreator, aliasMap, constantAliases,
+                                ruleSet));
+        return resultPair.getValue();
     }
 
     @Nonnull

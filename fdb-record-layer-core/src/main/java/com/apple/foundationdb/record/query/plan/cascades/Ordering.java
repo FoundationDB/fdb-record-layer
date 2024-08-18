@@ -283,7 +283,7 @@ public class Ordering {
 
         final var satisfyingEnumeratedOrderings = enumerateCompatibleRequestedOrderings(requestedOrdering);
         return Streams.stream(satisfyingEnumeratedOrderings)
-                .map(keyParts -> new RequestedOrdering(keyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS))
+                .map(keyParts -> RequestedOrdering.ofPrimitiveParts(keyParts, RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS))
                 .collect(ImmutableSet.toImmutableSet());
     }
 
@@ -1420,6 +1420,8 @@ public class Ordering {
                         switch (requestedSortOrder) {
                             case ASCENDING:
                             case DESCENDING:
+                            case ASCENDING_NULLS_LAST:
+                            case DESCENDING_NULLS_FIRST:
                                 resultBuilder.add(new ProvidedOrderingPart(comparisonKeyValue, requestedSortOrder.toProvidedSortOrder()));
                                 break;
                             case ANY:

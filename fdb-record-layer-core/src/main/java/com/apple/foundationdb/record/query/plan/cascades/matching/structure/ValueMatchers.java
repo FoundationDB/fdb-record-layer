@@ -155,6 +155,13 @@ public class ValueMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.of(ToOrderedBytesValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
+    }
+
+    @Nonnull
     public static BindingMatcher<StreamableAggregateValue> streamableAggregateValue() {
         return streamableAggregateValue(exactly(ImmutableList.of(anyValue())));
     }

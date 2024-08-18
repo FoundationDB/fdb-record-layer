@@ -24,10 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
@@ -43,7 +46,7 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
 
     @Nonnull
     static <A, R, T extends Value> ValueComputationRule<A, R, T> fromSimplificationRule(@Nonnull final ValueSimplificationRule<T> simplificationRule,
-                                                                                        @Nonnull final Function<Value, R> defaultComputationResultFunction) {
+                                                                                        @Nonnull final OnMatchComputationFunction<A, R> onMatchComputationFunction) {
         return new ValueComputationRule<>(simplificationRule.getMatcher()) {
             @Nonnull
             @Override
@@ -53,12 +56,31 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
 
             @Override
             public void onMatch(@Nonnull final ValueComputationRuleCall<A, R> call) {
+                final var childrenResults =
+                        Streams.stream(call.getCurrent()
+                                        .getChildren())
+                                .map(value -> {
+                                    final var childResultPair = call.getResult(value);
+                                    return childResultPair == null ? (R)null : childResultPair.getValue();
+                                })
+                                .collect(Collectors.toList());
                 final var simplificationRuleCall =
                         call.toValueSimplificationRuleCall(simplificationRule);
                 simplificationRule.onMatch(simplificationRuleCall);
                 final var results = simplificationRuleCall.getResults();
-                results.forEach(resultValue -> call.yieldValue(resultValue, defaultComputationResultFunction.apply(resultValue)));
+                results.forEach(resultValue -> call.yieldValue(resultValue,
+                        onMatchComputationFunction.apply(call.getArgument(), resultValue, childrenResults)));
             }
         };
+    }
+
+    /**
+     * Functional interface whose {@code apply} method is invoked <em>after</em> using simplification's results.
+     * @param <A> the argument type
+     * @param <R> the result type
+     */
+    @FunctionalInterface
+    public interface OnMatchComputationFunction<A, R> {
+        R apply(@Nullable A argument, @Nonnull Value value, @Nonnull List<R> childrenResults);
     }
 }

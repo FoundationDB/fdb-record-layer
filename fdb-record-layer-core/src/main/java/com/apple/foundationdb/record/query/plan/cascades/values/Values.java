@@ -23,10 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -78,25 +79,51 @@ public class Values {
      * @param type the type used to construct accessors for
      * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
      * @param constantAliases a set of aliases that are considered to be constant
-     * @return a set of {@link Value}s consisting of the accessors to primitive elements of the given type.
+     * @return a list of {@link Value}s consisting of the accessors to primitive elements of the given type.
      */
     @Nonnull
-    public static Set<Value> primitiveAccessorsForType(@Nonnull final Type type,
-                                                       @Nonnull final Supplier<Value> baseValueSupplier,
-                                                       @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public static List<Value> primitiveAccessorsForType(@Nonnull final Type type,
+                                                        @Nonnull final Supplier<Value> baseValueSupplier,
+                                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        return primitiveAccessorsForType(DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                type, baseValueSupplier, constantAliases);
+    }
+
+    /**
+     * Method to construct a set of {@link Value} that can be used to express orderings based on the type of a flowed
+     * object.
+     * <br>
+     * For instance, a {@link QuantifiedObjectValue} of some alias flows records of the shape
+     * {@code ((a as a, b as b) as x, c as y)} where {@code a}, {@code b}, and {@code c} are of primitive types. This
+     * method uses this type information to construct a list of accessors that retrieve the primitive data elements of
+     * that flowed record, i.e, this method would return {@code {_.x.a, _.x,b, _.y}}.
+     * <br>
+     * @param ruleSet the ruleset to be used when simplifying the intermediate {@link Value} trees
+     * @param type the type used to construct accessors for
+     * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @return a list of {@link Value}s consisting of the accessors to primitive elements of the given type.
+     */
+    @Nonnull
+    public static List<Value> primitiveAccessorsForType(@Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                                                        @Nonnull final Type type,
+                                                        @Nonnull final Supplier<Value> baseValueSupplier,
+                                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         if (type.getTypeCode() != Type.TypeCode.RECORD) {
-            return ImmutableSet.of(baseValueSupplier.get());
+            Verify.verify(type.isPrimitive() || type.isEnum());
+            return ImmutableList.of(baseValueSupplier.get());
         }
 
-        final var orderingValuesBuilder = ImmutableSet.<Value>builder();
+        final var orderingValuesBuilder = ImmutableList.<Value>builder();
         final var recordType = (Type.Record)type;
         final var fields = recordType.getFields();
 
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
             final var singleStepPath = FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), i, field.getFieldType()));
-            primitiveAccessorsForType(field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath), constantAliases).stream()
-                    .map(orderingValue -> orderingValue.simplify(DefaultValueSimplificationRuleSet.ofSimplificationRules(), AliasMap.emptyMap(), constantAliases))
+            primitiveAccessorsForType(ruleSet,
+                    field.getFieldType(), () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath), constantAliases).stream()
+                    .map(orderingValue -> orderingValue.simplify(ruleSet, AliasMap.emptyMap(), constantAliases))
                     .forEach(orderingValuesBuilder::add);
         }
 

@@ -298,8 +298,8 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @Nonnull
-        public LogicalSortOrder toLogicalSortOrder() {
-            return SortOrder.mapToSortOrder(this, LogicalSortOrder.getDirectionToSortOrderMap());
+        public MatchedSortOrder toLogicalSortOrder() {
+            return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
         }
 
         @Nonnull
@@ -310,6 +310,11 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         @Nonnull
         static EnumMap<Direction, ProvidedSortOrder> getDirectionToSortOrderMap() {
             return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        public static ProvidedSortOrder fromDirection(@Nonnull final Direction direction) {
+            return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
 
         @Nonnull
@@ -331,22 +336,22 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      * the sort order of {@code inverse(fieldValue(q, x))} is descending iff the sort order of
      * {@code fieldValue(q, x)} is ascending.
      */
-    public enum LogicalSortOrder implements SortOrder {
+    public enum MatchedSortOrder implements SortOrder {
         ASCENDING(Direction.ASC_NULLS_FIRST),
         DESCENDING(Direction.DESC_NULLS_LAST),
         ASCENDING_NULLS_LAST(Direction.ASC_NULLS_LAST),
         DESCENDING_NULLS_FIRST(Direction.DESC_NULLS_FIRST);
 
-        private static final EnumMap<Direction, LogicalSortOrder> directionToSortOrderMap;
+        private static final EnumMap<Direction, MatchedSortOrder> directionToSortOrderMap;
 
         static {
-            directionToSortOrderMap = SortOrder.computeDirectionToSortOrder(LogicalSortOrder.class);
+            directionToSortOrderMap = SortOrder.computeDirectionToSortOrder(MatchedSortOrder.class);
         }
 
         @Nonnull
         private final Direction tupleDirection;
 
-        LogicalSortOrder(@Nonnull final Direction tupleDirection) {
+        MatchedSortOrder(@Nonnull final Direction tupleDirection) {
             this.tupleDirection = tupleDirection;
         }
 
@@ -387,8 +392,13 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @Nonnull
-        static EnumMap<Direction, LogicalSortOrder> getDirectionToSortOrderMap() {
+        static EnumMap<Direction, MatchedSortOrder> getDirectionToSortOrderMap() {
             return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        public static MatchedSortOrder fromDirection(@Nonnull final Direction direction) {
+            return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
     }
 
@@ -470,13 +480,18 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @Nonnull
-        public LogicalSortOrder toLogicalSortOrder() {
-            return SortOrder.mapToSortOrder(this, LogicalSortOrder.getDirectionToSortOrderMap());
+        public MatchedSortOrder toLogicalSortOrder() {
+            return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
         }
 
         @Nonnull
         static EnumMap<Direction, RequestedSortOrder> getDirectionToSortOrderMap() {
             return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        public static RequestedSortOrder fromDirection(@Nonnull final Direction direction) {
+            return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
     }
 
@@ -499,18 +514,9 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     }
 
     /**
-     * Final class to tag requested ordering parts and to seal {@link OrderingPart}.
-     */
-    public static final class LogicalOrderingPart extends OrderingPart<LogicalSortOrder> {
-        public LogicalOrderingPart(@Nonnull final Value value, final LogicalSortOrder sortOrder) {
-            super(value, sortOrder);
-        }
-    }
-
-    /**
      * An {@link OrderingPart} that is bound by a comparison during graph matching.
      */
-    public static final class MatchedOrderingPart extends OrderingPart<LogicalSortOrder> {
+    public static final class MatchedOrderingPart extends OrderingPart<MatchedSortOrder> {
         @Nonnull
         private final CorrelationIdentifier parameterId;
 
@@ -526,8 +532,8 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         private MatchedOrderingPart(@Nonnull final CorrelationIdentifier parameterId,
                                     @Nonnull final Value orderByValue,
                                     @Nonnull final ComparisonRange comparisonRange,
-                                    @Nonnull final LogicalSortOrder logicalSortOrder) {
-            super(orderByValue, logicalSortOrder);
+                                    @Nonnull final MatchedSortOrder matchedSortOrder) {
+            super(orderByValue, matchedSortOrder);
             this.parameterId = parameterId;
             this.comparisonRange = comparisonRange;
         }
@@ -577,9 +583,19 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         public static MatchedOrderingPart of(@Nonnull final CorrelationIdentifier parameterId,
                                              @Nonnull final Value orderByValue,
                                              @Nullable final ComparisonRange comparisonRange,
-                                             @Nonnull final LogicalSortOrder logicalSortOrder) {
+                                             @Nonnull final MatchedSortOrder matchedSortOrder) {
             return new MatchedOrderingPart(parameterId, orderByValue,
-                    comparisonRange == null ? ComparisonRange.EMPTY : comparisonRange, logicalSortOrder);
+                    comparisonRange == null ? ComparisonRange.EMPTY : comparisonRange, matchedSortOrder);
         }
+    }
+
+    /**
+     * Functional interface to be used to create instances of a particular kind of {@link OrderingPart}.
+     * @param <O> type or specific sort order
+     * @param <P> type of specific ordering part
+     */
+    @FunctionalInterface
+    public interface OrderingPartCreator<O extends SortOrder, P extends OrderingPart<O>> {
+        P create(@Nonnull Value value, @Nonnull O sortOrder);
     }
 }

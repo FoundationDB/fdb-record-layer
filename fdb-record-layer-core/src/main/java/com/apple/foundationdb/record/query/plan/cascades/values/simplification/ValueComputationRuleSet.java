@@ -31,7 +31,6 @@ import com.google.common.collect.SetMultimap;
 import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
@@ -49,12 +48,12 @@ public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet
     @Nonnull
     static <A, R> TransformedRules<A, R> fromSimplificationRules(@Nonnull final Set<ValueSimplificationRule<? extends Value>> simplificationRules,
                                                                  @Nonnull final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> simplificationDependsOn,
-                                                                 @Nonnull final Function<Value, R> defaultComputationResultFunction) {
+                                                                 @Nonnull final ValueComputationRule.OnMatchComputationFunction<A, R> computationFunction) {
         final var simplificationToComputationRulesMap =
                 new LinkedIdentityMap<ValueSimplificationRule<? extends Value>, ValueComputationRule<A, R, ? extends Value>>();
         for (final var simplificationRule : simplificationRules) {
             simplificationToComputationRulesMap.put(simplificationRule,
-                    ValueComputationRule.fromSimplificationRule(simplificationRule, defaultComputationResultFunction));
+                    ValueComputationRule.fromSimplificationRule(simplificationRule, computationFunction));
         }
 
         final var computationDependsOnBuilder =

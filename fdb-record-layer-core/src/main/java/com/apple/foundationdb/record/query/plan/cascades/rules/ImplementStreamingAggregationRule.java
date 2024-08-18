@@ -82,9 +82,9 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var requiredOrderingKeyValues =
                 currentGroupingValue == null
                 ? null
-                : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
-                        .stream()
-                        .collect(ImmutableSet.toImmutableSet());
+                : ImmutableSet.copyOf(
+                        Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
+                                () -> currentGroupingValue, correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);

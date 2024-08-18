@@ -77,6 +77,13 @@ public class Simplification {
         // Use mapMaybe() to apply a lambda in post-fix bottom up fashion.
         //
         return root.<Value>mapMaybe((current, mappedChildren) -> {
+
+            //
+            // During this mapping call we may need to recreate the current which incidentally might also be the root.
+            // We need to keep track if the current was the root.
+            //
+            final boolean isRoot = current == root;
+
             //
             // If any of the children have changed as compared to the actual children of current, we need to recreate
             // current. We call computeCurrent() to do that.
@@ -86,7 +93,7 @@ public class Simplification {
             //
             // Run the entire given rule set for current.
             //
-            final var executionResult = executeRuleSet(root,
+            final var executionResult = executeRuleSet(isRoot ? current : root,
                     current,
                     ruleSet,
                     (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings, aliasMap, constantAliases),
@@ -130,6 +137,12 @@ public class Simplification {
         final var resultsMap = new LinkedIdentityMap<Value, NonnullPair<Value, RESULT>>();
         final var newRoot = root.<Value>mapMaybe((current, mappedChildren) -> {
             //
+            // During this mapping call we may need to recreate the current which incidentally might also be the root.
+            // We need to keep track if the current was the root.
+            //
+            final boolean isRoot = current == root;
+
+            //
             // If any of the children have changed as compared to the actual children of current, we need to recreate
             // current. We call computeCurrent() to do that.
             //
@@ -139,7 +152,7 @@ public class Simplification {
             // Run the entire given rule set for current.
             //
             final var executionResult =
-                    Simplification.executeRuleSet(root,
+                    Simplification.executeRuleSet(isRoot ? current : root,
                             current,
                             ruleSet,
                             (rule, r, c, plannerBindings) ->
@@ -245,7 +258,9 @@ public class Simplification {
                 final var rule = ruleIterator.next();
                 final BindingMatcher<? extends BASE> matcher = rule.getMatcher();
 
-                final var matchIterator = matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), current).iterator();
+                final var matchIterator =
+                        matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), current)
+                                .iterator();
 
                 while (matchIterator.hasNext()) {
                     final var plannerBindings = matchIterator.next();
@@ -377,7 +392,8 @@ public class Simplification {
                     if (newCurrentResultsPair == null) {
                         resultsMap.put(newCurrent, NonnullPair.of(newCurrent, currentResults));
                     } else {
-                        resultsMap.put(newCurrent, NonnullPair.of(newCurrent, Lists.newArrayList(Iterables.concat(currentResults, newCurrentResultsPair.getRight()))));
+                        resultsMap.put(newCurrent, NonnullPair.of(newCurrent,
+                                Lists.newArrayList(Iterables.concat(currentResults, newCurrentResultsPair.getRight()))));
                     }
                 }
                 current = newCurrent;

@@ -23,9 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.RequestedOrderingValueSimplificationRuleSet;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -68,7 +71,7 @@ public class RequestedOrdering {
     @Nonnull
     private final Supplier<Map<Value, RequestedSortOrder>> valueRequestedSortOrderMapSupplier;
 
-    public RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts, final Distinctness distinctness) {
+    private RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts, final Distinctness distinctness) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
         this.valueRequestedSortOrderMapSupplier = Suppliers.memoize(this::computeValueSortOrderMap);
@@ -182,7 +185,7 @@ public class RequestedOrdering {
                         .collect(ImmutableList.toImmutableList());
 
         final var pushedDownOrderingValues =
-                value.pushDown(orderingKeyValues, OrderingValueSimplificationRuleSet.ofOrderingSimplificationRules(),
+                value.pushDown(orderingKeyValues, RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules(),
                         aliasMap, constantAliases, Quantifier.current());
 
         final var translationMap = AliasMap.ofAliases(lowerBaseAlias, Quantifier.current());
@@ -210,6 +213,14 @@ public class RequestedOrdering {
                         }, LinkedHashMap::new));
     }
 
+    @Nonnull
+    public RequestedOrdering withDistinctness(@Nonnull final Distinctness distinctness) {
+        if (this.distinctness == distinctness) {
+            return this;
+        }
+        return new RequestedOrdering(orderingParts, distinctness);
+    }
+
     /**
      * Method to create an ordering instance that preserves the order of records.
      * @return a new ordering that preserves the order of records
@@ -220,11 +231,30 @@ public class RequestedOrdering {
     }
 
     @Nonnull
-    public RequestedOrdering withDistinctness(@Nonnull final Distinctness distinctness) {
-        if (this.distinctness == distinctness) {
-            return this;
+    public static RequestedOrdering ofParts(@Nonnull final List<RequestedOrderingPart> requestedOrderingParts,
+                                            @Nonnull final Distinctness distinctness,
+                                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        final var primitiveRequestedOrderingParts = ImmutableList.<RequestedOrderingPart>builder();
+        for (final var requestedOrderingPart : requestedOrderingParts) {
+            final var partValue = requestedOrderingPart.getValue();
+            final var partPrimitivesValues =
+                    Values.primitiveAccessorsForType(RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules(),
+                            partValue.getResultType(), () -> partValue, constantAliases);
+            for (final var partPrimitivesValue : partPrimitivesValues) {
+                primitiveRequestedOrderingParts.add(new RequestedOrderingPart(partPrimitivesValue, requestedOrderingPart.getSortOrder()));
+            }
         }
-        return new RequestedOrdering(orderingParts, distinctness);
+        return ofPrimitiveParts(primitiveRequestedOrderingParts.build(), distinctness);
+    }
+
+    @Nonnull
+    public static RequestedOrdering ofPrimitiveParts(@Nonnull final List<RequestedOrderingPart> requestedOrderingParts,
+                                                     @Nonnull final Distinctness distinctness) {
+        Debugger.sanityCheck(() -> Verify.verify(
+                requestedOrderingParts.stream()
+                        .allMatch(requestedOrderingPart -> requestedOrderingPart.getValue()
+                                .getResultType().isPrimitive())));
+        return new RequestedOrdering(requestedOrderingParts, distinctness);
     }
 
     /**
