@@ -737,11 +737,6 @@ public interface Compensation {
                 relationalExpression = childCompensation.apply(memoizer, relationalExpression);
             }
 
-            if (predicateCompensationMap.isEmpty()) {
-                // all predicates taken care of and no remaining computation
-                return relationalExpression;
-            }
-
             final var matchedQuantifierMap =
                     Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
 
@@ -756,14 +751,8 @@ public interface Compensation {
                             .collect(ImmutableSet.toImmutableSet());
 
             Verify.verify(matchedForEachQuantifierAliases.size() <= 1);
-            final var matchedForEachQuantifierAlias = Iterables.getOnlyElement(matchedForEachQuantifierAliases);
 
-            //
-            // At this point we definitely need a new SELECT expression.
-            //
-            final var newBaseQuantifier = Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)), matchedForEachQuantifierAlias);
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
-
             final var injectCompensationFunctions = predicateCompensationMap.values();
             for (final var injectCompensationFunction : injectCompensationFunctions) {
                 compensatedPredicates.addAll(injectCompensationFunction.applyCompensationForPredicate(TranslationMap.empty()));
@@ -774,7 +763,6 @@ public interface Compensation {
                             .stream()
                             .flatMap(predicate -> predicate.getCorrelatedTo().stream())
                             .collect(ImmutableSet.toImmutableSet());
-
 
             final var toBePulledUpQuantifiersBuilder = ImmutableSet.<Quantifier>builder();
 
@@ -809,6 +797,19 @@ public interface Compensation {
                 }
             }
             final var toBePulledUpQuantifiers = toBePulledUpQuantifiersBuilder.build();
+
+            if (compensatedPredicates.isEmpty() && toBePulledUpQuantifiers.isEmpty()) {
+                return relationalExpression;
+            }
+
+            //
+            // At this point we definitely need a new SELECT expression.
+            //
+            final var matchedForEachQuantifierAlias =
+                    Iterables.getOnlyElement(matchedForEachQuantifierAliases);
+            final var newBaseQuantifier =
+                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                            matchedForEachQuantifierAlias);
 
             //
             // TODO In the vast majority of cases the then branch is taken where the compensation does not create
