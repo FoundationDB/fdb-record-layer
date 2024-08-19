@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -237,8 +238,12 @@ public class OrPredicate extends AndOrPredicate {
                     .flatMap(predicate -> {
                         if (predicate instanceof PredicateWithValue) {
                             final var queryValue = ((ValuePredicate)predicate).getValue();
-                            return queryValue.semanticEquals(candidateValue, valueEquivalence)
-                                    .mapToOptional(Function.identity()).stream();
+
+                            // Note that we don't really care about the contents of a potentially positive result.
+                            // We only care about that there was a positive result.
+                            return queryValue.matchAndCompensateComparisonMaybe(candidateValue, valueEquivalence)
+                                    .map(Pair::getValue)
+                                    .stream();
                         }
                         return Stream.empty();
                     })

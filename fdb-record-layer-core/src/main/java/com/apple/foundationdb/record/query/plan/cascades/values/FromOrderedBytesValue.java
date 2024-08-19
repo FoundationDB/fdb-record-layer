@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -117,8 +116,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
                                            @Nonnull final EvaluationContext context) {
         final var childResult = (ByteString)Objects.requireNonNull(child.eval(store, context));
         final Object result = TupleOrdering.unpack(childResult.toByteArray(), direction).get(0);
-        Verify.verify(Type.fromObject(result).nullable().equals(resultType.nullable()));
-        return result;
+        return resultType.validateObject(result);
     }
 
     @Override

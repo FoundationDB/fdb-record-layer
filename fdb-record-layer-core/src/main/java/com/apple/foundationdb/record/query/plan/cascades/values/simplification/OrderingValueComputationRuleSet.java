@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.OrderingPartCreator;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
@@ -113,6 +113,14 @@ public class OrderingValueComputationRuleSet<O extends SortOrder, P extends Orde
     }
 
     @Nonnull
+    public static OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> usingProvidedOrderingParts() {
+        return ruleSet(OrderingPart.ProvidedSortOrder.ASCENDING,
+                eliminateArithmeticValueWithConstantRule(OrderingPart.ProvidedSortOrder.ASCENDING),
+                computeToOrderedBytesValueRule(OrderingPart.ProvidedSortOrder::fromDirection),
+                defaultOrderingPartRule(OrderingPart.ProvidedSortOrder.ASCENDING));
+    }
+
+    @Nonnull
     public static OrderingValueComputationRuleSet<MatchedSortOrder, MatchedOrderingPart> usingMatchedOrderingParts() {
         return ruleSet(MatchedSortOrder.ASCENDING,
                 eliminateArithmeticValueWithConstantRule(MatchedSortOrder.ASCENDING),
@@ -121,10 +129,10 @@ public class OrderingValueComputationRuleSet<O extends SortOrder, P extends Orde
     }
 
     @Nonnull
-    public static OrderingValueComputationRuleSet<ProvidedSortOrder, ProvidedOrderingPart> usingProvidedOrderingParts() {
-        return ruleSet(ProvidedSortOrder.ASCENDING,
-                eliminateArithmeticValueWithConstantRule(ProvidedSortOrder.ASCENDING),
-                computeToOrderedBytesValueRule(ProvidedSortOrder::fromDirection),
-                defaultOrderingPartRule(ProvidedSortOrder.ASCENDING));
+    public static OrderingValueComputationRuleSet<RequestedSortOrder, RequestedOrderingPart> usingRequestedOrderingParts() {
+        return ruleSet(RequestedSortOrder.ASCENDING,
+                eliminateArithmeticValueWithConstantRule(RequestedSortOrder.ASCENDING),
+                computeToOrderedBytesValueRule(RequestedSortOrder::fromDirection),
+                defaultOrderingPartRule(RequestedSortOrder.ASCENDING));
     }
 }

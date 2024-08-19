@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.RequestedOrderingValueSimplificationRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -133,12 +133,13 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                             groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
 
                     // create a mutable set of required ordering values
+                    final var primitivesValues = Values.primitiveAccessorsForType(
+                            currentGroupingValue.getResultType(), () -> currentGroupingValue);
+                    final var primitivesSimplifiedValues = Values.simplify(primitivesValues,
+                            DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                            AliasMap.emptyMap(), correlatedTo);
                     final var requiredOrderingValues =
-                            new LinkedHashSet<>(
-                                    Values.primitiveAccessorsForType(
-                                            RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules(),
-                                            currentGroupingValue.getResultType(),
-                                            () -> currentGroupingValue, correlatedTo));
+                            new LinkedHashSet<>(primitivesSimplifiedValues);
 
                     final var resultOrderingPartsBuilder = ImmutableList.<RequestedOrderingPart>builder();
                     boolean isPushedAndRequiredCompatible = true;

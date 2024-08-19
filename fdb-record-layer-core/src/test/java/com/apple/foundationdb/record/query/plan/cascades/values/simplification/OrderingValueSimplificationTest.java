@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -83,7 +84,7 @@ class OrderingValueSimplificationTest {
     @Test
     void testOrderingSimplification2() {
         // _
-        final var someCurrentValue = ObjectValue.of(Quantifier.current(), someRecordType());
+        final var someCurrentValue = QuantifiedObjectValue.of(Quantifier.current(), someRecordType());
 
         // ('fieldValue' as a, _ as b, 'World' as c)
         ImmutableList<Column<? extends Value>> columns =

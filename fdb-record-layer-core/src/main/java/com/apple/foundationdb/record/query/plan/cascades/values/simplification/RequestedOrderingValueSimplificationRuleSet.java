@@ -36,19 +36,19 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class RequestedOrderingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
-    protected static final ValueSimplificationRule<? extends Value> elminuateArithmeticValueWithConstantRule =
+    protected static final ValueSimplificationRule<? extends Value> elminateArithmeticValueWithConstantRule =
             new EliminateArithmeticValueWithConstantRule();
 
     private static final Set<ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_RULES =
             ImmutableSet.<ValueSimplificationRule<? extends Value>>builder()
                     .addAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES)
-                    .add(elminuateArithmeticValueWithConstantRule)
+                    .add(elminateArithmeticValueWithConstantRule)
                     .build();
 
     private static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> ORDERING_SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>>builder()
                     .putAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON)
-                    .put(elminuateArithmeticValueWithConstantRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
+                    .put(elminateArithmeticValueWithConstantRule, DefaultValueSimplificationRuleSet.composeFieldValueOverRecordConstructorRule)
                     .build();
 
     private RequestedOrderingValueSimplificationRuleSet() {

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
@@ -288,13 +289,13 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                     final var matchedOrderingPart =
-                            normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
                                     (v, sortOrder) -> MatchedOrderingPart.of(rankAlias, v, rankComparisonRange, sortOrder),
                                     OrderingValueComputationRuleSet.usingMatchedOrderingParts());
                     builder.add(matchedOrderingPart);
                 } else {
                     final var matchedOrderingPart =
-                            normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
                                     (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                     OrderingValueComputationRuleSet.usingMatchedOrderingParts());
                     builder.add(matchedOrderingPart);

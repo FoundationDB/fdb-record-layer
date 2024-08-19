@@ -274,6 +274,16 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                        @Nonnull Optional<String> typeNameOptional,
                        @Nonnull FieldDescriptorProto.Label label);
 
+    @Nullable
+    default <T> T validateObject(@Nullable final T object) {
+        if (object == null) {
+            Verify.verify(isNullable());
+        } else {
+            Verify.verify(this.nullable().equals(fromObject(object).nullable()));
+        }
+        return object;
+    }
+
     /**
      * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
      *

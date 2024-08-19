@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedS
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.RequestedOrderingValueSimplificationRuleSet;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -237,11 +238,14 @@ public class RequestedOrdering {
         final var primitiveRequestedOrderingParts = ImmutableList.<RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrderingParts) {
             final var partValue = requestedOrderingPart.getValue();
-            final var partPrimitivesValues =
-                    Values.primitiveAccessorsForType(RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules(),
-                            partValue.getResultType(), () -> partValue, constantAliases);
-            for (final var partPrimitivesValue : partPrimitivesValues) {
-                primitiveRequestedOrderingParts.add(new RequestedOrderingPart(partPrimitivesValue, requestedOrderingPart.getSortOrder()));
+            final var primitivesValues =
+                    Values.primitiveAccessorsForType(partValue.getResultType(), () -> partValue);
+            for (final var primitiveValue : primitivesValues) {
+                final var simplifiedRequestedOrderingPart =
+                        primitiveValue.deriveOrderingPart(
+                                AliasMap.emptyMap(), constantAliases, RequestedOrderingPart::new,
+                                OrderingValueComputationRuleSet.usingRequestedOrderingParts());
+                primitiveRequestedOrderingParts.add(simplifiedRequestedOrderingPart);
             }
         }
         return ofPrimitiveParts(primitiveRequestedOrderingParts.build(), distinctness);

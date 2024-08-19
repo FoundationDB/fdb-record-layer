@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * TODO .
+ * Interface to be implemented by plans that provide comparison key values.
  */
 public interface RecordQueryPlanWithComparisonKeyValues extends RecordQueryPlan {
     @Nonnull
