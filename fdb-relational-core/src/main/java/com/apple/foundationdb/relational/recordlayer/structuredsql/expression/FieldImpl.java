@@ -83,8 +83,8 @@ public class FieldImpl<T extends DataType> implements Field<T> {
         return visitor.visit(this, context);
     }
 
-    @Override
     @Nonnull
+    @Override
     public String getName() {
         return name;
     }

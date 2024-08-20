@@ -138,8 +138,8 @@ public class InMemoryRelationalConnection implements RelationalConnection {
 
     }
 
-    @Override
     @Nonnull
+    @Override
     public Options getOptions() {
         return Options.NONE;
     }

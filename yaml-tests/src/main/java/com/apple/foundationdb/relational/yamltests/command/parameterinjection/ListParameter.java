@@ -49,8 +49,8 @@ public class ListParameter implements Parameter {
         this.values = values;
     }
 
-    @Override
     @Nonnull
+    @Override
     public ListParameter bind(@Nonnull Random random) {
         if (!isUnbound()) {
             return this;

@@ -156,8 +156,8 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         connection.beginTransaction();
     }
 
-    @Override
     @Nonnull
+    @Override
     public Options getOptions() {
         return connection.getOptions();
     }

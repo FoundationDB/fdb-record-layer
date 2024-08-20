@@ -98,8 +98,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         return store.get(key, options);
     }
 
-    @Override
     @Nonnull
+    @Override
     public StructMetaData getMetaData() throws RelationalException {
         RecordType type = loadRecordType(Options.NONE);
 

@@ -60,8 +60,8 @@ public class RecordLayerSchema implements DatabaseSchema {
         this.existenceCheck = FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS;
     }
 
-    @Override
     @Nonnull
+    @Override
     public String getSchemaName() {
         return schemaName;
     }

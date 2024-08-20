@@ -957,8 +957,8 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 
-    @Override
     @Nonnull
+    @Override
     public Continuation getContinuation() throws SQLException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }

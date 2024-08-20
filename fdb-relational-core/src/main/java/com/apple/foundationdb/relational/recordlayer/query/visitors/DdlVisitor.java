@@ -80,8 +80,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     // TODO: remove
-    @Override
     @Nonnull
+    @Override
     public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         if (ctx.customType != null) {
@@ -92,8 +92,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     // TODO: remove
-    @Override
     @Nonnull
+    @Override
     public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final var primitiveType = Identifier.of(ctx.getText());
@@ -108,8 +108,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param ctx the parse tree.
      * @return a {@link RecordLayerTable} object that captures all the properties of the column as defined by the user.
      */
-    @Override
     @Nonnull
+    @Override
     public RecordLayerColumn visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
         final var columnId = visitUid(ctx.colName);
         final var isRepeated = ctx.ARRAY() != null;
@@ -121,8 +121,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
 
-    @Override
     @Nonnull
+    @Override
     public RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx) {
         final var tableId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
@@ -135,8 +135,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return tableBuilder.build();
     }
 
-    @Override
     @Nonnull
+    @Override
     public RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx) {
         final var structId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
@@ -146,8 +146,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return structBuilder.build();
     }
 
-    @Override
     @Nonnull
+    @Override
     public RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx) {
         final var indexId = visitUid(ctx.indexName);
 
@@ -165,8 +165,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return generator.generate(indexId.getName(), isUnique, table.getType(), containsNullableArray);
     }
 
-    @Override
     @Nonnull
+    @Override
     public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
         final var enumId = visitUid(ctx.uid());
 
@@ -178,8 +178,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return DataType.EnumType.from(enumId.getName(), enumValues, false);
     }
 
-    @Override
     @Nonnull
+    @Override
     public ProceduralPlan visitCreateSchemaTemplateStatement(@Nonnull RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         final var schemaTemplateId = visitUid(ctx.schemaTemplateId().uid());
         // schema template version will be set automatically at update operation to lastVersion + 1
@@ -224,8 +224,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 
-    @Override
     @Nonnull
+    @Override
     public ProceduralPlan visitCreateSchemaStatement(@Nonnull RelationalParser.CreateSchemaStatementContext ctx) {
         final var schemaId = visitUid(ctx.schemaId().path().uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
@@ -234,16 +234,16 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 dbAndSchema.getRight(), templateId.getName(), Options.NONE));
     }
 
-    @Override
     @Nonnull
+    @Override
     public ProceduralPlan visitCreateDatabaseStatement(@Nonnull RelationalParser.CreateDatabaseStatementContext ctx) {
         final var databaseId = visitUid(ctx.path().uid());
         SemanticAnalyzer.validateDatabaseUri(databaseId);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateDatabaseConstantAction(URI.create(databaseId.getName()), Options.NONE));
     }
 
-    @Override
     @Nonnull
+    @Override
     public ProceduralPlan visitDropDatabaseStatement(@Nonnull RelationalParser.DropDatabaseStatementContext ctx) {
         final var databaseId = visitUid(ctx.path().uid());
         SemanticAnalyzer.validateDatabaseUri(databaseId);
@@ -251,8 +251,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return  ProceduralPlan.of(metadataOperationsFactory.getDropDatabaseConstantAction(URI.create(databaseId.getName()), throwIfDoesNotExist, Options.NONE));
     }
 
-    @Override
     @Nonnull
+    @Override
     public ProceduralPlan visitDropSchemaStatement(@Nonnull RelationalParser.DropSchemaStatementContext ctx) {
         final var schemaId = visitUid(ctx.uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
@@ -260,8 +260,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
     }
 
-    @Override
     @Nonnull
+    @Override
     public ProceduralPlan visitDropSchemaTemplateStatement(@Nonnull RelationalParser.DropSchemaTemplateStatementContext ctx) {
         final var schemaTemplateId = visitUid(ctx.uid());
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
@@ -270,8 +270,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     // TODO: remove
-    @Override
     @Nonnull
+    @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
     }

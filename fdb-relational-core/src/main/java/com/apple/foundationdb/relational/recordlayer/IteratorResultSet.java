@@ -48,8 +48,8 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
         this.currentRowPosition = initialRowPosition;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Continuation getContinuation() throws SQLException {
         boolean hasNext = rowIter.hasNext();
         boolean beginning = currentRowPosition == 0;

@@ -174,14 +174,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         equalityConstraints.add(equalityPredicate);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Literals getLiteralsBuilder() {
         return literalsBuilder.build();
     }
 
-    @Override
     @Nonnull
+    @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
         return planHashMode;
     }
@@ -209,8 +209,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return !shouldProcessLiteral;
     }
 
-    @Override
     @Nonnull
+    @Override
     public EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
         if (literalsBuilder.isEmpty()) {
             return EvaluationContext.forTypeRepository(typeRepository);
@@ -220,8 +220,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return builder.build(typeRepository);
     }
 
-    @Override
     @Nonnull
+    @Override
     public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
         final var builder = ExecuteProperties.newBuilder();
         builder.setReturnedRowLimit(limit);

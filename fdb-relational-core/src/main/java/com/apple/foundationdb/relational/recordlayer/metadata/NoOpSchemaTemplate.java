@@ -67,8 +67,8 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
         return false;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Schema generateSchema(@Nonnull final String databaseId, @Nonnull final String schemaName) {
         return new RecordLayerSchema(schemaName, databaseId, this);
     }

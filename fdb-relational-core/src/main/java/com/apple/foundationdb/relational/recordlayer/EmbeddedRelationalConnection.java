@@ -241,8 +241,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return isClosed;
     }
 
-    @Override
     @Nonnull
+    @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return new CatalogMetaData(this, backingCatalog);
     }
@@ -316,8 +316,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
     }
 
-    @Override
     @Nonnull
+    @Override
     public Options getOptions() {
         return options;
     }
@@ -392,14 +392,14 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 .build();
     }
 
-    @Override
     @Nonnull
+    @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         return iface.cast(this);
     }
 
-    @Override
     @Nonnull
+    @Override
     public StatementBuilderFactory createStatementBuilderFactory() throws SQLException {
         try {
             return new StatementBuilderFactoryImpl(getSchemaTemplate(), this);
@@ -408,8 +408,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
     }
 
-    @Override
     @Nonnull
+    @Override
     public ExpressionFactory createExpressionBuilderFactory() throws SQLException {
         try {
             return new ExpressionFactoryImpl(getSchemaTemplate(), getOptions());

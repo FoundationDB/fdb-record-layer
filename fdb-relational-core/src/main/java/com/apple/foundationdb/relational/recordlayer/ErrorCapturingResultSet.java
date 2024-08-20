@@ -239,8 +239,8 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
         return delegate.isClosed();
     }
 
-    @Override
     @Nonnull
+    @Override
     public Continuation getContinuation() throws SQLException {
         try {
             return delegate.getContinuation();

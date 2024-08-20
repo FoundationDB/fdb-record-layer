@@ -51,112 +51,112 @@ import java.util.Set;
  */
 public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
-    @Override
     @Nonnull
+    @Override
     Object visitRoot(@Nonnull RelationalParser.RootContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSqlStatements(@Nonnull RelationalParser.SqlStatementsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSqlStatement(@Nonnull RelationalParser.SqlStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitDdlStatement(@Nonnull RelationalParser.DdlStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTransactionStatement(@Nonnull RelationalParser.TransactionStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitPreparedStatement(@Nonnull RelationalParser.PreparedStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitAdministrationStatement(@Nonnull RelationalParser.AdministrationStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitUtilityStatement(@Nonnull RelationalParser.UtilityStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTemplateClause(@Nonnull RelationalParser.TemplateClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     ProceduralPlan visitCreateSchemaStatement(@Nonnull RelationalParser.CreateSchemaStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     ProceduralPlan visitCreateSchemaTemplateStatement(@Nonnull RelationalParser.CreateSchemaTemplateStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     ProceduralPlan visitCreateDatabaseStatement(@Nonnull RelationalParser.CreateDatabaseStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitOptionsClause(@Nonnull RelationalParser.OptionsClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitOption(@Nonnull RelationalParser.OptionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     ProceduralPlan visitDropDatabaseStatement(@Nonnull RelationalParser.DropDatabaseStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     ProceduralPlan visitDropSchemaTemplateStatement(@Nonnull RelationalParser.DropSchemaTemplateStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     ProceduralPlan visitDropSchemaStatement(@Nonnull RelationalParser.DropSchemaStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitPrimaryKeyDefinition(@Nonnull RelationalParser.PrimaryKeyDefinitionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx);
 
     @Override
@@ -165,779 +165,779 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitIndexAttribute(RelationalParser.IndexAttributeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIntervalType(@Nonnull RelationalParser.IntervalTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSchemaId(@Nonnull RelationalParser.SchemaIdContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitPath(@Nonnull RelationalParser.PathContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSchemaTemplateId(@Nonnull RelationalParser.SchemaTemplateIdContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitInsertStatement(@Nonnull RelationalParser.InsertStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitSelectStatementWithContinuation(@Nonnull RelationalParser.SelectStatementWithContinuationContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitSimpleSelect(@Nonnull RelationalParser.SimpleSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitParenthesisSelect(@Nonnull RelationalParser.ParenthesisSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitUnionSimpleSelect(RelationalParser.UnionSimpleSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitParenthesisUnionSimpleSelect(RelationalParser.ParenthesisUnionSimpleSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitParenthesisUnionParenthesisSelect(RelationalParser.ParenthesisUnionParenthesisSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitUnionParenthesisSelect(@Nonnull RelationalParser.UnionParenthesisSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitInsertStatementValueSelect(@Nonnull RelationalParser.InsertStatementValueSelectContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitInsertStatementValueValues(@Nonnull RelationalParser.InsertStatementValueValuesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expressions visitUpdatedElement(@Nonnull RelationalParser.UpdatedElementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitAssignmentField(@Nonnull RelationalParser.AssignmentFieldContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Pair<Boolean, Expressions> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Pair<Expression, Boolean> visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx);
 
     @Override
     @Nullable
     Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitNaturalJoin(@Nonnull RelationalParser.NaturalJoinContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitQueryExpression(@Nonnull RelationalParser.QueryExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitParenthesisUnionSelectSpecification(RelationalParser.ParenthesisUnionSelectSpecificationContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     LogicalOperator visitParenthesisUnionSelectExpression(RelationalParser.ParenthesisUnionSelectExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitSelectExpressionElement(@Nonnull RelationalParser.SelectExpressionElementContext ctx);
 
     @Override
     @Nullable
     Void visitFromClause(@Nonnull RelationalParser.FromClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expressions visitGroupByClause(@Nonnull RelationalParser.GroupByClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitGroupByItem(@Nonnull RelationalParser.GroupByItemContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitLimitClauseAtom(@Nonnull RelationalParser.LimitClauseAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitStartTransaction(@Nonnull RelationalParser.StartTransactionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCommitStatement(@Nonnull RelationalParser.CommitStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitRollbackStatement(@Nonnull RelationalParser.RollbackStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetAutocommitStatement(@Nonnull RelationalParser.SetAutocommitStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetTransactionStatement(@Nonnull RelationalParser.SetTransactionStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTransactionOption(@Nonnull RelationalParser.TransactionOptionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTransactionLevel(@Nonnull RelationalParser.TransactionLevelContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitPrepareStatement(@Nonnull RelationalParser.PrepareStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitExecuteStatement(@Nonnull RelationalParser.ExecuteStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     QueryPlan.MetadataQueryPlan visitShowDatabasesStatement(@Nonnull RelationalParser.ShowDatabasesStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(@Nonnull RelationalParser.ShowSchemaTemplatesStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetCharset(@Nonnull RelationalParser.SetCharsetContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetNames(@Nonnull RelationalParser.SetNamesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetTransaction(@Nonnull RelationalParser.SetTransactionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetAutocommit(@Nonnull RelationalParser.SetAutocommitContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitKillStatement(@Nonnull RelationalParser.KillStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitResetStatement(@Nonnull RelationalParser.ResetStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTableIndexes(@Nonnull RelationalParser.TableIndexesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLoadedTableIndexes(@Nonnull RelationalParser.LoadedTableIndexesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaStatement(@Nonnull RelationalParser.SimpleDescribeSchemaStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaTemplateStatement(@Nonnull RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitHelpStatement(@Nonnull RelationalParser.HelpStatementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitDescribeConnection(@Nonnull RelationalParser.DescribeConnectionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitFullId(@Nonnull RelationalParser.FullIdContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitTableName(@Nonnull RelationalParser.TableNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitIndexColumnName(@Nonnull RelationalParser.IndexColumnNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitCharsetName(@Nonnull RelationalParser.CharsetNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitCollationName(@Nonnull RelationalParser.CollationNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitUid(@Nonnull RelationalParser.UidContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Identifier visitSimpleId(@Nonnull RelationalParser.SimpleIdContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitNullNotnull(@Nonnull RelationalParser.NullNotnullContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitDecimalLiteral(@Nonnull RelationalParser.DecimalLiteralContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitStringLiteral(@Nonnull RelationalParser.StringLiteralContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBooleanLiteral(@Nonnull RelationalParser.BooleanLiteralContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBytesLiteral(@Nonnull RelationalParser.BytesLiteralContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitNullLiteral(@Nonnull RelationalParser.NullLiteralContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitStringConstant(@Nonnull RelationalParser.StringConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitDecimalConstant(@Nonnull RelationalParser.DecimalConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitNegativeDecimalConstant(@Nonnull RelationalParser.NegativeDecimalConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBytesConstant(@Nonnull RelationalParser.BytesConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBooleanConstant(@Nonnull RelationalParser.BooleanConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBitStringConstant(@Nonnull RelationalParser.BitStringConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitNullConstant(@Nonnull RelationalParser.NullConstantContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitStringDataType(@Nonnull RelationalParser.StringDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitNationalStringDataType(@Nonnull RelationalParser.NationalStringDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitNationalVaryingStringDataType(@Nonnull RelationalParser.NationalVaryingStringDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitDimensionDataType(@Nonnull RelationalParser.DimensionDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSimpleDataType(@Nonnull RelationalParser.SimpleDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCollectionDataType(@Nonnull RelationalParser.CollectionDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSpatialDataType(@Nonnull RelationalParser.SpatialDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLongVarcharDataType(@Nonnull RelationalParser.LongVarcharDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLongVarbinaryDataType(@Nonnull RelationalParser.LongVarbinaryDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCollectionOptions(@Nonnull RelationalParser.CollectionOptionsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitConvertedDataType(@Nonnull RelationalParser.ConvertedDataTypeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLengthOneDimension(@Nonnull RelationalParser.LengthOneDimensionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLengthTwoDimension(@Nonnull RelationalParser.LengthTwoDimensionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLengthTwoOptionalDimension(@Nonnull RelationalParser.LengthTwoOptionalDimensionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     List<Identifier> visitUidList(@Nonnull RelationalParser.UidListContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Pair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTables(@Nonnull RelationalParser.TablesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIndexColumnNames(@Nonnull RelationalParser.IndexColumnNamesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expressions visitExpressions(@Nonnull RelationalParser.ExpressionsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitExpressionsWithDefaults(@Nonnull RelationalParser.ExpressionsWithDefaultsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitOfTypeClause(@Nonnull RelationalParser.OfTypeClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitArrayConstructor(@Nonnull RelationalParser.ArrayConstructorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitUserVariables(@Nonnull RelationalParser.UserVariablesContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitDefaultValue(@Nonnull RelationalParser.DefaultValueContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitExpressionOrDefault(@Nonnull RelationalParser.ExpressionOrDefaultContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSpecificFunctionCall(@Nonnull RelationalParser.SpecificFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitValuesFunctionCall(@Nonnull RelationalParser.ValuesFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCaseExpressionFunctionCall(@Nonnull RelationalParser.CaseExpressionFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCharFunctionCall(@Nonnull RelationalParser.CharFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitPositionFunctionCall(@Nonnull RelationalParser.PositionFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitSubstrFunctionCall(@Nonnull RelationalParser.SubstrFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitTrimFunctionCall(@Nonnull RelationalParser.TrimFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitWeightFunctionCall(@Nonnull RelationalParser.WeightFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitExtractFunctionCall(@Nonnull RelationalParser.ExtractFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitGetFormatFunctionCall(@Nonnull RelationalParser.GetFormatFunctionCallContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCaseFuncAlternative(@Nonnull RelationalParser.CaseFuncAlternativeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLevelWeightList(@Nonnull RelationalParser.LevelWeightListContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLevelWeightRange(@Nonnull RelationalParser.LevelWeightRangeContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLevelInWeightListElement(@Nonnull RelationalParser.LevelInWeightListElementContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitScalarFunctionName(@Nonnull RelationalParser.ScalarFunctionNameContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expressions visitFunctionArgs(@Nonnull RelationalParser.FunctionArgsContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitLogicalExpression(@Nonnull RelationalParser.LogicalExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitPredicateExpression(@Nonnull RelationalParser.PredicateExpressionContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitExpressionAtomPredicate(@Nonnull RelationalParser.ExpressionAtomPredicateContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitInList(@Nonnull RelationalParser.InListContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitJsonExpressionAtom(@Nonnull RelationalParser.JsonExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitConstantExpressionAtom(@Nonnull RelationalParser.ConstantExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitFullColumnNameExpressionAtom(@Nonnull RelationalParser.FullColumnNameExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitRecordConstructorExpressionAtom(@Nonnull RelationalParser.RecordConstructorExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitArrayConstructorExpressionAtom(@Nonnull RelationalParser.ArrayConstructorExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIntervalExpressionAtom(@Nonnull RelationalParser.IntervalExpressionAtomContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitUnaryOperator(@Nonnull RelationalParser.UnaryOperatorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitComparisonOperator(@Nonnull RelationalParser.ComparisonOperatorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitLogicalOperator(@Nonnull RelationalParser.LogicalOperatorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitBitOperator(@Nonnull RelationalParser.BitOperatorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitMathOperator(@Nonnull RelationalParser.MathOperatorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitJsonOperator(@Nonnull RelationalParser.JsonOperatorContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitCharsetNameBase(@Nonnull RelationalParser.CharsetNameBaseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitIntervalTypeBase(@Nonnull RelationalParser.IntervalTypeBaseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitKeywordsCanBeId(@Nonnull RelationalParser.KeywordsCanBeIdContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitFunctionNameBase(@Nonnull RelationalParser.FunctionNameBaseContext ctx);
 
-    @Override
     @Nonnull
+    @Override
     Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx);
 }

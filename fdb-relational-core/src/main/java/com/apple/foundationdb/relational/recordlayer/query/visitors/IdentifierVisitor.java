@@ -42,14 +42,14 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         return new IdentifierVisitor(baseVisitor);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext tableNameContext) {
         return visitFullId(tableNameContext.fullId());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Identifier visitFullId(@Nonnull RelationalParser.FullIdContext fullIdContext) {
         Assert.thatUnchecked(!fullIdContext.uid().isEmpty());
         final ImmutableList.Builder<String> qualifierBuilder = ImmutableList.builder();
@@ -61,8 +61,8 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         return Identifier.of(name, qualifierBuilder.build());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Identifier visitUid(@Nonnull RelationalParser.UidContext uidContext) {
         if (uidContext.simpleId() != null) {
             return visitSimpleId(uidContext.simpleId());
@@ -71,38 +71,38 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Override
     @Nonnull
+    @Override
     public List<Identifier> visitUidList(@Nonnull RelationalParser.UidListContext uidListContext) {
         return uidListContext.uid().stream()
                 .map(this::visitUid)
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Identifier visitSimpleId(@Nonnull RelationalParser.SimpleIdContext simpleIdContext) {
         return Identifier.of(getDelegate().normalizeString(simpleIdContext.getText()));
     }
 
-    @Override
-    @Nonnull // not supported yet
+    @Nonnull
+    @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Identifier visitIndexColumnName(@Nonnull RelationalParser.IndexColumnNameContext ctx) {
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting index column is not supported");
         return null;
     }
 
-    @Override
-    @Nonnull // not supported yet
+    @Nonnull
+    @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Identifier visitCharsetName(@Nonnull RelationalParser.CharsetNameContext ctx) {
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting charset is not supported");
         return null;
     }
 
-    @Override
-    @Nonnull // not supported yet
+    @Nonnull
+    @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Identifier visitCollationName(@Nonnull RelationalParser.CollationNameContext ctx) {
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting collation is not supported");

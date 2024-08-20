@@ -101,8 +101,8 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @throws SQLException with ErrorCode {@link ErrorCode#UNDEFINED_SCHEMA} if the schema
      * does not exist within this database; a different error code if something systemic goes wrong.
      */
-    @Override
     @Nonnull
+    @Override
     RelationalResultSet getTables(
             String catalog,
             String schema,
@@ -132,8 +132,8 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @return a ResultSet with a column listing for the table.
      * @throws SQLException if something goes wrong.
      */
-    @Override
     @Nonnull
+    @Override
     RelationalResultSet getColumns(
             String catalog,
             String schema,

@@ -161,8 +161,8 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
         return SCHEMA_TEMPLATE;
     }
 
-    @Override
     @Nonnull
+    @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }

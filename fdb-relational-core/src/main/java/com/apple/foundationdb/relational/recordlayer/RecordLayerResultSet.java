@@ -121,8 +121,8 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         return this.closed;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Continuation getContinuation() throws SQLException {
         try {
             return enrichContinuationFunction.apply(currentCursor.getContinuation());

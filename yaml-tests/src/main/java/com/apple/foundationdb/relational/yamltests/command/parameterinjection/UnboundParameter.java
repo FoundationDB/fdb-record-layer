@@ -56,8 +56,8 @@ public abstract class UnboundParameter implements Parameter  {
     /**
      * Invalid operation since this parameter is not bound.
      */
-    @Override
     @Nonnull
+    @Override
     public String getSqlText() {
         ensureBoundedness();
         return "";

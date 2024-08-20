@@ -38,8 +38,8 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         return new MetadataPlanVisitor(baseVisitor);
     }
 
-    @Override
     @Nonnull
+    @Override
     public QueryPlan.MetadataQueryPlan visitShowDatabasesStatement(@Nonnull RelationalParser.ShowDatabasesStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         if (ctx.path() != null) {
@@ -50,15 +50,15 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getListDatabasesQueryAction(getDelegate().getDbUri()));
     }
 
-    @Override
     @Nonnull
+    @Override
     public QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(@Nonnull RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getListSchemaTemplatesQueryAction());
     }
 
-    @Override
     @Nonnull
+    @Override
     public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaStatement(@Nonnull RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaId = visitUid(ctx.schemaId().path().uid());
@@ -68,8 +68,8 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaQueryAction(database, schema));
     }
 
-    @Override
     @Nonnull
+    @Override
     public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaTemplateStatement(@Nonnull RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaTemplateId = visitUid(ctx.uid());

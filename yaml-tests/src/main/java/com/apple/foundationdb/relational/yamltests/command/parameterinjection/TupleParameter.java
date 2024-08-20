@@ -39,8 +39,8 @@ public class TupleParameter extends ListParameter {
         super(value);
     }
 
-    @Override
     @Nonnull
+    @Override
     public TupleParameter bind(@Nonnull Random random) {
         if (!isUnbound()) {
             return this;
@@ -61,8 +61,8 @@ public class TupleParameter extends ListParameter {
         return (Objects.requireNonNull(connection).createStruct("na", array));
     }
 
-    @Override
     @Nonnull
+    @Override
     public String getSqlText() {
         ensureBoundedness();
         return "(" + getValues().stream().map(Parameter::getSqlText).collect(Collectors.joining(", ")) + ")";

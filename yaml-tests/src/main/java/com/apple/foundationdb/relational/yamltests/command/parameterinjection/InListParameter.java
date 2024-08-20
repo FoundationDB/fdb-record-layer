@@ -41,8 +41,8 @@ public class InListParameter implements Parameter {
         this.parameter = parameter;
     }
 
-    @Override
     @Nonnull
+    @Override
     public InListParameter bind(@Nonnull Random random) {
         if (!isUnbound()) {
             return this;
@@ -63,8 +63,8 @@ public class InListParameter implements Parameter {
         return parameter.getSqlObject(connection);
     }
 
-    @Override
     @Nonnull
+    @Override
     public String getSqlText() {
         ensureBoundedness();
         var values = ((ListParameter) parameter).getValues();

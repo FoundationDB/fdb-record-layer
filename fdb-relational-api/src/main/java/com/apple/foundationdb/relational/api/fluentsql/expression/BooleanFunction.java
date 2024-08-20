@@ -65,8 +65,8 @@ public class BooleanFunction implements BooleanExpressionTrait, FunctionLike<Dat
         return operator;
     }
 
-    @Override
     @Nonnull
+    @Override
     public DataType getType() {
         return DataType.BooleanType.nullable();
     }

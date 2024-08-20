@@ -75,8 +75,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return new ExpressionVisitor(baseVisitor);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
         return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
             final var continuationExpression = parseChild(ctx);
@@ -85,36 +85,36 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         });
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ignored) {
         return getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
         final var identifier = visitUid(ctx.uid());
         // the semantics of valid correlations are extended to expanding a (correlated) qualified star.
         return getDelegate().getSemanticAnalyzer().expandStar(Optional.of(identifier), getDelegate().getLogicalOperatorsIncludingOuter());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitFullColumnNameExpressionAtom(@Nonnull RelationalParser.FullColumnNameExpressionAtomContext fullColumnNameExpressionAtomContext) {
         return Assert.castUnchecked(fullColumnNameExpressionAtomContext.fullColumnName().accept(this), Expression.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
         return Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitSelectExpressionElement(@Nonnull RelationalParser.SelectExpressionElementContext selectExpressionElementContext) {
         final var expression = Assert.castUnchecked(selectExpressionElementContext.expression().accept(this), Expression.class);
         if (selectExpressionElementContext.AS() != null) {
@@ -124,15 +124,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return expression;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
         return getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Pair<Boolean, Expressions> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContextContext) {
         if (!getDelegate().isTopLevel()) {
             Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
@@ -144,22 +144,22 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Pair.of(orderByDirection, orderByExpressions);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Pair<Expression, Boolean> visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
         final var expression = Assert.castUnchecked(orderByExpressionContext.expression().accept(this), Expression.class);
         final var isReverse = (orderByExpressionContext.ASC() == null) && (orderByExpressionContext.DESC() != null);
         return Pair.of(expression, isReverse);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expressions visitGroupByClause(@Nonnull RelationalParser.GroupByClauseContext groupByClauseContext) {
         return Expressions.of(groupByClauseContext.groupByItem().stream().map(this::visitGroupByItem).collect(ImmutableList.toImmutableList()));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitGroupByItem(@Nonnull RelationalParser.GroupByItemContext groupByItemContext) {
         Assert.isNullUnchecked(groupByItemContext.order, ErrorCode.UNSUPPORTED_QUERY, "ordering grouping column is not supported");
         final var expression = Assert.castUnchecked(groupByItemContext.expression().accept(this), Expression.class);
@@ -170,14 +170,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return expression;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext functionCon) {
         return visitAggregateWindowedFunction(functionCon.aggregateWindowedFunction());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
         Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
                 ErrorCode.UNSUPPORTED_QUERY, () -> String.format("Unsupported aggregator %s", functionContext.aggregator.getText()));
@@ -191,8 +191,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return argumentMaybe.map(expression -> getDelegate().resolveFunction(functionName, expression)).orElseGet(() -> getDelegate().resolveFunction(functionName));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         final var functionName = ctx.scalarFunctionName().getText();
         // special case for user-defined functions where we want to exclude the first argument from
@@ -221,8 +221,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
         final ImmutableList.Builder<BooleanValue> implications = ImmutableList.builder();
         final ImmutableList.Builder<Value> pickerValues = ImmutableList.builder();
@@ -240,38 +240,38 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(new PickValue(new ConditionSelectorValue(implications.build()), pickerValues.build()));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext functionArgContext) {
         return Assert.castUnchecked(functionArgContext.expression().accept(this), Expression.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expressions visitFunctionArgs(@Nonnull RelationalParser.FunctionArgsContext ctx) {
         return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg).collect(ImmutableList.toImmutableList()));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext havingClauseContext) {
         return Assert.castUnchecked(havingClauseContext.expression().accept(this), Expression.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx) {
         return visitPreparedStatementParameter(ctx.preparedStatementParameter());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         final var tokenIndex = ctx.getStart().getTokenIndex();
         final Value value;
@@ -285,23 +285,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(type, value);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx) {
         final var argument = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.NOT().getText(), argument);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitLogicalExpression(@Nonnull RelationalParser.LogicalExpressionContext ctx) {
         final var left = Assert.castUnchecked(ctx.expression(0).accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.expression(1).accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.logicalOperator().getText(), left, right);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx) {
         // TODO (SQL query with OFFSET clause skipping wrong number of records with splitLongRecords=true in Relational)
         Assert.isNullUnchecked(ctx.offset, "OFFSET clause is not supported");
@@ -314,16 +314,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         });
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitLimitClauseAtom(@Nonnull RelationalParser.LimitClauseAtomContext ctx) {
         return parseChild(ctx);
     }
 
     ///// Predicates ///////
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx) {
         /*
          * (yhatem) this is an interesting visitation, as it requires three interactions:
@@ -339,16 +339,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(underlyingValue);
     }
 
-    @Override
     @Nonnull
+    @Override
     @ExcludeFromJacocoGeneratedReport
     public Expression visitSubqueryExpressionAtom(@Nonnull RelationalParser.SubqueryExpressionAtomContext ctx) {
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
         return null;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx) {
         final var predicate = Assert.castUnchecked(visit(ctx.predicate()), Expression.class);
         if (ctx.NULL_LITERAL() != null) {
@@ -374,8 +374,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitLikePredicate(@Nonnull RelationalParser.LikePredicateContext ctx) {
         final LiteralValue<?> escapeValue;
         if (ctx.escape != null) {
@@ -398,8 +398,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return likeFunction;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
         Assert.thatUnchecked(ctx.inList().selectStatement() == null, ErrorCode.UNSUPPORTED_QUERY,
                 "IN predicate does not support nested SELECT");
@@ -408,8 +408,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(ctx.IN().getText(), left, right);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitInList(@Nonnull RelationalParser.InListContext ctx) {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
@@ -431,14 +431,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expressions visitExpressions(@Nonnull RelationalParser.ExpressionsContext ctx) {
         return Expressions.of(ctx.expression()
                 .stream()
@@ -454,32 +454,32 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(ctx.bitOperator().getText(), left, right);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitExpressionWithName(@Nonnull RelationalParser.ExpressionWithNameContext ctx) {
         final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         final var name = visitUid(ctx.uid());
         return expression.withName(name);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
         final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         if (ctx.AS() != null) {
@@ -491,14 +491,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     /////// Literals and Constants //////
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitDecimalLiteral(@Nonnull RelationalParser.DecimalLiteralContext ctx) {
         return resolveDecimal(ctx.getText(), ctx.getStart().getTokenIndex());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitStringLiteral(@Nonnull RelationalParser.StringLiteralContext ctx) {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), ErrorCode.UNSUPPORTED_QUERY, "charset not is supported");
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), ErrorCode.UNSUPPORTED_QUERY, "national string literal is not supported");
@@ -509,8 +509,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(value);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitBooleanLiteral(@Nonnull RelationalParser.BooleanLiteralContext ctx) {
         final Value booleanValue;
         if (ctx.FALSE() != null) {
@@ -524,8 +524,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(booleanValue);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitBytesLiteral(@Nonnull RelationalParser.BytesLiteralContext ctx) {
         final String literal;
         if (ctx.HEXADECIMAL_LITERAL() != null) {
@@ -539,51 +539,51 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(value);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitNullLiteral(@Nonnull RelationalParser.NullLiteralContext ctx) {
         return Expression.ofUnnamed(new NullValue(Type.nullType())); // do not strip nulls.
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitStringConstant(@Nonnull RelationalParser.StringConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitDecimalConstant(@Nonnull RelationalParser.DecimalConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitNegativeDecimalConstant(@Nonnull RelationalParser.NegativeDecimalConstantContext ctx) {
         return resolveDecimal(ctx.getText(), ctx.getStart().getTokenIndex());
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitBytesConstant(@Nonnull RelationalParser.BytesConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitBooleanConstant(@Nonnull RelationalParser.BooleanConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitBitStringConstant(@Nonnull RelationalParser.BitStringConstantContext ctx) {
         Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "bit strings not supported");
         return null;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitNullConstant(@Nonnull RelationalParser.NullConstantContext ctx) {
         Assert.isNullUnchecked(ctx.NOT(), ErrorCode.UNSUPPORTED_QUERY, "not null is not supported");
         return visitNullLiteral(ctx.nullLiteral());
@@ -591,14 +591,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     /////// Lists //////
 
-    @Override
     @Nonnull
+    @Override
     public StringTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
         return visitUidListWithNestings(ctx.uidListWithNestings());
     }
 
-    @Override
     @Nonnull
+    @Override
     public StringTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
         final var uidMap =
                 ctx.uidWithNestings()
@@ -612,8 +612,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return new StringTrieNode(uidMap);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Pair<String, StringTrieNode> visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
         final var uid = visitUid(ctx.uid());
         if (ctx.uidListWithNestingsInParens() == null) {
@@ -623,15 +623,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
         if (ctx.uid() != null) {
             final var id = visitUid(ctx.uid());
@@ -664,8 +664,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(resultValue);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expression visitArrayConstructor(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
         final var maybeState = getStateMaybe();
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
@@ -779,8 +779,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return parseRecordFields(providedColumnContexts, elementFields);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Expressions visitUpdatedElement(@Nonnull RelationalParser.UpdatedElementContext ctx) {
         final var targetExpression = visitFullColumnName(ctx.fullColumnName());
         final var updateExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);

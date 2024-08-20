@@ -92,8 +92,8 @@ public class RowArray implements RelationalArray, EmbeddedRelationalArray {
         return arrayMetaData.getElementType();
     }
 
-    @Override
     @Nonnull
+    @Override
     public ArrayMetaData getMetaData() throws SQLException {
         return arrayMetaData;
     }

@@ -232,8 +232,8 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return typeDescriptor;
     }
 
-    @Override
     @Nonnull
+    @Override
     public DynamicMessageBuilder newBuilder() {
         return new ProtobufDataBuilder(typeDescriptor);
     }

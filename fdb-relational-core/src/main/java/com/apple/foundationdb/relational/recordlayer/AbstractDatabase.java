@@ -93,8 +93,8 @@ public abstract class AbstractDatabase implements RelationalDatabase {
         return schema;
     }
 
-    @Override
     @Nonnull
+    @Override
     public MetadataOperationsFactory getDdlFactory() {
         return metadataOperationsFactory;
     }

@@ -33,6 +33,7 @@ public class JDBCServiceTest {
     public void testCheckStatementRequest() {
         var observer = new StreamObserver<StatementResponse>() {
             int error = 0;
+
             @Override
             public void onNext(StatementResponse value) {
             }

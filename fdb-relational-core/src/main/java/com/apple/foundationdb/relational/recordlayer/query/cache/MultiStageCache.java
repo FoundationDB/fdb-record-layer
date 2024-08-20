@@ -153,8 +153,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Override
     @Nonnull
+    @Override
     public V reduce(@Nonnull final K key,
                     @Nonnull final S secondaryKey,
                     @Nonnull final T tertiaryKey,

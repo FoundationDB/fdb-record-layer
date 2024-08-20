@@ -218,8 +218,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
      *
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
      */
-    @Override
     @Nonnull
+    @Override
     public Multimap<String, String> getTableIndexMapping() {
         return tableIndexMappingSupplier.get();
     }

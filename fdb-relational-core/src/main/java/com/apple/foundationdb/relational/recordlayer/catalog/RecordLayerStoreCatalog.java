@@ -184,8 +184,8 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         return schemaTemplateCatalog;
     }
 
-    @Override
     @Nonnull
+    @Override
     public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);

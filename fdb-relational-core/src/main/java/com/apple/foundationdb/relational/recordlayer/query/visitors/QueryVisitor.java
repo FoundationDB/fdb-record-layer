@@ -68,8 +68,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return new QueryVisitor(baseVisitor);
     }
 
-    @Override
     @Nonnull
+    @Override
     public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
         Assert.thatUnchecked(ctx.selectStatementWithContinuation() != null ||
                 ctx.insertStatement() != null ||
@@ -79,8 +79,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitSelectStatementWithContinuation(@Nonnull RelationalParser.SelectStatementWithContinuationContext ctx) {
         if (ctx.CONTINUATION() != null) {
             final var continuationExpression = visitContinuationAtom(ctx.continuationAtom());
@@ -91,8 +91,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Assert.castUnchecked(ctx.selectStatement().accept(this), LogicalOperator.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitQuerySpecification(@Nonnull RelationalParser.QuerySpecificationContext querySpecificationContext) {
         Assert.notNullUnchecked(querySpecificationContext.fromClause(), ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
         getDelegate().pushPlanFragment();
@@ -164,8 +164,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 : visitQueryExpression(unionStatementContext.queryExpression());
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitQueryExpression(@Nonnull RelationalParser.QueryExpressionContext ctx) {
         if (ctx.queryExpression() != null) {
             return Assert.castUnchecked(ctx.queryExpression().accept(this), LogicalOperator.class); // recursive
@@ -173,14 +173,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Assert.castUnchecked(ctx.querySpecification().accept(this), LogicalOperator.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitSimpleSelect(@Nonnull RelationalParser.SimpleSelectContext simpleSelectContext) {
         return visitQuerySpecification(simpleSelectContext.querySpecification());
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitParenthesisSelect(@Nonnull RelationalParser.ParenthesisSelectContext parenthesisSelectContext) {
         return Assert.castUnchecked(parenthesisSelectContext.queryExpression().accept(this), LogicalOperator.class);
     }
@@ -202,15 +202,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return null;
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
         Assert.thatUnchecked(ctx.joinPart().isEmpty(), "explicit join types are not supported");
         return Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext atomTableItemContext) {
         final var tableIdentifier = Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class);
         final var tableAlias = Optional.of(atomTableItemContext.alias == null ?
@@ -222,16 +222,16 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 getDelegate().getSemanticAnalyzer());
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext subqueryTableItemContext) {
         final var alias = Assert.castUnchecked(subqueryTableItemContext.alias.accept(this), Identifier.class);
         final var selectOperator = Assert.castUnchecked(subqueryTableItemContext.selectStatement().accept(this), LogicalOperator.class);
         return selectOperator.withName(alias);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext indexHintContext) {
         // currently only support USE INDEX '(' uidList ')' syntax
         Assert.isNullUnchecked(indexHintContext.IGNORE(), "index hint 'ignore' semantics not supported");
@@ -242,8 +242,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return indexHintContext.uidList().uid().stream().map(this::visitUid).map(Identifier::getName).collect(ImmutableSet.toImmutableSet());
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitInsertStatement(@Nonnull RelationalParser.InsertStatementContext ctx) {
         final var table = visitTableName(ctx.tableName());
         final var tableType = getDelegate().getSemanticAnalyzer().getTable(table);
@@ -272,14 +272,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return resultingInsert;
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitInsertStatementValueSelect(@Nonnull RelationalParser.InsertStatementValueSelectContext ctx) {
         return Assert.castUnchecked(ctx.selectStatement().accept(this), LogicalOperator.class);
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitInsertStatementValueValues(@Nonnull RelationalParser.InsertStatementValueValuesContext ctx) {
         final ImmutableList.Builder<Expression> insertTuples = ImmutableList.builder();
         for (final var tupleContext : ctx.recordConstructorForInsert()) {
@@ -292,8 +292,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
         final var tableId = visitFullId(ctx.tableName().fullId());
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
@@ -342,8 +342,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx) {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
         final var tableId = visitFullId(ctx.tableName().fullId());
@@ -377,42 +377,42 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         // TODO (Rethink how execute continuation works)
         throw Assert.failUnchecked("execute package should not be handled here");
     }
 
-    @Override
     @Nonnull
+    @Override
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
         return parseChild(ctx);
     }
 
-    @Override
     @Nonnull
+    @Override
     public Object visitDescribeConnection(@Nonnull RelationalParser.DescribeConnectionContext ctx) {
         throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitUnionSelectSpecification(RelationalParser.UnionSelectSpecificationContext unionSelectContext) {
         final var leftmostLeg = visitQuerySpecification(unionSelectContext.querySpecification());
         return constructUnionInternal(leftmostLeg, unionSelectContext.unionStatement());
     }
 
-    @Override
     @Nonnull
+    @Override
     public LogicalOperator visitUnionSelectExpression(RelationalParser.UnionSelectExpressionContext unionSelectContext) {
         final var leftmostLeg = visitQueryExpression(unionSelectContext.queryExpression());
         return constructUnionInternal(leftmostLeg, unionSelectContext.unionStatement());

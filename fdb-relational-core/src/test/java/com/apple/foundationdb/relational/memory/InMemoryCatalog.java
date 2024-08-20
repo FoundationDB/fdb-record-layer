@@ -50,8 +50,8 @@ public class InMemoryCatalog implements StoreCatalog {
         return schemaTemplateCatalog;
     }
 
-    @Override
     @Nonnull
+    @Override
     public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
         final List<InMemorySchema> schemas = dbToSchemas.get(databaseId);
         if (schemas == null) {

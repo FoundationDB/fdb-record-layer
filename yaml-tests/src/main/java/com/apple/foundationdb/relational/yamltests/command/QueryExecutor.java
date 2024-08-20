@@ -137,8 +137,8 @@ public class QueryExecutor {
         }
     }
 
-    @Override
     @Nonnull
+    @Override
     public String toString() {
         if (parameters == null) {
             return query;
