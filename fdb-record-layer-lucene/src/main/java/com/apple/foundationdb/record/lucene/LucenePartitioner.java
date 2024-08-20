@@ -48,6 +48,8 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -84,6 +86,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -856,7 +859,7 @@ public class LucenePartitioner {
                 if (repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NOT_REQUIRED &&
                         repartitioningContext.action != LuceneRepartitionPlanner.RepartitioningAction.NO_CAPACITY_FOR_MERGE) {
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitioningContext.countToMove, partitionInfo));
+                        LOGGER.debug(repartitionLogMessage("Repartitioning records", groupingKey, repartitioningContext.countToMove, partitionInfo).toString());
                     }
 
                     return moveDocsFromPartitionThenLog(repartitioningContext, logMessages);
@@ -891,11 +894,11 @@ public class LucenePartitioner {
                 });
     }
 
-    private String repartitionLogMessage(final String staticMessage,
-                                         final @Nonnull Tuple groupingKey,
-                                         final int repartitionDocumentCount,
-                                         final @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
-        return KeyValueLogMessage.of(staticMessage,
+    private KeyValueLogMessage repartitionLogMessage(final String staticMessage,
+                                                     final @Nonnull Tuple groupingKey,
+                                                     final int repartitionDocumentCount,
+                                                     final @Nonnull LucenePartitionInfoProto.LucenePartitionInfo partitionInfo) {
+        return KeyValueLogMessage.build(staticMessage,
                 LogMessageKeys.INDEX_SUBSPACE, state.indexSubspace,
                 LuceneLogMessageKeys.GROUP, groupingKey,
                 LuceneLogMessageKeys.INDEX_PARTITION, partitionInfo.getId(),
@@ -985,6 +988,14 @@ public class LucenePartitioner {
             }
             return CompletableFuture.completedFuture(0);
         }
+        RepartitionTimings timings = new RepartitionTimings();
+        final StoreTimerSnapshot timerSnapshot;
+        if (LOGGER.isDebugEnabled() && state.context.getTimer() != null) {
+            timerSnapshot = StoreTimerSnapshot.from(state.context.getTimer());
+        } else {
+            timerSnapshot = null;
+        }
+        timings.startNanos = System.nanoTime();
         Collection<RecordType> recordTypes = state.store.getRecordMetaData().recordTypesForIndex(state.index);
         if (recordTypes.stream().map(RecordType::isSynthetic).distinct().count() > 1) {
             // don't support mix of synthetic/regular
@@ -1011,8 +1022,10 @@ public class LucenePartitioner {
             fetchedRecordsFuture = state.store.fetchIndexRecords(cursor, IndexOrphanBehavior.SKIP).map(FDBIndexedRecord::getStoredRecord).asList();
         }
 
+        timings.initializationNanos = System.nanoTime();
         fetchedRecordsFuture = fetchedRecordsFuture.whenComplete((ignored, throwable) -> cursor.close());
         return fetchedRecordsFuture.thenCompose(records -> {
+            timings.searchNanos = System.nanoTime();
             if (records.size() == 0) {
                 throw new RecordCoreException("Unexpected error: 0 records fetched. repartitionContext {}", repartitioningContext);
             }
@@ -1034,9 +1047,11 @@ public class LucenePartitioner {
             // reset partition info
             state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(partitionInfo)));
             LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)state.store.getIndexMaintainer(state.index);
+            timings.clearInfoNanos = System.nanoTime();
             if (repartitioningContext.emptyingPartition) {
                 Range partitionDataRange = Range.startsWith(state.indexSubspace.subspace(groupingKey.add(PARTITION_DATA_SUBSPACE).add(partitionInfo.getId())).pack());
                 state.context.clear(partitionDataRange);
+                timings.emptyingNanos = System.nanoTime();
             } else {
                 // shortcut delete docs from current partition
                 // (we do this, instead of calling LuceneIndexMaintainer.update() in order to avoid a chicken-and-egg
@@ -1048,6 +1063,7 @@ public class LucenePartitioner {
                         throw new RecordCoreException(e);
                     }
                 });
+                timings.deleteNanos = System.nanoTime();
                 // update source partition's meta
                 LucenePartitionInfoProto.LucenePartitionInfo.Builder builder = partitionInfo.toBuilder()
                         .setCount(partitionInfo.getCount() - records.size());
@@ -1057,7 +1073,9 @@ public class LucenePartitioner {
                     builder.setTo(ByteString.copyFrom(Objects.requireNonNull(newBoundaryPartitionKey).pack()));
                 }
                 savePartitionMetadata(groupingKey, builder);
+                timings.metadataUpdateNanos = System.nanoTime();
             }
+            long endCleanupNanos = System.nanoTime();
 
             // value of the "destination" partition's `from` value
             final Tuple overflowPartitioningKey = toPartitionKey(records.get(0));
@@ -1070,7 +1088,9 @@ public class LucenePartitioner {
                 // create a new "overflow" partition
                 destinationPartition = newPartitionMetadata(overflowPartitioningKey, repartitioningContext.maxPartitionId + 1);
                 savePartitionMetadata(groupingKey, destinationPartition.toBuilder());
+                timings.createPartitionNanos = System.nanoTime();
             }
+            long updateStart = System.nanoTime();
 
             Iterator<? extends FDBIndexableRecord<Message>> recordIterator = records.iterator();
             final int destinationPartitionId = destinationPartition.getId();
@@ -1078,7 +1098,31 @@ public class LucenePartitioner {
                     .thenApply(ignored -> recordIterator.hasNext()), state.context.getExecutor())
                     .thenApply(ignored -> {
                         if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug(repartitionLogMessage("Repartitioned records", groupingKey, records.size(), partitionInfo));
+                            long updateNanos = System.nanoTime();
+                            final KeyValueLogMessage logMessage = repartitionLogMessage("Repartitioned records", groupingKey, records.size(), partitionInfo);
+                            logMessage.addKeyAndValue("totalMicros", TimeUnit.NANOSECONDS.toMicros(updateNanos - timings.startNanos));
+                            logMessage.addKeyAndValue("initializationMicros", TimeUnit.NANOSECONDS.toMicros(timings.initializationNanos - timings.startNanos));
+                            logMessage.addKeyAndValue("searchMicros", TimeUnit.NANOSECONDS.toMicros(timings.searchNanos - timings.initializationNanos));
+                            logMessage.addKeyAndValue("clearInfoMicros", TimeUnit.NANOSECONDS.toMicros(timings.clearInfoNanos - timings.searchNanos));
+                            if (timings.emptyingNanos > 0) {
+                                logMessage.addKeyAndValue("emptyingMicros", TimeUnit.NANOSECONDS.toMicros(timings.emptyingNanos - timings.clearInfoNanos));
+                            }
+                            if (timings.deleteNanos > 0) {
+                                logMessage.addKeyAndValue("deleteMicros", TimeUnit.NANOSECONDS.toMicros(timings.deleteNanos - timings.clearInfoNanos));
+                            }
+                            if (timings.metadataUpdateNanos > 0) {
+                                logMessage.addKeyAndValue("metadataUpdateMicros", TimeUnit.NANOSECONDS.toMicros(timings.metadataUpdateNanos - timings.deleteNanos));
+                            }
+                            if (timings.createPartitionNanos > 0) {
+                                logMessage.addKeyAndValue("createPartitionMicros", TimeUnit.NANOSECONDS.toMicros(timings.createPartitionNanos - endCleanupNanos));
+                            }
+                            logMessage.addKeyAndValue("updateMicros", TimeUnit.NANOSECONDS.toMicros(updateNanos - updateStart));
+                            if (timerSnapshot != null && state.context.getTimer() != null) {
+                                logMessage.addKeysAndValues(
+                                        StoreTimer.getDifference(state.context.getTimer(), timerSnapshot)
+                                                .getKeysAndValues());
+                            }
+                            LOGGER.debug(logMessage.toString());
                         }
                         return records.size();
                     });
@@ -1350,5 +1394,24 @@ public class LucenePartitioner {
             logMessages.set(5, repartitionDocCount);
             return this;
         }
+    }
+
+    /**
+     * Timing information for {@link #moveDocsFromPartition(LuceneRepartitionPlanner.RepartitioningContext)}, to get a
+     * better idea as to what is taking a long time when repartitioning is failing.
+     * <p>
+     *     This currently has a lot of metrics to be conservative, but once there is a bit more usage, we can probably
+     *     remove some of these and focus on the operations that could reasonably take a while.
+     * </p>
+     */
+    private static class RepartitionTimings {
+        long initializationNanos;
+        long clearInfoNanos;
+        long startNanos;
+        long searchNanos;
+        long emptyingNanos;
+        long deleteNanos;
+        long metadataUpdateNanos;
+        long createPartitionNanos;
     }
 }
