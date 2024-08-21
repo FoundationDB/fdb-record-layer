@@ -30,10 +30,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.locking.AsyncLock;
+import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -73,6 +76,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -165,6 +169,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<Object, Object> session = new LinkedHashMap<>();
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
+    @Nonnull
+    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -1506,5 +1512,25 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }, executor)
                 .thenApply(vignore -> result);
+    }
+
+    @API(API.Status.INTERNAL)
+    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull final LockIdentifier id) {
+        return lockRegistry.acquireReadLock(id);
+    }
+
+    @API(API.Status.INTERNAL)
+    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull final LockIdentifier id) {
+        return lockRegistry.acquireWriteLock(id);
+    }
+
+    @API(API.Status.INTERNAL)
+    public <T> CompletableFuture<T> doWithReadLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
+        return lockRegistry.doWithReadLock(identifier, operation);
+    }
+
+    @API(API.Status.INTERNAL)
+    public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
+        return lockRegistry.doWithWriteLock(identifier, operation);
     }
 }
