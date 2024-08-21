@@ -268,6 +268,14 @@ public final class PlanGenerator {
         final var serializedPlanHashMode =
                 PlanValidator.validateSerializedPlanSerializationMode(compiledStatement, validPlanHashModes);
 
+        //
+        // Note that serialization and deserialization of the constituent elements have to done in the same order
+        // in order for the dictionary compression for type serialization to work properly. The order is
+        // 1. plan
+        // 2. arguments -- in the order of appearance in the ordinal table
+        // 3. query constraints
+        //
+
         final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.PlanHashMode.valueOf(Assert.notNullUnchecked(compiledStatement.getPlanSerializationMode())));
         final var recordQueryPlan =
@@ -285,19 +293,27 @@ public final class PlanGenerator {
         planTypes.forEach(typeRepositoryBuilder::addTypeIfNeeded);
         final var typeRepository = typeRepositoryBuilder.build();
 
-        final OrderedLiteral[] orderedLiteralsTable =
+        final OrderedLiteral[] orderedLiterals =
                 new OrderedLiteral[compiledStatement.getArgumentsCount() + compiledStatement.getExtractedLiteralsCount()];
+        final TypedQueryArgument[] typedQueryArguments =
+                new TypedQueryArgument[compiledStatement.getArgumentsCount() + compiledStatement.getExtractedLiteralsCount()];
         for (int i = 0; i < compiledStatement.getArgumentsCount(); i++) {
-            deserializeTypedQueryArgument(serializationContext, typeRepository, orderedLiteralsTable,
-                    compiledStatement.getArguments(i));
+            final var argument = compiledStatement.getArguments(i);
+            typedQueryArguments[argument.getLiteralsTableIndex()] = argument;
         }
         for (int i = 0; i < compiledStatement.getExtractedLiteralsCount(); i++) {
-            deserializeTypedQueryArgument(serializationContext, typeRepository, orderedLiteralsTable,
-                    compiledStatement.getExtractedLiterals(i));
+            final var extractedLiteral = compiledStatement.getExtractedLiterals(i);
+            typedQueryArguments[extractedLiteral.getLiteralsTableIndex()] = extractedLiteral;
+        }
+
+        for (int i = 0; i < typedQueryArguments.length; i++) {
+            final TypedQueryArgument typedQueryArgument = typedQueryArguments[i];
+            orderedLiterals[i] = deserializeTypedQueryArgument(serializationContext, typeRepository,
+                    typedQueryArgument);
         }
 
         final var preparedStatementParameters =
-                deserializeArgumentsForParameters(compiledStatement, orderedLiteralsTable);
+                deserializeArgumentsForParameters(compiledStatement, orderedLiterals);
 
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
@@ -305,7 +321,7 @@ public final class PlanGenerator {
         planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
         planGenerationContext.setLimit(queryHasherContext.getLimit());
         planGenerationContext.setOffset(queryHasherContext.getOffset());
-        Arrays.stream(orderedLiteralsTable).forEach(planGenerationContext::addStrippedLiteralOrParameter);
+        Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint = QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
@@ -332,32 +348,29 @@ public final class PlanGenerator {
         return TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime);
     }
 
-    private static void deserializeTypedQueryArgument(@Nonnull PlanSerializationContext serializationContext,
-                                                      @Nonnull TypeRepository typeRepository,
-                                                      @Nonnull OrderedLiteral[] orderedLiteralsTable,
-                                                      @Nonnull TypedQueryArgument argumentProto) {
+    @Nonnull
+    private static OrderedLiteral deserializeTypedQueryArgument(@Nonnull PlanSerializationContext serializationContext,
+                                                                @Nonnull TypeRepository typeRepository,
+                                                                @Nonnull TypedQueryArgument argumentProto) {
         final var argumentType = Type.fromTypeProto(serializationContext, argumentProto.getType());
         if (argumentProto.hasUnnamedParameterIndex()) {
-            orderedLiteralsTable[argumentProto.getLiteralsTableIndex()] =
-                    OrderedLiteral.forUnnamedParameter(argumentType,
-                            LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                            argumentProto.getUnnamedParameterIndex(), argumentProto.getTokenIndex());
+            return OrderedLiteral.forUnnamedParameter(argumentType,
+                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
+                    argumentProto.getUnnamedParameterIndex(), argumentProto.getTokenIndex());
         } else if (argumentProto.hasParameterName()) {
-            orderedLiteralsTable[argumentProto.getLiteralsTableIndex()] =
-                    OrderedLiteral.forNamedParameter(argumentType,
-                            LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                            argumentProto.getParameterName(), argumentProto.getTokenIndex());
+            return OrderedLiteral.forNamedParameter(argumentType,
+                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
+                    argumentProto.getParameterName(), argumentProto.getTokenIndex());
         } else {
-            orderedLiteralsTable[argumentProto.getLiteralsTableIndex()] =
-                    OrderedLiteral.forQueryLiteral(argumentType,
-                            LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                            argumentProto.getTokenIndex());
+            return OrderedLiteral.forQueryLiteral(argumentType,
+                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
+                    argumentProto.getTokenIndex());
         }
     }
 
     @Nonnull
-    private static PreparedParams deserializeArgumentsForParameters(@Nonnull CompiledStatement compiledStatement,
-                                                                    @Nonnull OrderedLiteral[] orderedLiteralsTable) {
+    private static PreparedParams deserializeArgumentsForParameters(@Nonnull final CompiledStatement compiledStatement,
+                                                                    @Nonnull final OrderedLiteral[] orderedLiteralsTable) {
         final var unnamedParameterMap = Maps.<Integer, Object>newHashMap();
         final var namedParameterMap = Maps.<String, Object>newHashMap();
 

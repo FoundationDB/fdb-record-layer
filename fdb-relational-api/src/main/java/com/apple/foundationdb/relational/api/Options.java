@@ -215,7 +215,7 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
-        builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, false);
+        builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 

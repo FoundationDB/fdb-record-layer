@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -77,7 +76,6 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -322,13 +320,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        private PRecordQueryPlan computePlanProto(@Nonnull final PlanHashMode currentPlanHashMode) {
-            final PlanSerializationContext serializationContext =
-                    new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
-            return recordQueryPlan.toRecordQueryPlanProto(serializationContext);
-        }
-
-        @Nonnull
         private Continuation enrichContinuation(@Nonnull final Continuation continuation,
                                                 @Nonnull final RecordMetaData recordMetaData,
                                                 @Nonnull final PlanHashMode currentPlanHashMode,
@@ -338,10 +329,22 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     .withPlanHash(planHashSupplier.get());
             // Do not send the serialized plan unless we can continue with this continuation.
             if (serializeCompiledStatement && !continuation.atEnd()) {
+                //
+                // Note that serialization and deserialization of the constituent elements have to done in the same order
+                // in order for the dictionary compression for type serialization to work properly. The order is
+                // 1. plan
+                // 2. arguments -- in the order of appearance in the ordinal table
+                // 3. query constraints
+                //
+
                 final var serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
+
                 final var literals = queryExecutionParameters.getLiteralsBuilder();
                 final var compiledStatementBuilder = CompiledStatement.newBuilder()
                         .setPlanSerializationMode(queryExecutionParameters.getPlanHashMode().name());
+
+                compiledStatementBuilder.setPlan(recordQueryPlan.toRecordQueryPlanProto(serializationContext));
+
                 int i = 0;
                 for (final var orderedLiteral : literals.getOrderedLiterals()) {
                     final var type = orderedLiteral.getType();
@@ -365,7 +368,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     }
                     i++;
                 }
-                compiledStatementBuilder.setPlan(computePlanProto(currentPlanHashMode));
 
                 compiledStatementBuilder.setPlanConstraint(
                         getContinuationPlanConstraint(recordMetaData).toProto(serializationContext));
