@@ -164,12 +164,12 @@ public class LockRegistry {
     }
 
     private AsyncLock updateRefAndGetNewLock(@Nonnull final LockIdentifier identifier, @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
-        final long startTime = System.currentTimeMillis();
+        final long startTime = System.nanoTime();
         final AtomicReference<AsyncLock> parentLockRef = heldLocks.computeIfAbsent(identifier, ignore ->
                 new AtomicReference<>(new AsyncLock(timer, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE)));
         final AsyncLock newLock = parentLockRef.updateAndGet(getNewLock);
         if (timer != null) {
-            timer.record(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED, System.currentTimeMillis() - startTime);
+            timer.record(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED, System.nanoTime() - startTime);
         }
         return newLock;
     }
