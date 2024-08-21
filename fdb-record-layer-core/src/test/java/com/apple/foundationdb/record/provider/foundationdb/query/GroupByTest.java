@@ -264,13 +264,14 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = setupHookAndAddData(true, false, false, true, bitBucketSize);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
-
         final var plan = cascadesPlanner.planGraph(
                 () -> constructBitMapGroupByPlan(bitBucketSize, true),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
-
+        
+        // Stream aggregation result byte array length is dynamically generated
+        assertBitMapResult(hook, plan, bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1);
         assertMatchesExactly(plan,
                 mapPlan(
                         streamingAggregationPlan(
@@ -279,8 +280,6 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
                                 )).where(aggregations(recordConstructorValue(exactly(bitmapAggregationValue(anyValue()))))
                                 .and(groupings(ValueMatchers.anyValue())))));
-        // Stream aggregation result byte array length is dynamically generated
-        assertBitMapResult(hook, plan, bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
