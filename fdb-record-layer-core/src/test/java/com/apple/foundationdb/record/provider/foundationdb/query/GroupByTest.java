@@ -293,10 +293,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
+        assertBitMapResult(hook, plan, bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1);
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
         assertEquals(1, plan.getUsedIndexes().size());
         assertTrue(plan.getUsedIndexes().contains("BitMapIndex"));
-        assertBitMapResult(hook, plan, bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1);
     }
 
     private void assertBitMapResult(RecordMetaDataHook hook, RecordQueryPlan plan, int expectedByteArrayLength) {
