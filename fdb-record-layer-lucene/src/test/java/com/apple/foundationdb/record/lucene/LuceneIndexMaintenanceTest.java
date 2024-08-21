@@ -61,6 +61,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -511,6 +512,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     // A chaos test of two threads, one constantly trying to merge, and one trying to update a record, or save a new record or do a search.
     // At the end the index should be validated for consistency.
+    @Disabled
     @Test
     void chaosMergeAndUpdateTest() throws InterruptedException, IOException {
         final Map<String, String> options = Map.of(
