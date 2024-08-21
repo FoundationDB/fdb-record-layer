@@ -61,7 +61,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -512,7 +511,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     // A chaos test of two threads, one constantly trying to merge, and one trying to update a record, or save a new record or do a search.
     // At the end the index should be validated for consistency.
-    @Disabled
     @Test
     void chaosMergeAndUpdateTest() throws InterruptedException, IOException {
         final Map<String, String> options = Map.of(
@@ -528,8 +526,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
-
-        final int countReps = 20;
 
         long timestamp = System.currentTimeMillis();
         Map<Tuple, Map<Tuple, Tuple>> insertedDocs = new HashMap<>();
@@ -613,9 +609,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         explicitMergeIndex(index, contextProps, schemaSetup);
                         successfulMerges.incrementAndGet();
                     } catch (Exception e) {
-                        LOGGER.debug("couldn't merge at iteration {}", i);
-                        failedMerge.set(e);
-                        return;
+                        LOGGER.debug("Merging: failed {}", i);
+                        // Only record the first failure, but keeping processing merges, and, importantly, popping off
+                        // the queue
+                        failedMerge.compareAndSet(null, e);
                     }
                 }
             } catch (InterruptedException e) {
@@ -1055,7 +1052,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setIndex(index)
-                    .setTimer(timer)
+                    .setTimer(new FDBStoreTimer())
                     .build()) {
                 indexBuilder.mergeIndex();
             }
