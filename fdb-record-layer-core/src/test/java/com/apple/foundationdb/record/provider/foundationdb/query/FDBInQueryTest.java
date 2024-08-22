@@ -382,8 +382,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 });
 
-        plan.show(false);
-
         assertMatchesExactly(plan,
                 inComparandJoinPlan(
                         mapPlan(
@@ -433,8 +431,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
                 });
-
-        plan.show(false);
 
         assertMatchesExactly(plan,
                         mapPlan(predicatesFilterPlan(typeFilterPlan(scanPlan()))));

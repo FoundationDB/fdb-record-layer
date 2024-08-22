@@ -269,7 +269,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
-        
+
         // Stream aggregation result byte array length is dynamically generated
         assertBitMapResult(hook, plan, bitBucketSize % 8 == 0 ? bitBucketSize / 8 : bitBucketSize / 8 + 1);
         assertMatchesExactly(plan,
