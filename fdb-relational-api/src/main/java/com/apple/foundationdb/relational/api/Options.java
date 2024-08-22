@@ -244,9 +244,13 @@ public final class Options {
         }
     }
 
+    public Options withChild(@Nonnull Options childOptions) throws SQLException {
+        return Options.combine(this, childOptions);
+    }
+
     @Nonnull
     @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
-    public static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) throws SQLException {
+    private static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) throws SQLException {
         if (childOptions.parentOptions != null) {
             throw new SQLException("Cannot override parent options", ErrorCode.INTERNAL_ERROR.getErrorCode());
         }

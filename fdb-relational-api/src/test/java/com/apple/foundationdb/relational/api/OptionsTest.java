@@ -57,11 +57,11 @@ class OptionsTest {
                 .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
                 .build();
 
-        Options options = Options.combine(parent, child);
+        Options options = parent.withChild(child);
         assertEquals("foo", options.getOption(Options.Name.INDEX_HINT));
         assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
         // Assert we get child back if parent == child params.
-        Assertions.assertThat(Options.combine(child, child)).isEqualTo(child);
+        Assertions.assertThat(child.withChild(child)).isEqualTo(child);
         // Build a child w/ non-zero parent opts... should throw.
         Options.Builder builder = Options.builder()
                 .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1);
@@ -69,7 +69,7 @@ class OptionsTest {
         child = builder.build();
         SQLException re = null;
         try {
-            Options.combine(parent, child);
+            parent.withChild(child);
         } catch (SQLException e) {
             re = e;
         }
@@ -87,7 +87,7 @@ class OptionsTest {
                 .withOption(Options.Name.INDEX_HINT, "bar")
                 .build();
 
-        Options options = Options.combine(parent, child);
+        Options options = parent.withChild(child);
         assertEquals("bar", options.getOption(Options.Name.INDEX_HINT));
     }
 
@@ -100,13 +100,13 @@ class OptionsTest {
                 .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
                 .build();
 
-        parent = Options.combine(grandParent, parent);
+        parent = grandParent.withChild(parent);
 
         Options child = Options.builder()
                 .withOption(Options.Name.INDEX_HINT, "bar")
                 .build();
 
-        Options options = Options.combine(parent, child);
+        Options options = parent.withChild(child);
         assertEquals("bar", options.getOption(Options.Name.INDEX_HINT));
         assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
     }

@@ -103,7 +103,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         try {
             checkOpen();
             conn.ensureTransactionActive();
-            options = Options.combine(conn.getOptions(), options);
+            options = conn.getOptions().withChild(options);
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
@@ -137,7 +137,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
         try {
             checkOpen();
-            options = Options.combine(conn.getOptions(), options);
+            options = conn.getOptions().withChild(options);
 
             conn.ensureTransactionActive();
 
@@ -174,7 +174,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
             throws SQLException {
         try {
             checkOpen();
-            options = Options.combine(conn.getOptions(), options);
+            options = conn.getOptions().withChild(options);
             //do this check first because otherwise we might start an expensive transaction that does nothing
             if (data.isEmpty()) {
                 return 0;
@@ -217,7 +217,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         try {
             checkOpen();
             conn.ensureTransactionActive();
-            options = Options.combine(conn.getOptions(), options);
+            options = conn.getOptions().withChild(options);
             if (!keys.hasNext()) {
                 return 0;
             }
@@ -262,7 +262,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         try {
             checkOpen();
             conn.ensureTransactionActive();
-            options = Options.combine(conn.getOptions(), options);
+            options = conn.getOptions().withChild(options);
 
             String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
             RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
@@ -291,7 +291,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 Continuation continuation = ContinuationImpl.BEGIN;
                 ResumableIterator<Row> scannedRows;
                 do {
-                    Options newOptions = Options.combine(options, Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
+                    Options newOptions = options.withChild(Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
                     scannedRows = table.openScan(row, newOptions);
                     while (scannedRows.hasNext()) {
                         Row scannedRow = scannedRows.next();

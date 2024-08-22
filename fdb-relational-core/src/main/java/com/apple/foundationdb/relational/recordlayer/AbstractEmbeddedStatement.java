@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -32,7 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -73,7 +71,6 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         return conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
             try {
                 conn.ensureTransactionActive();
-                Options options = conn.getOptions();
                 if (conn.getSchema() == null) {
                     throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
                 }
@@ -83,10 +80,9 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
                             buildPlanContext(store),
                             store.getRecordMetaData(),
-                            store.getRecordStoreState(), options);
+                            store.getRecordStoreState(), conn.getOptions());
                     final Plan<?> plan = planGenerator.getPlan(sql);
-                    options = Options.combine(planGenerator.getOptions(), options);
-                    final var executionContext = Plan.ExecutionContext.of(conn.transaction, options, conn, conn.metricCollector);
+                    final var executionContext = Plan.ExecutionContext.of(conn.transaction, planGenerator.getOptions(), conn, conn.metricCollector);
                     if (plan instanceof QueryPlan) {
                         currentResultSet = new ErrorCapturingResultSet(((QueryPlan) plan).execute(executionContext));
                         if (plan.isUpdatePlan()) {
