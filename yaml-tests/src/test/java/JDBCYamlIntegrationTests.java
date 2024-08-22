@@ -197,4 +197,11 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     public void prepared() throws Exception {
         super.prepared();
     }
+
+    @Override
+    @Test
+    @Disabled("TODO: Continuations not supported in JDBC")
+    public void joinFilteredTest() throws Exception {
+        doRun("join-filtered.yamsql");
+    }
 }
