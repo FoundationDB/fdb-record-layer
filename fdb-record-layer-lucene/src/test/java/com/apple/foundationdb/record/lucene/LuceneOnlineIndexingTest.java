@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -66,7 +67,6 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,7 +85,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
@@ -317,15 +316,12 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-    static Stream<Long> luceneOnlineIndexingTestWithAllRecordUpdates() {
-        return RandomizedTestUtils.randomSeeds(6997773450764782661L, // original passing seed
-                3416978384487730594L, // this one failed reliably when most seeds passed
-                6096618498708109618L // this one failed too
-                );
-    }
-
     @ParameterizedTest
-    @MethodSource
+    @RandomSeedSource({
+            6997773450764782661L, // original passing seed
+            3416978384487730594L, // this one failed reliably when most seeds passed
+            6096618498708109618L // this one failed too
+    })
     void luceneOnlineIndexingTestWithAllRecordUpdates(long seed) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",

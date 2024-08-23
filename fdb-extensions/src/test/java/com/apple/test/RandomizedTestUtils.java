@@ -72,6 +72,10 @@ public final class RandomizedTestUtils {
      * the {@code staticSeeds} parameter. However, if this argument is left empty, this will
      * still always include at least one fixed seed, {@value FIXED_SEED}.
      * </p>
+     * <p>
+     *     If you only have one usage for the seeds, see also {@link RandomSeedSource}, which can be used without
+     *     defining an additional method.
+     * </p>
      *
      * @param staticSeeds a set of seeds to always include in the returned random seeds
      * @return a stream of random {@code long}s to initialize {@link Random}s

@@ -20,14 +20,11 @@
 
 package com.apple.foundationdb.tuple;
 
-import com.apple.test.RandomizedTestUtils;
+import com.apple.test.RandomSeedSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,16 +71,11 @@ public class ByteArrayUtil2Test {
         assertArrayEquals(allBytes, ByteArrayUtil2.unprint(ByteArrayUtil.printable(allBytes)));
     }
 
-    @Nonnull
-    static Stream<Long> testRandomBytes() {
-        // Nothing particular about these seeds, except that though some of them create random bytes that are
-        // encoded identically by ByteArrayUtil.printable and ByteArrayUtil2.loggable, whereas others create
-        // byte arrays that are encoded differently
-        return RandomizedTestUtils.randomSeeds(0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L);
-    }
-
     @ParameterizedTest
-    @MethodSource
+    // Nothing particular about these seeds, except that though some of them create random bytes that are
+    // encoded identically by ByteArrayUtil.printable and ByteArrayUtil2.loggable, whereas others create
+    // byte arrays that are encoded differently
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void testRandomBytes(long seed) {
         Random r = new Random(seed);
         int length = r.nextInt(100);
