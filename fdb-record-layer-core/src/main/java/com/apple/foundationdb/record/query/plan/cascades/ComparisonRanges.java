@@ -128,7 +128,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     public void addAll(@Nonnull ComparisonRanges comparisonRanges) {
-        Preconditions.checkArgument(isEqualities());
+        Preconditions.checkArgument(getUncommittedComparisonRanges().stream().allMatch(range -> range.getRangeType() == ComparisonRange.Type.EQUALITY));
         ranges.addAll(comparisonRanges.ranges);
     }
 

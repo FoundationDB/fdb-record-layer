@@ -2986,9 +2986,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             @Nullable ScoredMatch scoredMatch = maybeSortedMatch.apply(null);
             if (scoredMatch != null) {
                 ComparisonRanges nextComparisonRanges = scoredMatch.getComparisonRanges();
-                if (!comparisons.isEqualities() && nextComparisonRanges.getEqualitiesSize() > 0) {
-                    throw new Query.InvalidExpressionException(
-                            "Two nested fields in the same and clause, combine them into one");
+                if (comparisons.getUncommittedComparisonRanges().stream().anyMatch(range -> range.getRangeType() != ComparisonRange.Type.EQUALITY)
+                        && nextComparisonRanges.getEqualitiesSize() > 0) {
+                    throw new Query.InvalidExpressionException("Two nested fields in the same and clause, combine them into one");
                 } else {
                     // nextComparisonRanges should not be null at this point
                     Objects.requireNonNull(nextComparisonRanges);
