@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomizedTestUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
@@ -65,6 +66,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,9 +83,9 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
@@ -315,8 +317,16 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void luceneOnlineIndexingTestWithAllRecordUpdates() {
+    static Stream<Long> luceneOnlineIndexingTestWithAllRecordUpdates() {
+        return RandomizedTestUtils.randomSeeds(6997773450764782661L, // original passing seed
+                3416978384487730594L, // this one failed reliably when most seeds passed
+                6096618498708109618L // this one failed too
+                );
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void luceneOnlineIndexingTestWithAllRecordUpdates(long seed) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true",
@@ -337,15 +347,15 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
                 .build();
 
-        Random random = ThreadLocalRandom.current();
+        Random random = new Random(seed);
 
-        int docCount = 5;
+        final int docCount = 5;
         Map<Long, Long> primaryKeyToTimestamp = new HashMap<>();
         try (final FDBRecordContext context = openContext(contextProps)) {
             rebuildIndexMetaData(context, COMPLEX_DOC, index);
             for (int i = 0; i < docCount; i++) {
-                long docId = random.nextInt(1000) + 1000;
-                long timestamp = random.nextInt(100) + 1;
+                Long docId = RandomizedTestUtils.randomNotIn(primaryKeyToTimestamp.keySet(), () -> (long) (random.nextInt(1000) + 1000));
+                Long timestamp = RandomizedTestUtils.randomNotIn(primaryKeyToTimestamp.values(), () -> (long) (random.nextInt(100) + 1));
                 primaryKeyToTimestamp.put(docId, timestamp);
                 recordStore.saveRecord(createComplexDocument(docId, ENGINEER_JOKE, 1, timestamp));
             }
@@ -359,15 +369,17 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
                     .setRecordStore(recordStore)
                     .setIndex(index)
                     .setInitialLimit(1)
+                    .setLimit(1)
                     .setConfigLoader(old -> {
                         try (final FDBRecordContext context2 = fdb.openContext(context.getConfig())) {
                             rebuildIndexMetaData(context2, COMPLEX_DOC, index);
                             for (Map.Entry<Long, Long> entry : primaryKeyToTimestamp.entrySet()) {
+                                final long newTime = counter.getAndIncrement();
                                 TestRecordsTextProto.ComplexDocument doc = TestRecordsTextProto.ComplexDocument.newBuilder()
                                         .setDocId(entry.getKey())
                                         .setTimestamp(entry.getValue())
                                         .setGroup(1)
-                                        .setTime(counter.getAndIncrement())
+                                        .setTime(newTime)
                                         .build();
                                 recordStore.saveRecord(doc);
                             }
@@ -400,9 +412,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
             // search for docs with Math.pow(docCount, 2) - docCount < time < Math.pow(docCount, 2)
             // which should return all docs, if their updates completed successfully during index build
+            final String search = "time:[" + (Math.pow(docCount, 2) - docCount) + " TO " + Math.pow(docCount, 2) + "]";
             LuceneScanQuery query = new LuceneScanQueryParameters(
                     Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
-                    new LuceneQuerySearchClause(LuceneQueryType.QUERY, "time:[" + (Math.pow(docCount, 2) - docCount) + " TO " + Math.pow(docCount, 2) + "]", false),
+                    new LuceneQuerySearchClause(LuceneQueryType.QUERY, search, false),
                     new Sort(new SortField("timestamp", SortField.Type.LONG, false)),
                     List.of("time"),
                     List.of(LuceneIndexExpressions.DocumentFieldType.DOUBLE),
