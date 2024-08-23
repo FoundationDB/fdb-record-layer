@@ -168,6 +168,7 @@ public class SqlVisitorTests {
     private void isValidStatement(@Nonnull final RelationalConnection connection, @Nonnull final String query) throws Exception {
         final String schemaName = connection.getSchema();
         final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection;
+        embeddedConnection.createNewTransaction();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder

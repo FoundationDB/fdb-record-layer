@@ -26,11 +26,10 @@ import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
-import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -92,26 +91,13 @@ public class RecordLayerSchema implements DatabaseSchema {
 
     @Nonnull
     public BackingStore loadStore() throws RelationalException {
-        if (!this.conn.inActiveTransaction()) {
-            if (this.conn.getAutoCommit()) {
-                try {
-                    this.conn.beginTransaction();
-                } catch (SQLException e) {
-                    throw ExceptionUtil.toRelationalException(e);
-                }
-            } else {
-                throw new RelationalException("cannot load schema without an active transaction",
-                        ErrorCode.TRANSACTION_INACTIVE);
-            }
-        }
-
+        // loadStore() expects an active transaction which should be taken care by the caller.
+        Assert.thatUnchecked(conn.inActiveTransaction(), ErrorCode.INTERNAL_ERROR, "No active transaction!");
         if (currentStore != null) {
             return currentStore;
         }
         currentStore = db.loadRecordStore(schemaName, existenceCheck);
-        conn.addCloseListener(() -> {
-            currentStore = null;
-        });
+        conn.addCloseListener(() -> currentStore = null);
         return currentStore;
     }
 }

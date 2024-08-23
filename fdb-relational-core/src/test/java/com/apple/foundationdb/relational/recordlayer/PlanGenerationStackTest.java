@@ -170,7 +170,9 @@ public class PlanGenerationStackTest {
     void queryTestHarness(int ignored, @Nonnull String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection.connection;
-        final AbstractDatabase database = embeddedConnection.frl;
+        embeddedConnection.setAutoCommit(false);
+        embeddedConnection.createNewTransaction();
+        final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final FDBRecordStoreBase<Message> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
         final PlanContext planContext = PlanContext.Builder
                 .create()
@@ -186,6 +188,8 @@ public class PlanGenerationStackTest {
             planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
             final Plan<?> generatedPlan2 = planGenerator.getPlan(query);
             final var queryHash2 = ((QueryPlan.PhysicalQueryPlan) generatedPlan2).getRecordQueryPlan().semanticHashCode();
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
             Assertions.assertEquals(queryHash1, queryHash2);
         } else {
             try {
@@ -200,6 +204,9 @@ public class PlanGenerationStackTest {
                 }
             } catch (Exception e) {
                 Assertions.fail("unexpected exception type " + e);
+            } finally {
+                embeddedConnection.rollback();
+                embeddedConnection.setAutoCommit(true);
             }
         }
     }

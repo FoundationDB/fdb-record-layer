@@ -104,14 +104,8 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
-        try {
-            if (connection != null && connection.getAutoCommit() && connection.transaction != null) {
-                connection.transaction.commit();
-                connection.transaction.close();
-                connection.transaction = null;
-            }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
+        if (connection != null && connection.canCommit() && connection.inActiveTransaction()) {
+            connection.commitInternal();
         }
         this.closed = true;
     }

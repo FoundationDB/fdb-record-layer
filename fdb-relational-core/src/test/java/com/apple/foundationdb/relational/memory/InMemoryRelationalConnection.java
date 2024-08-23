@@ -133,11 +133,6 @@ public class InMemoryRelationalConnection implements RelationalConnection {
         return null;
     }
 
-    @Override
-    public void beginTransaction() throws SQLException {
-
-    }
-
     @Nonnull
     @Override
     public Options getOptions() {

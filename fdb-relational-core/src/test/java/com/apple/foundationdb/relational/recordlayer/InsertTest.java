@@ -64,7 +64,6 @@ public class InsertTest {
          */
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 RelationalStruct restaurant = EmbeddedRelationalStruct.newBuilder()
@@ -155,7 +154,6 @@ public class InsertTest {
          */
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 final var record = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", id).addString("NAME", "restRecord" + id).build();
@@ -170,7 +168,6 @@ public class InsertTest {
     void canDifferentiateNullAndDefaultValue() throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 // string type field NAME is unset
@@ -206,7 +203,6 @@ public class InsertTest {
     void cannotInsertDuplicatePrimaryKey() throws SQLException, RelationalException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 final var struct = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 0).build();
                 s.executeInsert("RESTAURANT", struct);
@@ -232,7 +228,6 @@ public class InsertTest {
         final var itemsMetadata = RelationalArrayMetaData.ofStruct(itemMetadata, DatabaseMetaData.columnNoNulls);
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
 
                 // with nullable array as null
@@ -291,7 +286,6 @@ public class InsertTest {
     void replaceOnInsert() throws SQLException, RelationalException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct record = EmbeddedRelationalStruct.newBuilder()
                         .addLong("REST_NO", 0)
@@ -320,7 +314,6 @@ public class InsertTest {
     void replaceOnFirstInsert() throws SQLException, RelationalException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 RelationalStruct record = EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 0).build();
                 s.executeInsert("RESTAURANT", record, Options.builder().withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true).build());

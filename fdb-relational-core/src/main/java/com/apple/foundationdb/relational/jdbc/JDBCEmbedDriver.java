@@ -473,12 +473,6 @@ public final class JDBCEmbedDriver implements java.sql.Driver {
                     return delegate.prepareStatement(sql);
                 }
 
-                @ExcludeFromJacocoGeneratedReport
-                @Override
-                public void beginTransaction() throws SQLException {
-
-                }
-
                 @Nonnull
                 @Override
                 @ExcludeFromJacocoGeneratedReport

@@ -138,7 +138,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
 
     @Override
     public BackingRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-        return loadStore(this.connection.transaction, schemaId, existenceCheck);
+        return loadStore(getCurrentTransaction(), schemaId, existenceCheck);
     }
 
     @Override

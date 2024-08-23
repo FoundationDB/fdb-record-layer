@@ -284,12 +284,6 @@ class JDBCRelationalConnection implements RelationalConnection {
         return new JDBCRelationalDatabaseMetaData(this, getStub().getMetaData(request));
     }
 
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void beginTransaction() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
     @Nonnull
     @Override
     public Options getOptions() {

@@ -85,6 +85,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import java.sql.Struct;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -220,22 +221,26 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
 
             final EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) executionContext.connection;
-            final String schemaName = conn.getSchema();
-            try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
-                final var evaluationContext = queryExecutionParameters.getEvaluationContext();
-                final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
-                final ContinuationImpl parsedContinuation;
-                try {
-                    parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation());
-                } catch (final InvalidProtocolBufferException ipbe) {
-                    executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
-                    throw ExceptionUtil.toRelationalException(ipbe);
+            try {
+                final String schemaName = conn.getSchema();
+                try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
+                    final var evaluationContext = queryExecutionParameters.getEvaluationContext();
+                    final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
+                    final ContinuationImpl parsedContinuation;
+                    try {
+                        parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation());
+                    } catch (final InvalidProtocolBufferException ipbe) {
+                        executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
+                        throw ExceptionUtil.toRelationalException(ipbe);
+                    }
+                    if (queryExecutionParameters.isForExplain()) {
+                        return executeExplain(parsedContinuation);
+                    } else {
+                        return executePhysicalPlan(recordLayerSchema, typedEvaluationContext, executionContext, parsedContinuation);
+                    }
                 }
-                if (queryExecutionParameters.isForExplain()) {
-                    return executeExplain(parsedContinuation);
-                } else {
-                    return executePhysicalPlan(recordLayerSchema, typedEvaluationContext, executionContext, parsedContinuation);
-                }
+            } catch (SQLException sqle) {
+                throw new RelationalException(sqle);
             }
         }
 

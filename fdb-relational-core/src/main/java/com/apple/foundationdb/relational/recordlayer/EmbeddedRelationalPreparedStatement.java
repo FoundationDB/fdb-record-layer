@@ -198,11 +198,11 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException {
+    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException, SQLException {
         return PlanContext.Builder.create()
                 .fromRecordStore(store)
                 .fromDatabase(conn.getRecordLayerDatabase())
-                .withMetricsCollector(conn.metricCollector)
+                .withMetricsCollector(conn.getMetricCollector())
                 .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
                 .withSchemaTemplate(conn.getSchemaTemplate())
                 .build();

@@ -155,7 +155,6 @@ public class BackingLocatableResolverStoreTest {
 
         @Override
         public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-            connection.ensureTransactionActive();
             return BackingLocatableResolverStore.create(resolver, getCurrentTransaction());
         }
 

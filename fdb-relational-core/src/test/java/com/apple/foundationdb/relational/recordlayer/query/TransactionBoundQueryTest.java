@@ -101,7 +101,7 @@ public class TransactionBoundQueryTest {
     @Nonnull
     private FDBRecordContext openContext() throws SQLException, RelationalException {
         try (EmbeddedRelationalConnection connection = connectEmbedded()) {
-            connection.beginTransaction();
+            connection.createNewTransaction();
             FDBRecordContext context = connection.getTransaction().unwrap(FDBRecordContext.class);
 
             // Existing context is closed when the connection is closed. Create a new one from the same database
@@ -113,7 +113,7 @@ public class TransactionBoundQueryTest {
     @Nonnull
     private EmbeddedRelationalConnection connectTransactionBound(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) throws SQLException, RelationalException {
         try (EmbeddedRelationalConnection embeddedConnection = connectEmbedded()) {
-            embeddedConnection.beginTransaction();
+            embeddedConnection.createNewTransaction();
             AbstractDatabase db = embeddedConnection.getRecordLayerDatabase();
             BackingStore store = db.loadRecordStore(databaseRule.getSchemaName(), FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY);
 
@@ -129,7 +129,6 @@ public class TransactionBoundQueryTest {
             try {
                 RelationalConnection transactionBoundConnection = Relational.connect(databaseRule.getConnectionUri(),
                         new RecordStoreAndRecordContextTransaction(newStore, context, RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(), metaData.getVersion())), Options.NONE);
-                transactionBoundConnection.setAutoCommit(false);
                 transactionBoundConnection.setSchema(databaseRule.getSchemaName());
                 return transactionBoundConnection.unwrap(EmbeddedRelationalConnection.class);
             } finally {
@@ -157,7 +156,7 @@ public class TransactionBoundQueryTest {
 
     private RecordMetaData getUpdatedMetaData(@Nonnull Consumer<RecordMetaDataBuilder> metaDataUpdater) throws SQLException, RelationalException {
         try (EmbeddedRelationalConnection connection = connectEmbedded()) {
-            connection.beginTransaction();
+            connection.createNewTransaction();
             SchemaTemplate schemaTemplate = connection.getSchemaTemplate();
             RecordMetaData metaDataWithoutIndex = schemaTemplate.unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata();
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(metaDataWithoutIndex.toProto());
@@ -172,7 +171,7 @@ public class TransactionBoundQueryTest {
         RecordMetaData metaDataWithIndex = getUpdatedMetaData(metaDataBuilder -> {
             var index = new Index("bWithA", Key.Expressions.keyWithValue(Key.Expressions.concatenateFields("B", "A"), 1));
             metaDataBuilder.addIndex("T1", index);
-        }) ;
+        });
 
         // Now re-open the store (with the new meta-data) using the record layer index
         try (FDBRecordContext context = openContext()) {

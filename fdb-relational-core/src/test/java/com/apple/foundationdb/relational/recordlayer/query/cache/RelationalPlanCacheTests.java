@@ -322,10 +322,14 @@ public class RelationalPlanCacheTests {
                              int userVersion,
                              @Nonnull final Set<String> readableIndexes,
                              @Nonnull final String expectedPhysicalPlan) throws Exception {
+        connection.setAutoCommit(false);
+        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
         final var input = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVerison, userVersion, readableIndexes);
         final var planGenerator = input.getLeft();
         final var readableIndexesBitset = input.getRight();
         final var physicalPlan = planGenerator.getPlan(query);
+        connection.rollback();
+        connection.setAutoCommit(true);
         Assertions.assertEquals(expectedPhysicalPlan, inferScanType(physicalPlan));
         return readableIndexesBitset;
     }

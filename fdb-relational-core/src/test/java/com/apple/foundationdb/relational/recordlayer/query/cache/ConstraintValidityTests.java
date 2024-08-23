@@ -126,8 +126,12 @@ public class ConstraintValidityTests {
     private void planQuery(@Nonnull final RelationalPlanCache cache,
                            @Nonnull final String query,
                            @Nonnull final String expectedPhysicalPlan) throws Exception {
+        connection.setAutoCommit(false);
+        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
         final var planGenerator = getPlanGenerator(cache);
         final var plan = planGenerator.getPlan(query);
+        connection.rollback();
+        connection.setAutoCommit(true);
         Assertions.assertEquals(inferScanType(plan), expectedPhysicalPlan);
     }
 

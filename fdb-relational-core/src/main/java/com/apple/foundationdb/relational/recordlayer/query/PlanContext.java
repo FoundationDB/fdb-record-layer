@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -284,6 +285,7 @@ public final class PlanContext {
             return new Builder();
         }
 
+        @VisibleForTesting
         @Nonnull
         public static Builder unapply(@Nonnull PlanContext planContext) {
             return create().withConstantActionFactory(planContext.metadataOperationsFactory)

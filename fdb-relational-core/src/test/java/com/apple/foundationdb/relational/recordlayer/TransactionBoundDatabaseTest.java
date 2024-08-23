@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -32,15 +32,16 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 public class TransactionBoundDatabaseTest {
@@ -60,12 +61,13 @@ public class TransactionBoundDatabaseTest {
 
     @Test
     void simpleSelect() throws RelationalException, SQLException {
-        // First create a transaction object out of the connection and the statement
-        RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
-        FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
-        final var relationalConnection = (EmbeddedRelationalConnection) connRule.getUnderlying();
-        try (FDBRecordContext context = relationalConnection.frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context, relationalConnection.getSchemaTemplate())) {
+        final var embeddedConnection = ((EmbeddedRelationalConnection) connRule.getUnderlying());
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
 
                 // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
                 // connect to a TransactionBoundDatabase
@@ -95,12 +97,13 @@ public class TransactionBoundDatabaseTest {
 
     @Test
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
-        // First create a transaction object out of the connection and the statement
-        RecordLayerSchema schema = ((EmbeddedRelationalConnection) connRule.getUnderlying()).frl.loadSchema("TEST_SCHEMA");
-        FDBRecordStoreBase<Message> store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
-        final var relationalConnection = (EmbeddedRelationalConnection) connRule.getUnderlying();
-        try (FDBRecordContext context = relationalConnection.frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class)) {
-            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(store, context, relationalConnection.getSchemaTemplate())) {
+        final var embeddedConnection = ((EmbeddedRelationalConnection) connRule.getUnderlying());
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
 
                 // Then, once we have a transaction that contains both an FDBRecordStoreBase<Message> and an FDBRecordContext,
                 // connect to a TransactionBoundDatabase
@@ -131,5 +134,28 @@ public class TransactionBoundDatabaseTest {
                 // Assertions.assertThat(engine.getPlanCache().getStats().numEntries()).isEqualTo(1L);
             }
         }
+    }
+
+    static FDBRecordStore getStore(EmbeddedRelationalConnection connection) throws RelationalException, SQLException {
+        connection.setAutoCommit(false);
+        connection.createNewTransaction();
+        RecordLayerSchema schema = connection.getRecordLayerDatabase().loadSchema("TEST_SCHEMA");
+        final var store = schema.loadStore().unwrap(FDBRecordStore.class);
+        connection.rollback();
+        connection.setAutoCommit(true);
+        return store;
+    }
+
+    static SchemaTemplate getSchemaTemplate(EmbeddedRelationalConnection connection) throws RelationalException, SQLException {
+        connection.setAutoCommit(false);
+        connection.createNewTransaction();
+        final var schemaTemplate = connection.getSchemaTemplate();
+        connection.rollback();
+        connection.setAutoCommit(true);
+        return schemaTemplate;
+    }
+
+    static FDBRecordContext createNewContext(@Nonnull EmbeddedRelationalConnection connection) throws RelationalException {
+        return connection.getRecordLayerDatabase().getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class);
     }
 }

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -34,7 +33,6 @@ import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -112,11 +110,13 @@ public abstract class Command {
                         .setRlConfig(RecordLayerConfig.getDefault())
                         .setStoreCatalog(backingCatalog)
                         .build();
-                ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
-                try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
-                    metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(transaction);
-                    connection.commit();
-                }
+                final var embeddedConnection = (EmbeddedRelationalConnection) connection;
+                embeddedConnection.setAutoCommit(false);
+                embeddedConnection.createNewTransaction();
+                final var transaction = embeddedConnection.getTransaction();
+                metadataOperationsFactory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(transaction);
+                embeddedConnection.commit();
+                embeddedConnection.setAutoCommit(true);
             }
         };
     }
@@ -139,11 +139,13 @@ public abstract class Command {
                         .setStoreCatalog(backingCatalog)
                         .build();
 
-                ((EmbeddedRelationalConnection) connection).ensureTransactionActive();
-                try (Transaction transaction = ((EmbeddedRelationalConnection) connection).getTransaction()) {
-                    metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
-                    connection.commit();
-                }
+                final var embeddedConnection = (EmbeddedRelationalConnection) connection;
+                embeddedConnection.setAutoCommit(false);
+                embeddedConnection.createNewTransaction();
+                final var transaction = embeddedConnection.getTransaction();
+                metadataOperationsFactory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(transaction);
+                embeddedConnection.commit();
+                embeddedConnection.setAutoCommit(true);
             }
         };
     }

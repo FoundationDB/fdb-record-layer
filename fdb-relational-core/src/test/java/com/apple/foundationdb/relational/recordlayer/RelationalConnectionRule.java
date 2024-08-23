@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -68,7 +67,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
         Options opt = options == null ? Options.NONE : options;
         connection = Relational.connect(connFactory.get(), opt);
-        connection.beginTransaction();
         if (schema != null) {
             connection.setSchema(schema);
         }
@@ -149,11 +147,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     @Override
     public String getSchema() throws SQLException {
         return connection.getSchema();
-    }
-
-    @Override
-    public void beginTransaction() throws SQLException {
-        connection.beginTransaction();
     }
 
     @Nonnull

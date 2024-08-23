@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
 
@@ -145,7 +146,7 @@ public class TransactionBoundDatabaseWithEnumTest {
      *
      * @return a file descriptor to use for meta-data internally.
      */
-    private Descriptors.FileDescriptor createRecordsDescriptor() {
+    private static Descriptors.FileDescriptor createRecordsDescriptor() {
         DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
                 .setName("metadata_with_enum.proto")
                 .setSyntax("proto2")
@@ -209,7 +210,7 @@ public class TransactionBoundDatabaseWithEnumTest {
         }
     }
 
-    private RecordMetaData createRecordMetaData() {
+    private static RecordMetaData createRecordMetaData() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder();
 
         metaDataBuilder.setRecords(createRecordsDescriptor());
@@ -222,7 +223,14 @@ public class TransactionBoundDatabaseWithEnumTest {
         return metaDataBuilder.build();
     }
 
-    private FDBRecordStoreBase<Message> createRecordStore(FDBRecordContext context, SubspaceProvider subspaceProvider) {
+    private static FDBRecordStoreBase<Message> getStore(@Nonnull EmbeddedRelationalConnection connection, @Nonnull FDBRecordContext context) throws RelationalException, SQLException {
+        connection.setAutoCommit(false);
+        connection.createNewTransaction();
+        SubspaceProvider subspaceProvider = connection.getRecordLayerDatabase().loadRecordStore("TEST_SCHEMA", FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY)
+                .unwrap(FDBRecordStoreBase.class)
+                .getSubspaceProvider();
+        connection.rollback();
+        connection.setAutoCommit(true);
         return FDBRecordStore.newBuilder()
                 .setContext(context)
                 .setMetaDataProvider(createRecordMetaData())
@@ -231,13 +239,11 @@ public class TransactionBoundDatabaseWithEnumTest {
                 .createOrOpen();
     }
 
-    private Transaction createTransaction(RelationalConnectionRule connRule) throws RelationalException {
+    private Transaction createTransaction(RelationalConnectionRule connRule) throws RelationalException, SQLException {
         EmbeddedRelationalConnection connection = (EmbeddedRelationalConnection) connRule.getUnderlying();
-        FDBRecordContext context = connection.frl.getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class);
-        SubspaceProvider subspaceProvider = connection.frl.loadRecordStore("TEST_SCHEMA", FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY)
-                .unwrap(FDBRecordStoreBase.class)
-                .getSubspaceProvider();
-        FDBRecordStoreBase<Message> recordStore = createRecordStore(context, subspaceProvider);
-        return new RecordStoreAndRecordContextTransaction(recordStore, context, connection.getSchemaTemplate());
+        FDBRecordContext context = TransactionBoundDatabaseTest.createNewContext(connection);
+        FDBRecordStoreBase<Message> recordStore = getStore(connection, context);
+        final var schemaTemplate = TransactionBoundDatabaseTest.getSchemaTemplate(connection);
+        return new RecordStoreAndRecordContextTransaction(recordStore, context, schemaTemplate);
     }
 }

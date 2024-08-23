@@ -166,7 +166,6 @@ public class UpdateTest {
     public void insertRecords(int numRecords) throws RelationalException, SQLException {
         try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
-            con.beginTransaction();
             final var builder = new StringBuilder("INSERT INTO RestaurantReviewer(id) VALUES");
             for (int i = 0; i < numRecords; i++) {
                 builder.append(" (").append(i).append(")");
@@ -194,7 +193,6 @@ public class UpdateTest {
     private void verifyUpdates(String updatedField, Object expectedValue, int updatedUpTill) throws RelationalException, SQLException {
         try (final var con = (EmbeddedRelationalConnection) Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
-            con.beginTransaction();
             final var statement = con.prepareStatement("SELECT id, " + updatedField + " from RestaurantReviewer WHERE id >= 0");
             try (final var resultSet = statement.executeQuery()) {
                 final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
@@ -226,7 +224,6 @@ public class UpdateTest {
         var updatedUpTill = continuationAndNumUpdated.getRight();
         try (final var con = (EmbeddedRelationalConnection) Relational.connect(database.getConnectionUri(), options)) {
             con.setSchema(database.getSchemaName());
-            con.beginTransaction();
             final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);
             try (final var resultSet = statement.executeQuery()) {
                 final var resultSetAssert = ResultSetAssert.assertThat(resultSet);

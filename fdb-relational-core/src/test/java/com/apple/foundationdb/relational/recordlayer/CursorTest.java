@@ -196,7 +196,6 @@ public class CursorTest {
         // 1. Iterate over and count the rows returned before the scan rows limit is hit
         try (final var conn = Relational.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
             conn.setSchema(database.getSchemaName());
-            conn.beginTransaction();
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
                 Assertions.assertTrue(resultSet.getContinuation().atBeginning());
                 while (true) {
@@ -213,7 +212,6 @@ public class CursorTest {
         // 2. Further count the rows in other execution without limits and see if total number of rows is 10
         try (final var conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema(database.getSchemaName());
-            conn.beginTransaction();
             try (final var preparedStatement = conn.prepareStatement("select * from RESTAURANT with continuation ?param")) {
                 preparedStatement.setBytes("param", continuation.serialize());
                 try (final var resultSet = preparedStatement.executeQuery()) {
@@ -239,7 +237,6 @@ public class CursorTest {
         final var records = insertAndReturnRecords(numRecords);
         try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
-            con.beginTransaction();
             test.accept(records, con);
         }
     }
@@ -248,7 +245,6 @@ public class CursorTest {
         List<RelationalStruct> records;
         try (final var con = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             con.setSchema(database.getSchemaName());
-            con.beginTransaction();
             final var statement = con.createStatement();
             records = Utils.generateRestaurantRecords(numRecords);
             int count = statement.executeInsert("RESTAURANT", records);

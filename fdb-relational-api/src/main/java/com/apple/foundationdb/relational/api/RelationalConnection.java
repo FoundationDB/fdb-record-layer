@@ -89,19 +89,6 @@ public interface RelationalConnection extends java.sql.Connection {
     @Override
     RelationalPreparedStatement prepareStatement(String sql) throws SQLException;
 
-    //TODO(bfines) We would probably want to implement and support an "AsyncStatement" here, which
-    // can capture the asyncronous operations necessary
-
-    /**
-     * Begin a transaction with the specified configuration.
-     * <p>
-     *     Note that transactions are typically required to last less than 5 seconds, due to constraints
-     *     from underlying data storage systems (such as FDB).
-     * </p>
-     * @throws SQLException if the transaction cannot be completed for any reason.
-     */
-    void beginTransaction() throws SQLException;
-
     @Nonnull
     Options getOptions();
 

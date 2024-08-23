@@ -92,7 +92,6 @@ public class QueryPropertiesTest {
 
     List<Long> testScan(Options options, long firstRestNo) throws RelationalException, SQLException {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), options)) {
-            conn.beginTransaction();
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 for (long i = 0; i < 2; i++) {

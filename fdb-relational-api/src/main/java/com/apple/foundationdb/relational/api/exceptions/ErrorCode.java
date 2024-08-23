@@ -72,6 +72,7 @@ public enum ErrorCode {
     CONNECTION_DOES_NOT_EXIST("08003"),
     PROTOCOL_VIOLATION("08P01"),
     INVALID_PATH("08F01"),
+    CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT("08F02"),
 
     // Class 0A - Feature not supported
     UNSUPPORTED_OPERATION("0A000"),
@@ -95,6 +96,7 @@ public enum ErrorCode {
     INVALID_CONTINUATION("24F00"),
 
     // Class 25 - Invalid Transaction State
+    INVALID_TRANSACTION_STATE("25000"),
     TRANSACTION_INACTIVE("25F01"),
 
     // Class 40 - Transaction Rollback

@@ -119,21 +119,22 @@ public class IndexTest {
     }
 
     void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
-        shouldFailWithInjectedFactory(query, errorCode, errorMessage, getFakePlanContext().getConstantActionFactory());
-    }
-
-    void shouldFailWithInjectedFactory(@Nonnull final String query,
-                                       @Nonnull ErrorCode errorCode,
-                                       @Nonnull final String errorMessage,
-                                       @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+        connection.setAutoCommit(false);
+        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
+                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format("expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
+        connection.rollback();
+        connection.setAutoCommit(true);
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query);
+        connection.setAutoCommit(false);
+        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        Assertions.assertDoesNotThrow(() -> getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
+        connection.rollback();
+        connection.setAutoCommit(true);
     }
 
     private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {

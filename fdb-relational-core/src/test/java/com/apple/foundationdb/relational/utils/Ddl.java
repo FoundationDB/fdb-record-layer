@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
 import com.apple.foundationdb.relational.util.Assert;
-
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
@@ -94,7 +93,6 @@ public class Ddl implements AutoCloseable {
         }
 
         this.connection = Relational.connect(URI.create("jdbc:embed://" + databaseRule.getDbUri()), Options.NONE);
-        this.connection.beginTransaction();
     }
 
     @Nonnull

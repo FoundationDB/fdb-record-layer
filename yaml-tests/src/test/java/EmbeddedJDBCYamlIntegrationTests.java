@@ -44,11 +44,7 @@ public class EmbeddedJDBCYamlIntegrationTests extends YamlIntegrationTests {
 
     @Override
     YamlRunner.YamlConnectionFactory createConnectionFactory() {
-        return connectPath -> {
-            try (var conn = DriverManager.getDriver("jdbc:embed:///").connect(connectPath.toString(), null).unwrap(RelationalConnection.class)) {
-                return conn;
-            }
-        };
+        return connectPath -> DriverManager.getDriver("jdbc:embed:///").connect(connectPath.toString(), null).unwrap(RelationalConnection.class);
     }
 
     @Override

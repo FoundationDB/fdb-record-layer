@@ -102,8 +102,6 @@ public class QueryWithContinuationTest {
                     continuation = assertResult(statement, 10L, 11L);
                     assertContinuation(continuation, false, false);
                 }
-            }
-            try (final var connection = ddl.setSchemaAndGetConnection()) {
                 connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation LIMIT 2")) {
                     statement.setBytes("continuation", continuation.serialize());
@@ -129,10 +127,9 @@ public class QueryWithContinuationTest {
                     continuation = assertResult(statement, 10L, 11L);
                     assertContinuation(continuation, false, false);
                 }
-            }
-            try (final var connection = ddl.setSchemaAndGetConnection()) {
+
                 try (var statement =
-                        connection.prepareStatement("EXECUTE CONTINUATION ?continuation LIMIT 2 OPTIONS(CONTINUATION CONTAINS COMPILED STATEMENT)")) {
+                             connection.prepareStatement("EXECUTE CONTINUATION ?continuation LIMIT 2 OPTIONS(CONTINUATION CONTAINS COMPILED STATEMENT)")) {
                     statement.setBytes("continuation", continuation.serialize());
                     continuation = assertResult(statement, 12L, 13L);
                     assertContinuation(continuation, false, false);
@@ -141,6 +138,7 @@ public class QueryWithContinuationTest {
                     continuation = assertResult(statement, 14L);
                     assertContinuation(continuation, false, true);
                 }
+
             }
         }
     }
@@ -429,9 +427,7 @@ public class QueryWithContinuationTest {
                         Assertions.assertThat(metricCollector.hasCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isFalse();
                     }
                 }
-            }
 
-            try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
                 connection.setOption(Options.Name.VALID_PLAN_HASH_MODES,
                         PlanHashable.PlanHashMode.VL0.name() + "," + PlanHashable.PlanHashMode.VC0.name());
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
@@ -453,9 +449,7 @@ public class QueryWithContinuationTest {
                         Assertions.assertThat(metricCollector.getCountsForCounter(RelationalMetric.RelationalCount.CONTINUATION_DOWN_LEVEL)).isEqualTo(2L);
                     }
                 }
-            }
 
-            try (RelationalConnection connection = ddl.setSchemaAndGetConnection()) {
                 connection.setOption(Options.Name.VALID_PLAN_HASH_MODES, PlanHashable.PlanHashMode.VC0.name());
                 connection.setOption(Options.Name.CURRENT_PLAN_HASH_MODE, PlanHashable.PlanHashMode.VC0.name());
                 try (RelationalStatement statement = connection.createStatement()) {

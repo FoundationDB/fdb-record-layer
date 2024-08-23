@@ -50,7 +50,6 @@ public class TransactionConfigTest {
         try (RelationalConnection conn = Relational.connect(database.getConnectionUri(), Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
             conn.setOption(Options.Name.TRANSACTION_TIMEOUT, 1L);
-            conn.beginTransaction();
             try (RelationalStatement s = conn.createStatement()) {
                 long id = System.currentTimeMillis();
                 RelationalAssertions.assertThrowsSqlException(

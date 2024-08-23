@@ -53,6 +53,8 @@ import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.Ex
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.Supplier;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,16 +69,33 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of {@link RelationalConnection} for connecting to a database in Relational when running as an embedded library.
+ * It can itself function in 2 modes:
+ * <ul>
+ *     <li>Default: The transaction is not supplied to the connection. Its start and end is guided by the JDBC
+ *     specification given the state of {@code autoCommit}</li>
+ *     <li>With External transaction: In this scenario, an already opened {@link Transaction} is supplied to the connection
+ *     to be used to execute all statements and procedure. For consumer perspective, this is equivalent to {@code autoCommit}
+ *     being set to {@code true} since the {@link Connection#commit()} and {@link Connection#rollback()} wont be applicable.
+ *     However, all statements run within the external transaction. For internal usage, the consumer should check
+ *     {@link EmbeddedRelationalConnection#canCommit()} to see if they are allowed to manage a transaction.</li>
+ * </ul>
+ */
 public class EmbeddedRelationalConnection implements RelationalConnection {
     private boolean isClosed;
-    final AbstractDatabase frl;
-    final StoreCatalog backingCatalog;
-    MetricCollector metricCollector;
-    Transaction transaction;
+    @Nonnull
+    private final AbstractDatabase frl;
+    @Nonnull
+    private final StoreCatalog backingCatalog;
+    @Nullable
+    private MetricCollector metricCollector;
+    @Nullable
+    private Transaction transaction;
     ExecuteProperties executeProperties;
     private String currentSchemaLabel;
     private boolean autoCommit = true;
-    private boolean usingAnExistingTransaction;
+    private final boolean usingAnExternalTransaction;
     private final TransactionManager txnManager;
 
     @Nonnull
@@ -91,8 +110,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         this.frl = frl;
         this.txnManager = frl.getTransactionManager();
         this.transaction = transaction;
-        this.usingAnExistingTransaction = transaction != null;
-        if (usingAnExistingTransaction) {
+        this.usingAnExternalTransaction = transaction != null;
+        if (usingAnExternalTransaction) {
             this.metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
         }
         this.backingCatalog = backingCatalog;
@@ -103,47 +122,82 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public RelationalStatement createStatement() throws SQLException {
+        checkOpen();
         return new EmbeddedRelationalStatement(this);
     }
 
     @Override
     public RelationalPreparedStatement prepareStatement(String sql) throws SQLException {
+        checkOpen();
         return new EmbeddedRelationalPreparedStatement(sql, this);
     }
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        checkOpen();
+        if (usingAnExternalTransaction) {
+            throw new RelationalException("Cannot set autoCommit when using an external transaction!", ErrorCode.INVALID_TRANSACTION_STATE).toSqlException();
+        }
+        // NOTE: If this method is called during a transaction and the auto-commit mode is changed, the transaction is
+        // committed. If setAutoCommit is called and the auto-commit mode is not changed, the call is a no-op.
+        // ref. https://docs.oracle.com/javase/8/docs/api/java/sql/Connection.html#setAutoCommit-boolean-
+        if (this.autoCommit == autoCommit) {
+            return;
+        }
+        if (inActiveTransaction()) {
+            commitInternal();
+        }
         this.autoCommit = autoCommit;
     }
 
     @Override
-    public boolean getAutoCommit() {
-        return !usingAnExistingTransaction && this.autoCommit;
+    public boolean getAutoCommit() throws SQLException {
+        checkOpen();
+        return usingAnExternalTransaction || this.autoCommit;
+    }
+
+    /**
+     * Internal API that returns if the stakeholder of the transaction can commit or rollback an active transaction.
+     * This is different from {@link RelationalConnection#getAutoCommit()} which tells the consumer of the
+     * {@link RelationalConnection} to know if the autoCommit is switch on or off for the connection.
+     *
+     * @return {@code true} if the transaction can be committed by internal stakeholders, else {@code false}.
+     * @throws SQLException if the connection is closed.
+     */
+    boolean canCommit() throws SQLException {
+        checkOpen();
+        return !usingAnExternalTransaction && this.autoCommit;
     }
 
     @Override
     public void commit() throws SQLException {
+        checkOpen();
+        if (getAutoCommit()) {
+            throw new RelationalException("commit called when the Connection is in auto-commit mode!", ErrorCode.CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT).toSqlException();
+        }
+        if (!inActiveTransaction()) {
+            throw new RelationalException("No transaction to commit", ErrorCode.TRANSACTION_INACTIVE).toSqlException();
+        }
+        commitInternal();
+    }
+
+    void commitInternal() throws SQLException {
         RelationalException err = null;
-        if (transaction != null) {
-            try {
-                transaction.commit();
-            } catch (RuntimeException | RelationalException re) {
+        try {
+            getTransaction().commit();
+        } catch (RuntimeException | RelationalException re) {
+            err = ExceptionUtil.toRelationalException(re);
+        }
+        try {
+            getTransaction().close();
+        } catch (RuntimeException | RelationalException re) {
+            if (err != null) {
+                err.addSuppressed(ExceptionUtil.toRelationalException(re));
+            } else {
                 err = ExceptionUtil.toRelationalException(re);
             }
-            try {
-                transaction.close();
-            } catch (RuntimeException | RelationalException re) {
-                if (err != null) {
-                    err.addSuppressed(ExceptionUtil.toRelationalException(re));
-                } else {
-                    err = ExceptionUtil.toRelationalException(re);
-                }
-            }
-            transaction = null;
-            usingAnExistingTransaction = false;
-        } else {
-            err = new RelationalException("No transaction to commit", ErrorCode.TRANSACTION_INACTIVE);
         }
+        transaction = null;
         if (err != null) {
             throw err.toSqlException();
         }
@@ -151,16 +205,24 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public void rollback() throws SQLException {
-        RelationalException err = null;
-        if (transaction != null) {
-            try {
-                transaction.close();
-            } catch (RuntimeException | RelationalException re) {
-                err = ExceptionUtil.toRelationalException(re);
-            }
-            transaction = null;
-            usingAnExistingTransaction = false;
+        checkOpen();
+        if (getAutoCommit()) {
+            throw new RelationalException("rollback called when the Connection is in auto-commit mode!", ErrorCode.CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT).toSqlException();
         }
+        if (!inActiveTransaction()) {
+            throw new RelationalException("No transaction to rollback!", ErrorCode.TRANSACTION_INACTIVE).toSqlException();
+        }
+        rollbackInternal();
+    }
+
+    void rollbackInternal() throws SQLException {
+        RelationalException err = null;
+        try {
+            getTransaction().close();
+        } catch (RuntimeException | RelationalException re) {
+            err = ExceptionUtil.toRelationalException(re);
+        }
+        transaction = null;
         if (err != null) {
             throw err.toSqlException();
         }
@@ -172,35 +234,33 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     void setSchema(@Nullable String schema, boolean checkSchemaExists) throws SQLException {
+        checkOpen();
         if (schema == null) {
             this.currentSchemaLabel = null;
             return;
         }
         if (checkSchemaExists) {
-            boolean newTransaction = !inActiveTransaction();
-            try {
-                if (newTransaction) {
-                    beginTransaction();
-                }
-                if (!this.backingCatalog.doesSchemaExist(transaction, frl.getURI(), schema)) {
-                    throw new RelationalException(String.format("Schema %s does not exist in %s", schema, frl.getURI()), ErrorCode.UNDEFINED_SCHEMA);
-                }
-                this.currentSchemaLabel = schema;
-            } catch (RelationalException e) {
-                throw e.toSqlException();
-            } finally {
-                if (newTransaction) {
-                    rollback();
-                }
-            }
-        } else {
-            this.currentSchemaLabel = schema;
+            checkSchemaExists(schema);
         }
+        this.currentSchemaLabel = schema;
+    }
+
+    private void checkSchemaExists(@Nonnull String schema) throws SQLException {
+        runIsolatedInTransactionIfPossible(() -> {
+            if (!this.backingCatalog.doesSchemaExist(getTransaction(), getRecordLayerDatabase().getURI(), schema)) {
+                throw new RelationalException(String.format("Schema %s does not exist in %s", schema, getPath()), ErrorCode.UNDEFINED_SCHEMA);
+            }
+            return null;
+        });
     }
 
     @Nonnull
     public SchemaTemplate getSchemaTemplate() throws RelationalException {
-        return backingCatalog.loadSchema(transaction, getPath(), getSchema()).getSchemaTemplate();
+        try {
+            return backingCatalog.loadSchema(getTransaction(), getPath(), getSchema()).getSchemaTemplate();
+        } catch (SQLException sqle) {
+            throw new RelationalException(sqle);
+        }
     }
 
     @Nullable
@@ -209,7 +269,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public String getSchema() {
+    public String getSchema() throws SQLException {
+        checkOpen();
         return currentSchemaLabel;
     }
 
@@ -217,12 +278,14 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     public void close() throws SQLException {
         SQLException se = null;
         try {
-            rollback();
+            if (inActiveTransaction()) {
+                rollbackInternal();
+            }
         } catch (SQLException e) {
             se = e;
         }
         try {
-            frl.close();
+            getRecordLayerDatabase().close();
         } catch (RelationalException e) {
             if (se != null) {
                 se.addSuppressed(e.toSqlException());
@@ -295,8 +358,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return new ImmutableRowStruct(new ArrayRow(attributes), new RelationalStructMetaData(fieldDescriptions.toArray(FieldDescription[]::new)));
     }
 
-    @Override
-    public void beginTransaction() throws SQLException {
+    private void startTransaction() throws SQLException {
         try {
             if (!inActiveTransaction()) {
                 transaction = txnManager.createTransaction(options);
@@ -329,7 +391,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public URI getPath() {
-        return this.frl.getURI();
+        return getRecordLayerDatabase().getURI();
     }
 
     @Nonnull
@@ -337,11 +399,27 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return backingCatalog;
     }
 
-    @Nullable
-    public Transaction getTransaction() {
+    /**
+     * Returns the {@link com.apple.foundationdb.Transaction} object if there is one active.
+     *
+     * @return the current transaction.
+     * @throws RelationalException if there is no active transaction.
+     */
+    @Nonnull
+    public Transaction getTransaction() throws RelationalException {
+        if (transaction == null) {
+            throw new RelationalException("No Active Transaction!", ErrorCode.INVALID_TRANSACTION_STATE);
+        }
         return transaction;
     }
 
+    /**
+     * Returns if there is an ongoing transaction. This does not differentiate if the transaction is an external one
+     * (Connection stated with external transaction mode) or managed by this connection itself (default mode). If needs
+     * to be checked if the transaction is the former, use {@link EmbeddedRelationalConnection#usingAnExternalTransaction}.
+     *
+     * @return {@code true} if there is a transaction, else {@code false}.
+     */
     boolean inActiveTransaction() {
         return transaction != null;
     }
@@ -355,18 +433,34 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return frl;
     }
 
-    public void ensureTransactionActive() throws RelationalException {
+    /**
+     * Ensures that the connection has an active transaction. If the connection does not have one, it will start a new
+     * transaction irrespective of the state of {@link EmbeddedRelationalConnection#getAutoCommit()}. This method returns
+     * a boolean indicative of the fact that a new transaction has been started to fulfill the request.
+     *
+     * NOTE: This is an internal API not to be used by holders of the {@link Connection}.
+     *
+     * @return {@code true} if calling this method starts a new transaction, else {@code false}.
+     * @throws RelationalException if there is no active transaction and one cannot be started.
+     */
+    boolean ensureTransactionActive() throws RelationalException {
         if (!inActiveTransaction()) {
-            if (getAutoCommit()) {
-                try {
-                    beginTransaction();
-                } catch (SQLException e) {
-                    throw ExceptionUtil.toRelationalException(e);
-                }
-            } else {
-                throw new RelationalException("Transaction not begun", ErrorCode.TRANSACTION_INACTIVE);
+            try {
+                startTransaction();
+                return true;
+            } catch (SQLException e) {
+                throw ExceptionUtil.toRelationalException(e);
             }
         }
+        return false;
+    }
+
+    @VisibleForTesting
+    public void createNewTransaction() throws RelationalException {
+        if (inActiveTransaction()) {
+            throw new RelationalException("There is already an opened transaction!", ErrorCode.INVALID_TRANSACTION_STATE);
+        }
+        ensureTransactionActive();
     }
 
     @Nonnull
@@ -392,6 +486,12 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
                 .build();
     }
 
+    private void checkOpen() throws SQLException {
+        if (isClosed()) {
+            throw new RelationalException("Connection is closed!", ErrorCode.INTERNAL_ERROR).toSqlException();
+        }
+    }
+
     @Nonnull
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
@@ -401,20 +501,51 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     @Override
     public StatementBuilderFactory createStatementBuilderFactory() throws SQLException {
-        try {
-            return new StatementBuilderFactoryImpl(getSchemaTemplate(), this);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
+        return runIsolatedInTransactionIfPossible(() -> new StatementBuilderFactoryImpl(getSchemaTemplate(), this));
     }
 
     @Nonnull
     @Override
     public ExpressionFactory createExpressionBuilderFactory() throws SQLException {
+        return runIsolatedInTransactionIfPossible(() -> new ExpressionFactoryImpl(getSchemaTemplate(), getOptions()));
+    }
+
+    /**
+     * This method runs an operation isolated within a transaction. This means that if there is no active transaction,
+     * then one is created to perform the operation. If a transaction is exclusively created for the operation, then
+     * it is discarded after the operation is done. Since the transaction is discarded (not committed, rolled back),
+     * the operation should be strictly read only.
+     *
+     * @param operation task to be performed within a transaction.
+     * @return the value returned by the operation.
+     * @param <T> return type of the operation.
+     * @throws SQLException if the operation completes exceptionally, or if the transaction is not properly managed.
+     */
+    <T> T runIsolatedInTransactionIfPossible(Supplier<T> operation) throws SQLException {
+        boolean newTransaction = false;
+        SQLException exception = null;
+        T result = null;
         try {
-            return new ExpressionFactoryImpl(getSchemaTemplate(), getOptions());
+            newTransaction = ensureTransactionActive();
+            result = operation.get();
         } catch (RelationalException e) {
-            throw e.toSqlException();
+            exception = e.toSqlException();
+        }
+        if (newTransaction) {
+            try {
+                rollbackInternal();
+            } catch (SQLException sqle) {
+                if (exception != null) {
+                    exception.addSuppressed(sqle);
+                } else {
+                    exception = sqle;
+                }
+            }
+        }
+        if (exception != null) {
+            throw exception;
+        } else {
+            return result;
         }
     }
 }

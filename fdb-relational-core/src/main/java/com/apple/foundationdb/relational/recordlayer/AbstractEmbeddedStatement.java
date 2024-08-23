@@ -58,7 +58,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         this.conn = conn;
     }
 
-    abstract PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException;
+    abstract PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException, SQLException;
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {
@@ -68,21 +68,20 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         }
         Assert.notNull(sql);
         conn.ensureTransactionActive();
-        return conn.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
+        return conn.getMetricCollector().clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
             try {
-                conn.ensureTransactionActive();
                 if (conn.getSchema() == null) {
                     throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
                 }
                 try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
                     final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
                     @SuppressWarnings("unchecked")
-                    final var planGenerator = PlanGenerator.of(conn.frl.getPlanCache() == null ? Optional.empty() : Optional.of(conn.frl.getPlanCache()),
+                    final var planGenerator = PlanGenerator.of(conn.getRecordLayerDatabase().getPlanCache() == null ? Optional.empty() : Optional.of(conn.getRecordLayerDatabase().getPlanCache()),
                             buildPlanContext(store),
                             store.getRecordMetaData(),
                             store.getRecordStoreState(), conn.getOptions());
                     final Plan<?> plan = planGenerator.getPlan(sql);
-                    final var executionContext = Plan.ExecutionContext.of(conn.transaction, planGenerator.getOptions(), conn, conn.metricCollector);
+                    final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, conn.getMetricCollector());
                     if (plan instanceof QueryPlan) {
                         currentResultSet = new ErrorCapturingResultSet(((QueryPlan) plan).execute(executionContext));
                         if (plan.isUpdatePlan()) {
@@ -102,20 +101,20 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                         currentResultSet = null;
                         //ddl statements are updates that don't return results, so they get 0 for row count
                         currentRowCount = 0;
-                        if (conn.getAutoCommit()) {
-                            conn.commit();
+                        if (conn.canCommit()) {
+                            conn.commitInternal();
                         }
                         return false;
                     }
                 }
             } catch (RelationalException | SQLException | RuntimeException ex) {
-                if (conn.getAutoCommit()) {
-                    try {
-                        conn.rollback();
-                    } catch (SQLException e) {
-                        e.addSuppressed(ex);
-                        throw ExceptionUtil.toRelationalException(e);
+                try {
+                    if (conn.inActiveTransaction() && conn.canCommit()) {
+                        conn.rollbackInternal();
                     }
+                } catch (SQLException e) {
+                    ex.addSuppressed(e);
+                    throw ExceptionUtil.toRelationalException(e);
                 }
                 throw ExceptionUtil.toRelationalException(ex);
             }
@@ -162,8 +161,13 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             }
             closed = true;
         } catch (RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                conn.rollback();
+            if (conn.canCommit()) {
+                try {
+                    conn.rollbackInternal();
+                } catch (SQLException e) {
+                    e.addSuppressed(ex);
+                    throw e;
+                }
             }
             throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
@@ -196,13 +200,13 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             while (resultSet.next()) {
                 count++;
             }
-            if (conn.getAutoCommit()) {
-                conn.commit();
+            if (conn.canCommit()) {
+                conn.commitInternal();
             }
             return count;
         } catch (SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                conn.rollback();
+            if (conn.canCommit()) {
+                conn.rollbackInternal();
             }
             throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }

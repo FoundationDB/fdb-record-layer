@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProv
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -57,7 +56,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-
+/**
+ * An implementation of {@link DatabaseMetaData}, that relies on the {@link StoreCatalog} to supply metadata info.
+ */
 public class CatalogMetaData implements RelationalDatabaseMetaData {
     private final StoreCatalog catalog;
     private final EmbeddedRelationalConnection conn;
@@ -70,7 +71,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     @Nonnull
     @Override
     public RelationalResultSet getSchemas() throws SQLException {
-        return getSchemas(conn.frl.getURI().getPath(), null);
+        return getSchemas(conn.getPath().getPath(), null);
     }
 
     @Override
@@ -78,26 +79,27 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (catalogStr == null) {
             throw new OperationUnsupportedException("Must use a non-null catalog name currently").toSqlException();
         }
-        ensureActiveTransaction();
-        try (RelationalResultSet rrs = catalog.listSchemas(conn.transaction, URI.create(catalogStr), ContinuationImpl.BEGIN)) {
-            //TODO(bfines) we need to transform this live, not materialize like this
-            List<Row> simplifiedRows = new ArrayList<>();
-            while (rrs.next()) {
-                Object[] data = new Object[]{
-                        conn.frl.getURI(),
-                        rrs.getString("SCHEMA_NAME"),
-                };
-                simplifiedRows.add(new ArrayRow(data));
-            }
+        return conn.runIsolatedInTransactionIfPossible(() -> {
+            try (RelationalResultSet rrs = catalog.listSchemas(conn.getTransaction(), URI.create(catalogStr), ContinuationImpl.BEGIN)) {
+                //TODO(bfines) we need to transform this live, not materialize like this
+                List<Row> simplifiedRows = new ArrayList<>();
+                while (rrs.next()) {
+                    Object[] data = new Object[]{
+                            conn.getPath(),
+                            rrs.getString("SCHEMA_NAME"),
+                    };
+                    simplifiedRows.add(new ArrayRow(data));
+                }
 
-            FieldDescription[] fields = new FieldDescription[]{
-                    FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable)
-            };
-            return new IteratorResultSet(new RelationalStructMetaData(fields), simplifiedRows.iterator(), 0);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
+                FieldDescription[] fields = new FieldDescription[]{
+                        FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
+                        FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable)
+                };
+                return new IteratorResultSet(new RelationalStructMetaData(fields), simplifiedRows.iterator(), 0);
+            } catch (SQLException sqle) {
+                throw new RelationalException(sqle);
+            }
+        });
     }
 
     @Nonnull
@@ -120,8 +122,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (types != null) {
             throw new SQLFeatureNotSupportedException("Type filters on getTables() is not supported yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        ensureActiveTransaction();
-        try {
+        return conn.runIsolatedInTransactionIfPossible(() -> {
             final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
             List<Row> tableList = schemaInfo.getRecordTypesList().stream()
                     .map(type -> new Object[]{
@@ -140,15 +141,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     FieldDescription.primitive("TABLE_VERSION", Types.BIGINT, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(fields), tableList.iterator(), 0);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
+        });
     }
 
     @Override
     public RelationalResultSet getPrimaryKeys(String database, String schema, String table) throws SQLException {
-        ensureActiveTransaction();
-        try {
+        return conn.runIsolatedInTransactionIfPossible(() -> {
             final RecordMetaDataProto.MetaData schemaInfo = loadSchemaMetadata(database, schema);
             Stream<Row> rows = schemaInfo.getRecordTypesList().stream()
                     .filter(type -> type.getName().equals(table))
@@ -156,14 +154,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         RecordMetaDataProto.KeyExpression ke = type.getPrimaryKey();
                         return new AbstractMap.SimpleEntry<>(type.getName(), keyExpressionToPrimaryKey(ke));
                     }).flatMap(pks -> IntStream.range(0, pks.getValue().length)
-                    .mapToObj(pos -> new ArrayRow(new Object[]{
-                            database,
+                    .mapToObj(pos -> new ArrayRow(database,
                             schema,
                             pks.getKey(),
                             pks.getValue()[pos],
                             pos + 1,
-                            null
-                    })));
+                            null)));
             FieldDescription[] fields = new FieldDescription[]{
                     FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
                     FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
@@ -173,11 +169,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     FieldDescription.primitive("PK_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
             };
             return new IteratorResultSet(new RelationalStructMetaData(fields), rows.iterator(), 0);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        } catch (UncheckedRelationalException uve) {
-            throw uve.unwrap().toSqlException();
-        }
+        });
     }
 
     @Nonnull
@@ -201,10 +193,9 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (columnPattern != null) {
             throw new SQLFeatureNotSupportedException("Column filters on getColumns() is not supported yet", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        ensureActiveTransaction();
-        try {
+        return conn.runIsolatedInTransactionIfPossible(() -> {
             //TODO(bfines) this is a weird way of doing this, is there a better way?
-            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, URI.create(database), schema, conn.transaction).getRecordMetaData();
+            RecordMetaData rmd = new CatalogMetaDataProvider(this.catalog, URI.create(database), schema, conn.getTransaction()).getRecordMetaData();
             Descriptors.FileDescriptor fileDesc = rmd.getRecordsDescriptor();
             //verify that it is in fact a table
             try {
@@ -272,9 +263,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.VARCHAR, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(columns), columnDefs.iterator(), 0);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
+        });
     }
 
     // note that approximate is ignored
@@ -296,8 +285,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         if (tablePattern == null || tablePattern.isEmpty()) {
             throw new SQLFeatureNotSupportedException("Table must be specified", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
-        ensureActiveTransaction();
-        try {
+        return conn.runIsolatedInTransactionIfPossible(() -> {
             RecordMetaData rmd = RecordMetaData.build(loadSchemaMetadata(database, schema));
             //verify that it is in fact a table
             List<Row> indexDefs;
@@ -344,20 +332,12 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     FieldDescription.primitive("FILTER_CONDITION", Types.VARCHAR, DatabaseMetaData.columnNullable)
             };
             return new IteratorResultSet(new RelationalStructMetaData(columns), indexDefs.iterator(), 0);
-        } catch (RelationalException e) {
-            throw e.toSqlException();
-        }
-    }
-
-    private void ensureActiveTransaction() throws SQLException {
-        if (!conn.inActiveTransaction()) {
-            conn.beginTransaction();
-        }
+        });
     }
 
     @Nonnull
     private RecordMetaDataProto.MetaData loadSchemaMetadata(@Nonnull final String database, @Nonnull final String schema) throws RelationalException {
-        final var recLayerSchema = this.catalog.loadSchema(conn.transaction, URI.create(database), schema);
+        final var recLayerSchema = this.catalog.loadSchema(conn.getTransaction(), URI.create(database), schema);
         Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
         return (recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());
     }

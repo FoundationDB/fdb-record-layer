@@ -149,20 +149,21 @@ public class ExplainTests {
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
                     continuation = consumeResultAndGetContinuation(ps, 2);
                 }
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?cont")) {
-                ps.setObject("cont", continuation.serialize());
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    final var assertResult = ResultSetAssert.assertThat(resultSet);
-                    assertResult.hasNextRow()
-                            .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
-                            .hasColumn("PLAN_HASH", -1635569052L);
-                    final var continuationInfo = resultSet.getStruct(4);
-                    org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
-                    final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
-                    assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
-                    assertStruct.hasValue("VERSION", 1);
-                    assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+
+                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?cont")) {
+                    ps.setObject("cont", continuation.serialize());
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
+                                .hasColumn("PLAN_HASH", -1635569052L);
+                        final var continuationInfo = resultSet.getStruct(4);
+                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
+                        final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
+                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
+                        assertStruct.hasValue("VERSION", 1);
+                        assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                    }
                 }
             }
         }
@@ -178,21 +179,23 @@ public class ExplainTests {
                 try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
                     continuation = consumeResultAndGetContinuation(ps, 2);
                 }
-            }
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN EXECUTE CONTINUATION ?cont")) {
-                ps.setObject("cont", continuation.serialize());
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    final var assertResult = ResultSetAssert.assertThat(resultSet);
-                    assertResult.hasNextRow()
-                            .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
-                            .hasColumn("PLAN_HASH", -1635569052L);
-                    final var continuationInfo = resultSet.getStruct(4);
-                    org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
-                    final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
-                    assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
-                    assertStruct.hasValue("VERSION", 1);
-                    assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+
+                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN EXECUTE CONTINUATION ?cont")) {
+                    ps.setObject("cont", continuation.serialize());
+                    try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                        final var assertResult = ResultSetAssert.assertThat(resultSet);
+                        assertResult.hasNextRow()
+                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN_HASH", -1635569052L);
+                        final var continuationInfo = resultSet.getStruct(4);
+                        org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
+                        final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
+                        assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
+                        assertStruct.hasValue("VERSION", 1);
+                        assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                    }
                 }
+
             }
         }
     }

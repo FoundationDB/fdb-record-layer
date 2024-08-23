@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
@@ -43,7 +44,7 @@ public abstract class AbstractDatabase implements RelationalDatabase {
 
     @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
-
+    @Nullable
     protected EmbeddedRelationalConnection connection;
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
     @Nullable
@@ -61,9 +62,12 @@ public abstract class AbstractDatabase implements RelationalDatabase {
         this.connection = conn;
     }
 
-    @Nullable
-    protected Transaction getCurrentTransaction() {
-        return connection.transaction;
+    @Nonnull
+    protected Transaction getCurrentTransaction() throws RelationalException {
+        if (connection == null) {
+            throw new RelationalException("Connection not set!", ErrorCode.INTERNAL_ERROR);
+        }
+        return connection.getTransaction();
     }
 
     @Override
@@ -79,7 +83,7 @@ public abstract class AbstractDatabase implements RelationalDatabase {
 
         if (putBack) {
             schemas.put(schemaId, schema);
-            this.connection.transaction.unwrap(RecordContextTransaction.class).addTerminationListener(() -> {
+            getCurrentTransaction().unwrap(RecordContextTransaction.class).addTerminationListener(() -> {
                 RecordLayerSchema rlSchema = schemas.remove(schemaId);
                 try {
                     if (rlSchema != null) {

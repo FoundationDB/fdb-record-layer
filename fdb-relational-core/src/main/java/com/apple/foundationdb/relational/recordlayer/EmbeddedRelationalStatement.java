@@ -34,10 +34,10 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.Supplier;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
@@ -56,7 +56,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         return PlanContext.Builder.create()
                 .fromRecordStore(store)
                 .fromDatabase(conn.getRecordLayerDatabase())
-                .withMetricsCollector(conn.metricCollector)
+                .withMetricsCollector(conn.getMetricCollector())
                 .withSchemaTemplate(conn.getSchemaTemplate())
                 .build();
     }
@@ -73,7 +73,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     @Override
     public RelationalResultSet executeQuery(String sql) throws SQLException {
         if (execute(sql)) {
-            return currentResultSet;
+            return getResultSet();
         } else {
             throw new SQLException(String.format("query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
@@ -100,94 +100,68 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
     @Override
     public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+        checkOpen();
+        final var finalOptions = conn.getOptions().withChild(options);
         try {
-            checkOpen();
             conn.ensureTransactionActive();
-            options = conn.getOptions().withChild(options);
-
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+            String[] schemaAndTable = getSchemaAndTable(conn, tableName);
+            RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
 
             Table table = schema.loadTable(schemaAndTable[1]);
 
-            String indexName = options.getOption(Options.Name.INDEX_HINT);
+            String indexName = finalOptions.getOption(Options.Name.INDEX_HINT);
             DirectScannable source = getSourceScannable(indexName, table);
 
             KeyBuilder keyBuilder = source.getKeyBuilder();
             Row row = keyBuilder.buildKey(prefix.toMap(), false);
 
             StructMetaData sourceMetaData = source.getMetaData();
-            return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData,
-                    source.openScan(row, options), conn));
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
+            return new ErrorCapturingResultSet(new RecordLayerResultSet(sourceMetaData, source.openScan(row, finalOptions), conn));
+        } catch (RelationalException ve) {
+            throw ve.toSqlException();
         }
     }
 
     @Override
     public @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
-        try {
-            checkOpen();
-            options = conn.getOptions().withChild(options);
-
-            conn.ensureTransactionActive();
-
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+        checkOpen();
+        final var finalizedOptions = conn.getOptions().withChild(options);
+        return ensureTransaction(() -> {
+            String[] schemaAndTable = getSchemaAndTable(conn, tableName);
+            RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
 
             Table table = schema.loadTable(schemaAndTable[1]);
 
-            String indexName = options.getOption(Options.Name.INDEX_HINT);
+            String indexName = finalizedOptions.getOption(Options.Name.INDEX_HINT);
             DirectScannable source = getSourceScannable(indexName, table);
-            source.validate(options);
+            source.validate(finalizedOptions);
 
             Row tuple = source.getKeyBuilder().buildKey(key.toMap(), true);
 
-            final Row row = source.get(conn.transaction, tuple, options);
+            final Row row = source.get(conn.getTransaction(), tuple, finalizedOptions);
 
             final Iterator<Row> rowIter = row == null ? Collections.emptyIterator() : Collections.singleton(row).iterator();
             return new ErrorCapturingResultSet(new IteratorResultSet(table.getMetaData(), rowIter, 0));
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
+        });
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
+    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull final Options options)
             throws SQLException {
-        try {
-            checkOpen();
-            options = conn.getOptions().withChild(options);
-            //do this check first because otherwise we might start an expensive transaction that does nothing
-            if (data.isEmpty()) {
-                return 0;
-            }
-
-            conn.ensureTransactionActive();
-
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+        checkOpen();
+        final var finalizedOptions = conn.getOptions().withChild(options);
+        //do this check first because otherwise we might start an expensive transaction that does nothing
+        if (data.isEmpty()) {
+            return 0;
+        }
+        return ensureTransaction(() -> {
+            String[] schemaAndTable = getSchemaAndTable(conn, tableName);
+            RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
 
             Table table = schema.loadTable(schemaAndTable[1]);
-            table.validateTable(options);
-            final Boolean replaceOnDuplicate = options.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
+            table.validateTable(finalizedOptions);
+            final Boolean replaceOnDuplicate = finalizedOptions.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
 
             int rowCount = 0;
             for (RelationalStruct struct : data) {
@@ -195,38 +169,24 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                     rowCount++;
                 }
             }
-            if (conn.getAutoCommit()) {
-                conn.commit();
-            }
-            return rowCount;
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
+            currentRowCount = rowCount;
+            return currentRowCount;
+        });
     }
 
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
-        try {
-            checkOpen();
-            conn.ensureTransactionActive();
-            options = conn.getOptions().withChild(options);
-            if (!keys.hasNext()) {
-                return 0;
-            }
-
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+        checkOpen();
+        if (!keys.hasNext()) {
+            return 0;
+        }
+        final var finalizedOptions = conn.getOptions().withChild(options);
+        return ensureTransaction(() -> {
+            String[] schemaAndTable = getSchemaAndTable(conn, tableName);
+            RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
 
             Table table = schema.loadTable(schemaAndTable[1]);
-            table.validateTable(options);
+            table.validateTable(finalizedOptions);
 
             int count = 0;
             Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
@@ -239,35 +199,20 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                     toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
                 }
             }
-            if (conn.getAutoCommit()) {
-                conn.commit();
-            }
             return count;
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
+        });
     }
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
-        try {
-            checkOpen();
-            conn.ensureTransactionActive();
-            options = conn.getOptions().withChild(options);
-
-            String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
-            RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0]);
+        checkOpen();
+        final var finalizedOptions = conn.getOptions().withChild(options);
+        ensureTransaction(() -> {
+            String[] schemaAndTable = getSchemaAndTable(conn, tableName);
+            RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
             Table table = schema.loadTable(schemaAndTable[1]);
-            table.validateTable(options);
+            table.validateTable(finalizedOptions);
 
             Map<String, Object> deletePrefixColumns = prefix.toMap();
             KeyBuilder keyBuilder = table.getKeyBuilder();
@@ -277,10 +222,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 if (row.getObject(keyLength - 1) != null) {
                     // We have a complete key. Delete only the one record
                     table.deleteRecord(row);
-                    if (conn.getAutoCommit()) {
-                        conn.commit();
-                    }
-                    return;
+                    return null;
                 }
             }
             try {
@@ -290,52 +232,24 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 // This may be caused by the fact that an index does not share the same prefix as the table we're trying to range delete from
                 Continuation continuation = ContinuationImpl.BEGIN;
                 ResumableIterator<Row> scannedRows;
-                do {
-                    Options newOptions = options.withChild(Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
-                    scannedRows = table.openScan(row, newOptions);
-                    while (scannedRows.hasNext()) {
-                        Row scannedRow = scannedRows.next();
-                        if (!table.deleteRecord(keyBuilder.buildKey(scannedRow))) {
-                            throw new RelationalException("Cannot delete record during fallback deleteRange", ErrorCode.INTERNAL_ERROR);
+                try {
+                    do {
+                        Options newOptions = finalizedOptions.withChild(Options.builder().withOption(Options.Name.CONTINUATION, continuation).build());
+                        scannedRows = table.openScan(row, newOptions);
+                        while (scannedRows.hasNext()) {
+                            Row scannedRow = scannedRows.next();
+                            if (!table.deleteRecord(keyBuilder.buildKey(scannedRow))) {
+                                throw new RelationalException("Cannot delete record during fallback deleteRange", ErrorCode.INTERNAL_ERROR);
+                            }
                         }
-                    }
-                    continuation = scannedRows.getContinuation();
-                } while (scannedRows.terminatedEarly());
-                if (conn.getAutoCommit()) {
-                    conn.commit();
+                        continuation = scannedRows.getContinuation();
+                    } while (scannedRows.terminatedEarly());
+                } catch (SQLException sqle) {
+                    throw new RuntimeException(sqle);
                 }
             }
-        } catch (RelationalException | SQLException | RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
-    }
-
-    @Override
-    public void close() throws SQLException {
-        try {
-            if (currentResultSet != null) {
-                currentResultSet.close();
-            }
-            closed = true;
-        } catch (RuntimeException ex) {
-            if (conn.getAutoCommit()) {
-                try {
-                    conn.rollback();
-                } catch (SQLException e) {
-                    e.addSuppressed(ex);
-                    throw e;
-                }
-            }
-            throw ExceptionUtil.toRelationalException(ex).toSqlException();
-        }
+            return null;
+        });
     }
 
     /* ****************************************************************************************************************/
@@ -343,19 +257,23 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
     // TODO (yhatem) this should be refactored and cleaned up, ideally consumers should work with structured metadata API
     //               instead of this string processing since that is error-prone and somewhat very low-level.
-    private String[] getSchemaAndTable(@Nullable String schemaName, @Nonnull String tableName) throws RelationalException {
-        String schema = schemaName;
-        String tableN = tableName;
-        if (tableName.contains(".")) {
-            String[] t = tableName.split("\\.");
-            schema = t[0];
-            tableN = t[1];
-        }
-        if (schema == null) {
-            throw new RelationalException("Invalid table format", ErrorCode.INVALID_PARAMETER);
-        }
+    private String[] getSchemaAndTable(@Nonnull EmbeddedRelationalConnection connection, @Nonnull String tableName) throws RelationalException {
+        try {
+            String schema = connection.getSchema();
+            String tableN = tableName;
+            if (tableName.contains(".")) {
+                String[] t = tableName.split("\\.");
+                schema = t[0];
+                tableN = t[1];
+            }
+            if (schema == null) {
+                throw new RelationalException("Invalid table format", ErrorCode.INVALID_PARAMETER);
+            }
 
-        return new String[]{schema, tableN};
+            return new String[]{schema, tableN};
+        } catch (SQLException sqle) {
+            throw new RelationalException(sqle);
+        }
     }
 
     private @Nonnull DirectScannable getSourceScannable(String indexName, @Nonnull Table table) throws RelationalException {
@@ -374,6 +292,36 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
             return index;
         } else {
             return table;
+        }
+    }
+
+    private <T> T ensureTransaction(Supplier<T> operation) throws SQLException {
+        boolean newTransaction = false;
+        SQLException exception = null;
+        T result = null;
+        try {
+            newTransaction = conn.ensureTransactionActive();
+            result = operation.get();
+        } catch (RelationalException e) {
+            exception = e.toSqlException();
+        } catch (RuntimeException e) {
+            exception = ExceptionUtil.toRelationalException(e).toSqlException();
+        }
+        if (newTransaction) {
+            if (exception != null) {
+                try {
+                    conn.rollbackInternal();
+                } catch (SQLException sqle) {
+                    exception.addSuppressed(sqle);
+                }
+            } else if (conn.canCommit()) {
+                conn.commitInternal();
+            }
+        }
+        if (exception != null) {
+            throw exception;
+        } else {
+            return result;
         }
     }
 }
