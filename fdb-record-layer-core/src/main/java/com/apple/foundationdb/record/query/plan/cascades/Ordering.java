@@ -51,7 +51,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
@@ -801,7 +800,7 @@ public class Ordering {
      * {@link SetOperationsOrdering} defines methods that can only be applied to orderings that are produced by a
      * merge operation. For most of these methods, the caller needs to pass in a {@link RequestedOrdering} in order
      * to fix the ambiguities of the {@link SetOperationsOrdering} at hand. Most prominently,
-     * {@link SetOperationsOrdering#applyComparisonKey(List, SetMultimap)} can take a {@link SetOperationsOrdering},
+     * {@link SetOperationsOrdering#applyComparisonKey(List)} can take a {@link SetOperationsOrdering},
      * and by means of a {@link RequestedOrdering} can create a regular {@link Ordering} by promoting multiple fixed
      * bindings into directional ones.
      *
@@ -1116,50 +1115,6 @@ public class Ordering {
     }
 
     /**
-     * Helper to attempt to resolve a comparison direction. This is needed for distinct set operations that use
-     * comparison keys. In the future there won't be a common direction but each comparison value will encode that
-     * information separately. Note that this method is probably going to be deprecated once we have comparison keys
-     * that use an independent comparison direction per ordering part.
-     * @param providedOrderingParts an iterable of {@link ProvidedOrderingPart}s
-     * @return {@code Optional.empty()} if individual orderings are mixed (i.e. some are ascending, others are
-     *         descending); {@code Optional.of(false)} if all directional sort orders are not descending;
-     *         {@code Optional.of(true)} if all directional sort orders are descending
-     */
-    @Nonnull
-    public static Optional<Boolean> resolveComparisonDirectionMaybe(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts) {
-        boolean seenAscending = false;
-        boolean seenDescending = false;
-
-        for (final var providedOrderingPart : providedOrderingParts) {
-            final var sortOrder = providedOrderingPart.getSortOrder();
-            switch (sortOrder) {
-                case ASCENDING:
-                    seenAscending = true;
-                    break;
-                case DESCENDING:
-                    seenDescending = true;
-                    break;
-                case FIXED:
-                case CHOOSE:
-                    break;
-                default:
-                    throw new RecordCoreException("unexpected sort order");
-            }
-        }
-        if (seenAscending && seenDescending) {
-            // shrug
-            return Optional.empty();
-        }
-
-        if (!seenAscending && !seenDescending) {
-            // in the absence of anything we return forward by default
-            return Optional.of(false);
-        }
-
-        return seenAscending ? Optional.of(false) : Optional.of(true);
-    }
-
-    /**
      * A helper class used inside an {@link Ordering} to indicate if a value is considered to be ascending, descending,
      * or fixed to a comparison/a set of comparisons (which have to be of type {@link ComparisonRange.Type#EQUALITY}).
      * If the value is fixed to a set of more than one comparison, the context defines how that is interpreted:
@@ -1327,8 +1282,12 @@ public class Ordering {
         protected abstract boolean promoteToDirectional();
 
         @Nonnull
-        public Ordering applyComparisonKey(@Nonnull final List<? extends Value> comparisonKeyValues,
-                                           @Nonnull final SetMultimap<Value, Binding> comparisonKeyBindingMap) {
+        public Ordering applyComparisonKey(@Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts) {
+            final var comparisonKeyOrderingPartMap = OrderingPart.toOrderingPartMap(comparisonKeyOrderingParts);
+            final var comparisonKeyValues =
+                    comparisonKeyOrderingParts.stream()
+                            .map(OrderingPart::getValue)
+                            .collect(ImmutableList.toImmutableList());
             final var orderingSet = getOrderingSet();
             final var comparisonKeyOrderingSet =
                     PartiallyOrderedSet.<Value>builder()
@@ -1342,7 +1301,7 @@ public class Ordering {
                 final var value = entry.getKey();
                 final var bindings = entry.getValue();
 
-                if (!comparisonKeyBindingMap.containsKey(value)) {
+                if (!comparisonKeyOrderingPartMap.containsKey(value)) {
                     if (areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings)) {
                         // there is only one fixed binding
                         resultBindingMapBuilder.putAll(value, bindings);
@@ -1352,9 +1311,10 @@ public class Ordering {
                     // binding that is not part of the comparison key
                     //
                 } else {
-                    final var comparisonKeyBindings = comparisonKeyBindingMap.get(value);
-                    Verify.verify(comparisonKeyBindings.stream().noneMatch(Binding::isFixed));
-                    resultBindingMapBuilder.put(value, Iterables.getOnlyElement(comparisonKeyBindings));
+                    final var providedOrderingPart = Objects.requireNonNull(comparisonKeyOrderingPartMap.get(value));
+                    final var sortOrder = providedOrderingPart.getSortOrder();
+                    Verify.verify(sortOrder.isDirectional());
+                    resultBindingMapBuilder.put(value, Binding.sorted(sortOrder));
                 }
             }
 
@@ -1498,7 +1458,7 @@ public class Ordering {
     public enum OrderPreservingKind {
         NOT_ORDER_PRESERVING,
         DIRECT_ORDER_PRESERVING,
-        INVERSE_ORDER_PRESERVING;
+        INVERSE_ORDER_PRESERVING
     }
 
     /**

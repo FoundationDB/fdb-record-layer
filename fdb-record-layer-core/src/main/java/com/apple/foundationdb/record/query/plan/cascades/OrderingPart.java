@@ -20,17 +20,21 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -111,6 +115,24 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         Verify.verify(correlatedTo.size() <= 1);
         Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(Quantifier.current()));
         return value;
+    }
+
+    @Nonnull
+    public static <O extends OrderingPart<S>, S extends SortOrder> Map<Value, O> toOrderingPartMap(@Nonnull final Iterable<O> orderingParts) {
+        final var resultMapBuilder = ImmutableMap.<Value, O>builder();
+        for (final O orderingPart : orderingParts) {
+            resultMapBuilder.put(orderingPart.getValue(), orderingPart);
+        }
+        return resultMapBuilder.build();
+    }
+
+    @Nonnull
+    public static List<Value> toValues(@Nonnull final Iterable<? extends OrderingPart<?>> orderingParts) {
+        final var resultsBuilder = ImmutableList.<Value>builder();
+        for (final var orderingPart : orderingParts) {
+            resultsBuilder.add(orderingPart.getValue());
+        }
+        return resultsBuilder.build();
     }
 
     /**
@@ -501,6 +523,72 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     public static final class ProvidedOrderingPart extends OrderingPart<ProvidedSortOrder> {
         public ProvidedOrderingPart(@Nonnull final Value value, final ProvidedSortOrder sortOrder) {
             super(value, sortOrder);
+        }
+
+        /**
+         * Compute the comparison key value for a set operation from this ordering part and a reversed-ness indicator.
+         * <pre>
+         * {@code
+         * forward:                                           reverse:
+         *                      a     tob(a, "↑")           |                      a     tob(a, "↓")
+         *                   null         -inf              |                   null          inf
+         *                     -2           -2              |                     -2            2
+         *                      3            3              |                      3           -3
+         *                      5            5              |                      5           -5
+         *                     10           10              |                     10          -10
+         *                ------------------------          |                ------------------------
+         * resulting order    "↑"        compare asc        | resulting order    "↑"        compare desc
+         *                                                  |
+         *                      a     tob(a, "↓")           |                      a     tob(a, "↑")
+         *                     10          -10              |                     10           10
+         *                      5           -5              |                      5            5
+         *                      3           -3              |                      3            3
+         *                     -2            2              |                     -2            2
+         *                   null          inf              |                   null         -inf
+         *                ------------------------          |                ------------------------
+         * resulting order    "↓"        compare asc        | resulting order    "↓"        compare desc
+         *                                                  |
+         *                      a     tob(a, "↙")           |                      a     tob(a, "↗")
+         *                   null         -inf              |                   null          inf
+         *                     10          -10              |                     10           10
+         *                      5           -5              |                      5            5
+         *                      3           -3              |                      3            3
+         *                     -2            2              |                     -2           -2
+         *                ------------------------          |                ------------------------
+         * resulting order    "↙"        compare asc        | resulting order    "↙"         compare desc
+         *                                                  |
+         *                      a     tob(a, "↗")           |                      a     tob(a, "↙")
+         *                     -2           -2              |                     -2            2
+         *                      3            3              |                      3           -3
+         *                      5            5              |                      5           -5
+         *                     10           10              |                     10          -10
+         *                   null          inf              |                   null         -inf
+         *                ------------------------          |                --------------------------
+         * resulting order    "↗"        compare asc        | resulting order    "↗"         compare desc
+         * }
+         * </pre>
+         * @param isReverse indicator if the set operation is using a forward or a reverse comparison function
+         * @return a {@link Value} that represents the <em>physical</em> comparison kay part for this ordering part
+         */
+        @Nonnull
+        public Value comparisonKeyValue(final boolean isReverse) {
+            final var tupleDirection =
+                    isReverse
+                    ? getSortOrder().getTupleDirection().reverseDirection()
+                    : getSortOrder().getTupleDirection();
+            final var value = getValue();
+            if (tupleDirection == Direction.ASC_NULLS_FIRST) {
+                return value;
+            }
+            return new ToOrderedBytesValue(value, tupleDirection);
+        }
+
+        @Nonnull
+        public static List<Value> comparisonKeyValues(@Nonnull final Iterable<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                      final boolean isReverse) {
+            return Streams.stream(comparisonKeyOrderingParts)
+                    .map(providedOrderingPart -> providedOrderingPart.comparisonKeyValue(isReverse))
+                    .collect(ImmutableList.toImmutableList());
         }
     }
 

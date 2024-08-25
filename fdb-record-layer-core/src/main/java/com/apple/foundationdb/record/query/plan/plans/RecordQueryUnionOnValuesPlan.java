@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -40,6 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -50,19 +52,32 @@ import java.util.Set;
 @SuppressWarnings("java:S2160")
 public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implements RecordQueryPlanWithComparisonKeyValues {
 
+    /**
+     * A list of {@link ProvidedOrderingPart}s that is used to compute the comparison key function. This attribute is
+     * transient and therefore not plan-serialized
+     */
+    @Nullable
+    private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
+
     protected RecordQueryUnionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
                                            @Nonnull final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryUnionOnValuesPlanProto.getSuper()));
+        this.comparisonKeyOrderingParts = null;
     }
 
     public RecordQueryUnionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                        @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                         @Nonnull final List<? extends Value> comparisonKeyValues,
-                                        final boolean reverse,
+                                        final boolean isReverse,
                                         final boolean showComparisonKey) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
-                reverse,
+                isReverse,
                 showComparisonKey);
+        this.comparisonKeyOrderingParts =
+                comparisonKeyOrderingParts == null
+                ? null
+                : ImmutableList.copyOf(comparisonKeyOrderingParts);
     }
 
     @Nonnull
@@ -88,6 +103,12 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
 
     @Nonnull
     @Override
+    public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
+        return Objects.requireNonNull(comparisonKeyOrderingParts);
+    }
+
+    @Nonnull
+    @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
@@ -102,6 +123,7 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
     @Override
     public RecordQueryUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap, @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
+                comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
                 isReverse(),
                 showComparisonKey);
@@ -114,6 +136,7 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                 newChildren.stream()
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList()),
+                comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
                 isReverse(),
                 showComparisonKey);
@@ -141,10 +164,14 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
 
     @Nonnull
     public static RecordQueryUnionOnValuesPlan union(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                     @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                     final boolean reverse,
+                                                     @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                     final boolean isReverse,
                                                      final boolean showComparisonKey) {
-        return new RecordQueryUnionOnValuesPlan(quantifiers, comparisonKeyValues, reverse, showComparisonKey);
+        return new RecordQueryUnionOnValuesPlan(quantifiers,
+                comparisonKeyOrderingParts,
+                ProvidedOrderingPart.comparisonKeyValues(comparisonKeyOrderingParts, isReverse),
+                isReverse,
+                showComparisonKey);
     }
 
     /**
