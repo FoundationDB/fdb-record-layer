@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Auto complete query clause from string using Lucene search syntax.
@@ -105,34 +106,55 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
 
     @Override
     public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        long startNanos = System.nanoTime();
         final String searchArgument =
                 isParameter
                 ? Verify.verifyNotNull((String)context.getBinding(search))
                 : search;
 
+        long searchArgumentNanos = System.nanoTime();
         final boolean phraseQueryNeeded = LuceneAutoCompleteHelpers.isPhraseSearch(searchArgument);
+        long isPhraseSearchNanos = System.nanoTime();
         final String searchKey = LuceneAutoCompleteHelpers.searchKeyFromSearchArgument(searchArgument, phraseQueryNeeded);
+        long searchKeyNanos = System.nanoTime();
         final var fieldDerivationMap = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
-
+        long fieldDerivationMapNanos = System.nanoTime();
         // The analyzer used to construct the Lucene query should be the FULL_TEXT-index one in order to match how the text was indexed
         final var analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance()
                         .getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldDerivationMap);
-
+        long analyzerSelectorNanos = System.nanoTime();
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        long pointConfigMapNanos = System.nanoTime();
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
+        long parserFactoryNanos = System.nanoTime();
         final QueryParser parser = parserFactory.createMultiFieldQueryParser(fields.toArray(new String[0]),
                 analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), pointsConfigMap);
+        long createParserNanos = System.nanoTime();
 
 
         final var finalQuery = phraseQueryNeeded
                                ? buildQueryForPhraseMatching(parser, fields, searchKey)
                                : buildQueryForTermsMatching(analyzerSelector.provideIndexAnalyzer(searchKey).getAnalyzer(), fields, searchKey);
         if (LOGGER.isDebugEnabled()) {
+            long finalQueryNanos = System.nanoTime();
             LOGGER.debug(KeyValueLogMessage.build("query for auto-complete")
                     .addKeyAndValue(LogMessageKeys.INDEX_NAME, index.getName())
                     .addKeyAndValue(LogMessageKeys.QUERY, search.replace("\"", "\\\""))
                     .addKeyAndValue("lucene_query", finalQuery)
+                    // Adding a bunch of timing here because we believe this code sometimes takes a long time
+                    // (more than 5 seconds) to initialize, but haven't been able to reproduce, hopefully this will
+                    // help limit the scope of the investigation. These metrics shouldn't need to stick around longterm.
+                    .addKeyAndValue("searchArgumentUsec", TimeUnit.NANOSECONDS.toMicros(searchArgumentNanos - startNanos))
+                    .addKeyAndValue("isPhraseSearchUsec", TimeUnit.NANOSECONDS.toMicros(isPhraseSearchNanos - searchArgumentNanos))
+                    .addKeyAndValue("searchKeyUsec", TimeUnit.NANOSECONDS.toMicros(searchKeyNanos - isPhraseSearchNanos))
+                    .addKeyAndValue("fieldDerivationMapUsec", TimeUnit.NANOSECONDS.toMicros(fieldDerivationMapNanos - searchKeyNanos))
+                    .addKeyAndValue("analyzerSelectorUsec", TimeUnit.NANOSECONDS.toMicros(analyzerSelectorNanos - fieldDerivationMapNanos))
+                    .addKeyAndValue("pointConfigMapUsec", TimeUnit.NANOSECONDS.toMicros(pointConfigMapNanos - analyzerSelectorNanos))
+                    .addKeyAndValue("parserFactoryUsec", TimeUnit.NANOSECONDS.toMicros(parserFactoryNanos - pointConfigMapNanos))
+                    .addKeyAndValue("createParserUsec", TimeUnit.NANOSECONDS.toMicros(createParserNanos - parserFactoryNanos))
+                    .addKeyAndValue("finalQueryUsec", TimeUnit.NANOSECONDS.toMicros(finalQueryNanos - createParserNanos))
+                    .addKeyAndValue("totalUsec", TimeUnit.NANOSECONDS.toMicros(finalQueryNanos - startNanos))
                     .toString());
         }
 

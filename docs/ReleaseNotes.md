@@ -41,6 +41,20 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 // end next release
 -->
 
+### 3.4.537.0
+
+* **Feature** MultidimensionalIndex update operation is not thread safe [(Issue #2849)](https://github.com/FoundationDB/fdb-record-layer/issues/2849)
+
+### 3.4.536.0
+
+* **Performance** Add timing breakdown to Repartitioned records log [(Issue #2886)](https://github.com/FoundationDB/fdb-record-layer/issues/2886)
+
+### 3.4.533.0
+
+* **Bug fix** Remove uncommitted version mutations during `deleteRecordsWhere` to avoid corrupting record stores if there are outstanding record saves when `deleteRecordsWhere` is called  [(Issue #2275)](https://github.com/FoundationDB/fdb-record-layer/issues/2275)
+* **Bug fix** ensure that all compensations get planned with their necessary quantifiers [(Issue #2881)](https://github.com/FoundationDB/fdb-record-layer/issues/2881)
+* **Performance** Lucene partition balancing: reduce the number of retries [(Issue #2878)](https://github.com/FoundationDB/fdb-record-layer/issues/2878)
+
 ### 3.4.532.0
 
 * **Bug fix** Expose `Tuple`-based `MIN_EVER` and `MAX_EVER` indexes to Cascades [(Issue #2874)](https://github.com/FoundationDB/fdb-record-layer/issues/2874)

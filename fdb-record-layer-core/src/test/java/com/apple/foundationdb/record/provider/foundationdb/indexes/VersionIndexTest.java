@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord;
 import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.FormerIndex;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -66,6 +67,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.ScanNonReadableIndexException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -112,16 +114,22 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -227,6 +235,26 @@ public class VersionIndexTest {
                 IndexTypes.MAX_EVER_VERSION);
         simpleVersionHook.apply(metaDataBuilder);
         metaDataBuilder.addIndex("MySimpleRecord", maxEverVersionIndex);
+    };
+
+    // Hook to align all primary keys and indexes so that they are prefixed by num_value_2 for testing deleteRecordsWhere
+    @Nonnull
+    private final RecordMetaDataHook prefixAllByNumValue2Hook = metaDataBuilder -> {
+        metaDataBuilder.setStoreRecordVersions(true);
+        metaDataBuilder.setSplitLongRecords(splitLongRecords);
+
+        // Ensure the types share a primary key (prefixed by num_value_2)
+        final KeyExpression primaryKey = concatenateFields("num_value_2", "rec_no");
+        RecordTypeBuilder simpleRecordType = metaDataBuilder.getRecordType("MySimpleRecord");
+        simpleRecordType.setPrimaryKey(primaryKey);
+
+        RecordTypeBuilder otherType = metaDataBuilder.getRecordType("MyOtherRecord");
+        otherType.setPrimaryKey(primaryKey);
+
+        // Remove all non-compliant indexes
+        metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+        metaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
+        metaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
     };
 
     private static Stream<Integer> formatVersionsOfInterest() {
@@ -2461,6 +2489,685 @@ public class VersionIndexTest {
         }
     }
 
+    @ParameterizedTest(name = "deleteRecordsWhereWithVersion [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArguments")
+    void deleteRecordsWhereWithVersion(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final Index versionByNumValue2 = new Index("versionByNumValue2", concat(field("num_value_2"), version()), IndexTypes.VERSION);
+
+        final KeyExpression primaryKey = concatenateFields("num_value_2", "rec_no");
+        final RecordMetaDataHook hook = prefixAllByNumValue2Hook
+                .andThen(metaDataBuilder -> metaDataBuilder.addUniversalIndex(versionByNumValue2));
+
+        List<TestRecords1Proto.MySimpleRecord> simpleRecords = new ArrayList<>();
+        List<TestRecords1Proto.MyOtherRecord> otherRecords = new ArrayList<>();
+
+        try (FDBRecordContext context = openContext(hook)) {
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 10; j++) {
+                    MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
+                            .setNumValue2(i)
+                            .setRecNo(j + 1)
+                            .build();
+                    recordStore.saveRecord(simpleRecord);
+                    simpleRecords.add(simpleRecord);
+
+                    TestRecords1Proto.MyOtherRecord otherRecord = TestRecords1Proto.MyOtherRecord.newBuilder()
+                            .setNumValue2(i)
+                            .setRecNo(j * -1 - 1)
+                            .build();
+                    recordStore.saveRecord(otherRecord);
+                    otherRecords.add(otherRecord);
+                }
+            }
+
+            context.commit();
+        }
+
+        // Group records by num_value_2. Use ArrayLists so that the lists can be mutated as data are deleted and added
+        final Map<Integer, List<Message>> recordsByNumValue2 = new HashMap<>();
+        for (TestRecords1Proto.MySimpleRecord rec : simpleRecords) {
+            List<Message> recs = recordsByNumValue2.computeIfAbsent(rec.getNumValue2(), ArrayList::new);
+            recs.add(rec);
+        }
+        for (TestRecords1Proto.MyOtherRecord rec : otherRecords) {
+            List<Message> recs = recordsByNumValue2.get(rec.getNumValue2());
+            recs.add(rec);
+        }
+
+        final List<Tuple> deletedPrimaryKeys = new ArrayList<>();
+
+        // Delete records by num_value_2 prefix, and validate that all of the relevant ranges have been cleared
+        try (FDBRecordContext context = openContext(hook)) {
+            int expectedCount = (int) (simpleRecords.stream().filter(simpleRecord -> simpleRecord.getNumValue2() == 1).count()
+                    + otherRecords.stream().filter(otherRecord -> otherRecord.getNumValue2() == 1).count());
+
+            List<FDBQueriedRecord<Message>> before = recordStore.executeQuery(RecordQuery.newBuilder()
+                    .setFilter(Query.field("num_value_2").equalsValue(1L))
+                    .build()
+            ).asList().join();
+            assertThat(before, hasSize(expectedCount));
+            assertThat(before.stream().map(FDBRecord::getRecord).collect(Collectors.toList()),
+                    containsInAnyOrder(recordsByNumValue2.get(1).toArray()));
+
+            assertThat(recordsByNumValue2, hasKey(1));
+            recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(1L));
+            recordsByNumValue2.get(1).clear();
+
+            for (FDBQueriedRecord<Message> recordFromBefore : before) {
+                assertTrue(recordStore.loadRecordVersion(recordFromBefore.getPrimaryKey()).isEmpty());
+                deletedPrimaryKeys.add(recordFromBefore.getPrimaryKey());
+            }
+
+            for (Map.Entry<Integer, List<Message>> entry : recordsByNumValue2.entrySet()) {
+                int numValue2 = entry.getKey();
+                List<Message> expectedData = entry.getValue();
+                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                            .map(FDBRecord::getRecord)
+                            .asList()
+                            .join(),
+                        containsInAnyOrder(expectedData.toArray()));
+                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                            .map(FDBRecord::getRecord)
+                            .asList()
+                            .join(),
+                        containsInAnyOrder(expectedData.toArray()));
+            }
+
+            context.commit();
+        }
+
+        // Insert some records, and then delete the num_value_2 prefix associated with those records
+        try (FDBRecordContext context = openContext(hook)) {
+            int expectedCount = (int) (simpleRecords.stream().filter(simpleRecord -> simpleRecord.getNumValue2() == 3).count()
+                                       + otherRecords.stream().filter(otherRecord -> otherRecord.getNumValue2() == 3).count());
+            List<FDBQueriedRecord<Message>> before = recordStore.executeQuery(RecordQuery.newBuilder()
+                    .setFilter(Query.field("num_value_2").equalsValue(3L))
+                    .build()
+            ).asList().join();
+            assertThat(before, hasSize(expectedCount));
+
+            final List<Tuple> addedPrimaryKeys = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 10; j++) {
+                    TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setNumValue2(i)
+                            .setRecNo(100 + j)
+                            .build();
+                    recordStore.saveRecord(simple);
+                    recordsByNumValue2.get(i).add(simple);
+                    addedPrimaryKeys.add(Tuple.from(i, 100 + j));
+
+                    TestRecords1Proto.MyOtherRecord other = TestRecords1Proto.MyOtherRecord.newBuilder()
+                            .setNumValue2(i)
+                            .setRecNo(-100 - j)
+                            .build();
+                    recordStore.saveRecord(other);
+                    recordsByNumValue2.get(i).add(other);
+                    addedPrimaryKeys.add(Tuple.from(i, -100 - j));
+                }
+            }
+
+            assertThat(recordsByNumValue2, hasKey(3));
+            recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(3L));
+            recordsByNumValue2.get(3).clear();
+
+            for (Map.Entry<Integer, List<Message>> entry : recordsByNumValue2.entrySet()) {
+                int numValue2 = entry.getKey();
+                List<Message> expectedData = entry.getValue();
+                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                                .map(FDBRecord::getRecord)
+                                .asList()
+                                .join(),
+                        containsInAnyOrder(expectedData.toArray()));
+                // Version indexes currently do not return uncommitted versions, so we only get records that were already complete
+                // See: https://github.com/FoundationDB/fdb-record-layer/issues/2875
+                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                                .map(FDBRecord::getRecord)
+                                .asList()
+                                .join(),
+                        containsInAnyOrder(expectedData.stream()
+                                .filter(msg -> !addedPrimaryKeys.contains(primaryKey.evaluateMessageSingleton(null, msg).toTuple()))
+                                .toArray()));
+            }
+
+            for (FDBQueriedRecord<Message> recordFromBefore : before) {
+                assertTrue(recordStore.loadRecordVersion(recordFromBefore.getPrimaryKey()).isEmpty());
+                deletedPrimaryKeys.add(recordFromBefore.getPrimaryKey());
+            }
+            for (Tuple addedPrimaryKey : addedPrimaryKeys) {
+                Optional<FDBRecordVersion> maybeVersion = recordStore.loadRecordVersion(addedPrimaryKey);
+                if (addedPrimaryKey.getLong(0) == 3L) {
+                    assertTrue(maybeVersion.isEmpty());
+                    deletedPrimaryKeys.add(addedPrimaryKey);
+                } else {
+                    assertFalse(maybeVersion.isEmpty());
+                }
+            }
+
+            context.commit();
+        }
+
+        // Validate after commit that the ranges match expectations, including that the range prefixed by 3 is still
+        // empty and that the range prefixed by 1 contains only the elements added in the last transaction
+        try (FDBRecordContext context = openContext(hook)) {
+            for (Map.Entry<Integer, List<Message>> entry : recordsByNumValue2.entrySet()) {
+                int numValue2 = entry.getKey();
+                List<Message> expectedData = entry.getValue();
+                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                                .map(FDBStoredRecord::getRecord)
+                                .asList()
+                                .join(),
+                        containsInAnyOrder(expectedData.toArray()));
+                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                                .map(FDBRecord::getRecord)
+                                .asList()
+                                .join(),
+                        containsInAnyOrder(expectedData.toArray()));
+            }
+
+            // Validate that none of the deleted record versions have been committed
+            for (Tuple deletedPrimaryKey : deletedPrimaryKeys) {
+                assertTrue(recordStore.loadRecordVersion(deletedPrimaryKey).isEmpty());
+            }
+
+            context.commit();
+        }
+    }
+
+    @ParameterizedTest(name = "deleteMaxVersionRecordsWhere [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArguments")
+    void deleteMaxVersionRecordsWhere(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        // Create a meta-data where all primary keys and indexes are prefixed by num_value_2, and there's a MAX_EVER_VERSION
+        // index (also grouped by num_value_2)
+        final String maxEverVersionName = "max_ever_version_with_grouping";
+        final RecordMetaDataHook hook = prefixAllByNumValue2Hook.andThen(metaDataBuilder ->
+                metaDataBuilder.addIndex("MySimpleRecord",
+                        new Index(maxEverVersionName,
+                                VersionKeyExpression.VERSION.groupBy(field("num_value_2")),
+                                IndexTypes.MAX_EVER_VERSION)));
+
+        final Map<Integer, FDBRecordVersion> maxVersionByNumValue2 = new HashMap<>();
+
+        try (FDBRecordContext context = openContext(hook)) {
+            int localVersion = 0;
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 10; j++) {
+                    MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
+                            .setNumValue2(i)
+                            .setRecNo(j + 1)
+                            .build();
+                    recordStore.saveRecord(simpleRecord);
+                    maxVersionByNumValue2.put(i, FDBRecordVersion.incomplete(localVersion));
+                    localVersion++;
+
+                    TestRecords1Proto.MyOtherRecord otherRecord = TestRecords1Proto.MyOtherRecord.newBuilder()
+                            .setNumValue2(i)
+                            .setRecNo(j * -1 - 1)
+                            .build();
+                    recordStore.saveRecord(otherRecord);
+                    localVersion++;
+                }
+            }
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            for (Integer key : maxVersionByNumValue2.keySet()) {
+                maxVersionByNumValue2.computeIfPresent(key, (k, v) -> v.isComplete() ? v : v.withCommittedVersion(commitVersionStamp));
+            }
+        }
+
+        try (FDBRecordContext context = openContext(hook)) {
+            final Index index = recordStore.getRecordMetaData().getIndex(maxEverVersionName);
+            assertEquals(maxVersionByNumValue2, recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asStream()
+                    .collect(Collectors.toMap(entry -> (int) entry.getKey().getLong(0), entry -> FDBRecordVersion.fromVersionstamp(entry.getValue().getVersionstamp(0)))));
+
+            // Modify groups 1 and 3
+            int localVersion = 0;
+            for (int numValue2 : List.of(1, 3)) {
+                for (int j = 0; j < 5; j++) {
+                    MySimpleRecord simpleRecord = MySimpleRecord.newBuilder()
+                            .setNumValue2(numValue2)
+                            .setRecNo(j + 100)
+                            .build();
+                    recordStore.saveRecord(simpleRecord);
+                    maxVersionByNumValue2.put(numValue2, FDBRecordVersion.incomplete(localVersion));
+                    localVersion++;
+                }
+            }
+
+            // Now delete groups 1 and 2
+            recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(1));
+            maxVersionByNumValue2.remove(1);
+            recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(2));
+            maxVersionByNumValue2.remove(2);
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            for (Integer key : maxVersionByNumValue2.keySet()) {
+                maxVersionByNumValue2.computeIfPresent(key, (k, v) -> v.isComplete() ? v : v.withCommittedVersion(commitVersionStamp));
+            }
+        }
+
+        try (FDBRecordContext context = openContext(hook)) {
+            // Modification for 3 should now be present in the index, but mutations for groups 1 and 2 are not
+            final Index index = recordStore.getRecordMetaData().getIndex(maxEverVersionName);
+            assertEquals(maxVersionByNumValue2, recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asStream()
+                    .collect(Collectors.toMap(entry -> (int) entry.getKey().getLong(0), entry -> FDBRecordVersion.fromVersionstamp(entry.getValue().getVersionstamp(0)))));
+            context.commit();
+        }
+    }
+
+    @ParameterizedTest(name = "disableIndexWithUncommittedData [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArguments")
+    void disableIndexWithUncommittedData(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final List<Tuple> indexKeys = new ArrayList<>();
+        final Map<Tuple, FDBRecordVersion> versionsByKey = new HashMap<>();
+        final Subspace indexSubspace;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            for (int i = 0; i < 10; i++) {
+                recordStore.saveRecord(MySimpleRecord.newBuilder()
+                        .setRecNo(2 * i)
+                        .setNumValue2(i / 2)
+                        .build());
+                versionsByKey.put(Tuple.from(2 * i), FDBRecordVersion.incomplete(i));
+            }
+            // Version indexes currently do not return uncommitted versions, so these indexes are still empty
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/2875
+            assertThat(scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN),
+                    empty());
+            versionsByKey.forEach((k, v) -> assertEquals(Optional.of(v), recordStore.loadRecordVersion(k)));
+            indexSubspace = recordStore.indexSubspace(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num2-version"));
+            assertFalse(context.ensureActive().getRange(indexSubspace.range()).iterator().hasNext(),
+                    "index should initially be empty");
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            for (Tuple key : versionsByKey.keySet()) {
+                versionsByKey.computeIfPresent(key, (k, v) -> v.isComplete() ? v : v.withCommittedVersion(commitVersionStamp));
+                indexKeys.add(Tuple.from(key.getLong(0) / 4, versionsByKey.get(key).toVersionstamp(false)).addAll(key));
+            }
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            assertThat(scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN),
+                    containsInAnyOrder(indexKeys.toArray()));
+            versionsByKey.forEach((k, v) -> assertEquals(Optional.of(v), recordStore.loadRecordVersion(k)));
+
+            for (int i = 0; i < 10; i++) {
+                recordStore.saveRecord(MySimpleRecord.newBuilder()
+                        .setRecNo(2 * i + 1)
+                        .setNumValue2(i / 2)
+                        .build());
+                versionsByKey.put(Tuple.from(2 * i + 1), FDBRecordVersion.incomplete(i));
+            }
+            assertThat(scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN),
+                    containsInAnyOrder(indexKeys.toArray()));
+            assertTrue(context.ensureActive().getRange(indexSubspace.range()).iterator().hasNext(),
+                    "index should not be empty after initial insert and commit");
+            versionsByKey.forEach((k, v) -> assertEquals(Optional.of(v), recordStore.loadRecordVersion(k)));
+
+            // Disable the index. This clears out all index data
+            assertTrue(recordStore.markIndexDisabled("MySimpleRecord$num2-version").get());
+
+            assertThrows(ScanNonReadableIndexException.class, () -> scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertFalse(context.ensureActive().getRange(indexSubspace.range()).iterator().hasNext(),
+                    "index should be empty after being disabled");
+            versionsByKey.forEach((k, v) -> assertEquals(Optional.of(v), recordStore.loadRecordVersion(k)));
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            for (Tuple key : versionsByKey.keySet()) {
+                versionsByKey.computeIfPresent(key, (k, v) -> v.isComplete() ? v : v.withCommittedVersion(commitVersionStamp));
+            }
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            assertThrows(ScanNonReadableIndexException.class, () -> scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            versionsByKey.forEach((k, v) -> assertEquals(Optional.of(v), recordStore.loadRecordVersion(k)));
+            assertFalse(context.ensureActive().getRange(indexSubspace.range()).iterator().hasNext(),
+                    "index should still be empty after disablement is committed");
+            context.commit();
+        }
+    }
+
+    @ParameterizedTest(name = "dropIndexWithUncommittedData [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArguments")
+    void dropIndexWithUncommittedData(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final RecordMetaDataHook removeIndexHook = metaDataBuilder -> metaDataBuilder.removeIndex("MySimpleRecord$num2-version");
+
+        final FDBRecordVersion version0;
+        final FDBRecordVersion version1;
+        final Subspace numValue2IndexSubspace;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            // Save records (with versions)
+            recordStore.saveRecord(MySimpleRecord.newBuilder()
+                    .setRecNo(10)
+                    .setNumValue2(66)
+                    .build());
+            recordStore.saveRecord(MySimpleRecord.newBuilder()
+                    .setRecNo(4)
+                    .setNumValue2(2)
+                    .build());
+
+            assertEquals(Optional.of(FDBRecordVersion.incomplete(0)), recordStore.loadRecordVersion(Tuple.from(10L)));
+            assertEquals(Optional.of(FDBRecordVersion.incomplete(1)), recordStore.loadRecordVersion(Tuple.from(4L)));
+            numValue2IndexSubspace = recordStore.indexSubspace(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num2-version"));
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            version0 = FDBRecordVersion.complete(commitVersionStamp, 0);
+            version1 = FDBRecordVersion.complete(commitVersionStamp, 1);
+        }
+
+        final FDBRecordVersion version2;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            assertEquals(Optional.of(version0), recordStore.loadRecordVersion(Tuple.from(10L)));
+            assertEquals(Optional.of(version1), recordStore.loadRecordVersion(Tuple.from(4L)));
+
+            assertEquals(List.of(
+                    Tuple.from(2L, version1.toVersionstamp(false), 4L),
+                    Tuple.from(66L, version0.toVersionstamp(false), 10L)
+            ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertEquals(List.of(
+                    Tuple.from(version0.toVersionstamp(false), 10L),
+                    Tuple.from(version1.toVersionstamp(false), 4L)
+            ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+
+            // Save a new record (with an incomplete versionstamp)
+            recordStore.saveRecord(MySimpleRecord.newBuilder()
+                    .setRecNo(18L)
+                    .setNumValue2(63)
+                    .build());
+
+            // Update the index maintainer to drop the numValue2 index
+            var metaDataBuilder = RecordMetaData.newBuilder().setRecords(recordStore.getRecordMetaData().toProto());
+            removeIndexHook.apply(metaDataBuilder);
+            final RecordMetaData newMetaData = metaDataBuilder.getRecordMetaData();
+            assertThat("meta-data version should have increased",
+                    newMetaData.getVersion(), greaterThan(recordStore.getRecordMetaData().getVersion()));
+            final List<FormerIndex> formerIndexes = newMetaData.getFormerIndexesSince(recordStore.getRecordMetaData().getVersion());
+            assertThat(formerIndexes, hasSize(1));
+            FormerIndex formerIndex = formerIndexes.get(0);
+            assertEquals("MySimpleRecord$num2-version", formerIndex.getFormerName());
+
+            // Re-open the same store within the same transaction.
+            recordStore = recordStore.asBuilder()
+                    .setMetaDataProvider(newMetaData)
+                    .open();
+
+            // Index should not be scannable and the underlying range should be empty
+            assertThrows(MetaDataException.class,
+                    () -> scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertFalse(context.ensureActive().getRange(numValue2IndexSubspace.range()).iterator().hasNext(), "num_value_2 index subspace should be empty after index removal");
+
+            // Other views of the version data should be unaffected
+            assertEquals(List.of(
+                    Tuple.from(version0.toVersionstamp(false), 10L),
+                    Tuple.from(version1.toVersionstamp(false), 4L)
+            ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+            assertEquals(Optional.of(version0), recordStore.loadRecordVersion(Tuple.from(10L)));
+            assertEquals(Optional.of(version1), recordStore.loadRecordVersion(Tuple.from(4L)));
+            assertEquals(Optional.of(FDBRecordVersion.incomplete(0)), recordStore.loadRecordVersion(Tuple.from(18L)));
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            version2 = FDBRecordVersion.complete(commitVersionStamp, 0);
+        }
+
+        // Verify index data integrity after the commit
+        try (FDBRecordContext context = openContext(simpleVersionHook.andThen(removeIndexHook))) {
+            // Index should not be scannable and the underlying range should be empty
+            assertThrows(MetaDataException.class,
+                    () -> scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertFalse(context.ensureActive().getRange(numValue2IndexSubspace.range()).iterator().hasNext(), "num_value_2 index subspace should be empty after index removal");
+
+            // Other views of the version data should be unaffected after commit as well
+            assertEquals(Optional.of(version0), recordStore.loadRecordVersion(Tuple.from(10L)));
+            assertEquals(Optional.of(version1), recordStore.loadRecordVersion(Tuple.from(4L)));
+            assertEquals(Optional.of(version2), recordStore.loadRecordVersion(Tuple.from(18L)));
+
+            assertEquals(List.of(
+                    Tuple.from(version0.toVersionstamp(false), 10L),
+                    Tuple.from(version1.toVersionstamp(false), 4L),
+                    Tuple.from(version2.toVersionstamp(false), 18L)
+            ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+
+            context.commit();
+        }
+    }
+
+    @ParameterizedTest(name = "deleteAllRecordsWithUncommittedData [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource("formatVersionArguments")
+    void deleteAllRecordsWithUncommittedData(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final Tuple primaryKey0 = Tuple.from(0L);
+        final Tuple primaryKey1 = Tuple.from(1L);
+
+        final FDBRecordVersion version0;
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            recordStore.saveRecord(MySimpleRecord.newBuilder()
+                    .setRecNo(0L)
+                    .setNumValue2(101)
+                    .build());
+            assertEquals(Optional.of(FDBRecordVersion.incomplete(0)), recordStore.loadRecordVersion(primaryKey0));
+            assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey1));
+            // Version indexes currently do not return uncommitted versions, so these indexes are still empty
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/2875
+            assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+            context.commit();
+
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            version0 = FDBRecordVersion.complete(commitVersionStamp, 0);
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            recordStore.saveRecord(MySimpleRecord.newBuilder()
+                    .setRecNo(1L)
+                    .setNumValue2(99)
+                    .build());
+
+            assertEquals(Optional.of(version0), recordStore.loadRecordVersion(primaryKey0));
+            assertEquals(Optional.of(FDBRecordVersion.incomplete(0)), recordStore.loadRecordVersion(primaryKey1));
+            assertEquals(List.of(
+                    Tuple.from(101L, version0.toVersionstamp(false)).addAll(primaryKey0)
+            ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertEquals(List.of(
+                    Tuple.from(version0.toVersionstamp(false)).addAll(primaryKey0)
+            ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+
+            // Delete all records from the record store. This retains the store header, but versions should be cleared
+            recordStore.deleteAllRecords();
+
+            assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey0));
+            assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey1));
+            assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            // Record data should still all be empty
+            assertEquals(List.of(), recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get());
+            assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey0));
+            assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey1));
+            assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+            assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+
+            context.commit();
+        }
+    }
+
+    static Stream<Arguments> deleteStoreWithUncommittedVersionData() {
+        return formatVersionsOfInterest().flatMap(testFormatVersion ->
+                Stream.of(false, true).flatMap(testSplitLongRecords ->
+                        Stream.of(false, true).map(clearPath ->
+                            Arguments.of(testFormatVersion, testSplitLongRecords, clearPath)
+                        )
+                )
+        );
+    }
+
+    @ParameterizedTest(name = "deleteStoreWithUncommittedVersionData [" + ARGUMENTS_PLACEHOLDER + "]")
+    @MethodSource
+    void deleteStoreWithUncommittedVersionData(int testFormatVersion, boolean testSplitLongRecords, boolean clearPath) throws Exception {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+
+        final KeySpacePath baseMultiPath = pathManager.createPath(TestKeySpace.MULTI_RECORD_STORE);
+        final KeySpacePath path1 = baseMultiPath.add(TestKeySpace.STORE_PATH, "path1");
+        final KeySpacePath path2 = baseMultiPath.add(TestKeySpace.STORE_PATH, "path2");
+        final KeySpacePath path3 = baseMultiPath.add(TestKeySpace.STORE_PATH, "path3");
+        final List<KeySpacePath> multiPaths = List.of(path1, path2, path3);
+
+        final Map<KeySpacePath, FDBRecordVersion> version1ByStore = new HashMap<>();
+        final Tuple primaryKey1 = Tuple.from(1L);
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            int i = 0;
+            for (KeySpacePath path : multiPaths) {
+                FDBRecordStore pathStore = recordStore.asBuilder()
+                        .setKeySpacePath(path)
+                        .create();
+                pathStore.saveRecord(MySimpleRecord.newBuilder()
+                        .setRecNo(1L)
+                        .setNumValue2(101)
+                        .build());
+                assertEquals(Optional.of(FDBRecordVersion.incomplete(i)), pathStore.loadRecordVersion(primaryKey1));
+                i++;
+            }
+            context.commit();
+
+            i = 0;
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            for (KeySpacePath path : multiPaths) {
+                version1ByStore.put(path, FDBRecordVersion.complete(commitVersionStamp, i));
+                i++;
+            }
+        }
+
+        final Map<KeySpacePath, FDBRecordVersion> version2ByStore = new HashMap<>();
+        final Tuple primaryKey2 = Tuple.from(2L);
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            int i = 0;
+            for (KeySpacePath path : multiPaths) {
+                FDBRecordStore pathStore = recordStore.asBuilder()
+                        .setKeySpacePath(path)
+                        .open();
+                assertEquals(Optional.of(version1ByStore.get(path)), pathStore.loadRecordVersion(primaryKey1));
+
+                pathStore.saveRecord(MySimpleRecord.newBuilder()
+                        .setRecNo(2L)
+                        .setNumValue2(99)
+                        .build());
+                assertEquals(Optional.of(FDBRecordVersion.incomplete(i)), pathStore.loadRecordVersion(primaryKey2));
+                i++;
+            }
+
+            // Delete all data from the store within this context
+            if (clearPath) {
+                path1.deleteAllData(context);
+            } else {
+                FDBRecordStore.deleteStore(context, path1);
+            }
+
+            i = 0;
+            for (KeySpacePath path : multiPaths) {
+                if (path.equals(path1)) {
+                    assertFalse(context.ensureActive().getRange(path.toSubspace(context).range()).iterator().hasNext(), "Deleted store range should be empty");
+
+                    // Temporarily recreate the store to check the record versions
+                    FDBRecordStore pathStore = recordStore.asBuilder()
+                            .setKeySpacePath(path)
+                            .create();
+                    assertEquals(Optional.empty(), pathStore.loadRecordVersion(primaryKey1));
+                    assertEquals(Optional.empty(), pathStore.loadRecordVersion(primaryKey2));
+                    if (clearPath) {
+                        path.deleteAllData(context);
+                    } else {
+                        FDBRecordStore.deleteStore(context, path);
+                    }
+                } else {
+                    FDBRecordStore pathStore = recordStore.asBuilder()
+                            .setKeySpacePath(path)
+                            .open();
+                    assertEquals(Optional.of(version1ByStore.get(path)), pathStore.loadRecordVersion(primaryKey1));
+                    assertEquals(Optional.of(FDBRecordVersion.incomplete(i)), pathStore.loadRecordVersion(primaryKey2));
+                }
+                i++;
+            }
+
+            context.commit();
+            byte[] commitVersionStamp = context.getVersionStamp();
+            assertNotNull(commitVersionStamp);
+            i = 0;
+            for (KeySpacePath path : multiPaths) {
+                version2ByStore.put(path, FDBRecordVersion.complete(commitVersionStamp, i));
+                i++;
+            }
+        }
+
+        try (FDBRecordContext context = openContext(simpleVersionHook)) {
+            for (KeySpacePath path : multiPaths) {
+                final FDBRecordStore oldStore = recordStore;
+                final FDBRecordVersion version1 = version1ByStore.get(path);
+                final FDBRecordVersion version2 = version2ByStore.get(path);
+                if (path.equals(path1)) {
+                    assertFalse(context.ensureActive().getRange(path.toSubspace(context).range()).iterator().hasNext(),
+                            "Deleted store should be empty even after commit");
+                    recordStore = recordStore.asBuilder()
+                            .setKeySpacePath(path)
+                            .create();
+                    assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey1));
+                    assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey2));
+                    assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+                    assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+                } else {
+                    recordStore = recordStore.asBuilder()
+                            .setKeySpacePath(path)
+                            .open();
+                    assertEquals(Optional.of(version1), recordStore.loadRecordVersion(primaryKey1));
+                    assertEquals(Optional.of(version2), recordStore.loadRecordVersion(primaryKey2));
+                    assertEquals(List.of(
+                            Tuple.from(99L, version2.toVersionstamp(false)).addAll(primaryKey2),
+                            Tuple.from(101L, version1.toVersionstamp(false)).addAll(primaryKey1)
+                    ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
+                    assertEquals(List.of(
+                            Tuple.from(version1.toVersionstamp(false)).addAll(primaryKey1),
+                            Tuple.from(version2.toVersionstamp(false)).addAll(primaryKey2)
+                    ), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "globalVersion", ScanProperties.FORWARD_SCAN));
+                }
+                recordStore = oldStore;
+            }
+
+            context.commit();
+        }
+    }
+
     private <M extends Message> void validateUsingOlderVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure all of the records have versions in the old keyspace
         final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
@@ -2554,5 +3261,4 @@ public class VersionIndexTest {
                 .build());
         return planner.plan(query);
     }
-
 }

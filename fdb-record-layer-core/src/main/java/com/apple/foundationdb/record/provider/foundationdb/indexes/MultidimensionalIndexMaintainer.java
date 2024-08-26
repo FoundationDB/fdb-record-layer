@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -48,8 +49,11 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
+import com.apple.foundationdb.record.cursors.AsyncLockCursor;
 import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.LazyCursor;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -71,7 +75,6 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -80,12 +83,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * An index maintainer for keeping a {@link RTree}.
@@ -151,12 +154,12 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                                     RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId,
                                     OnWriteListener.NOOP, new OnRead(cursorLimitManager, timer));
                             final ReadTransaction transaction = state.context.readTransaction(true);
-                            final ItemSlotCursor itemSlotCursor = new ItemSlotCursor(getExecutor(),
-                                    rTree.scan(transaction, lastHilbertValue, lastKey,
-                                            mDScanBounds::overlapsMbrApproximately,
-                                            (low, high) -> mDScanBounds.getSuffixRange().overlaps(low, high)),
-                                    cursorLimitManager, timer);
-                            return itemSlotCursor
+                            return new LazyCursor<>(state.context.acquireReadLock(new LockIdentifier(rtSubspace))
+                                    .thenApply(lock -> new AsyncLockCursor<>(lock, new ItemSlotCursor(getExecutor(),
+                                            rTree.scan(transaction, lastHilbertValue, lastKey,
+                                                    mDScanBounds::overlapsMbrApproximately,
+                                                    (low, high) -> mDScanBounds.getSuffixRange().overlaps(low, high)),
+                                            cursorLimitManager, timer))), state.context.getExecutor())
                                     .filter(itemSlot -> lastHilbertValue == null || lastKey == null ||
                                                         itemSlot.compareHilbertValueAndKey(lastHilbertValue, lastKey) > 0)
                                     .filter(itemSlot -> mDScanBounds.containsPosition(itemSlot.getPosition()))
@@ -251,8 +254,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         final int dimensionsSize = dimensionsKeyExpression.getDimensionsSize();
         final Subspace indexSubspace = getIndexSubspace();
         final Subspace nodeSlotIndexSubspace = getNodeSlotIndexSubspace();
-        final Map<Subspace, CompletableFuture<Void>> rankFutures = Maps.newHashMapWithExpectedSize(indexEntries.size());
-        for (final IndexEntry indexEntry : indexEntries) {
+        final var futures = indexEntries.stream().map(indexEntry -> {
             final var indexKeyItems = indexEntry.getKey().getItems();
             final Tuple prefixKey = Tuple.fromList(indexKeyItems.subList(0, prefixSize));
 
@@ -265,41 +267,31 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 rtSubspace = indexSubspace;
                 rtNodeSlotIndexSubspace = nodeSlotIndexSubspace;
             }
+            return state.context.doWithWriteLock(new LockIdentifier(rtSubspace), () -> {
+                final RTree.Point point =
+                        validatePoint(new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize))));
 
-            // It is unsafe to have two concurrent updates to the same R-tree, so ensure that at most
-            // one updateSlot per prefix key is ongoing at any given time
-            final Function<Void, CompletableFuture<Void>> futureSupplier =
-                    ignored -> {
-                        final RTree.Point point =
-                                validatePoint(new RTree.Point(Tuple.fromList(indexKeyItems.subList(prefixSize, prefixSize + dimensionsSize))));
-
-                        final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
-                        state.index.trimPrimaryKey(primaryKeyParts);
-                        final List<Object> keySuffixParts =
-                                Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
-                        keySuffixParts.addAll(primaryKeyParts);
-                        final Tuple keySuffix = Tuple.fromList(keySuffixParts);
-                        final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
-                        final RTree rTree = new RTree(rtSubspace, rtNodeSlotIndexSubspace, getExecutor(), config,
-                                RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId, new OnWrite(timer),
-                                OnReadListener.NOOP);
-                        if (remove) {
-                            return rTree.delete(state.transaction, point, keySuffix);
-                        } else {
-                            return rTree.insertOrUpdate(state.transaction,
-                                    point,
-                                    keySuffix,
-                                    indexEntry.getValue());
-                        }
-                    };
-            final CompletableFuture<Void> existingFuture = rankFutures.get(rtSubspace);
-            if (existingFuture == null) {
-                rankFutures.put(rtSubspace, futureSupplier.apply(null));
-            } else {
-                rankFutures.put(rtSubspace, existingFuture.thenCompose(futureSupplier));
-            }
-        }
-        return AsyncUtil.whenAll(rankFutures.values());
+                final List<Object> primaryKeyParts = Lists.newArrayList(savedRecord.getPrimaryKey().getItems());
+                state.index.trimPrimaryKey(primaryKeyParts);
+                final List<Object> keySuffixParts =
+                        Lists.newArrayList(indexKeyItems.subList(prefixSize + dimensionsSize, indexKeyItems.size()));
+                keySuffixParts.addAll(primaryKeyParts);
+                final Tuple keySuffix = Tuple.fromList(keySuffixParts);
+                final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
+                final RTree rTree = new RTree(rtSubspace, rtNodeSlotIndexSubspace, getExecutor(), config,
+                        RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newRandomNodeId, new OnWrite(timer),
+                        OnReadListener.NOOP);
+                if (remove) {
+                    return rTree.delete(state.transaction, point, keySuffix);
+                } else {
+                    return rTree.insertOrUpdate(state.transaction,
+                            point,
+                            keySuffix,
+                            indexEntry.getValue());
+                }
+            });
+        }).collect(Collectors.toList());
+        return AsyncUtil.whenAll(futures);
     }
 
     @Override
@@ -318,7 +310,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             // store data at the prefix key itself.
             final Subspace nodeSlotIndexSubspace = getNodeSlotIndexSubspace();
             final byte[] key = nodeSlotIndexSubspace.pack(prefix);
-            tr.clear(key, ByteArrayUtil.strinc(key));
+            state.context.clear(new Range(key, ByteArrayUtil.strinc(key)));
             return v;
         });
     }

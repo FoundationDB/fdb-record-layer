@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -251,7 +252,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             // store data at the prefix key itself.
             final Subspace rankSubspace = getSecondarySubspace();
             final byte[] key = rankSubspace.pack(prefix);
-            tr.clear(key, ByteArrayUtil.strinc(key));
+            state.context.clear(new Range(key, ByteArrayUtil.strinc(key)));
             return v;
         });
     }

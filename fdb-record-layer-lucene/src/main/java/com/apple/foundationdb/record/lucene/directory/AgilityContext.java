@@ -118,7 +118,7 @@ public interface AgilityContext {
     }
 
     default void clear(Range range) {
-        accept(context -> context.ensureActive().clear(range));
+        accept(context -> context.clear(range));
     }
 
     default CompletableFuture<List<KeyValue>> getRange(byte[] begin, byte[] end) {

@@ -1089,7 +1089,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         });
         metaDataStore.setMaintainHistory(false);
         if (clear) {
-            context.ensureActive().clear(Range.startsWith(metaDataPath.toSubspace(context).pack()));
+            context.clear(Range.startsWith(metaDataPath.toSubspace(context).pack()));
         }
         return metaDataStore;
     }
