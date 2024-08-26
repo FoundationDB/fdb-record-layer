@@ -145,15 +145,14 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             final var extractFromIndexEntryPairOptional =
                     keyValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
                             IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-            if (extractFromIndexEntryPairOptional.isEmpty()) {
-                return Optional.empty();
+            if (extractFromIndexEntryPairOptional.isPresent()) {
+                final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+                if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                        extractFromIndexEntryPair.getValue())) {
+                    return Optional.empty();
+                }
+                logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
             }
-            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
-                    extractFromIndexEntryPair.getValue())) {
-                return Optional.empty();
-            }
-            logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
         }
 
         final var logicalValueValuesBuilder = ImmutableList.<Value>builder();
@@ -162,15 +161,14 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             final var extractFromIndexEntryPairOptional =
                     valueValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
                             IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
-            if (extractFromIndexEntryPairOptional.isEmpty()) {
-                return Optional.empty();
+            if (extractFromIndexEntryPairOptional.isPresent()) {
+                final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
+                if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                        extractFromIndexEntryPair.getValue())) {
+                    return Optional.empty();
+                }
+                logicalValueValuesBuilder.add(extractFromIndexEntryPair.getLeft());
             }
-            final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-            if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
-                    extractFromIndexEntryPair.getValue())) {
-                return Optional.empty();
-            }
-            logicalValueValuesBuilder.add(extractFromIndexEntryPair.getLeft());
         }
 
         if (!builder.isValid()) {

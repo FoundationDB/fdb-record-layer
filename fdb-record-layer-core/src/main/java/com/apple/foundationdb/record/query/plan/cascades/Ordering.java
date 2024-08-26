@@ -1171,7 +1171,7 @@ public class Ordering {
 
         @Override
         public String toString() {
-            return sortOrder.getTupleDirection() + (comparison == null ? "" : ":" + comparison);
+            return sortOrder.getArrowIndicator() + (comparison == null ? "" : ":" + comparison);
         }
 
         @Nonnull

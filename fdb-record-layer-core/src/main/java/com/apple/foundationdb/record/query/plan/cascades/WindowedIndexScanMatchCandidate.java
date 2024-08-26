@@ -364,7 +364,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final var providedOrderingValue = providedOrderingPart.getValue();
             if (!seenValues.contains(providedOrderingValue)) {
                 seenValues.add(providedOrderingValue);
-                bindingMapBuilder.put(providedOrderingValue, Binding.sorted(providedOrderingPart.getSortOrder()));
+                bindingMapBuilder.put(providedOrderingValue,
+                        Binding.sorted(providedOrderingPart.getSortOrder()
+                                .flipIfReverse(isReverse)));
                 orderingSequenceBuilder.add(providedOrderingValue);
             }
         }

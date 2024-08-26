@@ -320,7 +320,15 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @Nonnull
-        public MatchedSortOrder toLogicalSortOrder() {
+        public ProvidedSortOrder flipIfReverse(final boolean isReverse) {
+            if (isReverse) {
+                return SortOrder.mapToReverseSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
+            }
+            return this;
+        }
+
+        @Nonnull
+        public MatchedSortOrder toMatchedSortOrder() {
             return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
         }
 
@@ -403,9 +411,8 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         public ProvidedSortOrder toProvidedSortOrder(final boolean isReverse) {
             if (isReverse) {
                 return SortOrder.mapToReverseSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
-            } else {
-                return SortOrder.mapToSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
             }
+            return SortOrder.mapToSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
         }
 
         @Nonnull
@@ -502,7 +509,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @Nonnull
-        public MatchedSortOrder toLogicalSortOrder() {
+        public MatchedSortOrder toMatchedSortOrder() {
             return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
         }
 

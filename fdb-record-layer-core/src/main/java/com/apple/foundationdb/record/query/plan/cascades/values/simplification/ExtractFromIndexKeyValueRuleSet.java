@@ -39,15 +39,15 @@ public class ExtractFromIndexKeyValueRuleSet extends ValueComputationRuleSet<Val
     protected static final ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value> matchFieldValueOverFieldValueRule = new MatchFieldValueOverFieldValueRule();
     protected static final ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value> compensateToOrderedBytesValueRule = new CompensateToOrderedBytesValueRule();
 
-    protected static final Set<ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value>> PULL_UP_RULES =
+    protected static final Set<ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value>> RULES =
             ImmutableSet.of(matchSimpleFieldValueRule,
                     matchFieldValueOverFieldValueRule,
                     compensateToOrderedBytesValueRule);
 
-    protected static final SetMultimap<ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value>, ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value>> PULL_UP_DEPENDS_ON = ImmutableSetMultimap.of();
+    protected static final SetMultimap<ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value>, ValueComputationRule<Value, Map<Value, ValueCompensation>, ? extends Value>> DEPENDS_ON = ImmutableSetMultimap.of();
 
     public ExtractFromIndexKeyValueRuleSet() {
-        super(PULL_UP_RULES, PULL_UP_DEPENDS_ON);
+        super(RULES, DEPENDS_ON);
     }
 
     public static ExtractFromIndexKeyValueRuleSet ofIndexKeyToPartialRecordValueRules() {

@@ -244,7 +244,7 @@ public class RequestedOrdering {
                 final var simplifiedRequestedOrderingPart =
                         primitiveValue.deriveOrderingPart(
                                 AliasMap.emptyMap(), constantAliases, RequestedOrderingPart::new,
-                                OrderingValueComputationRuleSet.usingRequestedOrderingParts());
+                                OrderingValueComputationRuleSet.usingRequestedOrderingParts(requestedOrderingPart.getSortOrder()));
                 primitiveRequestedOrderingParts.add(simplifiedRequestedOrderingPart);
             }
         }
