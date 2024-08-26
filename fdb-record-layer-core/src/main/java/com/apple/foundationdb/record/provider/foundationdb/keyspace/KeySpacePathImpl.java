@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -259,7 +260,7 @@ class KeySpacePathImpl implements KeySpacePath {
         return toTupleAsync(context).thenApply( tuple -> {
             final byte[] rangeStart = tuple.pack();
             final byte[] rangeEnd = ByteArrayUtil.strinc(rangeStart);
-            context.ensureActive().clear(rangeStart, rangeEnd);
+            context.clear(new Range(rangeStart, rangeEnd));
             return null;
         });
     }

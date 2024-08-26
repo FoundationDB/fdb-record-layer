@@ -30,14 +30,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.locking.AsyncLock;
+import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.system.SystemKeyspace;
@@ -72,6 +76,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -164,6 +169,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final Map<Object, Object> session = new LinkedHashMap<>();
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
+    @Nonnull
+    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
 
     @SuppressWarnings("PMD.CloseResource")
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
@@ -1259,6 +1266,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Remove the local versions associated with a range of record version keys. These
+     * keys should be assumed to be in the same format as those set in {@link #addToLocalVersionCache(byte[], int)}
+     * and {@link #removeLocalVersion(byte[])}. This is called when clearing out ranges of
+     * records in {@link FDBRecordStore#deleteRecordsWhere(QueryComponent)}.
+     *
+     * @param range the {@link Range} of keys to clear associated version information for
+     * @see #addToLocalVersionCache(byte[], int)
+     * @see #removeLocalVersion(byte[])
+     */
+    @API(API.Status.INTERNAL)
+    void removeLocalVersionRange(Range range) {
+        localVersionCache.subMap(range.begin, range.end).clear();
+    }
+
+    /**
      * Get a local version assigned to some record used within this context.
      * The key provided should be the full key to where the version is stored, including any
      * subspace prefix bytes. If the key has not been associated with any version using
@@ -1309,6 +1331,47 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     public byte[] removeVersionMutation(@Nonnull byte[] key) {
         NonnullPair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
         return existingValue != null ? existingValue.getRight() : null;
+    }
+
+    /**
+     * Remove a range of version mutations that are currently in the local cache. This
+     * can be used during {@link FDBRecordStore#deleteRecordsWhere(QueryComponent)} to
+     * remove any version mutations that would otherwise be flushed to the database at
+     * commit time.
+     *
+     * @param range the {@link Range} of keys to clear out from the mutation cache
+     */
+    @API(API.Status.INTERNAL)
+    public void removeVersionMutationRange(@Nonnull Range range) {
+        versionMutationCache.subMap(range.begin, range.end).clear();
+    }
+
+    /**
+     * Clear a single key. This is an internal method that wraps {@link Transaction#clear(byte[])}.
+     * This method should generally be preferred to calling {@code clear} on the transaction directly as it
+     * handles clearing out associated version information with the key.
+     *
+     * @param key the key to clear out
+     */
+    @API(API.Status.INTERNAL)
+    public void clear(@Nonnull byte[] key) {
+        ensureActive().clear(key);
+        removeVersionMutation(key);
+        removeLocalVersion(key);
+    }
+
+    /**
+     * Clear a key range. This is an internal method that wraps {@link Transaction#clear(Range)}.
+     * This method should generally be preferred to calling {@code clear} on the transaction directly as it
+     * handles clearing out associated version information with the key.
+     *
+     * @param range the range to clear out
+     */
+    @API(API.Status.INTERNAL)
+    public void clear(@Nonnull Range range) {
+        ensureActive().clear(range);
+        removeVersionMutationRange(range);
+        removeLocalVersionRange(range);
     }
 
     @Nullable
@@ -1449,5 +1512,25 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                     }
                 }, executor)
                 .thenApply(vignore -> result);
+    }
+
+    @API(API.Status.INTERNAL)
+    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull final LockIdentifier id) {
+        return lockRegistry.acquireReadLock(id);
+    }
+
+    @API(API.Status.INTERNAL)
+    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull final LockIdentifier id) {
+        return lockRegistry.acquireWriteLock(id);
+    }
+
+    @API(API.Status.INTERNAL)
+    public <T> CompletableFuture<T> doWithReadLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
+        return lockRegistry.doWithReadLock(identifier, operation);
+    }
+
+    @API(API.Status.INTERNAL)
+    public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
+        return lockRegistry.doWithWriteLock(identifier, operation);
     }
 }

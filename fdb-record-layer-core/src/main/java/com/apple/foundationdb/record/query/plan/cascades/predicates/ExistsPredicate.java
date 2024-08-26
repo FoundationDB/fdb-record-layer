@@ -209,7 +209,8 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
                                                                                 @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
-        final var compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+        final var compensationOptional =
+                childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
         if (compensationOptional.isEmpty() || compensationOptional.get().isNeededForFiltering()) {
             return Optional.of(translationMap -> injectCompensation(partialMatch, translationMap));
         }
