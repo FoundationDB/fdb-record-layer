@@ -191,12 +191,12 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                 increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, compressedLength + 5);
                 state.setDataArray(compressed, 0, compressedLength + 5);
             }
+        }
 
-            if (timer != null) {
-                timer.recordSinceNanoTime(Events.COMPRESS_SERIALIZED_RECORD, startTime);
-                if (!state.compressed) {
-                    timer.increment(Counts.ESCHEW_RECORD_COMPRESSION);
-                }
+        if (timer != null) {
+            timer.recordSinceNanoTime(Events.COMPRESS_SERIALIZED_RECORD, startTime);
+            if (!state.compressed) {
+                timer.increment(Counts.ESCHEW_RECORD_COMPRESSION);
             }
         }
     }
