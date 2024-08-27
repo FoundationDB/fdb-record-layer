@@ -66,19 +66,19 @@ class OrderingValueSimplificationTest {
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        // ('fieldValue' as a, 10 as b, 'World' as c).b
-        final var fieldValue2 = FieldValue.ofFieldName(recordConstructor, "b");
+        // ('fieldValue' as a, 10 as b, 'World' as c).b.a.ab
+        final var fieldValue2 = FieldValue.ofFieldNames(recordConstructor, ImmutableList.of("b", "a", "ab"));
 
-        // ('fieldValue' as a, 10 as b, 'World' as c).b + 3
+        // ('fieldValue' as a, 10 as b, 'World' as c).b.a.ab + 3
         final var arithmeticValue =
-                new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
-                        fieldValue2, LiteralValue.ofScalar(3));
+                (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue2, LiteralValue.ofScalar(3)));
+
 
         final var simplifiedValue = simplifyOrderingValue(arithmeticValue);
 
-        // ('fieldValue' as a, _ as b, 'World' as c).b + 3 => _
-        // meaning ORDER BY ('fieldValue' as a, _ as b, 'World' as c).b + 3 <=> ORDER BY _
-        Assertions.assertEquals(someCurrentValue, simplifiedValue);
+        // ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3 => _
+        // meaning ORDER BY ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3 <=> ORDER BY _.a.ab
+        Assertions.assertEquals(FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab")), simplifiedValue);
     }
 
     @Test
@@ -96,27 +96,27 @@ class OrderingValueSimplificationTest {
                                 LiteralValue.ofScalar("World")));
         final var recordConstructor = RecordConstructorValue.ofColumns(columns);
 
-        // ('fieldValue' as a, _ as b, 'World' as c).b
-        final var fieldValueB = FieldValue.ofFieldName(recordConstructor, "b");
+        // ('fieldValue' as a, _ as b, 'World' as c).b.a.ab
+        final var fieldValueB = FieldValue.ofFieldNames(recordConstructor, ImmutableList.of("b", "a", "ab"));
 
-        // ('fieldValue' as a, _ as b, 'World' as c).b + 3
+        // ('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3
         final var arithmeticValue =
-                new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
-                        fieldValueB, LiteralValue.ofScalar(3));
+                (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValueB, LiteralValue.ofScalar(3)));
 
         // ('fieldValue' as a, _ as b, 'World' as c).a
         final var fieldValueA = FieldValue.ofFieldName(recordConstructor, "a");
         // ('fieldValue' as a, _ as b, 'World' as c).c
         final var fieldValueC = FieldValue.ofFieldName(recordConstructor, "c");
 
-        // ((('fieldValue' as a, _ as b, 'World' as c).b + 3, ('fieldValue' as a, _ as b, 'World' as c).a), ('fieldValue' as a, _ as b, 'World' as c).c)
+        // ((('fieldValue' as a, _ as b, 'World' as c).b.a.ab + 3, ('fieldValue' as a, _ as b, 'World' as c).a),
+        //   ('fieldValue' as a, _ as b, 'World' as c).c)
         final var outerRecordConstructor =
                 RecordConstructorValue.ofUnnamed(
                         ImmutableList.of(RecordConstructorValue.ofUnnamed(ImmutableList.of(arithmeticValue, fieldValueA)), fieldValueC));
 
         // record : = ('fieldValue' as a, _ as b, 'World' as c)
-        // (record.b + 3, record.a), record.c) -> (record.b, record.a, record.c) -> (_, 'fieldValue', 'World')
-        // meaning ORDER BY (record.b + 3, record.a), record.c) <-> ORDER BY (_, 'fieldValue', 'World')
+        // (record.b.a.ab + 3, record.a), record.c) -> (record.b.a.ab, record.a, record.c) -> (_, 'fieldValue', 'World')
+        // meaning ORDER BY (record.b.a.ab + 3, record.a), record.c) <-> ORDER BY (_.a.ab, 'fieldValue', 'World')
         final var requestedOrdering = RequestedOrdering.ofParts(
                 ImmutableList.of(new OrderingPart.RequestedOrderingPart(outerRecordConstructor, OrderingPart.RequestedSortOrder.ANY)),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
@@ -130,7 +130,7 @@ class OrderingValueSimplificationTest {
 
         final var expectedResult =
                 ImmutableList.of(
-                        someCurrentValue,
+                        FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab")),
                         LiteralValue.ofScalar("fieldValue"),
                         LiteralValue.ofScalar("World"));
 

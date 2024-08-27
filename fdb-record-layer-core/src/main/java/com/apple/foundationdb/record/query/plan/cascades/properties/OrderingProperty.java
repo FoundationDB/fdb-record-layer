@@ -382,7 +382,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final var filteredInnerOrderingSet =
                     innerOrdering.getOrderingSet()
-                            .filterElements(value -> innerOrdering.isSingularDirectionalValue(value) || !inValue.equals(value));
+                            .filterElements(value -> innerOrdering.isSingularNonFixedValue(value) || !inValue.equals(value));
             final var filteredInnerOrdering =
                     Ordering.ofOrderingSet(resultBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
 

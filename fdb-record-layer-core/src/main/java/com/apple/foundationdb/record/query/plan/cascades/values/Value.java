@@ -455,7 +455,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     /**
-     * A scalar value type that cannot be evaluated.
+     * A scalar {@link Value} that cannot be evaluated.
      */
     @API(API.Status.EXPERIMENTAL)
     interface NonEvaluableValue extends Value {
@@ -465,6 +465,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                                 @Nonnull final EvaluationContext context) {
             throw new RecordCoreException("value cannot be evaluated");
         }
+    }
+
+    /**
+     * A scalar {@link Value} that can be inverted, i.e. {@code inverse_f(f(x)) = x} for all {@code x}.
+     * @param <V> type parameter of the kind of inverse value of this value.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    interface InvertableValue<V extends Value> extends Value {
+        V createInverseValue(@Nonnull Value newChildValue);
     }
 
     /**
@@ -656,7 +665,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                     return NonnullPair.of(ComparisonCompensation.noCompensation(), semanticEquals.getConstraint());
                                 }
                                 return null;
-                            } else if (Iterables.size(childrenResults) == 1) {
+                            } else if (Iterables.size(childrenResults) == 1 && otherCurrent instanceof InvertableValue<?>) {
                                 // this child is present
                                 final var childPair =
                                         Iterables.getOnlyElement(childrenResults);

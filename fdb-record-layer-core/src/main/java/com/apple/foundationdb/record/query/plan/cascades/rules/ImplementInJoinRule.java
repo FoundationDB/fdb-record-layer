@@ -290,7 +290,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
             final var filteredInnerOrderingSet =
                     innerOrdering.getOrderingSet()
-                            .filterElements(value -> innerOrdering.isSingularDirectionalValue(value) || !outerOrderingValues.contains(value));
+                            .filterElements(value -> innerOrdering.isSingularNonFixedValue(value) || !outerOrderingValues.contains(value));
             final var filteredInnerOrdering = Ordering.ofOrderingSet(resultOrderingBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
             final var concatenatedOrdering =
                     Ordering.concatOrderings(outerOrdering, filteredInnerOrdering);

@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering.OrderPreservingValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value.InvertableValue;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.auto.service.AutoService;
@@ -54,7 +56,7 @@ import java.util.Objects;
  * {@link Direction}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild, Ordering.OrderPreservingValue {
+public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild, InvertableValue<FromOrderedBytesValue>, OrderPreservingValue {
     /**
      * The hash value of this expression.
      */
@@ -105,6 +107,11 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
     @Override
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
         return new ToOrderedBytesValue(rebasedChild, direction);
+    }
+
+    @Override
+    public FromOrderedBytesValue createInverseValue(@Nonnull final Value newChildValue) {
+        return new FromOrderedBytesValue(newChildValue, getDirection(), child.getResultType());
     }
 
     @Nonnull

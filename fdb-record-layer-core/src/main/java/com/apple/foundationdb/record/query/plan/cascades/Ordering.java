@@ -455,10 +455,10 @@ public class Ordering {
         return builder.build();
     }
 
-    public boolean isSingularDirectionalValue(@Nonnull final Value value) {
+    public boolean isSingularNonFixedValue(@Nonnull final Value value) {
         Verify.verify(bindingMap.containsKey(value));
         final var bindings = bindingMap.get(value);
-        if (isSingularDirectionalBinding(bindings)) {
+        if (isSingularNonFixedBinding(bindings)) {
             return true;
         }
         Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindingMap.get(value))));
@@ -702,10 +702,18 @@ public class Ordering {
         return false;
     }
 
+    public static boolean isSingularNonFixedBinding(@Nonnull final Collection<Binding> bindings) {
+        if (isSingularBinding(bindings)) {
+            final var sortOrder = Iterables.getOnlyElement(bindings).getSortOrder();
+            return sortOrder.isDirectional() || sortOrder == ProvidedSortOrder.CHOOSE;
+        }
+        return false;
+    }
+
     public static ProvidedSortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
 
-        if (isSingularDirectionalBinding(bindings)) {
+        if (isSingularNonFixedBinding(bindings)) {
             return Iterables.getOnlyElement(bindings).getSortOrder();
         }
 
@@ -1186,7 +1194,7 @@ public class Ordering {
 
         @Nonnull
         public static Binding choose() {
-            return sorted(ProvidedSortOrder.CHOOSE);
+            return new Binding(ProvidedSortOrder.CHOOSE, null);
         }
 
         @Nonnull
@@ -1261,7 +1269,7 @@ public class Ordering {
             final var filteredOrderingSet =
                     getOrderingSet().filterElements(value -> {
                         final var bindings = bindingMap.get(value);
-                        return isSingularDirectionalValue(value) ||
+                        return isSingularNonFixedValue(value) ||
                                 //
                                 // This commented line changes the behavior in a way that values that have multiple
                                 // fixed bindings but no requested sort order do not get a comparison key part and
@@ -1476,7 +1484,7 @@ public class Ordering {
         @Nonnull
         @Override
         default OrderPreservingKind getOrderPreservingKind() {
-            return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
+            return getOrderPreservingKindExclusive();
         }
 
         @Nonnull
@@ -1493,7 +1501,7 @@ public class Ordering {
         @Nonnull
         @Override
         default OrderPreservingKind getOrderPreservingKind() {
-            return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
+            return getOrderPreservingKindExclusive();
         }
 
         @Nonnull

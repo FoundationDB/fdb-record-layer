@@ -56,6 +56,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -464,7 +465,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
                     value = TupleFieldsHelper.toProto(value, fieldDescriptor.getMessageType());
                     break;
                 case ENUM:
-                    value = fieldDescriptor.getEnumType().findValueByNumber(((Long)value).intValue());
+                    value = fieldDescriptor.getEnumType().findValueByNumber(((Internal.EnumLite)value).getNumber());
                     break;
                 default:
                     break;

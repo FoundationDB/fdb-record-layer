@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.FromOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.Iterables;
@@ -78,7 +77,7 @@ public class CompensateToOrderedBytesValueRule extends ValueComputationRule<Valu
         final var matchedValue = childEntry.getKey();
         final var matchedValueCompensation = childEntry.getValue();
         newMatchedValuesMap.put(matchedValue, value ->
-                matchedValueCompensation.compensate(new FromOrderedBytesValue(value, rootValue.getDirection(), childValue.getResultType())));
+                matchedValueCompensation.compensate(rootValue.createInverseValue(value)));
         call.yieldValue(rootValue, newMatchedValuesMap);
     }
 }

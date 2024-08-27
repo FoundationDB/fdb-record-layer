@@ -42,7 +42,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -138,8 +138,7 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
             case BYTES:
                 return ZeroCopyByteString.wrap((byte[])value);
             case ENUM:
-                final var typeName = typeRepository.getProtoTypeName(resultType);
-                return typeRepository.getEnumValue(typeName, ((Descriptors.EnumValueDescriptor)value).getName());
+                return (Internal.EnumLite)() -> ((Long)value).intValue();
             default:
                 return value;
         }

@@ -295,8 +295,15 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Override
         public boolean isDirectional() {
-            return this == ASCENDING || this == DESCENDING ||
-                    this == ASCENDING_NULLS_LAST || this == DESCENDING_NULLS_FIRST;
+            switch (this) {
+                case ASCENDING:
+                case DESCENDING:
+                case ASCENDING_NULLS_LAST:
+                case DESCENDING_NULLS_FIRST:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         @Nonnull
