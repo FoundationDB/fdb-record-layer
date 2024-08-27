@@ -163,19 +163,20 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("smallRecords")
-    public void compressSmallRecordWhenSerializing(@Nonnull final MySimpleRecord record, @Nonnull final Tuple primaryKey) {
+    public void compressSmallRecordWhenSerializing(@Nonnull final MySimpleRecord smallRecord, @Nonnull final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
                 .setWriteValidationRatio(1.0)
                 .build();
 
-        RecordTypeUnion smallUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(record).build();
-        byte[] serialized = serialize(serializer, record);
+        // There should be no compression actually added for a small record like this
+        RecordTypeUnion smallUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(smallRecord).build();
+        byte[] serialized = serialize(serializer, smallRecord);
         assertEquals(TransformedRecordSerializer.ENCODING_CLEAR, serialized[0]);
         assertArrayEquals(smallUnionRecord.toByteArray(), Arrays.copyOfRange(serialized, 1, serialized.length));
         Message deserialized = deserialize(serializer, primaryKey, serialized);
-        assertEquals(record, deserialized);
+        assertEquals(smallRecord, deserialized);
 
         assertEquals(storeTimer.getCount(RecordSerializer.Counts.ESCHEW_RECORD_COMPRESSION), 1);
         assertEquals(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
@@ -191,7 +192,7 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("longRecords")
-    public void compressLongRecordWhenSerializing(@Nonnull final MySimpleRecord record, @Nonnull final Tuple primaryKey) {
+    public void compressLongRecordWhenSerializing(@Nonnull final MySimpleRecord longRecord, @Nonnull final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
@@ -199,15 +200,15 @@ public class TransformedRecordSerializerTest {
                 .build();
 
         // There should definitely be compression from a record like this
-        final RecordTypeUnion largeUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(record).build();
-        byte[] serialized = serialize(serializer, record);
+        final RecordTypeUnion largeUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(longRecord).build();
+        byte[] serialized = serialize(serializer, longRecord);
         assertThat(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
                 greaterThan(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION)));
         assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
         int rawLength = largeUnionRecord.toByteArray().length;
         assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
         Message deserialized = deserialize(serializer, primaryKey, serialized);
-        assertEquals(record, deserialized);
+        assertEquals(longRecord, deserialized);
 
         logMetrics("metrics with successful compression (repeated foo)",
                 "raw_length", rawLength, "compressed_length", serialized.length);
