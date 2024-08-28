@@ -21,15 +21,20 @@
 schema_template:
     CREATE TYPE AS ENUM "WHATEVER" ( 'OWNING', 'WEAK', 'VALIDATING' )
     CREATE TABLE "TableA" ("field1" "WHATEVER", "field2" BIGINT, PRIMARY KEY("field2") )
+    CREATE TABLE "TableB" ("field3" "WHATEVER", "field4" BIGINT, PRIMARY KEY("field4") )
     WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true)
 ---
 setup:
   steps:
     - query: INSERT INTO "TableA" VALUES ('OWNING', 42)
+    - query: INSERT INTO "TableB" VALUES ('VALIDATING', 3536)
 ---
 test_block:
   tests:
     -
       - query: SELECT * From "TableA"
       - result: [{'OWNING', 42}]
+    -
+      - query: SELECT * From "TableB"
+      - result: [{'VALIDATING', 3536}]
 ...

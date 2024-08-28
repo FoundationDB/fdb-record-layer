@@ -48,6 +48,9 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Nonnull
     private final Set<String> descriptorNames;
 
+    @Nonnull
+    private final Set<String> enumNames;
+
     // FileDescriptorSerializer operates in 2 modes. With `assignGenerations`=true, the serializer assumes that the
     // tables already have one (or more generations) and hence do not assign them generations by itself. Consequently,
     // for `assignGenerations`=false, the FileDescriptorSerializer expects that the tables have generations already
@@ -70,6 +73,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         final RecordMetaDataOptionsProto.RecordTypeOptions options = RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder().setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION).build();
         unionDescriptorBuilder.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record, options);
         this.descriptorNames = new LinkedHashSet<>();
+        this.enumNames = new LinkedHashSet<>();
         // Starts with 1 to maintain compatibility with the protobuf field number.
         this.tableCounter = 1;
     }
@@ -120,7 +124,12 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
             descriptorNames.add(descriptorName);
         }
         for (final var enumName : typeDescriptors.getEnumTypes()) {
-            fileBuilder.addEnumType(typeDescriptors.getEnumDescriptor(enumName).toProto());
+            if (enumNames.contains(enumName)) {
+                continue;
+            }
+            final var descriptor = typeDescriptors.getEnumDescriptor(enumName);
+            fileBuilder.addEnumType(descriptor.toProto());
+            enumNames.add(enumName);
         }
         return typeDescriptor;
     }
