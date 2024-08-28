@@ -54,6 +54,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
+import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.InSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -62,6 +66,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInComparandJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -76,6 +81,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.SortedInComparandSource;
+import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
@@ -432,6 +440,71 @@ public class PlanStringRepresentationTest {
     }
 
     @Nonnull
+    private static InSource randomInSource(@Nonnull Random r) {
+        final String bindingName = randomParameterName(r);
+        double choice = r.nextDouble();
+        boolean sorted = r.nextBoolean();
+        boolean reverse = r.nextBoolean();
+
+        if (choice < 0.3) {
+            int size = r.nextInt(10);
+            List<Object> values = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                values.add(randomAlphabetic(r, 3, 10));
+            }
+            if (sorted) {
+                return new SortedInValuesSource(bindingName, values, reverse);
+            } else {
+                return new InValuesSource(bindingName, values);
+            }
+        } else if (choice < 0.6) {
+            final String parameterName = randomParameterName(r);
+            if (sorted) {
+                return new SortedInParameterSource(bindingName, parameterName, reverse);
+            } else {
+                return new InParameterSource(bindingName, parameterName);
+            }
+        } else {
+            Comparisons.Comparison comparison = new Comparisons.ValueComparison(Comparisons.Type.IN,
+                    ConstantObjectValue.of(CorrelationIdentifier.of(randomParameterName(r)), randomParameterName(r), new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false))));
+            if (sorted) {
+                return new SortedInComparandSource(bindingName, comparison, reverse);
+            } else {
+                return new InComparandSource(bindingName, comparison);
+            }
+        }
+    }
+
+    @Nonnull
+    private static NonnullPair<RecordQueryPlan, String> randomInUnionPlan(@Nonnull Random r, double decay) {
+        final NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        int inSourceCount = r.nextInt(3) + 1;
+        final List<InSource> inSources = Stream.generate(() -> randomInSource(r))
+                .limit(inSourceCount)
+                .collect(Collectors.toList());
+        boolean isReverse = r.nextBoolean();
+        int maxNum = r.nextInt(20);
+
+        int fieldNamesCount = r.nextInt(5) + 1;
+        final List<String> keyExpressionFieldNames = Stream.generate(() -> randomFieldName(r))
+                .limit(fieldNamesCount)
+                .collect(Collectors.toList());
+
+        final String comparisonKeyString;
+        final List<KeyExpression> fields = keyExpressionFieldNames.stream().map(Key.Expressions::field).collect(Collectors.toList());
+        final KeyExpression comparisonKey = fields.size() == 1 ? fields.get(0) : Key.Expressions.concat(fields);
+        final RecordQueryInUnionPlan plan = RecordQueryInUnionPlan.from(
+                childPlan.getLeft(),
+                inSources,
+                comparisonKey,
+                isReverse,
+                maxNum,
+                randomChoice(r, List.of(Bindings.Internal.IN, Bindings.Internal.CORRELATION)));
+        comparisonKeyString = comparisonKey.toString();
+        return NonnullPair.of(plan, "∪(" + inSources.stream().map(InSource::toString).collect(Collectors.joining(", ")) + ")" + comparisonKeyString + " " + childPlan.getRight());
+    }
+
+    @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r, double decay) {
         // Generate a random plan, but use the decay argument to avoid creating trees with too many
         // levels (and potentially hitting the maximum stack depth). Every time a plan with
@@ -458,26 +531,28 @@ public class PlanStringRepresentationTest {
             // Choose a plan that has child plans
             double newDecay = decay * 0.8;
             double choice = r.nextDouble();
-            if (choice < 0.10) {
+            if (choice < 0.08) {
                 return randomIndexPlan(r);
-            } else if (choice < 0.20) {
+            } else if (choice < 0.16) {
                 return randomFetchFromPartialRecordPlan(r, newDecay);
-            } else if (choice < 0.30) {
+            } else if (choice < 0.24) {
                 return randomFilterPlan(r, newDecay);
-            } else if (choice < 0.40) {
+            } else if (choice < 0.32) {
                 return randomInJoinPlan(r, newDecay);
-            } else if (choice < 0.50) {
+            } else if (choice < 0.40) {
                 return randomPrimaryKeyUnorderedDistinctPlan(r, newDecay);
-            } else if (choice < 0.60) {
+            } else if (choice < 0.48) {
                 return randomSortPlan(r, newDecay);
-            } else if (choice < 0.70) {
+            } else if (choice < 0.56) {
                 return randomTypeFilterPlan(r, newDecay);
-            } else if (choice < 0.80) {
+            } else if (choice < 0.64) {
                 return randomMapPlan(r, newDecay);
-            } else if (choice < 0.90) {
+            } else if (choice < 0.82) {
                 return randomUnorderedDistinctPlan(r, newDecay);
-            } else {
+            } else if (choice < 0.90) {
                 return randomUnionOrIntersectionPlan(r, newDecay);
+            } else {
+                return randomInUnionPlan(r, newDecay);
             }
         }
     }
