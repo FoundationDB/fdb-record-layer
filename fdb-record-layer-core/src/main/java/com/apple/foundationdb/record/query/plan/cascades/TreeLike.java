@@ -24,6 +24,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -213,21 +215,50 @@ public interface TreeLike<T extends TreeLike<T>> {
     /**
      * Method that maps the tree-like rooted at {@code this} to another tree-like of the same type. Unlike the other
      * methods providing generic tree folds and maps, this method provides an easy way to mutate the leaves of the
+     * tree-like rooted at {@code this}, newly added leaves will not be passed again to the {@code replaceOperator}.
+     * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
+     *        {@code T}.
+     * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
+     *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
+     */
+    @Nonnull
+    default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
+        return replaceLeavesMaybe(replaceOperator, false);
+    }
+
+    /**
+     * Method that maps the tree-like rooted at {@code this} to another tree-like of the same type. Unlike the other
+     * methods providing generic tree folds and maps, this method provides an easy way to mutate the leaves of the
      * tree-like rooted at {@code this}.
      * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
      *        {@code T}.
-     * @return an {@link Optional} of a tree-like object that is result of the tree-map operation if the fold of the
+     * @param visitNewLeaves if {@code true}, passes new leaves to the {@code replaceOperator}, otherwise it will not.
+     * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
-    default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
-        return Optional.ofNullable(replace(node -> {
-            if (Iterables.isEmpty(node.getChildren())) {
-                return replaceOperator.apply(node);
-            }
-            return node;
-        }));
+    default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator, boolean visitNewLeaves) {
+        if (visitNewLeaves) {
+            return Optional.ofNullable(replace(node -> {
+                if (Iterables.isEmpty(node.getChildren())) {
+                    return replaceOperator.apply(node);
+                }
+                return node;
+            }));
+        } else {
+            final Set<T> newLeaves = Sets.newIdentityHashSet();
+            return Optional.ofNullable(replace(node -> {
+                if (!newLeaves.contains(node) && Iterables.isEmpty(node.getChildren())) {
+                    final var result = replaceOperator.apply(node);
+                    if (result != null) {
+                        result.preOrderStream().filter(n -> Iterables.isEmpty(n.getChildren())).forEach(newLeaves::add);
+                    }
+                    return result;
+                }
+                return node;
+            }));
+        }
     }
 
     /**
