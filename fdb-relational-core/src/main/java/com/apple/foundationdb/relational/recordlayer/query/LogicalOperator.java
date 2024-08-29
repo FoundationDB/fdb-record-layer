@@ -418,7 +418,7 @@ public class LogicalOperator {
         if (maybeType.isEmpty()) {
             // proceed to create a vanilla union all.
             final var union = Quantifier.forEach(Reference.of(new LogicalUnionExpression(quantifiers)));
-            final var output = unionLegs.first().getOutput().pullUp(union.getRangesOver().get().getResultValue(), union.getAlias(), outerCorrelations);
+            final var output = unionLegs.first().getOutput().rewireQov(union.getFlowedObjectValue());
             return LogicalOperator.newUnnamedOperator(output, union);
         }
 
