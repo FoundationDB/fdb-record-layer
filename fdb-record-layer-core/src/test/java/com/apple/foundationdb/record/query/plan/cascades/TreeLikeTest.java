@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Tests for {@link TreeLike}.
  */
-@SuppressWarnings("deprecation") // this is due to testing the deprecated {@code TreeLike#inPreOrder} for correctness.
 public class TreeLikeTest {
 
     @Test
