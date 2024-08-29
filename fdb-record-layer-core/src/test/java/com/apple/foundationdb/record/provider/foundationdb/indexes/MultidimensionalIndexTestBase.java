@@ -104,7 +104,6 @@ import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_NODE;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
@@ -157,7 +156,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
 
     protected void openRecordStore(final FDBRecordContext context, final RecordMetaDataHook hook) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultidimensionalProto.getDescriptor());
-        metaDataBuilder.getRecordType("MyMultidimensionalRecord").setPrimaryKey(concatenateFields("rec_domain", "rec_no"));
+        metaDataBuilder.getRecordType("MyMultidimensionalRecord").setPrimaryKey(concat(ImmutableList.of(field("info").nest("rec_domain"), field("rec_no"))));
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
                 new Index("calendarNameEndEpochStartEpoch",
                         concat(field("calendar_name"), field("end_epoch"), field("start_epoch")),
@@ -225,7 +224,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                                                   final boolean useNodeSlotIndex) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
                 new Index("EventIntervalsWithAdditionalValue",
-                        new KeyWithValueExpression(concat(DimensionsKeyExpression.of(field("rec_domain"),
+                        new KeyWithValueExpression(concat(DimensionsKeyExpression.of(field("info").nest("rec_domain"),
                                 concat(field("start_epoch"), field("end_epoch"))), field("calendar_name")), 3),
                         IndexTypes.MULTIDIMENSIONAL,
                         ImmutableMap.of(IndexOptions.RTREE_STORAGE, storage,
@@ -996,7 +995,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                 AvailableFields.fromIndex(myMultidimensionalRecord,
                         index,
                         PlannableIndexTypes.DEFAULT,
-                        concat(Key.Expressions.field("rec_domain"), Key.Expressions.field("rec_no")),
+                        concat(Key.Expressions.field("info").nest("rec_domain"), Key.Expressions.field("rec_no")),
                         indexPlan);
         final IndexKeyValueToPartialRecord.Builder indexKeyToPartialRecord =
                 Objects.requireNonNull(availableFields.buildIndexKeyValueToPartialRecord(myMultidimensionalRecord));
@@ -1172,7 +1171,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                 metaDataBuilder -> {
                     metaDataBuilder.addIndex("MyMultidimensionalRecord",
                             new Index("EventIntervals", DimensionsKeyExpression.of(
-                                    concat(field("rec_domain"), field("calendar_name")),
+                                    concat(field("info").nest("rec_domain"), field("calendar_name")),
                                     concat(field("start_epoch"), field("end_epoch"))),
                                     IndexTypes.MULTIDIMENSIONAL,
                                     ImmutableMap.of(IndexOptions.RTREE_STORAGE, storage,
@@ -1186,7 +1185,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, additionalIndexes);
 
-            recordStore.deleteRecordsWhere(Query.field("rec_domain").isNull());
+            recordStore.deleteRecordsWhere(Query.field("info").matches(Query.field("rec_domain").isNull()));
             commit(context);
         }
 
@@ -1315,7 +1314,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         Query.field("start_epoch").lessThanOrEquals(intervalEndInclusive),
                         Query.field("end_epoch").greaterThanOrEquals(intervalStartInclusive),
                         Query.field("calendar_name").greaterThanOrEquals("business"),
-                        Query.field("rec_domain").isNull());
+                        Query.field("info").matches(Query.field("rec_domain").isNull()));
 
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MyMultidimensionalRecord")
@@ -1344,7 +1343,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                                                         .where(prefix(unbounded()))
                                                                         .and(dimensions(range("([null],[1690378647]]"), range("[[1690364247],>")))
                                                                         .and(suffix(range("[[business],>"))))))))
-                                .where(queryComponents(only(PrimitiveMatchers.equalsObject(Query.field("rec_domain").isNull()))))));
+                                .where(queryComponents(only(PrimitiveMatchers.equalsObject(Query.field("info").matches(Query.field("rec_domain").isNull())))))));
         final Set<Message> actualResults = getResults(additionalIndexes, mdPlan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
@@ -1362,7 +1361,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
 
         final QueryComponent filter =
                 Query.and(
-                        Query.field("rec_domain").isNull(),
+                        Query.field("info").matches(Query.field("rec_domain").isNull()),
                         Query.field("calendar_name").equalsValue("business"),
                         Query.field("start_epoch").lessThanOrEquals(intervalEndInclusive),
                         Query.field("end_epoch").greaterThanOrEquals(intervalStartInclusive));
@@ -1422,7 +1421,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         Query.field("calendar_name").equalsValue("business"),
                         Query.field("start_epoch").equalsValue(0L),
                         Query.field("end_epoch").equalsValue(1L),
-                        Query.field("rec_domain").isNull(),
+                        Query.field("info").matches(Query.field("rec_domain").isNull()),
                         Query.field("rec_no").equalsValue(0L));
 
         RecordQuery query = RecordQuery.newBuilder()

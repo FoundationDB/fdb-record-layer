@@ -215,15 +215,15 @@ public interface TreeLike<T extends TreeLike<T>> {
     /**
      * Method that maps the tree-like rooted at {@code this} to another tree-like of the same type. Unlike the other
      * methods providing generic tree folds and maps, this method provides an easy way to mutate the leaves of the
-     * tree-like rooted at {@code this}, newly added leaves are passed again to the {@code replaceOperator}.
+     * tree-like rooted at {@code this}, newly added leaves will not be passed again to the {@code replaceOperator}.
      * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
      *        {@code T}.
-     * @return an {@link Optional} of a tree-like object that is result of the tree-map operation if the fold of the
+     * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
     @Nonnull
     default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
-        return replaceLeavesMaybe(replaceOperator, true);
+        return replaceLeavesMaybe(replaceOperator, false);
     }
 
     /**
@@ -233,7 +233,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
      *        {@code T}.
      * @param visitNewLeaves if {@code true}, passes new leaves to the {@code replaceOperator}, otherwise it will not.
-     * @return an {@link Optional} of a tree-like object that is result of the tree-map operation if the fold of the
+     * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -251,7 +251,9 @@ public interface TreeLike<T extends TreeLike<T>> {
             return Optional.ofNullable(replace(node -> {
                 if (!newLeaves.contains(node) && Iterables.isEmpty(node.getChildren())) {
                     final var result = replaceOperator.apply(node);
-                    result.preOrderStream().filter(n -> Iterables.isEmpty(n.getChildren())).forEach(newLeaves::add);
+                    if (result != null) {
+                        result.preOrderStream().filter(n -> Iterables.isEmpty(n.getChildren())).forEach(newLeaves::add);
+                    }
                     return result;
                 }
                 return node;

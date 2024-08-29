@@ -35,6 +35,9 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +49,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import java.util.zip.Deflater;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -150,8 +154,16 @@ public class TransformedRecordSerializerTest {
         logMetrics("metrics with no transformations");
     }
 
-    @Test
-    public void compressWhenSerializing() {
+    static Stream<Arguments> smallRecords() {
+        return Stream.of(
+                Arguments.of(MySimpleRecord.newBuilder().setRecNo(74545L).build(), Tuple.from(74545L)),
+                Arguments.of(MySimpleRecord.newBuilder().setRecNo(1L).build(), Tuple.from(1L))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("smallRecords")
+    public void compressSmallRecordWhenSerializing(@Nonnull final MySimpleRecord smallRecord, @Nonnull final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
@@ -159,40 +171,46 @@ public class TransformedRecordSerializerTest {
                 .build();
 
         // There should be no compression actually added for a small record like this
-        MySimpleRecord smallRecord = MySimpleRecord.newBuilder().setRecNo(1066L).build();
         RecordTypeUnion smallUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(smallRecord).build();
         byte[] serialized = serialize(serializer, smallRecord);
         assertEquals(TransformedRecordSerializer.ENCODING_CLEAR, serialized[0]);
         assertArrayEquals(smallUnionRecord.toByteArray(), Arrays.copyOfRange(serialized, 1, serialized.length));
+        Message deserialized = deserialize(serializer, primaryKey, serialized);
+        assertEquals(smallRecord, deserialized);
 
         assertEquals(storeTimer.getCount(RecordSerializer.Counts.ESCHEW_RECORD_COMPRESSION), 1);
         assertEquals(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
                 storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION));
+    }
 
-        logMetrics("metrics with eschewed compression");
+    static Stream<Arguments> longRecords() {
+        return Stream.of(
+                Arguments.of(MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(Strings.repeat("foo", 1000)).build(), Tuple.from(1066L)),
+                Arguments.of(MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build(), Tuple.from(1066L))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("longRecords")
+    public void compressLongRecordWhenSerializing(@Nonnull final MySimpleRecord longRecord, @Nonnull final Tuple primaryKey) {
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
+                .setCompressWhenSerializing(true)
+                .setCompressionLevel(Deflater.HUFFMAN_ONLY)
+                .setWriteValidationRatio(1.0)
+                .build();
 
         // There should definitely be compression from a record like this
-        MySimpleRecord largeRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(Strings.repeat("foo", 1000)).build();
-        final RecordTypeUnion largeUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(largeRecord).build();
-        serialized = serialize(serializer, largeRecord);
+        final RecordTypeUnion largeUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(longRecord).build();
+        byte[] serialized = serialize(serializer, longRecord);
         assertThat(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
                 greaterThan(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION)));
         assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
         int rawLength = largeUnionRecord.toByteArray().length;
-        assertEquals(rawLength, getUncompressedSize(serialized));
+        assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
+        Message deserialized = deserialize(serializer, primaryKey, serialized);
+        assertEquals(longRecord, deserialized);
 
         logMetrics("metrics with successful compression (repeated foo)",
-                "raw_length", rawLength, "compressed_length", serialized.length);
-
-        // There should be a medium amount of compression from this record
-        MySimpleRecord mediumRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
-        RecordTypeUnion mediumUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(mediumRecord).build();
-        serialized = serialize(serializer, mediumRecord);
-        assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
-        rawLength = mediumUnionRecord.toByteArray().length;
-        assertEquals(rawLength, getUncompressedSize(serialized));
-
-        logMetrics("metrics with successful compression (sonnet 108)",
                 "raw_length", rawLength, "compressed_length", serialized.length);
     }
 

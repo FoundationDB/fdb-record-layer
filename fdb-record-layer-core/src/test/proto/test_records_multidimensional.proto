@@ -29,7 +29,10 @@ import "record_metadata_options.proto";
 option (schema).store_record_versions = true;
 
 message MyMultidimensionalRecord {
-  optional string rec_domain = 1;
+  message domain_info {
+    optional string rec_domain = 1;
+  }
+  optional domain_info info = 1;
   optional int64 rec_no = 2;
   optional string calendar_name = 3 [(field).index = {}];
   optional int64 start_epoch = 4;
