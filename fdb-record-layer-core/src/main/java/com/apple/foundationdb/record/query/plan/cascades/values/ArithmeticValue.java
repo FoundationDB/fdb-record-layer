@@ -300,7 +300,7 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
-     * The {@code bitmap_bit_position} function.
+     * The {@code bitmap_bucket_number} function.
      */
     @AutoService(BuiltInFunction.class)
     public static class BitMapBucketNumberFn extends BuiltInFunction<Value> {
@@ -344,7 +344,7 @@ public class ArithmeticValue extends AbstractValue {
     }
 
     /**
-     * The bitwise {@code bitbucket} function.
+     * The bitwise {@code bitmap_bucket_offset} function.
      */
     @AutoService(BuiltInFunction.class)
     public static class BitMapBucketOffsetFn extends BuiltInFunction<Value> {
@@ -363,7 +363,6 @@ public class ArithmeticValue extends AbstractValue {
         MUL("*"),
         DIV("/"),
         MOD("%"),
-
         BITOR("|"),
         BITAND("&"),
         BITXOR("^"),
@@ -498,12 +497,15 @@ public class ArithmeticValue extends AbstractValue {
         BITXOR_IL(LogicalOperator.BITXOR, TypeCode.INT, TypeCode.LONG, TypeCode.LONG, (l, r) -> (int)l ^ (long)r),
         BITXOR_LI(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> (long)l ^ (int)r),
         BITXOR_LL(LogicalOperator.BITXOR, TypeCode.LONG, TypeCode.LONG, TypeCode.LONG, (l, r) -> (long)l ^ (long)r),
-        BITBUCKET_L(LogicalOperator.BITMAP_BUCKET_OFFSET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
-        BITBUCKET_I(LogicalOperator.BITMAP_BUCKET_OFFSET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
-        BITMAP_BUCKET_NUMER_L(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.floorDiv((long)l, (int)r)),
-        BITMAP_BUCKET_NUMER_I(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.floorDiv((int)l, (int)r)),
-        BITMAPBITPOSITION_L(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.subtractExact((long)l, Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r))),
-        BITMAPBITPOSITION_I(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r))),
+
+        BITMAP_BUCKET_OFFSET_LI(LogicalOperator.BITMAP_BUCKET_OFFSET, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r)),
+        BITMAP_BUCKET_OFFSET_II(LogicalOperator.BITMAP_BUCKET_OFFSET, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)),
+
+        BITMAP_BUCKET_NUMBER_LI(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.floorDiv((long)l, (int)r)),
+        BITMAP_BUCKET_NUMBER_II(LogicalOperator.BITMAP_BUCKET_NUMBER, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.floorDiv((int)l, (int)r)),
+
+        BITMAP_BIT_POSITION_LI(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.LONG, TypeCode.INT, TypeCode.LONG, (l, r) -> Math.subtractExact((long)l, Math.multiplyExact(Math.floorDiv((long)l, (int)r), (int)r))),
+        BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r))),
         ;
 
         @Nonnull

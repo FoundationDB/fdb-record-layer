@@ -372,12 +372,12 @@ message PArithmeticValue {
       BITXOR_LI = 100;
       BITXOR_LL = 101;
 
-      BITBUCKET_L = 102;
-      BITBUCKET_I = 103;
-      BITMAP_BUCKET_NUMER_L = 104;
-      BITMAP_BUCKET_NUMER_I = 105;
-      BITMAPBITPOSITION_L = 106;
-      BITMAPBITPOSITION_I = 107;
+      BITMAP_BUCKET_OFFSET_LI = 102;
+      BITMAP_BUCKET_OFFSET_II = 103;
+      BITMAP_BUCKET_NUMBER_LI = 104;
+      BITMAP_BUCKET_NUMBER_II = 105;
+      BITMAP_BIT_POSITION_LI = 106;
+      BITMAP_BIT_POSITION_II = 107;
   }
 
   optional PPhysicalOperator operator = 1;
@@ -507,8 +507,8 @@ message PNumericAggregationValue {
       MAX_F = 15;
       MAX_D = 16;
 
-      BITMAP_LL = 17;
-      BITMAP_II = 18;
+      BITMAP_L = 17;
+      BITMAP_I = 18;
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;

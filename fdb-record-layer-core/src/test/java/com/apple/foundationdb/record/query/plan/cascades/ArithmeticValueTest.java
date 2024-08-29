@@ -154,7 +154,6 @@ class ArithmeticValueTest {
                     Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.DivFn(), 0L, false),
                     Arguments.of(List.of(INT_1, LONG_2), new ArithmeticValue.ModFn(), 1L, false),
 
-
                     Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.AddFn(), 2.0F, false),
                     Arguments.of(List.of(FLOAT_1, INT_2), new ArithmeticValue.SubFn(), -1.0F, false),
                     Arguments.of(List.of(FLOAT_1, INT_1), new ArithmeticValue.MulFn(), 1.0F, false),
@@ -220,16 +219,25 @@ class ArithmeticValueTest {
                     Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.MulFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.DivFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.BitMapBucketOffsetFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.BitMapBucketNumberFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new ArithmeticValue.BitMapBitPositionFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.AddFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.SubFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.MulFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.DivFn(), null, false),
                     Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.BitMapBucketOffsetFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.BitMapBucketNumberFn(), null, false),
+                    Arguments.of(List.of(INT_1, INT_NULL), new ArithmeticValue.BitMapBitPositionFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.AddFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.SubFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.MulFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.DivFn(), null, false),
                     Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.ModFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.BitMapBucketOffsetFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.BitMapBucketNumberFn(), null, false),
+                    Arguments.of(List.of(INT_NULL, INT_1), new ArithmeticValue.BitMapBitPositionFn(), null, false),
 
                     /* evaluation of ArithmeticValue having a FieldValue */
                     Arguments.of(List.of(F, INT_1), new ArithmeticValue.AddFn(), 5L, false),

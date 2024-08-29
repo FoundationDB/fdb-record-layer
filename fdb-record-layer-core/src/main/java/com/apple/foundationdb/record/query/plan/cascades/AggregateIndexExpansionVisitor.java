@@ -321,7 +321,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverFn());
         mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new IndexOnlyAggregateValue.MaxEverFn());
         mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new IndexOnlyAggregateValue.MinEverFn());
-        mapBuilder.put(IndexTypes.BITMAP_VALUE, new NumericAggregationValue.BitMapFn());
+        mapBuilder.put(IndexTypes.BITMAP_VALUE, new NumericAggregationValue.BitMapConstructAggFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());
