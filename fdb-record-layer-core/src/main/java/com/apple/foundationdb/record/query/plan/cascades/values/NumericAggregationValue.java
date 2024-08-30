@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PAvg;
-import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PBitMap;
+import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PBitMapConstructAgg;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMax;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PMin;
 import com.apple.foundationdb.record.planprotos.PNumericAggregationValue.PPhysicalOperator;
@@ -222,7 +222,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         protected BitMapConstructAgg(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PBitMap bitMapProto) {
+                                     @Nonnull final PBitMapConstructAgg bitMapProto) {
             super(serializationContext, Objects.requireNonNull(bitMapProto.getSuper()));
         }
 
@@ -247,8 +247,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         @Nonnull
         @Override
-        public PBitMap toProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PBitMap.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
+        public PBitMapConstructAgg toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PBitMapConstructAgg.newBuilder().setSuper(toNumericAggregationValueProto(serializationContext)).build();
         }
 
         @Nonnull
@@ -258,7 +258,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Nonnull
-        public static BitMapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBitMap bitMapProto) {
+        public static BitMapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBitMapConstructAgg bitMapProto) {
             return new BitMapConstructAgg(serializationContext, bitMapProto);
         }
 
@@ -266,17 +266,17 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
          * Deserializer.
          */
         @AutoService(PlanDeserializer.class)
-        public static class Deserializer implements PlanDeserializer<PBitMap, BitMapConstructAgg> {
+        public static class Deserializer implements PlanDeserializer<PBitMapConstructAgg, BitMapConstructAgg> {
             @Nonnull
             @Override
-            public Class<PBitMap> getProtoMessageClass() {
-                return PBitMap.class;
+            public Class<PBitMapConstructAgg> getProtoMessageClass() {
+                return PBitMapConstructAgg.class;
             }
 
             @Nonnull
             @Override
             public BitMapConstructAgg fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PBitMap bitMapProto) {
+                                                @Nonnull final PBitMapConstructAgg bitMapProto) {
                 return BitMapConstructAgg.fromProto(serializationContext, bitMapProto);
             }
         }
