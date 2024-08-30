@@ -54,7 +54,7 @@ public class SchemaGenerator {
             NonnullPair.of("double", Types.DOUBLE),
             NonnullPair.of("string", Types.VARCHAR),
             NonnullPair.of("bytes", Types.BINARY)
-            // removing boolean to avoid pk violations with small tables
+    // removing boolean to avoid pk violations with small tables
     );
     private final RandomDataSource random;
     private final int maxTables;

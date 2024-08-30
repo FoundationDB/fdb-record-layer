@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Supplier;
+
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -47,7 +48,7 @@ import java.util.Set;
 
 public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement implements RelationalStatement {
 
-    public EmbeddedRelationalStatement(@Nonnull EmbeddedRelationalConnection conn) {
+    public EmbeddedRelationalStatement(@Nonnull EmbeddedRelationalConnection conn) throws SQLException {
         super(conn);
     }
 
@@ -101,7 +102,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     @Override
     public @Nonnull RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         checkOpen();
-        final var finalOptions = conn.getOptions().withChild(options);
+        final var finalOptions = this.options.withChild(options);
         try {
             conn.ensureTransactionActive();
             String[] schemaAndTable = getSchemaAndTable(conn, tableName);
@@ -126,7 +127,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     public @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
         checkOpen();
-        final var finalizedOptions = conn.getOptions().withChild(options);
+        final var finalizedOptions = this.options.withChild(options);
         return ensureTransaction(() -> {
             String[] schemaAndTable = getSchemaAndTable(conn, tableName);
             RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
@@ -150,7 +151,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull final Options options)
             throws SQLException {
         checkOpen();
-        final var finalizedOptions = conn.getOptions().withChild(options);
+        final var finalizedOptions = this.options.withChild(options);
         //do this check first because otherwise we might start an expensive transaction that does nothing
         if (data.isEmpty()) {
             return 0;
@@ -180,7 +181,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         if (!keys.hasNext()) {
             return 0;
         }
-        final var finalizedOptions = conn.getOptions().withChild(options);
+        final var finalizedOptions = this.options.withChild(options);
         return ensureTransaction(() -> {
             String[] schemaAndTable = getSchemaAndTable(conn, tableName);
             RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
@@ -207,7 +208,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
         checkOpen();
-        final var finalizedOptions = conn.getOptions().withChild(options);
+        final var finalizedOptions = this.options.withChild(options);
         ensureTransaction(() -> {
             String[] schemaAndTable = getSchemaAndTable(conn, tableName);
             RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);

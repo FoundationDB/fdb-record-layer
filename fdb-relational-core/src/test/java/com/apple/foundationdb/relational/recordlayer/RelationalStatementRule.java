@@ -117,4 +117,14 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     public void close() throws SQLException {
         statement.close();
     }
+
+    @Override
+    public int getMaxRows() throws SQLException {
+        return statement.getMaxRows();
+    }
+
+    @Override
+    public void setMaxRows(int max) throws SQLException {
+        statement.setMaxRows(max);
+    }
 }

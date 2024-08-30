@@ -66,6 +66,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_ERROR = "error";
     public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
+    public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
 
     @Nullable private final Object value;
     private final int lineNumber;
@@ -361,6 +362,15 @@ public abstract class QueryConfig {
         };
     }
 
+    private static QueryConfig getMaxRowConfig(@Nonnull Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_MAX_ROWS, value, lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
+                Assert.failUnchecked("No results to check on a maxRow config");
+            }
+        };
+    }
+
     public static QueryConfig parse(@Nonnull Object object, @Nonnull YamlExecutionContext executionContext) {
         final var configEntry = Matchers.notNull(Matchers.firstEntry(object, "query configuration"), "query configuration");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(configEntry.getKey(), () -> "Invalid config key-value pair: " + configEntry);
@@ -382,6 +392,8 @@ public abstract class QueryConfig {
                 return getCheckResultConfig(true, key, value, lineNumber, executionContext);
             } else if (key.equals(QUERY_CONFIG_UNORDERED_RESULT)) {
                 return getCheckResultConfig(false, key, value, lineNumber, executionContext);
+            } else if (key.equals(QUERY_CONFIG_MAX_ROWS)) {
+                return getMaxRowConfig(value, lineNumber, executionContext);
             } else {
                 Assert.failUnchecked("‼️ '%s' is not a valid configuration");
             }

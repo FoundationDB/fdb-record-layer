@@ -96,7 +96,8 @@ test_block:
     -
       # Having multiple `result` configs for the `query` command checks the result sets
       # (in order of appearance) with consecutive continuations of the query.
-      - query: select * from t1 limit 1;
+      - query: select * from t1;
+      - maxRows: 1
       - result: [{10, 20}]
       - result: [{30, 40}]
       - result: [{50, 60}]

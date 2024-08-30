@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.apple.foundationdb.relational.utils.InMemoryTransactionManager;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -192,6 +193,16 @@ public class InMemoryRelationalStatement implements RelationalStatement {
 
     @Override
     public void close() throws SQLException {
+
+    }
+
+    @Override
+    public int getMaxRows() throws SQLException {
+        return 0;
+    }
+
+    @Override
+    public void setMaxRows(int max) throws SQLException {
 
     }
 }

@@ -97,19 +97,6 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default int getMaxRows() throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setMaxRows(int max) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default void setEscapeProcessing(boolean enable) throws SQLException {
         throw new SQLException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
 

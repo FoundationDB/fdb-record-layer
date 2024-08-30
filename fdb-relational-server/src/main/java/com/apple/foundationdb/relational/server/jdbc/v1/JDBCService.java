@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLException;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.BuildVersion;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -82,7 +84,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         try {
             StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
             FRL.Response response = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql(),
-                    request.hasParameters() ? request.getParameters().getParameterList() : null);
+                    request.hasParameters() ? request.getParameters().getParameterList() : null, fromProtoOptions(request.getOptions()));
             if (response.isQuery()) {
                 // Setting row count like this might not be right... It is for updates. Might have to do something
                 // better than this count.
@@ -266,5 +268,13 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         return Status.INTERNAL.withDescription("Uncaught exception")
                 .augmentDescription(GrpcSQLException.stacktraceToString(t))
                 .withCause(t).asRuntimeException();
+    }
+
+    private Options fromProtoOptions(com.apple.foundationdb.relational.jdbc.grpc.v1.Options protoOptions) throws SQLException {
+        final var builder = Options.builder();
+        if (protoOptions.hasMaxRows()) {
+            builder.withOption(Options.Name.MAX_ROWS, protoOptions.getMaxRows());
+        }
+        return builder.build();
     }
 }

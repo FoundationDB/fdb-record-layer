@@ -56,7 +56,7 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     private final String sql;
 
-    JDBCRelationalPreparedStatement(@Nonnull String sql, @Nonnull final JDBCRelationalConnection connection) {
+    JDBCRelationalPreparedStatement(@Nonnull String sql, @Nonnull final JDBCRelationalConnection connection) throws SQLException {
         this.statement = new JDBCRelationalStatement(connection);
         this.sql = sql;
     }
@@ -230,6 +230,16 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     @Override
     public void close() throws SQLException {
         this.statement.close();
+    }
+
+    @Override
+    public int getMaxRows() throws SQLException {
+        return statement.getMaxRows();
+    }
+
+    @Override
+    public void setMaxRows(int max) throws SQLException {
+        statement.setMaxRows(max);
     }
 
     @Override

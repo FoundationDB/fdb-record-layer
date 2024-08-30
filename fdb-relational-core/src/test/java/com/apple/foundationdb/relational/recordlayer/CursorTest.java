@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.utils.ResultSetTestUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -80,7 +81,7 @@ public class CursorTest {
                 Continuation cont = ContinuationImpl.BEGIN;
                 while (!cont.atEnd()) {
                     try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(),
-                            Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1).build())) {
+                            Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.MAX_ROWS, 1).build())) {
                         metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
                         while (resultSet.next()) {
                             actual.add(ResultSetTestUtils.currentRow(resultSet));
@@ -161,14 +162,17 @@ public class CursorTest {
     public void continuationWithReturnRowLimit() throws SQLException, RelationalException {
         insertRecordsAndTest(10, (List<RelationalStruct> records, RelationalConnection conn) -> {
             Continuation continuation;
-            try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT limit 5")) {
-                Assertions.assertTrue(resultSet.getContinuation().atBeginning());
-                final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
-                for (int i = 0; i < 5; i++) {
-                    resultSetAssert.hasNextRow();
+            try (final var s = conn.createStatement()) {
+                s.setMaxRows(5);
+                try (final var resultSet = s.executeQuery("select * from RESTAURANT")) {
+                    Assertions.assertTrue(resultSet.getContinuation().atBeginning());
+                    final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                    for (int i = 0; i < 5; i++) {
+                        resultSetAssert.hasNextRow();
+                    }
+                    resultSetAssert.hasNoNextRow().hasNoNextRowReasonAsNoMoreRows();
+                    continuation = resultSet.getContinuation();
                 }
-                resultSetAssert.hasNoNextRow().hasNoNextRowReasonAsNoMoreRows();
-                continuation = resultSet.getContinuation();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }

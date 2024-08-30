@@ -73,13 +73,14 @@ public class QueryExecutor {
     }
 
     public Continuation execute(@Nonnull RelationalConnection connection, @Nullable Continuation continuation,
-                                @Nonnull QueryConfig config, boolean checkCache) throws RelationalException, SQLException {
+                                @Nonnull QueryConfig config, boolean checkCache, int maxRows) throws RelationalException, SQLException {
         Continuation continuationAfter = ContinuationImpl.END;
         final var currentQuery = config.decorateQuery(query, continuation);
         try {
             if (parameters == null) {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.createStatement()) {
+                    s.setMaxRows(maxRows);
                     final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, currentQuery, checkCache);
                     config.checkResult(queryResult, this.toString());
                     if (queryResult instanceof RelationalResultSet) {
@@ -89,6 +90,7 @@ public class QueryExecutor {
             } else {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 try (var s = connection.prepareStatement(currentQuery)) {
+                    s.setMaxRows(maxRows);
                     setParametersInPreparedStatement(s, connection);
                     final var queryResult = executeQueryAndCheckCacheIfNeeded(s, connection, null, checkCache);
                     config.checkResult(queryResult, this.toString());

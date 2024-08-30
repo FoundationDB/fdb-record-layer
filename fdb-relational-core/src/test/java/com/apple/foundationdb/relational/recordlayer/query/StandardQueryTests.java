@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Assertions;
@@ -456,8 +457,8 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("SELECT * from T1 USE INDEX (T1_IDX)"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     final var expected = new ArrayList<Object[]>();
-                    expected.add(new Object[] {42L, 100L, 200L});
-                    expected.add(new Object[] {43L, 101L, 201L});
+                    expected.add(new Object[]{42L, 100L, 200L});
+                    expected.add(new Object[]{43L, 101L, 201L});
                     ResultSetAssert.assertThat(resultSet).containsRowsExactly(expected);
                 }
             }
@@ -956,7 +957,7 @@ public class StandardQueryTests {
                     Assert.that(!resultSet.next());
                 }
                 final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("delete from simple limit 1 returning rest_no, name")).getMessage();
-                Assertions.assertEquals("limit is not supported", message);
+                Assertions.assertEquals("LIMIT clause is not supported.", message);
             }
         }
     }
@@ -1273,7 +1274,7 @@ public class StandardQueryTests {
                     FieldDescription.primitive("endorsementId", Types.BIGINT, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("endorsementText", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
             ), DatabaseMetaData.columnNoNulls));
-            for (var endorsement: review.getRight()) {
+            for (var endorsement : review.getRight()) {
                 endorsementsArrayBuilder.addStruct(EmbeddedRelationalStruct.newBuilder()
                         .addLong("endorsementId", endorsement.getLeft())
                         .addString("endorsementText", endorsement.getRight())

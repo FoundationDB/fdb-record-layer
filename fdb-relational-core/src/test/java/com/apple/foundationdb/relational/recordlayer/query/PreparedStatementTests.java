@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
@@ -275,8 +276,8 @@ public class PreparedStatementTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14), (15)");
             }
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
-                ps.setInt("limit", 2);
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
@@ -284,24 +285,24 @@ public class PreparedStatementTests {
                             .hasNoNextRow();
                 }
             }
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
-                ps.setInt("limit", 1);
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(1);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNoNextRow();
                 }
             }
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?")) {
-                ps.setInt(1, 1);
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(1);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNoNextRow();
                 }
             }
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?")) {
-                ps.setInt(1, 2);
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
@@ -313,30 +314,26 @@ public class PreparedStatementTests {
     }
 
     @Test
-    void longTypeLimitParameter() throws Exception {
+    void setMaxRowsExtremeValues() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14), (15)");
             }
-            // setLong
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
-                ps.setLong("limit", 2);
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                RelationalAssertions.assertThrowsSqlException(() -> ps.setMaxRows(-1)).hasErrorCode(ErrorCode.INVALID_PARAMETER);
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(0);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
                             .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNextRow().hasColumn("REST_NO", 15L)
                             .hasNoNextRow();
                 }
-            }
-            // setLong > Integer.MAX_VALUE
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
-                ps.setLong("limit", 3147483647L);
-                RelationalAssertions.assertThrowsSqlException(ps::executeQuery).hasErrorCode(ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
-            }
-            // setLong = 0
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT ?limit")) {
-                ps.setLong("limit", 0);
-                RelationalAssertions.assertThrowsSqlException(ps::executeQuery).hasErrorCode(ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE);
             }
         }
     }
@@ -348,7 +345,8 @@ public class PreparedStatementTests {
                 statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
             }
             Continuation continuation;
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
@@ -357,7 +355,8 @@ public class PreparedStatementTests {
                     continuation = resultSet.getContinuation();
                 }
             }
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?continuation")) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?continuation")) {
+                ps.setMaxRows(2);
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
@@ -375,7 +374,8 @@ public class PreparedStatementTests {
             }
 
             // Same but with logs
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 OPTIONS(LOG QUERY)")) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord OPTIONS(LOG QUERY)")) {
+                ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow().hasColumn("REST_NO", 10L)
@@ -385,7 +385,8 @@ public class PreparedStatementTests {
                 }
             }
             Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
-            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2 OPTIONS(LOG QUERY) WITH CONTINUATION ?continuation")) {
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord OPTIONS(LOG QUERY) WITH CONTINUATION ?continuation")) {
+                ps.setMaxRows(2);
                 ps.setBytes("continuation", continuation.serialize());
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     ResultSetAssert.assertThat(resultSet)

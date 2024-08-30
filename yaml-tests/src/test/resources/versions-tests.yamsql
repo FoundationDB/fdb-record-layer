@@ -99,7 +99,8 @@ test_block:
       - explain: "map(Index(GROUPED_VERSION_INDEX [EQUALS promote(@c12 as LONG)] REVERSE)[(version(q2) as __ROW_VERSION, $q2.ID as ID)])"
       - result: [{__ROW_VERSION: !not_null _, ID: 12}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 6}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 7}]
     -
-      - query: select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by t1."__ROW_VERSION" ASC limit 5;
+      - query: select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by t1."__ROW_VERSION" ASC;
+      - maxRows: 5
       - result: [{__ROW_VERSION: !not_null _, ID: 7}, {__ROW_VERSION: !not_null _, ID: 9}, {__ROW_VERSION: !not_null _, ID: 11}, {__ROW_VERSION: !not_null _, ID: 13}, {__ROW_VERSION: !not_null _, ID: 6}]
       - result: [{__ROW_VERSION: !not_null _, ID: 8}, {__ROW_VERSION: !not_null _, ID: 10}, {__ROW_VERSION: !not_null _, ID: 12}]
 #    -

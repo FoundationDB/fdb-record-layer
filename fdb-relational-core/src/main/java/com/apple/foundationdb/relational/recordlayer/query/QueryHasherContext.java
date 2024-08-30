@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
@@ -28,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -47,28 +45,20 @@ public final class QueryHasherContext implements QueryExecutionContext {
 
     private final boolean isForExplain;
 
-    private final int limit;
-
     private final int parameterHash;
-
-    private final int offset;
 
     @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
 
     private QueryHasherContext(@Nonnull Literals literals,
                                @Nullable byte[] continuation,
-                               int limit,
                                int parameterHash,
-                               int offset,
                                boolean isForExplain,
                                @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
-        this.limit = limit;
         this.parameterHash = parameterHash;
-        this.offset = offset;
         this.planHashMode = planHashMode;
     }
 
@@ -76,16 +66,6 @@ public final class QueryHasherContext implements QueryExecutionContext {
     @Override
     public Literals getLiteralsBuilder() {
         return literals;
-    }
-
-    @Override
-    public int getLimit() {
-        return limit;
-    }
-
-    @Override
-    public int getOffset() {
-        return offset;
     }
 
     @Nonnull
@@ -102,7 +82,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
     @Nonnull
     @Override
     public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
-        return ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(offset);
+        return ExecuteProperties.newBuilder();
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Intentional")
@@ -138,9 +118,6 @@ public final class QueryHasherContext implements QueryExecutionContext {
         @Nullable
         private byte[] continuation;
 
-        @Nonnull
-        private Optional<Integer> limit;
-
         private int parameterHash;
 
         @Nullable
@@ -150,16 +127,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
             this.literals = LiteralsBuilder.newBuilder();
             this.isForExplain = false;
             this.continuation = null;
-            this.limit = Optional.empty();
             this.planHashMode = null;
-        }
-
-        @Nonnull
-        public Builder setLimit(int limit) {
-            Assert.thatUnchecked(this.limit.isEmpty(), "setting multiple limits is not supported");
-            SemanticAnalyzer.validateLimit(Expression.ofUnnamed(LiteralValue.ofScalar(limit)));
-            this.limit = Optional.of(limit);
-            return this;
         }
 
         @Nonnull
@@ -222,7 +190,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
         @Nonnull
         public QueryHasherContext build() {
             return new QueryHasherContext(literals.build(), continuation,
-                    limit.orElse(ReadTransaction.ROW_LIMIT_UNLIMITED), parameterHash, 0, isForExplain,
+                    parameterHash, isForExplain,
                     Objects.requireNonNull(planHashMode));
         }
     }

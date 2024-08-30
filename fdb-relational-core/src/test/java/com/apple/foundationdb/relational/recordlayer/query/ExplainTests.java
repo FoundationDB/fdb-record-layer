@@ -73,7 +73,7 @@ public class ExplainTests {
         final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var actualMetadata = resultSet.getMetaData();
                     org.junit.jupiter.api.Assertions.assertEquals(expectedLabels.size(), actualMetadata.getColumnCount());
@@ -97,11 +97,12 @@ public class ExplainTests {
     void explainWithNoContinuationTest() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+                ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
-                            .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
+                            .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                             .hasColumn("PLAN_HASH", -1635569052L)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
@@ -117,15 +118,17 @@ public class ExplainTests {
             Continuation continuation;
             try (RelationalConnection conn = ddl.setSchemaAndGetConnection()) {
                 conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, false);
-                try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
                     continuation = consumeResultAndGetContinuation(ps, 2);
                 }
-                try (RelationalPreparedStatement ps = conn.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?cont")) {
+                try (RelationalPreparedStatement ps = conn.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?cont")) {
+                    ps.setMaxRows(2);
                     ps.setObject("cont", continuation.serialize());
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
+                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(4);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -146,16 +149,17 @@ public class ExplainTests {
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
                 connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
-                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
                     continuation = consumeResultAndGetContinuation(ps, 2);
                 }
 
-                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord LIMIT 2 WITH CONTINUATION ?cont")) {
+                try (RelationalPreparedStatement ps = connection.prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord WITH CONTINUATION ?cont")) {
                     ps.setObject("cont", continuation.serialize());
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>) (limit=2)")
+                                .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(4);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -176,7 +180,8 @@ public class ExplainTests {
             Continuation continuation;
             try (final var connection = ddl.setSchemaAndGetConnection()) {
                 connection.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
-                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord LIMIT 2")) {
+                try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord")) {
+                    ps.setMaxRows(2);
                     continuation = consumeResultAndGetContinuation(ps, 2);
                 }
 

@@ -76,6 +76,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -306,8 +307,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
             final RecordCursor<QueryResult> cursor;
             final var executeProperties = connection.getExecuteProperties().toBuilder()
-                    .setSkip(queryExecutionParameters.getExecutionPropertiesBuilder().getSkip())
-                    .setReturnedRowLimit(queryExecutionParameters.getExecutionPropertiesBuilder().getReturnedRowLimit())
+                    .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
                     .setDryRun(options.getOption(Options.Name.DRY_RUN))
                     .build();
             cursor = executionContext.metricCollector.clock(

@@ -471,19 +471,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    default int getMaxRows() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    default void setMaxRows(int max) throws SQLException {
-
-        throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
     default void setEscapeProcessing(boolean enable) throws SQLException {
 
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

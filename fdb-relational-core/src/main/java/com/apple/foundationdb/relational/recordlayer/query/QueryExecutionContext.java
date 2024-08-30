@@ -71,10 +71,6 @@ public interface QueryExecutionContext {
 
     boolean isForExplain(); // todo (yhatem) remove.
 
-    int getLimit();
-
-    int getOffset();
-
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();
 

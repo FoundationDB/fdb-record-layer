@@ -68,6 +68,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_ERROR);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_COUNT);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_PLAN_HASH);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_MAX_ROWS);
     }
 
     @Override

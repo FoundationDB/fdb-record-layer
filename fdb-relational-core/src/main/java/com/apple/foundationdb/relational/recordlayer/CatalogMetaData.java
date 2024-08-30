@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProv
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;

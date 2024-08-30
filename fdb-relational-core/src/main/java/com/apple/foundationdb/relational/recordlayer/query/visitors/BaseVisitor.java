@@ -214,11 +214,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return nextResult != null ? nextResult : aggregate;
     }
 
-    protected void setLimit(int limit) {
-        // TODO: this is temporary until the context are completely removed when the old plan generator is removed.
-        getPlanGenerationContext().setLimit(limit);
-    }
-
     @Nonnull
     @Override
     public Object visitRoot(@Nonnull RelationalParser.RootContext ctx) {

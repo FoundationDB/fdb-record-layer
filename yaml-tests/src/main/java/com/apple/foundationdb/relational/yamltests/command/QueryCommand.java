@@ -142,20 +142,25 @@ public final class QueryCommand extends Command {
         boolean queryHasRun = false;
         boolean queryIsRunning = false;
         Continuation continuation = null;
+        int maxRows = 0;
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
-            if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
+            if (QueryConfig.QUERY_CONFIG_MAX_ROWS.equals(queryConfig.getConfigName())) {
+                maxRows = Integer.parseInt(queryConfig.getValueString());
+            } else if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
                 // Ignore debugger configuration, always set the debugger for plan hashes. Executing the plan hash
                 // can result in the explain plan being put into the plan cache, so running without the debugger
                 // can pollute cache and thus interfere with the explain's results
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache));
+                int finalMaxRows = maxRows;
+                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.thatUnchecked(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache));
+                int finalMaxRows1 = maxRows;
+                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
             } else {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     Assert.that(!queryConfigsIterator.hasNext(), "ERROR config should be the last config specified.");
@@ -168,7 +173,7 @@ public final class QueryCommand extends Command {
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n",
                             queryConfig.getLineNumber(), queryConfig.getValueString()));
                 }
-                continuation = executor.execute(connection, continuation, queryConfig, checkCache);
+                continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows);
                 if (continuation == null || continuation.atEnd() || !queryConfigsIterator.hasNext()) {
                     queryHasRun = true;
                     queryIsRunning = false;
@@ -178,7 +183,7 @@ public final class QueryCommand extends Command {
             }
         }
         if (!queryHasRun) {
-            executor.execute(connection, null, QueryConfig.getNoCheckConfig(getLineNumber(), executionContext), checkCache);
+            executor.execute(connection, null, QueryConfig.getNoCheckConfig(getLineNumber(), executionContext), checkCache, maxRows);
         }
     }
 

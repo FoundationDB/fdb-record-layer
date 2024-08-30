@@ -125,8 +125,8 @@ public class YamlIntegrationTests extends YamlTestBase {
     }
 
     @Test
-    public void limit() throws Exception {
-        doRun("limit.yamsql");
+    public void maxRows() throws Exception {
+        doRun("maxRows.yamsql");
     }
 
     @Test

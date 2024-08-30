@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.autotest.datagen.UniformDataSource;
 import com.apple.foundationdb.relational.memory.InMemoryCatalog;
 import com.apple.foundationdb.relational.memory.InMemoryRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;

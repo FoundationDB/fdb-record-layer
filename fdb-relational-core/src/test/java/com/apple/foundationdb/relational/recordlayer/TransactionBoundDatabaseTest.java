@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ public class TransactionBoundDatabaseTest {
 
     @Test
     void simpleSelect() throws RelationalException, SQLException {
-        final var embeddedConnection = ((EmbeddedRelationalConnection) connRule.getUnderlying());
+        final var embeddedConnection = (EmbeddedRelationalConnection) connRule.getUnderlying();
         final var store = getStore(embeddedConnection);
         final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
@@ -97,7 +98,7 @@ public class TransactionBoundDatabaseTest {
 
     @Test
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
-        final var embeddedConnection = ((EmbeddedRelationalConnection) connRule.getUnderlying());
+        final var embeddedConnection = (EmbeddedRelationalConnection) connRule.getUnderlying();
         final var store = getStore(embeddedConnection);
         final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 

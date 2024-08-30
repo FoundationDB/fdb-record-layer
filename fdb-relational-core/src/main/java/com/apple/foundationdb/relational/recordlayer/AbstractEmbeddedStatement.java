@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
+
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -54,8 +56,11 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     int currentRowCount;
 
-    public AbstractEmbeddedStatement(@Nonnull final EmbeddedRelationalConnection conn) {
+    Options options;
+
+    public AbstractEmbeddedStatement(@Nonnull final EmbeddedRelationalConnection conn) throws SQLException {
         this.conn = conn;
+        this.options = conn.getOptions();
     }
 
     abstract PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException, SQLException;
@@ -79,7 +84,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                     final var planGenerator = PlanGenerator.of(conn.getRecordLayerDatabase().getPlanCache() == null ? Optional.empty() : Optional.of(conn.getRecordLayerDatabase().getPlanCache()),
                             buildPlanContext(store),
                             store.getRecordMetaData(),
-                            store.getRecordStoreState(), conn.getOptions());
+                            store.getRecordStoreState(), this.options);
                     final Plan<?> plan = planGenerator.getPlan(sql);
                     final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, conn.getMetricCollector());
                     if (plan instanceof QueryPlan) {
@@ -210,5 +215,22 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             }
             throw ExceptionUtil.toRelationalException(ex).toSqlException();
         }
+    }
+
+    @Override
+    public int getMaxRows() throws SQLException {
+        int pageSize = options.getOption(Options.Name.MAX_ROWS);
+        if (pageSize == Integer.MAX_VALUE) {
+            return 0;
+        }
+        return pageSize;
+    }
+
+    @Override
+    public void setMaxRows(int max) throws SQLException {
+        if (max == 0) {
+            max = Integer.MAX_VALUE;
+        }
+        this.options = Options.builder().fromOptions(options).withOption(Options.Name.MAX_ROWS, max).build();
     }
 }

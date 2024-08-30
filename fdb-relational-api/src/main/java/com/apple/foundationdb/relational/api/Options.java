@@ -49,9 +49,10 @@ public final class Options {
         INDEX_HINT,
         /**
          * Limit the maximum number of records to return before prompting for continuation.
-         * Scope: Direct Access API
+         * This can also be set via JDBC's setMaxRows
+         * Scope: Connection, Direct Access API.
          */
-        CONTINUATION_PAGE_SIZE,
+        MAX_ROWS,
         /**
          * When set, only tables which were created at or before the specified version can be opened.
          * If this is set to -1, then it only requires that a version number exists.
@@ -199,7 +200,7 @@ public final class Options {
 
     static {
         final var builder = ImmutableMap.<Name, Object>builder();
-        builder.put(Name.CONTINUATION_PAGE_SIZE, Integer.MAX_VALUE);
+        builder.put(Name.MAX_ROWS, Integer.MAX_VALUE);
         builder.put(Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
         builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 1024);
         builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10_000L);
@@ -328,7 +329,7 @@ public final class Options {
     private static Map<Name, List<OptionContract>> makeContracts() {
         EnumMap<Name, List<OptionContract>> data = new EnumMap<>(Name.class);
         data.put(Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)));
-        data.put(Name.CONTINUATION_PAGE_SIZE, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
+        data.put(Name.MAX_ROWS, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class)));
         data.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
         data.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));

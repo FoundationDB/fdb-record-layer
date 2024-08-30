@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
@@ -237,25 +236,16 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Void visitLimitClause(RelationalParser.LimitClauseContext ctx) {
         if (ctx.offset != null) {
             // Owing to TODO
-            Assert.failUnchecked("OFFSET clause is not supported.");
+            Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "OFFSET clause is not supported.");
         }
-        ctx.limit.accept(this);
+        if (ctx.limit != null) {
+            Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "LIMIT clause is not supported.");
+        }
         return null;
     }
 
     @Override
     public Void visitLimitClauseAtom(RelationalParser.LimitClauseAtomContext ctx) {
-        allowTokenAddition = false;
-        allowLiteralAddition = false;
-        if (ctx.preparedStatementParameter() != null) {
-            final var parameter = visit(ctx.preparedStatementParameter());
-            context.setLimit(processLimitParameter(parameter));
-        } else {
-            final var limit = new LiteralValue<>(ParseHelpers.parseDecimal(ctx.getText()));
-            context.setLimit(processLimitParameter(Objects.requireNonNull(limit.getLiteralValue())));
-        }
-        allowLiteralAddition = true;
-        allowTokenAddition = true;
         return null;
     }
 
@@ -554,18 +544,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             sqlCanonicalizer.append(canonicalName).append(" ");
             parameterHash.putInt(Objects.hash(canonicalName, literal));
         }
-    }
-
-    @Nonnull
-    private static Integer processLimitParameter(@Nonnull Object parameter) {
-        Assert.thatUnchecked(parameter instanceof Integer || parameter instanceof Long, ErrorCode.DATATYPE_MISMATCH, "argument for LIMIT must be integer or long");
-        if (parameter instanceof Long) {
-            Assert.thatUnchecked((Long) parameter <= Integer.MAX_VALUE, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be smaller than Integer.MAX_VALUE");
-            Assert.thatUnchecked((Long) parameter > 0, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be positive");
-        } else {
-            Assert.thatUnchecked((Integer) parameter > 0, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE, "LIMIT must be positive");
-        }
-        return ((Number) parameter).intValue();
     }
 
     @Nonnull

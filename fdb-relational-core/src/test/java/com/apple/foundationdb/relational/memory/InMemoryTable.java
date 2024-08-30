@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordTypeTable;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -63,7 +64,7 @@ public class InMemoryTable {
         try {
             AtomicInteger count = new AtomicInteger(0);
             KeyExpression keyFunc = recordType.getPrimaryKey();
-            for (var struct: structs) {
+            for (var struct : structs) {
                 var message = RecordTypeTable.toDynamicMessage(struct, recordType.getDescriptor());
                 FDBStoredRecordBuilder<Message> rec = new FDBStoredRecordBuilder<>().setRecord(message).setRecordType(recordType);
                 byte[] key = keyFunc.evaluateSingleton(rec).toTuple().pack();

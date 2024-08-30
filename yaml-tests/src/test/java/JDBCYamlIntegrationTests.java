@@ -145,8 +145,8 @@ public class JDBCYamlIntegrationTests extends YamlIntegrationTests {
     @Override
     @Test
     @Disabled("TODO: Need to work on supporting labels")
-    public void limit() throws Exception {
-        super.limit();
+    public void maxRows() throws Exception {
+        super.maxRows();
     }
 
     @Override

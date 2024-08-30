@@ -175,7 +175,7 @@ public class FRL implements AutoCloseable {
      * @throws SQLException For all sorts of reasons.
      */
     @Nonnull
-    public Response execute(String database, String schema, String sql, List<Parameter> parameters)
+    public Response execute(String database, String schema, String sql, List<Parameter> parameters, Options options)
             throws SQLException {
         // Down inside connect, it calls RecordLayerStorageCluster.loadDatabase which internally creates a Transaction
         // to RecordLayerStorageCluster.loadDatabase and which, internal to loadDatabase, it then closes.
@@ -185,7 +185,7 @@ public class FRL implements AutoCloseable {
         // work inside here including reading all out of the ResultSet while under transaction else callers who try
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
         // TODO: Transaction handling.
-        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), Options.NONE)) {
+        try (RelationalConnection connection = Relational.connect(createEmbeddedJDBCURI(database, schema), options)) {
             ResultSet resultSet = null;
             if (parameters != null) {
                 // If parameters, it's a prepared statement.

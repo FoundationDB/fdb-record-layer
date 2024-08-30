@@ -41,10 +41,10 @@ class OptionsTest {
     void simpleOptions() throws SQLException {
         Options options = Options.builder()
                 .withOption(Options.Name.INDEX_HINT, "foo")
-                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
+                .withOption(Options.Name.MAX_ROWS, 1)
                 .build();
         assertEquals("foo", options.getOption(Options.Name.INDEX_HINT));
-        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
+        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.MAX_ROWS));
     }
 
     @Test
@@ -54,17 +54,17 @@ class OptionsTest {
                 .build();
 
         Options child = Options.builder()
-                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
+                .withOption(Options.Name.MAX_ROWS, 1)
                 .build();
 
         Options options = parent.withChild(child);
         assertEquals("foo", options.getOption(Options.Name.INDEX_HINT));
-        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
+        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.MAX_ROWS));
         // Assert we get child back if parent == child params.
         Assertions.assertThat(child.withChild(child)).isEqualTo(child);
         // Build a child w/ non-zero parent opts... should throw.
         Options.Builder builder = Options.builder()
-                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1);
+                .withOption(Options.Name.MAX_ROWS, 1);
         builder.setParentOption(parent);
         child = builder.build();
         SQLException re = null;
@@ -97,7 +97,7 @@ class OptionsTest {
                 .withOption(Options.Name.INDEX_HINT, "foo")
                 .build();
         Options parent = Options.builder()
-                .withOption(Options.Name.CONTINUATION_PAGE_SIZE, 1)
+                .withOption(Options.Name.MAX_ROWS, 1)
                 .build();
 
         parent = grandParent.withChild(parent);
@@ -108,7 +108,7 @@ class OptionsTest {
 
         Options options = parent.withChild(child);
         assertEquals("bar", options.getOption(Options.Name.INDEX_HINT));
-        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.CONTINUATION_PAGE_SIZE));
+        assertEquals(Integer.valueOf(1), options.getOption(Options.Name.MAX_ROWS));
     }
 
     @Test
@@ -117,13 +117,13 @@ class OptionsTest {
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessage("Option INDEX_HINT should be of type class java.lang.String but is class java.lang.Integer");
 
-        RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, "foo"))
+        RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.MAX_ROWS, "foo"))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
-                .hasMessage("Option CONTINUATION_PAGE_SIZE should be of type class java.lang.Integer but is class java.lang.String");
+                .hasMessage("Option MAX_ROWS should be of type class java.lang.Integer but is class java.lang.String");
 
-        RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.CONTINUATION_PAGE_SIZE, -52))
+        RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.MAX_ROWS, -52))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
-                .hasMessage("Option CONTINUATION_PAGE_SIZE should be in range [0, 2147483647] but is -52");
+                .hasMessage("Option MAX_ROWS should be in range [0, 2147483647] but is -52");
 
         RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.CONTINUATION, new Object()))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
@@ -133,6 +133,6 @@ class OptionsTest {
 
     @Test
     void testDefault() {
-        assertEquals((Integer) Options.NONE.getOption(Options.Name.CONTINUATION_PAGE_SIZE), Integer.MAX_VALUE);
+        assertEquals((Integer) Options.NONE.getOption(Options.Name.MAX_ROWS), Integer.MAX_VALUE);
     }
 }

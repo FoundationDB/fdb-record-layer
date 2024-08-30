@@ -115,11 +115,13 @@ test_block:
       - result: [{5, 8}]
     -
       # Simple ordering on 1 variable, with limit
-      - query: select b, c from t1 order by b limit 4;
+      - query: select b, c from t1 order by b;
+      - maxRows: 4
       - result: [{1, 0}, {2, 0}, {3, 1}, {4, 1}]
     -
       # Simple ordering on 1 variable, with continuation
-      - query: select b, c from t1 order by b limit 1;
+      - query: select b, c from t1 order by b;
+      - maxRows: 1
       - result: [{1, 0}]
       - result: [{2, 0}]
       - result: [{3, 1}]
@@ -213,7 +215,7 @@ test_block:
     -
       # Ordering in nested select is not allowed
       - query: select b from t1 where exists (select * from t1 order by b limit 1)
-      - error: "0A000"
+      - error: "0AF00"
     -
       # Ordering by a non projected column
       - query: select c from t1 order by b

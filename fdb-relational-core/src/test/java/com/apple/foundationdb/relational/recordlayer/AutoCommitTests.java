@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbedd
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -63,7 +64,6 @@ public class AutoCommitTests {
             .withSchema("TEST_SCHEMA");
 
     private EmbeddedRelationalDriver alternateDriver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
-
 
     @BeforeEach
     public void setup() throws SQLException {
@@ -610,12 +610,10 @@ public class AutoCommitTests {
         Assertions.assertTrue(conn.getAutoCommit());
 
         RelationalResultSet rs;
-        ResultSetAssert rsa;
         try (final var statement = conn.createStatement()) {
             rs = statement.executeQuery("UPDATE RESTAURANT SET name = 'aa' WHERE REST_NO < 3 RETURNING \"new\".* ");
             Assertions.assertTrue(conn.inActiveTransaction());
-            rsa = ResultSetAssert.assertThat(rs)
-                    .hasNextRow();
+            ResultSetAssert.assertThat(rs).hasNextRow();
 
             // since the resultSet is still open, transaction should be opened.
             Assertions.assertTrue(conn.inActiveTransaction());

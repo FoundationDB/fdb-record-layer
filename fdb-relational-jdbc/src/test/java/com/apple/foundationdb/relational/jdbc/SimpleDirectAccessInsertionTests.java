@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.server.ServerTestUtil;
 import com.apple.foundationdb.relational.server.RelationalServer;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -196,9 +197,9 @@ public class SimpleDirectAccessInsertionTests {
                                 .build())
                         .addArray("TAGS", JDBCRelationalArray.newBuilder()
                                 .addStruct(JDBCRelationalStruct.newBuilder()
-                                                .addString("TAG", "title-123")
-                                                .addLong("WEIGHT", 1L)
-                                                .build())
+                                        .addString("TAG", "title-123")
+                                        .addLong("WEIGHT", 1L)
+                                        .build())
                                 .build())
                         .addArray("REVIEWS", JDBCRelationalArray.newBuilder()
                                 .addStruct(JDBCRelationalStruct.newBuilder()

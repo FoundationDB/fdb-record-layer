@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
 public final class QueryPropertiesUtils {
     static ExecuteProperties getExecuteProperties(@Nonnull Options options) {
         ExecuteProperties.Builder builder = ExecuteProperties.newBuilder();
-        Integer rowLimit = options.getOption(Options.Name.CONTINUATION_PAGE_SIZE);
+        Integer rowLimit = options.getOption(Options.Name.MAX_ROWS);
         if (rowLimit != null) {
             builder.setReturnedRowLimit(rowLimit);
         }

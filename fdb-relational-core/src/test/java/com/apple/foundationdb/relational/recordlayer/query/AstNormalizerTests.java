@@ -432,28 +432,9 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void parseLimit() throws Exception {
-        validate(List.of("select * from t1 limit 100",
-                        "select * from t1 limit             100   "),
-                "select * from \"T1\" ",
-                List.of(Map.of(), Map.of()),
-                100);
-    }
-
-    @Test
-    void limitIsStripped() throws Exception {
-        validate(List.of("select * from t1 limit 100",
-                        "select * from   t1 limit     200",
-                        "select * from   t1 lIMIt     200",
-                        "select * from t1"),
-                "select * from \"T1\" ");
-    }
-
-    @Test
     void continuationIsStripped() throws Exception {
         validate(List.of("select * from t1 with continuation b64'yv4='",
                         "select * from   t1 with      continuation x'cafe'",
-                        "select * from   t1 lIMIt     200   with conTINUation x'0ff1ce'",
                         "select * from t1"),
                 "select * from \"T1\" ");
     }
@@ -461,13 +442,13 @@ public class AstNormalizerTests {
     @Test
     void parseContinuation() throws Exception {
         final var expectedContinuationStr = "FBUCFA==";
-        validate(List.of("select * from t1 limit 100 with continuation b64'" + expectedContinuationStr + "'",
-                        "select * from t1 limit             100   with  continuation    b64'" + expectedContinuationStr + "'"),
+        validate(List.of("select * from t1 with continuation b64'" + expectedContinuationStr + "'",
+                        "select * from t1 with  continuation    b64'" + expectedContinuationStr + "'"),
                 PreparedParams.empty(),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 expectedContinuationStr,
-                100);
+                -1);
     }
 
     @Test
@@ -783,41 +764,24 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void parseLimitWithPreparedParameters() throws Exception {
-        validate(List.of("select * from t1 limit ?",
-                        "select * from t1 limit             ?   "),
-                PreparedParams.ofUnnamed(Map.of(1, 100)),
-                "select * from \"T1\" ",
-                List.of(Map.of(), Map.of()),
-                100);
-
-        validate(List.of("select * from t1 limit ?param",
-                        "select * from t1 limit             ?param   "),
-                PreparedParams.ofNamed(Map.of("param", 100)),
-                "select * from \"T1\" ",
-                List.of(Map.of(), Map.of()),
-                100);
-    }
-
-    @Test
     void parseContinuationWithPreparedParameters() throws Exception {
         final var expectedContinuationStr = "FBUCFA==";
         final var expectedContinuation = Base64.getDecoder().decode(expectedContinuationStr);
-        validate(List.of("select * from t1 limit 100 with continuation ?",
-                        "select * from t1 limit             100   with  continuation    ?          "),
+        validate(List.of("select * from t1 with continuation ?",
+                        "select * from t1 with  continuation    ?          "),
                 PreparedParams.ofUnnamed(Map.of(1, expectedContinuation)),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 expectedContinuationStr,
-                100);
+                -1);
 
-        validate(List.of("select * from t1 limit 100 with continuation ?param",
-                        "select * from t1 limit             100   with  continuation    ?param          "),
+        validate(List.of("select * from t1 with continuation ?param",
+                        "select * from t1 with  continuation    ?param          "),
                 PreparedParams.ofNamed(Map.of("param", expectedContinuation)),
                 "select * from \"T1\" ",
                 List.of(Map.of(), Map.of()),
                 expectedContinuationStr,
-                100);
+                -1);
     }
 
     @Test
@@ -1007,11 +971,5 @@ public class AstNormalizerTests {
     @Test
     void hashSyntacticallyIncorrectQueryFails() {
         shouldFail("selec * from t1", "syntax error");
-    }
-
-    @Test
-    void hashQueryWithMultipleLimitsFails() {
-        shouldFail("select * from (select * from t1 limit 100) a, (select * from t2 limit 200) b",
-                "setting multiple limits is not supported");
     }
 }

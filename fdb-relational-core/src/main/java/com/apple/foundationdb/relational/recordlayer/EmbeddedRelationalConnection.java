@@ -54,6 +54,7 @@ import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.Sta
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;

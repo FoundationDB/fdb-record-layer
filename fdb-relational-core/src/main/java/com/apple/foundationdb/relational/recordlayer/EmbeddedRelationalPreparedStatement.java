@@ -44,7 +44,7 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     @Nonnull
     private final Map<String, Object> namedParameters = new TreeMap<>();
 
-    public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) {
+    public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) throws SQLException {
         super(conn);
         this.sql = sql;
     }

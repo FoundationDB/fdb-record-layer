@@ -145,23 +145,19 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var result = LogicalOperator.generateSelect(selectExpressions, getDelegate().getLogicalOperators(), where, orderByExpressions,
                 Optional.empty(), outerCorrelations, getDelegate().isTopLevel(), getDelegate().isForDdl());
 
-        if (querySpecificationContext.limitClause() != null) {
-            Assert.thatUnchecked(getDelegate().isTopLevel(), ErrorCode.UNSUPPORTED_OPERATION, () -> "limit can only be set on top level");
-            final var limitValue = Assert.castUnchecked(visitLimitClause(querySpecificationContext.limitClause()).getUnderlying(), LiteralValue.class);
-            final var limit = Assert.castUnchecked(limitValue.getLiteralValue(), Number.class);
-            getDelegate().setLimit(limit.intValue());
-        }
-
         getDelegate().popPlanFragment();
+
+        Assert.isNullUnchecked(querySpecificationContext.limitClause(), ErrorCode.UNSUPPORTED_QUERY, "limit not yet supported in SQL");
+
         return result;
     }
 
     @Nonnull
     @Override
     public LogicalOperator visitUnionStatement(@Nonnull RelationalParser.UnionStatementContext unionStatementContext) {
-        return unionStatementContext.querySpecification() != null
-                ? visitQuerySpecification(unionStatementContext.querySpecification())
-                : visitQueryExpression(unionStatementContext.queryExpression());
+        return unionStatementContext.querySpecification() != null ?
+                visitQuerySpecification(unionStatementContext.querySpecification()) :
+                visitQueryExpression(unionStatementContext.queryExpression());
     }
 
     @Nonnull

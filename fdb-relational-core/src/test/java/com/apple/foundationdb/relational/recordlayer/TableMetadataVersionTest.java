@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -76,7 +77,7 @@ public class TableMetadataVersionTest {
         try (RelationalStatement vs = dbConn.createStatement()) {
             Options opts = Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
             RelationalAssertions.assertThrowsSqlException(() -> vs.executeInsert("RESTAURANT",
-                            EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 1L).build(), opts))
+                    EmbeddedRelationalStruct.newBuilder().addLong("REST_NO", 1L).build(), opts))
                     .hasErrorCode(ErrorCode.INCORRECT_METADATA_TABLE_VERSION);
         }
     }

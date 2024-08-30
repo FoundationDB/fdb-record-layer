@@ -98,7 +98,8 @@ public class JoinWithLimitTest {
 
     @Test
     void innerCorrelatedJoinLimit1() throws Exception {
-        try (var resultSet = statement.executeQuery("SELECT M.e FROM (SELECT * FROM Q, Q.d) as M LIMIT 1")) {
+        statement.setMaxRows(1);
+        try (var resultSet = statement.executeQuery("SELECT M.e FROM (SELECT * FROM Q, Q.d) as M")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .hasColumns(Map.of("e", 100L))
@@ -109,13 +110,15 @@ public class JoinWithLimitTest {
     @Test
     void innerCorrelatedJoinWithContinuationAndLimit() throws Exception {
         Continuation continuation;
-        try (var resultSet = statement.executeQuery("SELECT M.e FROM (SELECT * FROM Q, Q.d) as M LIMIT 3")) {
+        statement.setMaxRows(3);
+        try (var resultSet = statement.executeQuery("SELECT M.e FROM (SELECT * FROM Q, Q.d) as M")) {
             Assertions.assertThat(resultSet.next()).isTrue();
             Assertions.assertThat(resultSet.getLong("e")).isEqualTo(100L);
             continuation = resultSet.getContinuation();
         }
 
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param LIMIT 3")) {
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(3);
             preparedStatement.setBytes("param", continuation.serialize());
             try (final var resultSet = preparedStatement.executeQuery()) {
                 Assertions.assertThat(resultSet.next()).isTrue();
@@ -128,7 +131,8 @@ public class JoinWithLimitTest {
             }
         }
 
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param LIMIT 3")) {
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(3);
             preparedStatement.setBytes("param", continuation.serialize());
             try (final var resultSet = preparedStatement.executeQuery()) {
                 Assertions.assertThat(resultSet.next()).isTrue();
@@ -162,7 +166,8 @@ public class JoinWithLimitTest {
 
     @Test
     void correlatedJoinWithLimit() throws Exception {
-        try (var resultSet = statement.executeQuery("SELECT qpk, e FROM Q, Q.d Limit 1")) {
+        statement.setMaxRows(1);
+        try (var resultSet = statement.executeQuery("SELECT qpk, e FROM Q, Q.d")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .hasColumns(Map.of("qpk", 1L, "e", 100L))
@@ -188,7 +193,8 @@ public class JoinWithLimitTest {
 
     @Test
     void joinWithLimit1() throws Exception {
-        try (var resultSet = statement.executeQuery("SELECT * FROM R, S LIMIT 1")) {
+        statement.setMaxRows(1);
+        try (var resultSet = statement.executeQuery("SELECT * FROM R, S")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
@@ -198,7 +204,8 @@ public class JoinWithLimitTest {
 
     @Test
     void joinWithLimit2() throws Exception {
-        try (var resultSet = statement.executeQuery("SELECT * FROM R, S LIMIT 2")) {
+        statement.setMaxRows(2);
+        try (var resultSet = statement.executeQuery("SELECT * FROM R, S")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
@@ -210,7 +217,8 @@ public class JoinWithLimitTest {
 
     @Test
     void joinWithLimitLargerThanTableSize() throws Exception {
-        try (var resultSet = statement.executeQuery("SELECT * FROM R, S LIMIT 20")) {
+        statement.setMaxRows(20);
+        try (var resultSet = statement.executeQuery("SELECT * FROM R, S")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .hasColumns(Map.of("rpk", 1L, "ra", 1L, "spk", 1L, "sa", 10L))
@@ -227,14 +235,16 @@ public class JoinWithLimitTest {
     @Test
     void joinWithContinuationAndLimit() throws Exception {
         Continuation continuation;
-        try (var resultSet = statement.executeQuery("SELECT rpk, sa FROM R, S LIMIT 2")) {
+        statement.setMaxRows(2);
+        try (var resultSet = statement.executeQuery("SELECT rpk, sa FROM R, S")) {
             Assertions.assertThat(resultSet.next()).isTrue();
             Assertions.assertThat(resultSet.getLong("rpk")).isEqualTo(1L);
             Assertions.assertThat(resultSet.getLong("sa")).isEqualTo(10L);
             continuation = resultSet.getContinuation();
         }
 
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param LIMIT 2")) {
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(2);
             preparedStatement.setBytes("param", continuation.serialize());
             try (final var resultSet = preparedStatement.executeQuery()) {
                 Assertions.assertThat(resultSet.next()).isTrue();
@@ -247,7 +257,8 @@ public class JoinWithLimitTest {
             }
         }
 
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param LIMIT 2")) {
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(2);
             preparedStatement.setBytes("param", continuation.serialize());
             try (final var resultSet = preparedStatement.executeQuery()) {
                 Assertions.assertThat(resultSet.next()).isTrue();

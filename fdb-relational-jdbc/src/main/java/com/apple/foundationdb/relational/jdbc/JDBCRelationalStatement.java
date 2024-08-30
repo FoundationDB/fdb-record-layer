@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
 import io.grpc.StatusRuntimeException;
 
 import javax.annotation.Nonnull;
@@ -81,9 +82,11 @@ class JDBCRelationalStatement implements RelationalStatement {
      * with #execute(String), such as DDL statements.
      */
     public static final int STATEMENT_NO_RESULT = -2;
+    private Options options;
 
-    JDBCRelationalStatement(@Nonnull final JDBCRelationalConnection connection) {
+    JDBCRelationalStatement(@Nonnull final JDBCRelationalConnection connection) throws SQLException {
         this.connection = connection;
+        this.options = connection.getOptions().withChild(Options.NONE);
     }
 
     private void checkOpen() throws SQLException {
@@ -152,7 +155,7 @@ class JDBCRelationalStatement implements RelationalStatement {
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
     boolean execute(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
-        StatementResponse response = execute(sql, Options.NONE, parameters);
+        StatementResponse response = execute(sql, this.options, parameters);
         this.currentResultSet = response.hasResultSet() ?
                 new RelationalResultSetFacade(response.getResultSet()) : RelationalResultSetFacade.EMPTY;
         this.updateCount = response.getRowCount();
@@ -176,7 +179,7 @@ class JDBCRelationalStatement implements RelationalStatement {
         StatementResponse statementResponse = null;
         try {
             StatementRequest.Builder builder = StatementRequest.newBuilder()
-                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema());
+                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema()).setOptions(optionsAsProto());
             if (parameters != null) {
                 builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
             }
@@ -195,6 +198,23 @@ class JDBCRelationalStatement implements RelationalStatement {
     @Override
     public void close() throws SQLException {
         this.closed = true;
+    }
+
+    @Override
+    public int getMaxRows() throws SQLException {
+        int pageSize = options.getOption(Options.Name.MAX_ROWS);
+        if (pageSize == Integer.MAX_VALUE) {
+            return 0;
+        }
+        return pageSize;
+    }
+
+    @Override
+    public void setMaxRows(int max) throws SQLException {
+        if (max == 0) {
+            max = Integer.MAX_VALUE;
+        }
+        this.options = Options.builder().fromOptions(options).withOption(Options.Name.MAX_ROWS, max).build();
     }
 
     @Override
@@ -332,5 +352,14 @@ class JDBCRelationalStatement implements RelationalStatement {
     @ExcludeFromJacocoGeneratedReport
     public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException {
         checkOpen();
+    }
+
+    private com.apple.foundationdb.relational.jdbc.grpc.v1.Options optionsAsProto() {
+        final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
+        int maxRows = this.options.getOption(Options.Name.MAX_ROWS);
+        if (maxRows != (int) Options.defaultOptions().get(Options.Name.MAX_ROWS)) {
+            builder.setMaxRows(maxRows);
+        }
+        return builder.build();
     }
 }

@@ -319,8 +319,6 @@ public final class PlanGenerator {
                 currentPlanHashMode,
                 Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
-        planGenerationContext.setLimit(queryHasherContext.getLimit());
-        planGenerationContext.setOffset(queryHasherContext.getOffset());
         Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint = QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());

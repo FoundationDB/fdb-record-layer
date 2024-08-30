@@ -1,5 +1,5 @@
 #
-# limit.yamsql
+# maxRows.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -38,41 +38,34 @@ setup:
 test_block:
   tests:
     -
-      # limit value is not of type Long
-      - query: select ta.* from ta LIMIT 2.3;
-      - error: "42804"
+      # maxRows value is negative
+      - query: select ta.* from ta;
+      - maxRows: -27525
+      - error: "22023"
     -
-      # limit value is 0
-      - query: select ta.* from ta LIMIT 0;
-      - error: "2201W"
-    -
-      # limit value > MAX_INTEGER
-      - query: select ta.* from ta LIMIT 2325325245245;
-      - error: "2201W"
-    -
-      # limit value is negative
-      - query: select ta.* from ta LIMIT -27525;
-      - error: "42601"
-    -
-      # limit value 1
-      - query: select ta.* from ta limit 1;
+      # maxRows value 1
+      - query: select ta.* from ta;
+      - maxRows: 1
       - result: [{1, 2}]
     -
-      # limit value 2
-      - query: select ta.* from ta limit 2;
+      # maxRows value 2
+      - query: select ta.* from ta;
+      - maxRows: 2
       - result: [{1, 2}, {3, 4}]
     -
-      # limit value < number of candidate records to be returned
-      - query: select ta.* from ta limit 5;
+      # maxRows value < number of candidate records to be returned
+      - query: select ta.* from ta;
+      - maxRows: 5
       - result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}]
     -
-      # limit value > number of candidate records to be returned (all records returned)
-      - query: select ta.* from ta limit 15;
+      # maxRows value > number of candidate records to be returned (all records returned)
+      - query: select ta.* from ta;
+      - maxRows: 15
       - result: [{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
     -
-      # offset value is not supported
+      # limit value offset value is not supported
       - query: select ta.* from ta LIMIT 2 OFFSET 2;
-      - error: "XX000"
+      - error: "0AF00"
 #    -
 #      # offset value is negative
 #      - query: select ta.* from ta LIMIT 2 OFFSET -27525;
@@ -90,8 +83,9 @@ test_block:
 #      - query: select ta.* from ta limit 1000 OFFSET 5;
 #      - result: [{11, 12}, {13, 14}, {15, 16}, {17, 18}, {19, 20}]
     -
-      # limit with simple filter
-      - query: select ta.* from ta where a % 3 = 0 limit 2;
+      # maxRows with simple filter
+      - query: select ta.* from ta where a % 3 = 0;
+      - maxRows: 2
       - result: [{3, 4}, {9, 10}]
 #    -
 #      # offset value = 0, limit 1
@@ -110,16 +104,21 @@ test_block:
 #      - query: select ta.* from ta limit 1000 OFFSET 1000;
 #      - result: []
     -
+      # limit not supported as it was replaced by maxRows for now
+      - query: select * from ta limit 5
+      - error: "0AF00"
+    -
       # limit clause when from has a nested statement
       - query: select p.* from (select ta.* from ta where ta.a > 5 limit 1) as p;
-      - error: "0A000"
+      - error: "0AF00"
     -
       # limit clause when where has existential statement
       - query: select p.* FROM ta as p where exists (select * from ta where ta.a = p.a limit 1);
-      - error: "0A000"
+      - error: "0AF00"
     -
       # limit clause with continuation
-      - query: select ta.* from ta limit 2;
+      - query: select ta.* from ta;
+      - maxRows: 2
       - result: [{1, 2}, {3, 4}]
       - result: [{5, 6}, {7, 8}]
       - result: [{9, 10}, {11, 12}]

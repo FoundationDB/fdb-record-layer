@@ -55,6 +55,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
+
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -246,7 +247,7 @@ public class BackingLocatableResolverStoreTest {
             while (!continuation.atEnd()) {
                 try (RelationalStatement statement = connection.createStatement()) {
                     Options options = Options.builder()
-                            .withOption(Options.Name.CONTINUATION_PAGE_SIZE, pageSize)
+                            .withOption(Options.Name.MAX_ROWS, pageSize)
                             .withOption(Options.Name.CONTINUATION, continuation)
                             .build();
                     try (RelationalResultSet resultSet = statement.executeScan("Interning", new KeySet(), options)) {

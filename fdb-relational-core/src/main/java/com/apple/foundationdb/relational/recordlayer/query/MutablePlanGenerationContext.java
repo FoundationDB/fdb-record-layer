@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
@@ -80,10 +79,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     private boolean shouldProcessLiteral;
 
-    private int limit;
-
-    private int offset;
-
     private boolean forExplain;
 
     @Nullable
@@ -101,8 +96,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         literalsBuilder = LiteralsBuilder.newBuilder();
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
-        limit = ReadTransaction.ROW_LIMIT_UNLIMITED;
-        offset = 0;
         forExplain = false;
         setContinuation(null);
         equalityConstraints = ImmutableList.builder();
@@ -186,24 +179,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return planHashMode;
     }
 
-    public void setLimit(int limit) {
-        this.limit = limit;
-    }
-
-    @Override
-    public int getLimit() {
-        return limit;
-    }
-
-    public void setOffset(int offset) {
-        this.offset = offset;
-    }
-
-    @Override
-    public int getOffset() {
-        return offset;
-    }
-
     // this is temporary until we have a proper clean up.
     public boolean isForDdl() {
         return !shouldProcessLiteral;
@@ -223,10 +198,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     @Override
     public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
-        final var builder = ExecuteProperties.newBuilder();
-        builder.setReturnedRowLimit(limit);
-        builder.setSkip(offset);
-        return builder;
+        return ExecuteProperties.newBuilder();
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Intentional")

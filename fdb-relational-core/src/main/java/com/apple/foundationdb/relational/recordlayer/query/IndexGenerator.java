@@ -338,7 +338,7 @@ public final class IndexGenerator {
     private Pair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
                                                                             @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
         Assert.thatUnchecked(aggregateValue instanceof IndexableAggregateValue);
-        final var indexableAggregateValue = (IndexableAggregateValue)aggregateValue;
+        final var indexableAggregateValue = (IndexableAggregateValue) aggregateValue;
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
         var indexTypeName = indexableAggregateValue.getIndexTypeName();
         final KeyExpression groupedValue;
