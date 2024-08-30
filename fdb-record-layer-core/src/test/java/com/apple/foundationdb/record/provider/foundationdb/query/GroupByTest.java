@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -85,7 +84,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.streamingAggregationPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.bitmapAggregationValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.bitmapConstructAggValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
 
@@ -277,7 +276,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                                 mapPlan(
                                         indexPlan()
 
-                                )).where(aggregations(recordConstructorValue(exactly(bitmapAggregationValue(anyValue()))))
+                                )).where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
                                 .and(groupings(ValueMatchers.anyValue())))));
     }
 

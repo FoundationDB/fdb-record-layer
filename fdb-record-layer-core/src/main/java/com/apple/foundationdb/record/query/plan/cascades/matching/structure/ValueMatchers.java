@@ -121,7 +121,7 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static <V extends Value> BindingMatcher<NumericAggregationValue.BitMapConstructAgg> bitmapAggregationValue(@Nonnull final BindingMatcher<V> downstream) {
+    public static <V extends Value> BindingMatcher<NumericAggregationValue.BitMapConstructAgg> bitmapConstructAggValue(@Nonnull final BindingMatcher<V> downstream) {
         return typedWithDownstream(NumericAggregationValue.BitMapConstructAgg.class,
                 Extractor.of(NumericAggregationValue.BitMapConstructAgg::getChild, name -> "child(" + name + ")"),
                 downstream);

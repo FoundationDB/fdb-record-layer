@@ -196,7 +196,8 @@ class AggregateValueTest {
                 .toArray();
     }
 
-    private Object[] bitsetForBitMap(Object[] objects) {
+    @Nonnull
+    private Object[] bitsetForBitMap(@Nonnull Object[] objects) {
         return Arrays.stream(objects)
                 .map(object -> {
                     if (object == null) {
