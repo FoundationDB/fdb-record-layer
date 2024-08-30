@@ -612,7 +612,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         AVG,
         MIN,
         MAX,
-        BITMAP
+        BITMAP_CONSTRUCT_AGG
     }
 
     /**
@@ -678,7 +678,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, Objects::requireNonNull, (s, v) -> Math.max((long)s, (long)v), identity()),
         MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, Objects::requireNonNull, (s, v) -> Math.max((float)s, (float)v), identity()),
         MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, Objects::requireNonNull, (s, v) -> Math.max((double)s, (double)v), identity()),
-        BITMAP_L(LogicalOperator.BITMAP, TypeCode.LONG, TypeCode.BYTES,
+        BITMAP_CONSTRUCT_AGG_L(LogicalOperator.BITMAP_CONSTRUCT_AGG, TypeCode.LONG, TypeCode.BYTES,
                 s -> {
                     BitSet sset = new BitSet();
                     sset.set(((Long)s).intValue());
@@ -701,7 +701,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                         return Arrays.copyOf(res, fixedResultArraySize);
                     }
                 }),
-        BITMAP_I(LogicalOperator.BITMAP, TypeCode.INT, TypeCode.BYTES,
+        BITMAP_CONSTRUCT_AGG_I(LogicalOperator.BITMAP_CONSTRUCT_AGG, TypeCode.INT, TypeCode.BYTES,
                 s -> {
                     BitSet sset = new BitSet();
                     sset.set((int)s);
