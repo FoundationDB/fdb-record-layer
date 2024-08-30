@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -35,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
@@ -66,6 +69,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -75,16 +80,18 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for queries that use the {@link IndexTypes#PERMUTED_MIN} and {@link IndexTypes#PERMUTED_MAX} index types.
@@ -97,12 +104,25 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private static final String MAX_UNIQUE_BY_STR_VALUE_2_3 = "maxNumValueUniqueByStrValue2And3";
     @Nonnull
+    private static final String MAX_2_BY_STR_VALUE_3 = "maxNumValue2ByStrValueThree";
+    @Nonnull
+    private static final String MAX_3_BY_STR_VALUE_REPEATER_AND_2 = "maxNumValue3ByStrValueRepeaterAnd2";
+    @Nonnull
     private static final GroupingKeyExpression UNIQUE_BY_2_3 = field("num_value_unique")
             .groupBy(concatenateFields("num_value_2", "num_value_3_indexed"));
     @Nonnull
     private static final GroupingKeyExpression UNIQUE_BY_STR_VALUE_2_3 = field("num_value_unique")
             .groupBy(concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed"));
 
+    @Nonnull
+    private static final GroupingKeyExpression NUM_VALUE_2_BY_STR_VALUE_3 = field("num_value_2")
+            .groupBy(concatenateFields("str_value_indexed", "num_value_3_indexed"));
+
+    @Nonnull
+    private static final GroupingKeyExpression NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 = field("num_value_3_indexed")
+            .groupBy(concat(field("str_value_indexed"), field("repeater", KeyExpression.FanType.FanOut), field("num_value_2")));
+
+    @Nonnull
     private static Index maxUniqueBy2And3() {
         return new Index(MAX_UNIQUE_BY_2_3, UNIQUE_BY_2_3, IndexTypes.PERMUTED_MAX, Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
     }
@@ -113,28 +133,61 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
+    private static Index max2ByStrValueAnd3() {
+        return new Index(MAX_2_BY_STR_VALUE_3, NUM_VALUE_2_BY_STR_VALUE_3, IndexTypes.PERMUTED_MAX, Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
+    }
+
+    @Nonnull
+    private static Index max3ByStrValueRepeaterAnd2() {
+        return new Index(MAX_3_BY_STR_VALUE_REPEATER_AND_2, NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2, IndexTypes.PERMUTED_MAX, Map.of(IndexOptions.PERMUTED_SIZE_OPTION, "1"));
+    }
+
+    @Nonnull
+    private static Quantifier explodeRepeated(@Nonnull Quantifier baseQun, @Nonnull String repeatedField) {
+        final ExplodeExpression explode = new ExplodeExpression(FieldValue.ofFieldNameAndFuseIfPossible(baseQun.getFlowedObjectValue(), repeatedField));
+        final Quantifier explodeQun = Quantifier.forEach(Reference.of(explode));
+
+        return Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                .addQuantifier(explodeQun)
+                .addResultValue(explodeQun.getFlowedObjectValue())
+                .build()
+                .buildSelect()
+        ));
+    }
+
+    @Nonnull
     private static Quantifier selectWhereQun(@Nonnull Quantifier baseQun, @Nullable QueryPredicate predicate) {
-        final var selectWhereBuilder = GraphExpansion.builder();
-        selectWhereBuilder.addQuantifier(baseQun);
-        if (predicate != null) {
-            selectWhereBuilder.addPredicate(predicate);
-        }
-        selectWhereBuilder.addResultValue(baseQun.getFlowedObjectValue());
+        return selectWhereWithMultipleQuns(List.of(baseQun), predicate == null ? Collections.emptyList() : List.of(predicate));
+    }
+
+    @Nonnull
+    private static Quantifier selectWhereWithMultipleQuns(@Nonnull List<Quantifier> baseQuns, @Nonnull List<QueryPredicate> predicates) {
+        final var selectWhereBuilder = GraphExpansion.builder()
+                .addAllQuantifiers(baseQuns)
+                .addAllPredicates(predicates);
+        baseQuns.stream().map(Quantifier::getFlowedObjectValue).forEach(selectWhereBuilder::addResultValue);
         return Quantifier.forEach(Reference.of(selectWhereBuilder.build().buildSelect()));
     }
 
     @Nonnull
     private static Quantifier maxUniqueByGroupQun(@Nonnull Quantifier selectWhere) {
+        return maxByGroup(selectWhere, "num_value_unique", List.of("num_value_2", "num_value_3_indexed"));
+    }
+
+    @Nonnull
+    private static Quantifier maxByGroup(@Nonnull Quantifier selectWhere, @Nonnull String maxField, @Nonnull List<String> groupingFields) {
         var baseReference = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
-        final FieldValue groupedValue = FieldValue.ofFieldName(baseReference, "num_value_unique");
-        var aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
-        final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldRef));
-        final var num2Value = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0), "num_value_2");
-        final var num3Value = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0), "num_value_3_indexed");
-        final List<Column<? extends Value>> groupingColumns = List.of(
-                Column.of(Optional.of("num_value_2"), num2Value),
-                Column.of(Optional.of("num_value_3_indexed"), num3Value)
-        );
+        final FieldValue groupedValue = FieldValue.ofFieldName(baseReference, maxField);
+        final FieldValue aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
+        final List<Column<? extends Value>> groupingColumns = groupingFields.stream()
+                .map(groupingField -> FDBSimpleQueryGraphTest.projectColumn(baseReference, groupingField))
+                .collect(Collectors.toList());
+        return maxByGroup(selectWhere, aggregatedFieldRef, groupingColumns);
+    }
+
+    @Nonnull
+    private static Quantifier maxByGroup(@Nonnull Quantifier selectWhere, @Nonnull FieldValue aggregatedFieldValue, @Nonnull List<Column<? extends Value>> groupingColumns) {
+        final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldValue));
         final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(groupingColumns);
         final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)),
                 GroupByExpression::nestedResults, selectWhere);
@@ -150,21 +203,11 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             selectHavingBuilder.addPredicate(predicate);
         }
         for (String resultColumn : resultColumns) {
-            Value value;
-            switch (resultColumn) {
-                case "m":
-                    value = aggregateValueReference;
-                    break;
-                case "num_value_2":
-                    value = FieldValue.ofOrdinalNumber(groupingValueReference, 0);
-                    break;
-                case "num_value_3_indexed":
-                    value = FieldValue.ofOrdinalNumber(groupingValueReference, 1);
-                    break;
-                default:
-                    value = fail("Unknown result column name " + resultColumn);
+            if (resultColumn.equals("m")) {
+                selectHavingBuilder.addResultColumn(Column.of(Optional.of(resultColumn), aggregateValueReference));
+            } else {
+                selectHavingBuilder.addResultColumn(FDBSimpleQueryGraphTest.projectColumn(groupingValueReference, resultColumn));
             }
-            selectHavingBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(value, resultColumn));
         }
         return Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
     }
@@ -215,7 +258,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             for (Map.Entry<Integer, List<Tuple>> groupedResult : byNumValue2.entrySet()) {
                 int numValue2 = groupedResult.getKey();
                 final List<Tuple> groupedTuples = groupedResult.getValue();
-                final Map<Integer, Integer> expectedMaxes = expectedMaxesByNumValue3(val -> val == numValue2);
+                final Map<Integer, Integer> expectedMaxes = expectedMaxUniquesByNumValue3(val -> val == numValue2);
                 assertThat(groupedTuples, hasSize(expectedMaxes.size()));
                 final List<Matcher<? super Tuple>> expectedTuples = expectedTuples(expectedMaxes, reverse);
                 assertThat(groupedTuples, contains(expectedTuples));
@@ -257,7 +300,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final List<Tuple> tupleResults = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2Param, numValue2).build(), List.of("num_value_3_indexed", "m"));
 
                 final int numValue2Value = numValue2;
-                final Map<Integer, Integer> expectedMaxes = expectedMaxesByNumValue3(val -> val == numValue2Value);
+                final Map<Integer, Integer> expectedMaxes = expectedMaxUniquesByNumValue3(val -> val == numValue2Value);
                 assertThat(tupleResults, hasSize(expectedMaxes.size()));
                 if (!expectedMaxes.isEmpty()) {
                     final List<Matcher<? super Tuple>> expectedTuples = expectedTuples(expectedMaxes, false);
@@ -306,7 +349,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final List<Tuple> tupleResults = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2Param, numValue2).build(), List.of("num_value_3_indexed", "m"));
 
                 final int numValue2Value = numValue2;
-                final Map<Integer, Integer> expectedMaxes = expectedMaxesByNumValue3(val -> val == numValue2Value);
+                final Map<Integer, Integer> expectedMaxes = expectedMaxUniquesByNumValue3(val -> val == numValue2Value);
                 assertThat(tupleResults, hasSize(expectedMaxes.size()));
                 if (!expectedMaxes.isEmpty()) {
                     final List<Matcher<? super Tuple>> expectedTuples = expectedTuples(expectedMaxes, reverse);
@@ -324,11 +367,11 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         @Nonnull
         private final Comparisons.Comparison comparison;
         @Nonnull
-        private final Function<List<Integer>, Bindings> bindingsFunction;
+        private final Function<List<?>, Bindings> bindingsFunction;
         private final int legacyPlanHash;
         private final int continuationPlanHash;
 
-        protected InComparisonCase(@Nonnull String name, @Nonnull Comparisons.Comparison comparison, @Nonnull Function<List<Integer>, Bindings> bindingsFunction, @Nonnull int legacyPlanHash, int continuationPlanHash) {
+        protected InComparisonCase(@Nonnull String name, @Nonnull Comparisons.Comparison comparison, @Nonnull Function<List<?>, Bindings> bindingsFunction, @Nonnull int legacyPlanHash, int continuationPlanHash) {
             this.name = name;
             this.comparison = comparison;
             this.bindingsFunction = bindingsFunction;
@@ -342,7 +385,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         }
 
         @Nonnull
-        Bindings getBindings(@Nonnull List<Integer> nv2List) {
+        Bindings getBindings(@Nonnull List<?> nv2List) {
             return bindingsFunction.apply(nv2List);
         }
 
@@ -364,12 +407,12 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     static Stream<InComparisonCase> selectMaxWithInOrderByMax() {
         ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
-                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 1892469314, 236900508),
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 2026350341, 370781535),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(-1, -1)), nv2List -> {
                     Assumptions.assumeTrue(nv2List.equals(List.of(-1, -1)));
                     return Bindings.EMPTY_BINDINGS;
-                }, -2117223697, 522174793),
-                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -725142828, 1914255662)
+                }, -1983342670, 656055820),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), nv2List -> constantBindings(constant, nv2List), -591261801, 2048136689)
         );
     }
 
@@ -387,6 +430,10 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                     .build());
 
             RecordQueryPlan plan = planGraph(() -> {
+                // Equivalent to something like:
+                //   SELECT num_value_2, num_value_3_indexed, max(num_value_unique) as m FROM MySimpleRecord GROUP BY num_value_2, num_value_3_indexed HAVING num_value_2 IN ? ORDER BY m DESC
+                // Different IN cases use different values for the IN list comparand ?, including a literal value, a parameter, and a constant object value,
+                // but they should all have the same semantics
                 final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
                 final var selectWhere = selectWhereQun(base, null);
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
@@ -411,13 +458,13 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
             for (int i = -1; i < 4; i++) {
                 final int nv2I = i;
-                final Map<Integer, Integer> maxesByI = expectedMaxesByNumValue3(nv2 -> nv2 == nv2I);
+                final Map<Integer, Integer> maxesByI = expectedMaxUniquesByNumValue3(nv2 -> nv2 == nv2I);
                 final List<Tuple> expectedTuplesByI = maxesByI.entrySet().stream()
                         .map(entry -> Tuple.from(nv2I, entry.getKey(), entry.getValue()))
                         .collect(Collectors.toList());
                 for (int j = -1; j < 4; j++) {
                     final int nv2J = j;
-                    final Map<Integer, Integer> maxesByJ = expectedMaxesByNumValue3(nv2 -> nv2 == nv2J);
+                    final Map<Integer, Integer> maxesByJ = expectedMaxUniquesByNumValue3(nv2 -> nv2 == nv2J);
                     final List<Tuple> expectedTuplesByJ = maxesByJ.entrySet().stream()
                             .map(entry -> Tuple.from(nv2J, entry.getKey(), entry.getValue()))
                             .collect(Collectors.toList());
@@ -433,6 +480,254 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             }
 
             commit(context);
+        }
+    }
+
+    @Nonnull
+    static Stream<InComparisonCase> testMaxWithInAndDupes() {
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
+        return Stream.of(
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 2106093264, -1898989910),
+                new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of("even", "odd")), strValueList -> {
+                    Assumptions.assumeTrue(strValueList.equals(List.of("even", "odd")));
+                    return Bindings.EMPTY_BINDINGS;
+                }, -1932450623, -1642566501),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 747556219, 1037440341)
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest
+    @MethodSource
+    void testMaxWithInAndDupes(InComparisonCase inComparisonCase) throws Exception {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), max2ByStrValueAnd3());
+        complexQuerySetup(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setAttemptFailedInJoinAsUnionMaxSize(20)
+                    .build());
+
+            RecordQueryPlan plan = planGraph(() -> {
+                // Equivalent to something like:
+                //   SELECT str_value_indexed, num_value_3_indexed, max(num_value_2) as m FROM MySimpleRecord GROUP BY str_value_indexed, num_value_3_indexed HAVING str_value_indexed IN ? ORDER BY m DESC
+                // Different IN cases use different values for the IN list comparand ?, including a literal value, a parameter, and a constant object value,
+                // but they should all have the same semantics
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final var selectWhere = selectWhereQun(base, null);
+                final var groupedByQun = maxByGroup(selectWhere, "num_value_2", List.of("str_value_indexed", "num_value_3_indexed"));
+
+                final var groupingValue = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
+                final var qun = selectHaving(groupedByQun,
+                        FieldValue.ofFieldNameAndFuseIfPossible(groupingValue, "str_value_indexed").withComparison(inComparisonCase.getComparison()),
+                        List.of("str_value_indexed", "num_value_3_indexed", "m"));
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+            });
+
+            assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
+                    RecordQueryPlanMatchers.mapPlan(
+                            RecordQueryPlanMatchers.aggregateIndexPlan()
+                                    .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.equalities(ListMatcher.exactly(ScanComparisons.anyValueComparison()))))
+                                    .and(RecordQueryPlanMatchers.isReverse())
+                    )
+            ));
+            assertEquals(inComparisonCase.getLegacyPlanHash(), plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+            final Map<Integer, Integer> evenMaxes = expectedMaxNumValue2ByNumValue3WithStrValue("even");
+            final List<Tuple> evenTuples = evenMaxes.entrySet().stream().map(entry -> Tuple.from("even", entry.getKey(), entry.getValue())).collect(Collectors.toList());
+            final Map<Integer, Integer> oddMaxes = expectedMaxNumValue2ByNumValue3WithStrValue("odd");
+            final List<Tuple> oddTuples = oddMaxes.entrySet().stream().map(entry -> Tuple.from("odd", entry.getKey(), entry.getValue())).collect(Collectors.toList());
+            final List<Tuple> queriedAll = executeAndGetTuples(plan, inComparisonCase.getBindings(List.of("even", "odd")), List.of("str_value_indexed", "num_value_3_indexed", "m"));
+            final List<Tuple> expectedAll = ImmutableList.<Tuple>builder().addAll(evenTuples).addAll(oddTuples).build();
+            assertThat(queriedAll, containsInAnyOrder(expectedAll.toArray()));
+
+            final List<Tuple> queriedEven = executeAndGetTuples(plan, inComparisonCase.getBindings(List.of("even")), List.of("str_value_indexed", "num_value_3_indexed", "m"));
+            assertThat(queriedEven, containsInAnyOrder(evenTuples.toArray()));
+            final List<Tuple> queriedOdd = executeAndGetTuples(plan, inComparisonCase.getBindings(List.of("odd")), List.of("str_value_indexed", "num_value_3_indexed", "m"));
+            assertThat(queriedOdd, containsInAnyOrder(oddTuples.toArray()));
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testSortedMaxWithEqualityOnRepeater() {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), max3ByStrValueRepeaterAnd2());
+        setUpWithRepeaters(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setAttemptFailedInJoinAsUnionMaxSize(20)
+                    .build());
+
+            final String strValueParam = "strValue";
+            final String xValueParam = "xValue";
+            RecordQueryPlan plan = planGraph(() -> {
+                // Equivalent to something like:
+                //   SELECT num_value_2, max(num_value_3_indexed) as m
+                //      FROM MySimpleRecord, (SELECT x FROM MySimpleRecord.repeater) r
+                //      WHERE strValueIndexed = ?strValue
+                //      GROUP BY str_value_indexed, r.x, num_value_2
+                //      HAVING r.x = ?xValue
+                //      ORDER BY m DESC
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final var repeater = explodeRepeated(base, "repeater");
+                final var selectWhere = selectWhereWithMultipleQuns(List.of(base, repeater),
+                        List.of(FieldValue.ofFieldName(base.getFlowedObjectValue(), "str_value_indexed").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, strValueParam))));
+
+                final FieldValue baseInWhere = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
+                final var groupedByQun = maxByGroup(selectWhere, FieldValue.ofFieldNameAndFuseIfPossible(baseInWhere, "num_value_3_indexed"),
+                        List.of(
+                                Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldNameAndFuseIfPossible(baseInWhere, "str_value_indexed")),
+                                Column.of(Optional.of("x"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 1), 0)),
+                                Column.of(Optional.of("num_value_2"), FieldValue.ofFieldNameAndFuseIfPossible(baseInWhere, "num_value_2"))
+                        )
+                );
+
+                final var groupingValue = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
+                final var qun = selectHaving(groupedByQun,
+                        FieldValue.ofFieldNameAndFuseIfPossible(groupingValue, "x").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, xValueParam)),
+                        List.of("num_value_2", "m"));
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+            });
+
+            assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
+                    RecordQueryPlanMatchers.aggregateIndexPlan()
+                            .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.range("[EQUALS $" + strValueParam + ", EQUALS $" + xValueParam + "]")))
+                            .and(RecordQueryPlanMatchers.isReverse())
+                    )
+            );
+            assertEquals(-1108387883, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(925464623, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+
+            for (String strValue : List.of("even", "odd")) {
+                IntStream.range(0, 9).forEach(xValue -> {
+                    final List<Tuple> queried = executeAndGetTuples(plan,
+                            Bindings.newBuilder().set(strValueParam, strValue).set(xValueParam, xValue).build(),
+                            List.of("num_value_2", "m"));
+
+                    final Map<Integer, Integer> expectedMap = expectedMax3ByRepeater(strValue, xValue);
+                    final List<Tuple> expectedTuples = expectedMap.entrySet().stream()
+                            .sorted(Comparator.comparingInt(e -> -1 * e.getValue()))
+                            .map(entry -> Tuple.from(entry.getKey(), entry.getValue()))
+                            .collect(Collectors.toList());
+                    assertEquals(expectedTuples, queried);
+                });
+            }
+        }
+    }
+
+    @Nonnull
+    static Stream<InComparisonCase> testSortedMaxWithInOnRepeater() {
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        return Stream.of(
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "xValueList"), xValueList -> Bindings.newBuilder().set("xValueList", xValueList).build(), -1502950720, 1245186594),
+                new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(0, 0)), strValueList -> {
+                    Assumptions.assumeTrue(strValueList.equals(List.of(0, 0)));
+                    return Bindings.EMPTY_BINDINGS;
+                }, 645291999, -901537983),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), 2037371876, 490541894)
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest
+    @MethodSource
+    void testSortedMaxWithInOnRepeater(InComparisonCase inComparisonCase) {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final RecordMetaDataHook hook = metaData -> metaData.addIndex(metaData.getRecordType("MySimpleRecord"), max3ByStrValueRepeaterAnd2());
+        setUpWithRepeaters(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            planner.setConfiguration(planner.getConfiguration().asBuilder()
+                    .setAttemptFailedInJoinAsUnionMaxSize(20)
+                    .build());
+
+            final String strValueParam = "strValue";
+            final String xValueParam = "xValueList";
+            RecordQueryPlan plan = planGraph(() -> {
+                // Equivalent to something like:
+                //   SELECT r.x, num_value_2, max(num_value_3_indexed) as m
+                //      FROM MySimpleRecord, (SELECT x FROM MySimpleRecord.repeater) r
+                //      WHERE strValueIndexed = ?strValue
+                //      GROUP BY str_value_indexed, r.x, num_value_2
+                //      HAVING r.x IN ?xValueList
+                //      ORDER BY m DESC
+                final var base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final var repeater = explodeRepeated(base, "repeater");
+                final var selectWhere = selectWhereWithMultipleQuns(List.of(base, repeater),
+                        List.of(FieldValue.ofFieldName(base.getFlowedObjectValue(), "str_value_indexed").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, strValueParam))));
+
+                final FieldValue baseInWhere = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
+                final var groupedByQun = maxByGroup(selectWhere, FieldValue.ofFieldNameAndFuseIfPossible(baseInWhere, "num_value_3_indexed"),
+                        List.of(
+                                Column.of(Optional.of("str_value_indexed"), FieldValue.ofFieldNameAndFuseIfPossible(baseInWhere, "str_value_indexed")),
+                                Column.of(Optional.of("x"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 1), 0)),
+                                Column.of(Optional.of("num_value_2"), FieldValue.ofFieldNameAndFuseIfPossible(baseInWhere, "num_value_2"))
+                        )
+                );
+
+                final var groupingValue = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
+                final var qun = selectHaving(groupedByQun,
+                        FieldValue.ofFieldNameAndFuseIfPossible(groupingValue, "x").withComparison(inComparisonCase.getComparison()),
+                        List.of("x", "num_value_2", "m"));
+                final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+            });
+
+            assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
+                    RecordQueryPlanMatchers.mapPlan(
+                            RecordQueryPlanMatchers.aggregateIndexPlan()
+                                    .where(RecordQueryPlanMatchers.isReverse())
+                    )
+            ));
+            assertEquals(inComparisonCase.getLegacyPlanHash(), plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+            for (String strValue : List.of("even", "odd")) {
+                IntStream.range(0, 9).forEach(xValue1 -> {
+                    final Map<Integer, Integer> expected1 = expectedMax3ByRepeater(strValue, xValue1);
+                    final List<Tuple> tuples1 = expected1.entrySet().stream()
+                                    .map(entry -> Tuple.from(xValue1, entry.getKey(), entry.getValue()))
+                                    .collect(Collectors.toList());
+
+                    IntStream.range(0, 9).forEach(xValue2 -> {
+                        final List<Tuple> queried = executeAndGetTuples(plan,
+                                inComparisonCase.getBindings(List.of(xValue1, xValue2)).childBuilder().set(strValueParam, strValue).build(),
+                                List.of("x", "num_value_2", "m"));
+
+                        Stream<Tuple> baseStream;
+                        if (xValue1 == xValue2) {
+                            baseStream = tuples1.stream();
+                        } else {
+                            final Map<Integer, Integer> expected2 = expectedMax3ByRepeater(strValue, xValue2);
+                            baseStream = Stream.concat(tuples1.stream(), expected2.entrySet().stream()
+                                    .map(entry -> Tuple.from(xValue2, entry.getKey(), entry.getValue()))
+                            );
+                        }
+                        final List<Tuple> evenTuples = baseStream
+                                .sorted((t1, t2) -> {
+                                    long m1 = t1.getLong(2);
+                                    long m2 = t2.getLong(2);
+                                    if (m1 != m2) {
+                                        return -1 * Long.compare(m1, m2);
+                                    }
+                                    long x1 = t1.getLong(0);
+                                    long x2 = t2.getLong(0);
+                                    return -1 * Long.compare(x1, x2);
+                                })
+                                .collect(Collectors.toList());
+                        assertEquals(evenTuples, queried, () -> "value mismatch for strValue = \"" + strValue + "\" and xValue1 = " + xValue1 + " and xValue2 = " + xValue2);
+                    });
+                });
+            }
         }
     }
 
@@ -468,7 +763,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
             for (int numValue2 = -1; numValue2 <= 4; numValue2++) {
                 final int numValue2Value = numValue2;
-                final Map<Integer, Integer> baseMaxes = expectedMaxesByNumValue3(val -> val == numValue2Value);
+                final Map<Integer, Integer> baseMaxes = expectedMaxUniquesByNumValue3(val -> val == numValue2Value);
                 int maxValue = (int) baseMaxes.values().stream().mapToInt(i -> i).average().orElse(0.0);
 
                 final List<Tuple> tupleResults = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2Param, numValue2).set(maxValueParam, maxValue).build(), List.of("num_value_3_indexed", "m"));
@@ -523,7 +818,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
             for (int numValue2 = -1; numValue2 <= 4; numValue2++) {
                 final int numValue2Value = numValue2;
-                final Map<Integer, Integer> baseMaxes = expectedMaxesByNumValue3(val -> val == numValue2Value);
+                final Map<Integer, Integer> baseMaxes = expectedMaxUniquesByNumValue3(val -> val == numValue2Value);
                 int maxValue = (int) baseMaxes.values().stream().mapToInt(i -> i).average().orElse(0.0);
 
                 final List<Tuple> tupleResults = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2Param, numValue2).set(maxValueParam, maxValue).build(), List.of("num_value_3_indexed", "m"));
@@ -611,7 +906,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final int nv2 = i;
                 for (String s : List.of("even", "odd", "neither")) {
                     List<Tuple> queried = executeAndGetTuples(plan, Bindings.newBuilder().set(numValue2Param, nv2).set(strValueParam, s).build(), List.of("num_value_3_indexed", "m"));
-                    Map<Integer, Integer> expectedMaxes = expectedMaxesByNumValue3(x -> x == nv2, s::equals);
+                    Map<Integer, Integer> expectedMaxes = expectedMaxUniquesByNumValue3(x -> x == nv2, s::equals);
                     List<Tuple> expectedTuples = expectedMaxes.entrySet().stream()
                             .map(entry -> Tuple.from(entry.getKey(), entry.getValue()))
                             .sorted(Comparator.comparingLong(t -> (reverse ? -1 * t.getLong(1) : t.getLong(1))))
@@ -641,13 +936,36 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
-    private static Map<Integer, Integer> expectedMaxesByNumValue3(Predicate<Integer> numValue2Filter) {
-        return expectedMaxesByNumValue3(numValue2Filter, Predicates.alwaysTrue());
+    private void setUpWithRepeaters(@Nullable RecordMetaDataHook hook) {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            for (int i = 0; i < 100; i++) {
+                var simpleBuilder = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i + 100L)
+                        .setNumValue2(i % 3)
+                        .setStrValueIndexed((i % 2) == 0 ? "even" : "odd")
+                        .setNumValueUnique(1000 - i)
+                        .setNumValue3Indexed(i / 2);
+
+                // Set a value for each bit set in the overall counter
+                BitSet setBits = BitSet.valueOf(new long[]{(long)i});
+                setBits.stream().forEach(simpleBuilder::addRepeater);
+
+                recordStore.saveRecord(simpleBuilder.build());
+            }
+
+            commit(context);
+        }
     }
 
     @Nonnull
-    private static Map<Integer, Integer> expectedMaxesByNumValue3(Predicate<Integer> numValue2Filter, Predicate<String> strValueParam) {
+    private static Map<Integer, Integer> expectedMaxUniquesByNumValue3(Predicate<Integer> numValue2Filter) {
+        return expectedMaxUniquesByNumValue3(numValue2Filter, Predicates.alwaysTrue());
+    }
+
+    @Nonnull
+    private static Map<Integer, Integer> expectedMaxUniquesByNumValue3(Predicate<Integer> numValue2Filter, Predicate<String> strValueParam) {
         final Map<Integer, Integer> expectedMaxes = new HashMap<>();
         for (int i = 0; i < 100; i++) {
             int numValue2 = i % 3;
@@ -661,6 +979,40 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             int numValue3 = i % 5;
             int numValueUnique = 1000 - i;
             expectedMaxes.compute(numValue3, (k, existing) -> existing == null ? numValueUnique : Math.max(numValueUnique, existing));
+        }
+        return expectedMaxes;
+    }
+
+    @Nonnull
+    private static Map<Integer, Integer> expectedMaxNumValue2ByNumValue3WithStrValue(String strValueParam) {
+        final Map<Integer, Integer> expectedMaxes = new HashMap<>();
+        for (int i = 0; i < 100; i++) {
+            final String strValue = ((i & 1) == 0) ? "even" : "odd";
+            if (!strValueParam.equals(strValue)) {
+                continue;
+            }
+            int numValue2 = i % 3;
+            int numValue3 = i % 5;
+            expectedMaxes.compute(numValue3, (k, existing) -> existing == null ? numValue2 : Math.max(numValue2, existing));
+        }
+        return expectedMaxes;
+    }
+
+    private static Map<Integer, Integer> expectedMax3ByRepeater(@Nonnull String strValue, int repeater) {
+        int repeaterMask = 1 << repeater;
+
+        final Map<Integer, Integer> expectedMaxes = new HashMap<>();
+        boolean even = "even".equals(strValue);
+        for (int i = 0; i < 100; i++) {
+            if ((i % 2 == 0) != even) {
+                continue;
+            }
+            if ((i & repeaterMask) == 0) {
+                continue;
+            }
+            int numValue2 = i % 3;
+            int numValue3 = i / 2;
+            expectedMaxes.compute(numValue2, (k, existing) -> existing == null ? numValue3 : Math.max(numValue3, existing));
         }
         return expectedMaxes;
     }
