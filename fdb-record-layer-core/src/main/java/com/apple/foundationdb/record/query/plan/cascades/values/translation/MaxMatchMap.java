@@ -89,29 +89,8 @@ public class MaxMatchMap {
         return queryResultValue;
     }
 
-    /**
-     * This produces a translation map comprising a single item which replaces {@code queryAlias}
-     * with the {@code queryResultValue} that is rewritten in terms of {@code candidateAlias} according
-     * this map of maximum matches between the {@code queryResultValue} and the {@code candidateResultValue}.
-     *
-     * @param queryAlias The query correlation used as a translation source in the resulting translation
-     *                         map.
-     * @param candidateAlias The correlation, according to which, the {@code queryResultValue} will be rewritten.
-     * @return A single-item translation map comprising a replacement of {@code queryAlias} with the
-     * {@code queryResultValue} that is rewritten in terms of {@code candidateAlias} according this map of maximum
-     * matches between the {@code queryResultValue} and the {@code candidateResultValue}.
-     */
     @Nonnull
-    public TranslationMap pullUpTranslationMap(@Nonnull final CorrelationIdentifier queryAlias,
-                                               @Nonnull final CorrelationIdentifier candidateAlias) {
-        final var translatedQueryValue = translateQueryValue(candidateAlias);
-        return TranslationMap.builder()
-                .when(queryAlias).then((src, quantifiedValue) -> translatedQueryValue)
-                .build();
-    }
-
-    @Nonnull
-    private Value translateQueryValue(@Nonnull final CorrelationIdentifier candidateCorrelation) {
+    public Value translateQueryValue(@Nonnull final CorrelationIdentifier candidateCorrelation) {
         final var mapping = getMapping();
         final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
@@ -192,9 +171,6 @@ public class MaxMatchMap {
                                         @Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue) {
         final var aliasesToBeAdded = Sets.difference(queryResultValue.getCorrelatedTo(), equivalenceAliasMap.sources());
-        final var amendedEquivalenceMap = equivalenceAliasMap.toBuilder()
-                .identitiesFor(aliasesToBeAdded)
-                .build();
 
         final BiMap<Value, Value> newMapping = HashBiMap.create();
         queryResultValue.preOrderPruningIterator(queryValuePart -> {
@@ -205,7 +181,7 @@ public class MaxMatchMap {
                             // operator's children can not be referenced.
                             // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)Value of the candidate.
                             .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, amendedEquivalenceMap))
+                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, equivalenceAliasMap))
                     .findAny();
             match.ifPresent(value -> newMapping.put(queryValuePart, value));
             // if match is empty, descend further and look for more fine-grained matches.

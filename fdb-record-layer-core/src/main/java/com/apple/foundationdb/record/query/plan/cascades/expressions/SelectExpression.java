@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -304,6 +305,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
         // TODO This method should be simplified by adding some structure to it.
+        final var translationMap =
+                RelationalExpression.pullUpAndComposeTranslationMaps(candidateExpression, bindingAliasMap, partialMatchMap);
+
         final Collection<MatchInfo> matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
         Verify.verify(this != candidateExpression);
@@ -415,7 +419,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
-                                remainingValueComputationOptional, Optional.empty(), QueryPlanConstraint.tautology())
+                                remainingValueComputationOptional,
+                                Optional.of(computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap)),
+                                QueryPlanConstraint.tautology())
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
@@ -527,15 +533,23 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
                                         MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
                                 return allParameterBindingMapOptional
-                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap,
-                                                allParameterBindingMap, predicateMap, PredicateMap.empty(),
-                                                remainingValueComputationOptional, Optional.empty(),
-                                                QueryPlanConstraint.tautology()))
+                                        .flatMap(allParameterBindingMap ->
+                                                MatchInfo.tryMerge(partialMatchMap,
+                                                        allParameterBindingMap, predicateMap, PredicateMap.empty(),
+                                                        remainingValueComputationOptional,
+                                                        Optional.of(computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap)),
+                                                        QueryPlanConstraint.tautology()))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })
                             .orElse(ImmutableList.of());
                 });
+    }
+
+    @Nonnull
+    private MaxMatchMap computeMaxMatchMap(final @Nonnull RelationalExpression candidateExpression, final @Nonnull AliasMap bindingAliasMap, final TranslationMap translationMap) {
+        final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+        return MaxMatchMap.calculate(bindingAliasMap, translatedResultValue, candidateExpression.getResultValue());
     }
 
     @Nonnull

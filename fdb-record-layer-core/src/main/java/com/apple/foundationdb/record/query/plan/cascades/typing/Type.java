@@ -1570,6 +1570,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         @Nonnull
+        @SuppressWarnings("PMD.UnnecessaryFullyQualifiedName") // false positive
         public static <T extends java.lang.Enum<T>> Enum forJavaEnum(@Nonnull final Class<T> enumClass) {
             final var enumValuesBuilder = ImmutableList.<EnumValue>builder();
             T[] enumConstants = enumClass.getEnumConstants();

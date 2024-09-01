@@ -54,11 +54,12 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalSortExpression(@Nonnull RequestedOrdering ordering, @Nonnull Quantifier inner) {
+    public LogicalSortExpression(@Nonnull final RequestedOrdering ordering, @Nonnull final Quantifier inner) {
         this.ordering = ordering;
         this.inner = inner;
     }
 
+    @Deprecated
     public LogicalSortExpression(@Nonnull List<Value> sortValues,
                                  final boolean reverse,
                                  @Nonnull final Quantifier inner) {

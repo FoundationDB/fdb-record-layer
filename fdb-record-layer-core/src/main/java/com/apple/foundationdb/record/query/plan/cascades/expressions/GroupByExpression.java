@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -262,6 +263,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
+        final var translationMap =
+                RelationalExpression.pullUpAndComposeTranslationMaps(candidateExpression, bindingAliasMap, partialMatchMap);
 
         // the candidate must be a GROUP-BY expression.
         if (candidateExpression.getClass() != this.getClass()) {
@@ -291,9 +294,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 });
 
         if (subsumedBy.isTrue()) {
+            final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+            final var maxMatchMap =
+                    MaxMatchMap.calculate(bindingAliasMap, translatedResultValue, candidateExpression.getResultValue());
+
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                             PredicateMap.empty(), Optional.empty(),
-                            Optional.empty(), subsumedBy.getConstraint())
+                            Optional.of(maxMatchMap), subsumedBy.getConstraint())
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }

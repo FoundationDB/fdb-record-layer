@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
@@ -194,6 +195,16 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public List<Column<? extends FieldValue>> computeFlowedColumns() {
             return pullUpResultColumns(getFlowedObjectType(), getAlias());
         }
+
+        @Override
+        @Nonnull
+        public TranslationMap pullUpMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap,
+                                                @Nonnull final CorrelationIdentifier candidateAlias) {
+            final var translatedQueryValue = maxMatchMap.translateQueryValue(candidateAlias);
+            return TranslationMap.builder()
+                    .when(getAlias()).then((src, quantifiedValue) -> translatedQueryValue)
+                    .build();
+        }
     }
 
     /**
@@ -291,6 +302,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         public List<Column<? extends FieldValue>> computeFlowedColumns() {
             throw new IllegalStateException("should not be called");
+        }
+
+        @Nonnull
+        @Override
+        public TranslationMap pullUpMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
+            return TranslationMap.ofAliases(getAlias(), candidateAlias);
         }
     }
 
@@ -429,6 +446,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         public List<Column<? extends FieldValue>> computeFlowedColumns() {
             return pullUpResultColumns(getFlowedObjectType(), getAlias());
+        }
+
+        @Nonnull
+        @Override
+        public TranslationMap pullUpMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
+            throw new UnsupportedOperationException("this method should not be called");
         }
 
         @Nonnull
@@ -649,6 +672,21 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         Verify.verify(resolvedTypeAcrossReference.getTypeCode() == Type.TypeCode.RELATION);
         return Objects.requireNonNull(((Type.Relation)resolvedTypeAcrossReference).getInnerType());
     }
+
+    /**
+     * Method that produces a {@link TranslationMap} comprising a single item which replaces {@code this.getAlias()}
+     * with the {@code queryResultValue} that is rewritten in terms of {@code candidateAlias} according
+     * this map of maximum matches between the {@code queryResultValue} and the {@code candidateResultValue}.
+     *
+     * @param maxMatchMap The {@link MaxMatchMap} to be pulled up into a {@link TranslationMap}.
+     * @param candidateAlias The correlation, according to which, the {@code queryResultValue} will be rewritten.
+     * @return A single-item translation map comprising a replacement of {@code queryAlias} with the
+     * {@code queryResultValue} that is rewritten in terms of {@code candidateAlias} according this map of maximum
+     * matches between the {@code queryResultValue} and the {@code candidateResultValue}.
+     */
+    @Nonnull
+    public abstract TranslationMap pullUpMaxMatchMap(@Nonnull MaxMatchMap maxMatchMap,
+                                                     @Nonnull CorrelationIdentifier candidateAlias);
 
     @Nonnull
     public abstract Quantifier overNewReference(@Nonnull Reference reference);

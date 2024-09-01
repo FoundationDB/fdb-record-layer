@@ -87,6 +87,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Optional<PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull final UnaryOperator<Value> valueTranslator,
                                                                           @Nonnull final Function<Comparison, Optional<Comparison>> comparisonTranslator) {
         final var newValue = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
@@ -111,11 +112,11 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return new ValuePredicate(value, comparison);
     }
 
-
     @Nullable
     @Override
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return comparison.eval(store, context, value.eval(store, context));
+        return comparison.eval(Objects.requireNonNull(store), context, value.eval(store, context));
     }
 
     @Nonnull

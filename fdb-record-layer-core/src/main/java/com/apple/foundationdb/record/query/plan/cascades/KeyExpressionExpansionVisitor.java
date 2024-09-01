@@ -173,6 +173,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // false positive
     public GraphExpansion visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
         final VisitorState state = getCurrentState();
 

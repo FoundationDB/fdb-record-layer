@@ -99,7 +99,6 @@ public class ValueMatchers {
                 matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValueWithFieldPath(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                        @Nonnull final CollectionMatcher<Integer> downstreamFieldPathOrdinals,
@@ -122,7 +121,7 @@ public class ValueMatchers {
                 matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathOrdinalsMatcher, downstreamFieldPathTypesMatcher)));
     }
 
-    public static <V extends Value> BindingMatcher<NumericAggregationValue.Sum> sumAggregationValue() {
+    public static BindingMatcher<NumericAggregationValue.Sum> sumAggregationValue() {
         return sumAggregationValue(anyValue());
     }
 
@@ -155,13 +154,6 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
-        return typedWithDownstream(ToOrderedBytesValue.class,
-                Extractor.of(ToOrderedBytesValue::getChildren, name -> "children(" + name + ")"),
-                downstreamValues);
-    }
-
-    @Nonnull
     public static BindingMatcher<StreamableAggregateValue> streamableAggregateValue() {
         return streamableAggregateValue(exactly(ImmutableList.of(anyValue())));
     }
@@ -181,6 +173,13 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<QuantifiedObjectValue> quantifiedObjectValue() {
         return typed(QuantifiedObjectValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.of(ToOrderedBytesValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
     }
 
     @Nonnull

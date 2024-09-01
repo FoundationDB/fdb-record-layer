@@ -43,29 +43,6 @@ import java.util.Random;
  * Tests for value mapping.
  */
 public class ValueTranslationTest {
-
-    @SuppressWarnings("checkstyle:MemberName")
-    @Nonnull
-    private final CorrelationIdentifier P = CorrelationIdentifier.of("P");
-
-    @SuppressWarnings("checkstyle:MemberName")
-    @Nonnull
-    private final CorrelationIdentifier Q = CorrelationIdentifier.of("Q");
-
-    @Nonnull
-    private Type.Record getRecordType() {
-        // (z1, (z21, (z31, c, z32)b )a, z2, (z33, e, z44)d))
-        return r(f("z1"),
-                f("a", r(f("z21"),
-                        f("b", r("z31",
-                                "c",
-                                "z32")))),
-                f("z2"),
-                f("d", r("z33",
-                        "e",
-                        "z44")));
-    }
-
     @SuppressWarnings("checkstyle:MethodName")
     @Nonnull
     private Type.Record getTType() {
@@ -89,27 +66,15 @@ public class ValueTranslationTest {
 
     @SuppressWarnings("checkstyle:MethodName")
     @Nonnull
-    private QuantifiedObjectValue qov(@Nonnull final String name) {
-        return qov(name, getRecordType());
-    }
-
-    @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
-    private QuantifiedObjectValue qov(@Nonnull final String name, @Nonnull final Type type) {
-        return qov(CorrelationIdentifier.of(name), type);
-    }
-
-    @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private QuantifiedObjectValue qov(@Nonnull final CorrelationIdentifier name, @Nonnull final Type type) {
         return QuantifiedObjectValue.of(name, type);
     }
 
     @SuppressWarnings("checkstyle:MethodName")
     @Nonnull
-    private Type.Record r(String... fields) {
+    private Type.Record r(String... fieldNames) {
         return Type.Record
-                .fromFields(Arrays.stream(fields)
+                .fromFields(Arrays.stream(fieldNames)
                         .map(this::f)
                         .collect(ImmutableList.toImmutableList()));
     }
@@ -143,11 +108,6 @@ public class ValueTranslationTest {
     @Nonnull
     private FieldValue fv(@Nonnull final Value base, String... name) {
         return fvInternal(base, name.length - 1, name);
-    }
-
-    @Nonnull
-    private FieldValue fv(String... name) {
-        return fvInternal(ObjectValue.of(P, getRecordType()), name.length - 1, name);
     }
 
     @Nonnull
@@ -316,7 +276,7 @@ public class ValueTranslationTest {
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
 
-        final var l2TranslationMap = l1m3.pullUpTranslationMap(pAlias, p_Alias);
+        final var l2TranslationMap = pullUp(l1m3, pAlias, p_Alias);
 
         /*
            translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
@@ -556,7 +516,7 @@ public class ValueTranslationTest {
         final var rv = rcv(fv(p, 2, 0));
         final var r_v = rcv(fv(p_, 1, 0));
 
-        final var l2TranslationMap = l1m3.pullUpTranslationMap(pAlias, p_Alias);
+        final var l2TranslationMap = pullUp(l1m3, pAlias, p_Alias);
 
         /*
            translation of (p.2.0) with correlation mapping of p -> p' (and the above m3) should
@@ -802,9 +762,9 @@ public class ValueTranslationTest {
         final var predicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(fv(r, 0), fv(r, 1, 0))));
 
 
-        final var l2TranslationMapForPValue = l1m3ForTValue.pullUpTranslationMap(pAlias, p_Alias);
-        final var l2TranslationMapForQValue = l1m3ForMValue.pullUpTranslationMap(qAlias, q_Alias);
-        final var l2TranslationMapForRValue = l1m3ForNValue.pullUpTranslationMap(rAlias, r_Alias);
+        final var l2TranslationMapForPValue = pullUp(l1m3ForTValue, pAlias, p_Alias);
+        final var l2TranslationMapForQValue = pullUp(l1m3ForMValue, qAlias, q_Alias);
+        final var l2TranslationMapForRValue = pullUp(l1m3ForNValue, rAlias, r_Alias);
         final var compositeTranslationMap = TranslationMap.compose(ImmutableList.of(l2TranslationMapForPValue, l2TranslationMapForQValue, l2TranslationMapForRValue));
         final var translatedPredicate = predicate.translateCorrelationsAndSimplify(compositeTranslationMap);
 
@@ -1041,9 +1001,9 @@ public class ValueTranslationTest {
         final var predicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(add(fv(p, 0), fv(q, 0, 0)), add(add(fv(r, 0), s), u)));
 
         final var translationMaps = new ArrayList<TranslationMap>();
-        translationMaps.add(l1m3ForTValue.pullUpTranslationMap(pAlias, p_Alias));
-        translationMaps.add(l1m3ForMValue.pullUpTranslationMap(qAlias, q_Alias));
-        translationMaps.add(l1m3ForNValue.pullUpTranslationMap(rAlias, r_Alias));
+        translationMaps.add(pullUp(l1m3ForTValue, pAlias, p_Alias));
+        translationMaps.add(pullUp(l1m3ForMValue, qAlias, q_Alias));
+        translationMaps.add(pullUp(l1m3ForNValue, rAlias, r_Alias));
         translationMaps.add(TranslationMap.ofAliases(sAlias, s_Alias));
         translationMaps.add(TranslationMap.ofAliases(uAlias, u_Alias));
 
@@ -1060,5 +1020,60 @@ public class ValueTranslationTest {
             final var translatedPredicate = predicate.translateCorrelationsAndSimplify(compositeTranslationMap);
             Assertions.assertEquals(expectedTranslatedPredicate, translatedPredicate);
         }
+    }
+
+    /**
+     * Test to establish that simple a simple QueriedValue() can be matched to another QueriedValue().
+     */
+    @Test
+    public void maxMatchValueSimpleQueriedValues() {
+
+        final var pv = new QueriedValue(getTType(), ImmutableList.of("T"));
+        final var p_v = new QueriedValue(getTType(), ImmutableList.of("T"));
+
+        /*
+           translation of (
+           QueriedValue()) with empty correlation mapping (and no m3) should not cause any translation
+         */
+
+        final var l1TranslationMap = TranslationMap.empty();
+        final var l1TranslatedQueryValue = pv.translateCorrelationsAndSimplify(l1TranslationMap);
+        Assertions.assertEquals(pv, l1TranslatedQueryValue);
+
+        /*
+          let's construct a max match map (m3) using the translated value with the candidate value.
+         */
+        final var l1m3 = MaxMatchMap.calculate(AliasMap.emptyMap(), l1TranslatedQueryValue, p_v);
+
+        Map<Value, Value> l1ExpectedMapping = Map.of(pv,  p_v);
+        Assertions.assertEquals(l1ExpectedMapping, l1m3.getMapping());
+        Assertions.assertEquals(pv, l1m3.getQueryResultValue());
+        Assertions.assertEquals(p_v, l1m3.getCandidateResultValue());
+
+        final var pAlias = CorrelationIdentifier.of("P");
+        final var p_Alias = CorrelationIdentifier.of("P'");
+        final var p = qov(pAlias, pv.getResultType());
+        final var pPredicate = (Value)new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p, 0, 0),
+                LiteralValue.ofScalar(42)));
+        final var p_ = qov(p_Alias, p_v.getResultType());
+
+        final var l2TranslationMap = pullUp(l1m3, pAlias, p_Alias);
+
+        /*
+           translation of the predicate p.0.0 < 42 should yield p'.0.0 < 42
+         */
+        final var l2TranslatedPredicate = pPredicate.translateCorrelationsAndSimplify(l2TranslationMap);
+        Assertions.assertEquals(new RelOpValue.LtFn().encapsulate(ImmutableList.of(fv(p_, 0, 0),
+                LiteralValue.ofScalar(42))), l2TranslatedPredicate);
+    }
+
+    @Nonnull
+    private static TranslationMap pullUp(@Nonnull MaxMatchMap maxMatchMap,
+                                         @Nonnull final CorrelationIdentifier queryAlias,
+                                         @Nonnull final CorrelationIdentifier candidateAlias) {
+        final var translatedQueryValue = maxMatchMap.translateQueryValue(candidateAlias);
+        return TranslationMap.builder()
+                .when(queryAlias).then((src, quantifiedValue) -> translatedQueryValue)
+                .build();
     }
 }

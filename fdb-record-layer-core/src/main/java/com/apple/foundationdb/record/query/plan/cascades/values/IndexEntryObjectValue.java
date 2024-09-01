@@ -131,7 +131,6 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
             return null;
         }
 
-        final var typeRepository = context.getTypeRepository();
         switch (resultType.getTypeCode()) {
             case INT:
                 return ((Long)value).intValue();

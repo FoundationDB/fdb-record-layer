@@ -131,13 +131,13 @@ public abstract class ValueEquivalence {
         @Nonnull
         @Override
         public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
-            return BooleanWithConstraint.falseValue();
+            return falseValue();
         }
 
         @Nonnull
         @Override
         public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
-            return BooleanWithConstraint.falseValue();
+            return falseValue();
         }
 
         @Nonnull

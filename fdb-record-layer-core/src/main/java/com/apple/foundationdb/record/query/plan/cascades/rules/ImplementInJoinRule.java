@@ -257,7 +257,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 inSource = new SortedInComparandSource(
                         bindingName,
                         new Comparisons.ValueComparison(Comparisons.Type.IN, explodeCollectionValue),
-                        requestedSortOrder.isAnyAscending()); // TODO needs to distinguish between different descendings
+                        requestedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descendings
             } else {
                 return ImmutableList.of();
             }

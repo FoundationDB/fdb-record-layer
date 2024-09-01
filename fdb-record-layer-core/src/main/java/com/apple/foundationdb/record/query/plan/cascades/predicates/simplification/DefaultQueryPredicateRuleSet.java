@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
