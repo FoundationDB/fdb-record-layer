@@ -198,12 +198,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public TranslationMap pullUpMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap,
-                                                @Nonnull final CorrelationIdentifier candidateAlias) {
-            final var translatedQueryValue = maxMatchMap.translateQueryValue(candidateAlias);
-            return TranslationMap.builder()
-                    .when(getAlias()).then((src, quantifiedValue) -> translatedQueryValue)
-                    .build();
+        public Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
+                                                               @Nonnull final CorrelationIdentifier candidateAlias) {
+            final var translatedQueryValueOptional = maxMatchMap.translateQueryValueMaybe(candidateAlias);
+            return translatedQueryValueOptional
+                    .map(translatedQueryValue ->
+                            TranslationMap.builder()
+                                    .when(getAlias()).then((src, quantifiedValue) -> translatedQueryValue)
+                                    .build());
         }
     }
 
@@ -306,8 +308,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public TranslationMap pullUpMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
-            return TranslationMap.ofAliases(getAlias(), candidateAlias);
+        public Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
+            return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
         }
     }
 
@@ -450,7 +452,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public TranslationMap pullUpMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
+        public Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
             throw new UnsupportedOperationException("this method should not be called");
         }
 
@@ -685,8 +687,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * matches between the {@code queryResultValue} and the {@code candidateResultValue}.
      */
     @Nonnull
-    public abstract TranslationMap pullUpMaxMatchMap(@Nonnull MaxMatchMap maxMatchMap,
-                                                     @Nonnull CorrelationIdentifier candidateAlias);
+    public abstract Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull MaxMatchMap maxMatchMap,
+                                                                    @Nonnull CorrelationIdentifier candidateAlias);
 
     @Nonnull
     public abstract Quantifier overNewReference(@Nonnull Reference reference);

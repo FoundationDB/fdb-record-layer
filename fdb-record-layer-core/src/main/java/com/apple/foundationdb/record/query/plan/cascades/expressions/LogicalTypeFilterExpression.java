@@ -125,6 +125,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
     @Nonnull
     @Override
+    @SuppressWarnings("OptionalIsPresent")
     public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
@@ -133,10 +134,13 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             return ImmutableList.of();
         }
 
-        final var translationMap =
-                RelationalExpression.pullUpAndComposeTranslationMaps(candidateExpression, bindingAliasMap, partialMatchMap);
+        final var translationMapOptional =
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+        if (translationMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
 
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMap);
+        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
     }
 
     @Override

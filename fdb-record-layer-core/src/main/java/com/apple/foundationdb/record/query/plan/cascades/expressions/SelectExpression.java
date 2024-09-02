@@ -304,9 +304,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        // TODO This method should be simplified by adding some structure to it.
-        final var translationMap =
-                RelationalExpression.pullUpAndComposeTranslationMaps(candidateExpression, bindingAliasMap, partialMatchMap);
+        final var translationMapOptional =
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+        if (translationMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var translationMap = translationMapOptional.get();
 
         final Collection<MatchInfo> matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 

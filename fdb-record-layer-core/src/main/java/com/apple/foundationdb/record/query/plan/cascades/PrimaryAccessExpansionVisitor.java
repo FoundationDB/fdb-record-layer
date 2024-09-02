@@ -70,7 +70,8 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                         ImmutableList.of(),
                         -1,
                         0,
-                        false))));
+                        false,
+                        true))));
 
         final var allExpansions =
                 GraphExpansion.ofOthers(GraphExpansion.ofQuantifier(baseQuantifier), graphExpansion);

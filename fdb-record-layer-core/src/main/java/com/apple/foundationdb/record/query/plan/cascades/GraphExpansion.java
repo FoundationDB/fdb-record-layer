@@ -343,6 +343,11 @@ public class GraphExpansion {
     }
 
     @Nonnull
+    public static GraphExpansion ofPlaceholder(@Nonnull final Placeholder placeholder) {
+        return builder().addPredicate(placeholder).addPlaceholder(placeholder).build();
+    }
+
+    @Nonnull
     public static GraphExpansion ofPlaceholderAndQuantifier(@Nonnull final Placeholder placeholder, @Nonnull final Quantifier quantifier) {
         return of(ImmutableList.of(), ImmutableList.of(placeholder), ImmutableList.of(quantifier), ImmutableList.of(placeholder));
     }

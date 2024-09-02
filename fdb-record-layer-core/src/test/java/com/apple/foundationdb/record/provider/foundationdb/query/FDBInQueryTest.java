@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -100,6 +101,10 @@ import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyParameterComparison;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyValueComparison;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.equalities;
@@ -299,13 +304,13 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(NO_HOOK);
         final ConstantObjectValue constant = ConstantObjectValue.of(CorrelationIdentifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         final RecordQueryPlan plan = planGraph(() -> {
-            final Quantifier base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+            final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
             var select = GraphExpansion.builder()
                     .addQuantifier(base)
                     .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_3_indexed")
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.IN, constant)))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base.getFlowedObjectValue(), "num_value_3_indexed"))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base.getFlowedObjectValue(), "rec_no"))
+                    .addResultColumn(projectColumn(base.getFlowedObjectValue(), "num_value_3_indexed"))
+                    .addResultColumn(projectColumn(base.getFlowedObjectValue(), "rec_no"))
                     .build()
                     .buildSelect();
             Quantifier selectQun = Quantifier.forEach(Reference.of(select));
@@ -355,7 +360,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(hook);
         final var plan = planGraph(
                 () -> {
-                    var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                    var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                     final var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -366,10 +371,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
 
                     final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
-                    Column<LiteralValue<?>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
-                    Column<LiteralValue<?>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
-                    Column<LiteralValue<?>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
-                    Column<LiteralValue<?>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
+                    Column<LiteralValue<?>> str1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
+                    Column<LiteralValue<?>> str2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
+                    Column<LiteralValue<?>> n1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
+                    Column<LiteralValue<?>> n2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
 
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
@@ -379,7 +384,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 });
 
         assertMatchesExactly(plan,
@@ -405,7 +410,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(hook);
         final var plan = planGraph(
                 () -> {
-                    var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                    var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                     final var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -416,10 +421,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
 
                     final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
-                    Column<LiteralValue<String>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "odd"), "str_value_indexed");
-                    Column<LiteralValue<String>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "even"), "str_value_indexed");
-                    Column<LiteralValue<Integer>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
-                    Column<LiteralValue<Integer>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
+                    Column<LiteralValue<String>> str1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "odd"), "str_value_indexed");
+                    Column<LiteralValue<String>> str2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "even"), "str_value_indexed");
+                    Column<LiteralValue<Integer>> n1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 1), "num_value_3_indexed");
+                    Column<LiteralValue<Integer>> n2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT), 2), "num_value_3_indexed");
 
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
@@ -429,7 +434,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 });
 
         assertMatchesExactly(plan,
@@ -454,7 +459,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         complexQuerySetup(hook);
         Assertions.assertThrows(SemanticException.class, () -> planGraph(
                 () -> {
-                    var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                    var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                     final var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -465,10 +470,10 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             FieldValue.ofFieldName(qun.getFlowedObjectValue(), "num_value_3_indexed");
 
                     final var inArrayValue = RecordConstructorValue.ofUnnamed(List.of(strValueIndexed, numValue3Indexed));
-                    Column<LiteralValue<?>> str1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
-                    Column<LiteralValue<?>> str2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
-                    Column<LiteralValue<?>> n1 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L), "num_value_3_indexed");
-                    Column<LiteralValue<?>> n2 = FDBSimpleQueryGraphTest.resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L), "num_value_3_indexed");
+                    Column<LiteralValue<?>> str1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "foo"), "str_value_indexed");
+                    Column<LiteralValue<?>> str2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "bar"), "str_value_indexed");
+                    Column<LiteralValue<?>> n1 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L), "num_value_3_indexed");
+                    Column<LiteralValue<?>> n2 = resultColumn(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L), "num_value_3_indexed");
 
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
@@ -478,7 +483,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 }));
     }
 
@@ -638,18 +643,18 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setAttemptFailedInJoinAsUnionMaxSize(100)
                 .build());
         final RecordQueryPlan plan = planGraph(() -> {
-            final Quantifier base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+            final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
             var selectQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                     .addQuantifier(base)
                     .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_3_indexed")
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.IN, constant)))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base.getFlowedObjectValue(), "num_value_3_indexed"))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base.getFlowedObjectValue(), "rec_no"))
+                    .addResultColumn(projectColumn(base.getFlowedObjectValue(), "num_value_3_indexed"))
+                    .addResultColumn(projectColumn(base.getFlowedObjectValue(), "rec_no"))
                     .build()
                     .buildSelect()));
 
             final AliasMap aliasMap = AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current());
-            return Reference.of(new LogicalSortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "num_value_3_indexed").rebase(aliasMap)), reverse, selectQun));
+            return Reference.of(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "num_value_3_indexed").rebase(aliasMap)), reverse, selectQun));
         });
 
         // map(Covering(Index(MySimpleRecord$num_value_3_indexed [EQUALS $q50]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])[($q91.num_value_3_indexed as num_value_3_indexed, $q91.rec_no as rec_no)]) WHERE __corr_q50 IN @0
@@ -1094,22 +1099,22 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final ConstantObjectValue listConstant = ConstantObjectValue.of(constantAlias, "1", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());
         final RecordQueryPlan plan = planGraph(() -> {
-            final Quantifier base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+            final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
             final Quantifier select = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                     .addQuantifier(base)
                     .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2")
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, nv2Constant)))
                     .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_3_indexed")
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.IN, listConstant)))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "num_value_unique"))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "str_value_indexed"))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "num_value_3_indexed"))
-                    .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(base, "rec_no"))
+                    .addResultColumn(projectColumn(base, "num_value_unique"))
+                    .addResultColumn(projectColumn(base, "str_value_indexed"))
+                    .addResultColumn(projectColumn(base, "num_value_3_indexed"))
+                    .addResultColumn(projectColumn(base, "rec_no"))
                     .build()
                     .buildSelect()));
 
             final AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
-            return Reference.of(new LogicalSortExpression(ImmutableList.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "num_value_unique").rebase(aliasMap)), reverse, select));
+            return Reference.of(sortExpression(ImmutableList.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "num_value_unique").rebase(aliasMap)), reverse, select));
         });
 
         assertMatchesExactly(plan,

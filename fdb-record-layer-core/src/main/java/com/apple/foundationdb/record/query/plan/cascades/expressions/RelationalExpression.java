@@ -159,9 +159,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         }
 
         if (query.getSort() != null) {
+            final var sortValues =
+                    ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType());
             quantifier = Quantifier.forEach(Reference.of(
-                    new LogicalSortExpression(ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType()),
-                            query.isSortReverse(),
+                    new LogicalSortExpression(
+                            LogicalSortExpression.buildRequestedOrdering(sortValues,
+                                    query.isSortReverse(), quantifier),
                             quantifier)));
         } else {
             quantifier = Quantifier.forEach(Reference.of(LogicalSortExpression.unsorted(quantifier)));
@@ -715,9 +718,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Nonnull
-    static TranslationMap pullUpAndComposeTranslationMaps(@Nonnull final RelationalExpression candidateExpression,
-                                                          @Nonnull final AliasMap bindingAliasMap,
-                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+    static Optional<TranslationMap> pullUpAndComposeTranslationMapsMaybe(@Nonnull final RelationalExpression candidateExpression,
+                                                                         @Nonnull final AliasMap bindingAliasMap,
+                                                                         @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final var candidateAliasesToQuantifierMap =
                 Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
         var translationMapBuilder = TranslationMap.builder();
@@ -727,17 +730,18 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
             final var matchInfo = partialMatch.getMatchInfo();
             final var candidateAlias =
                     Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias()));
-            final TranslationMap quantifierTranslationMap =
-                    matchInfo.getMaxMatchMapOptional()
-                            .map(maxMatchMap -> quantifier.pullUpMaxMatchMap(maxMatchMap, candidateAlias))
-                            .orElseThrow(() -> new RecordCoreException("no max match map in match info"));
-
+            final var maxMatchMap = matchInfo.getMaxMatchMapOptional()
+                    .orElseThrow(() -> new RecordCoreException("no max match map in match info"));
+            final var quantifierTranslationMapOptional = quantifier.pullUpMaxMatchMapMaybe(maxMatchMap, candidateAlias);
+            if (quantifierTranslationMapOptional.isEmpty()) {
+                return Optional.empty();
+            }
             final var candidateQuantifier = candidateAliasesToQuantifierMap.get(candidateAlias);
             if (!(candidateQuantifier instanceof Quantifier.Existential)) {
-                translationMapBuilder = translationMapBuilder.compose(quantifierTranslationMap);
+                translationMapBuilder = translationMapBuilder.compose(quantifierTranslationMapOptional.get());
             }
         }
-        return translationMapBuilder.build();
+        return Optional.of(translationMapBuilder.build());
     }
 
     /**

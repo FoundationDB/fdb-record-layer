@@ -77,6 +77,11 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.version;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.getField;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -485,7 +490,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
             // Plan a query approximating:
             //    SELECT recordVersion(MySimpleRecord) AS version, MySimpleRecord.rec_no AS number FROM MySimpleRecord ORDER BY version ASC
             RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
-                var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var graphExpansionBuilder = GraphExpansion.builder();
                 graphExpansionBuilder.addQuantifier(qun);
@@ -493,13 +498,13 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
                 var versionValue = new VersionValue(qun.getFlowedObjectValue().getAlias());
 
-                graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(versionValue, "version"));
-                graphExpansionBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(recNoValue, "number"));
+                graphExpansionBuilder.addResultColumn(resultColumn(versionValue, "version"));
+                graphExpansionBuilder.addResultColumn(resultColumn(recNoValue, "number"));
 
                 var select = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
 
                 AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
-                return Reference.of(new LogicalSortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
+                return Reference.of(sortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
@@ -510,17 +515,17 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no"))))));
 
             FDBRecordVersion previousVersion = null;
-            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 for (RecordCursorResult<QueryResult> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
                     QueryResult underlying = Objects.requireNonNull(result.get());
                     // Make sure that the version is serialized into the RecordConstructor as bytes correctly
-                    ByteString versionObj = FDBSimpleQueryGraphTest.getField(underlying, ByteString.class, "version");
+                    ByteString versionObj = getField(underlying, ByteString.class, "version");
                     assertNotNull(versionObj);
                     FDBRecordVersion version = FDBRecordVersion.fromBytes(versionObj.toByteArray(), false);
                     if (previousVersion != null) {
                         assertThat(version, greaterThan(previousVersion));
                     }
-                    long number = Objects.requireNonNull(FDBSimpleQueryGraphTest.getField(underlying, Long.class, "number"));
+                    long number = Objects.requireNonNull(getField(underlying, Long.class, "number"));
                     long expectedRecNo = records.stream()
                             .filter(rec -> version.equals(rec.getVersion()))
                             .findFirst()
@@ -549,7 +554,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
             //        WHERE version <= ?versionForQuery
             // Use this to test how processing a version through sub-selects works
             RecordQueryPlan plan = ((CascadesPlanner)planner).planGraph(() -> {
-                var qun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                var qun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final var innerGraphBuilder = GraphExpansion.builder();
                 innerGraphBuilder.addQuantifier(qun);
@@ -557,8 +562,8 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 var recNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rec_no");
                 var versionValue = new VersionValue(qun.getFlowedObjectValue().getAlias());
 
-                innerGraphBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(versionValue, "version"));
-                innerGraphBuilder.addResultColumn(FDBSimpleQueryGraphTest.resultColumn(recNoValue, "number"));
+                innerGraphBuilder.addResultColumn(resultColumn(versionValue, "version"));
+                innerGraphBuilder.addResultColumn(resultColumn(recNoValue, "number"));
 
                 var innerSelect = Quantifier.forEach(Reference.of(innerGraphBuilder.build().buildSelect()));
 
@@ -590,15 +595,15 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .filter(rec -> rec.getVersion() != null && rec.getVersion().compareTo(versionForQuery) <= 0)
                     .map(rec -> rec.getRecord().getRecNo())
                     .collect(Collectors.toSet());
-            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 Set<Long> actualNumbers = new HashSet<>();
                 for (RecordCursorResult<QueryResult> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
                     QueryResult underlying = Objects.requireNonNull(result.get());
-                    ByteString versionObj = FDBSimpleQueryGraphTest.getField(underlying, ByteString.class, "_0");
+                    ByteString versionObj = getField(underlying, ByteString.class, "_0");
                     assertNotNull(versionObj);
                     FDBRecordVersion version = FDBRecordVersion.fromBytes(versionObj.toByteArray(), false);
                     assertThat(version, lessThanOrEqualTo(versionForQuery));
-                    long number = Objects.requireNonNull(FDBSimpleQueryGraphTest.getField(underlying, Long.class, "_1"));
+                    long number = Objects.requireNonNull(getField(underlying, Long.class, "_1"));
                     actualNumbers.add(number);
                 }
                 assertEquals(expectedNumbers, actualNumbers);

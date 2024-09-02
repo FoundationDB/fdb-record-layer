@@ -263,8 +263,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        final var translationMap =
-                RelationalExpression.pullUpAndComposeTranslationMaps(candidateExpression, bindingAliasMap, partialMatchMap);
+        final var translationMapOptional =
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+        if (translationMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var translationMap = translationMapOptional.get();
 
         // the candidate must be a GROUP-BY expression.
         if (candidateExpression.getClass() != this.getClass()) {

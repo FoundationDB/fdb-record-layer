@@ -63,18 +63,18 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     public LogicalSortExpression(@Nonnull List<Value> sortValues,
                                  final boolean reverse,
                                  @Nonnull final Quantifier inner) {
-        this(buildRequestedOrdering(sortValues, reverse, inner.getCorrelatedTo()), inner);
+        this(buildRequestedOrdering(sortValues, reverse, inner), inner);
     }
 
     @Nonnull
-    private static RequestedOrdering buildRequestedOrdering(@Nonnull List<Value> sortValues,
-                                                            boolean reverse,
-                                                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public static RequestedOrdering buildRequestedOrdering(@Nonnull List<Value> sortValues,
+                                                           boolean reverse,
+                                                           @Nonnull final Quantifier inner) {
         final OrderingPart.RequestedSortOrder order = OrderingPart.RequestedSortOrder.fromIsReverse(reverse);
         final RequestedOrdering.Distinctness distinctness = RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS;
         final var requestedOrderingParts =
                 sortValues.stream().map(value -> new OrderingPart.RequestedOrderingPart(value, order)).collect(Collectors.toList());
-        return RequestedOrdering.ofParts(requestedOrderingParts, distinctness, constantAliases);
+        return RequestedOrdering.ofParts(requestedOrderingParts, distinctness, inner.getCorrelatedTo());
     }
 
     @Nonnull

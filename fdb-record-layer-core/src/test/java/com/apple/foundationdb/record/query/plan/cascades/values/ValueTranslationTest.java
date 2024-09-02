@@ -1071,9 +1071,12 @@ public class ValueTranslationTest {
     private static TranslationMap pullUp(@Nonnull MaxMatchMap maxMatchMap,
                                          @Nonnull final CorrelationIdentifier queryAlias,
                                          @Nonnull final CorrelationIdentifier candidateAlias) {
-        final var translatedQueryValue = maxMatchMap.translateQueryValue(candidateAlias);
-        return TranslationMap.builder()
-                .when(queryAlias).then((src, quantifiedValue) -> translatedQueryValue)
-                .build();
+        final var translatedQueryValueOptional = maxMatchMap.translateQueryValueMaybe(candidateAlias);
+        final var translationMapOptional = translatedQueryValueOptional.map(translatedQueryValue ->
+                TranslationMap.builder()
+                        .when(queryAlias).then((src, quantifiedValue) -> translatedQueryValue)
+                        .build());
+        Assertions.assertTrue(translationMapOptional.isPresent());
+        return translationMapOptional.get();
     }
 }

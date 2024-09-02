@@ -148,11 +148,18 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                         .build();
             case None:
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
-                column = Column.unnamedOf(value);
-                if (state.isKey() && !state.isInternalExpansion()) {
-                    return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
+                if (state.isSelectStar()) {
+                    if (state.isKey() && !state.isInternalExpansion()) {
+                        return GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()));
+                    }
+                    return GraphExpansion.empty();
+                } else {
+                    column = Column.unnamedOf(value);
+                    if (state.isKey() && !state.isInternalExpansion()) {
+                        return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
+                    }
+                    return GraphExpansion.ofResultColumn(column);
                 }
-                return GraphExpansion.ofResultColumn(column);
             case Concatenate: // TODO collect/concatenate function
             default:
         }
@@ -178,7 +185,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         final VisitorState state = getCurrentState();
 
         final var arguments = functionKeyExpression.getArguments();
-        final var graphExpansion = pop(arguments.expand(push(state.withIsInternalExpansion(true))));
+        final var graphExpansion =
+                pop(arguments.expand(push(state.forFunctionalExpansion())));
 
         final var resultColumns = graphExpansion.getResultColumns();
         Verify.verify(resultColumns.size() == arguments.getColumnSize());
@@ -244,7 +252,17 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
                         pop(child.expand(push(state.withBaseQuantifier(childBase).withFieldNamePrefix(ImmutableList.of()))));
-                final GraphExpansion baseAndChildExpansion = childExpansion.withBase(childBase);
+                final GraphExpansion baseAndChildExpansion;
+                if (state.isSelectStar()) {
+                    final GraphExpansion baseExpansion =
+                            GraphExpansion.builder()
+                                    .addQuantifier(childBase)
+                                    .addAllResultColumns(childExpansion.getResultColumns())
+                                    .build();
+                    baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
+                } else {
+                    baseAndChildExpansion = childExpansion.withBase(childBase);
+                }
                 final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
                 final SelectExpression selectExpression =
                         sealedBaseAndChildExpansion.buildSelect();
@@ -336,13 +354,19 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
          */
         private final boolean isInternalExpansion;
 
+        /**
+         * Indicator if the expansion using this state should create result columns for all expressions.
+         */
+        private final boolean isSelectStar;
+
         private VisitorState(@Nonnull final List<Value> keyOrdinalMap,
                              @Nonnull final List<Value> valueValues,
                              @Nonnull final Quantifier.ForEach baseQuantifier,
                              @Nonnull final List<String> fieldNamePrefix,
                              final int splitPointForValues,
                              final int currentOrdinal,
-                             final boolean isInternalExpansion) {
+                             final boolean isInternalExpansion,
+                             final boolean isSelectStar) {
             this.keyValues = keyOrdinalMap;
             this.valueValues = valueValues;
             this.baseQuantifier = baseQuantifier;
@@ -350,6 +374,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             this.splitPointForValues = splitPointForValues;
             this.currentOrdinal = currentOrdinal;
             this.isInternalExpansion = isInternalExpansion;
+            this.isSelectStar = isSelectStar;
         }
 
         @Nonnull
@@ -384,6 +409,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             return isInternalExpansion;
         }
 
+        public boolean isSelectStar() {
+            return isSelectStar;
+        }
+
         public boolean isKey() {
             return splitPointForValues < 0 || getCurrentOrdinal() < splitPointForValues;
         }
@@ -407,7 +436,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal,
-                    this.isInternalExpansion);
+                    this.isInternalExpansion,
+                    this.isSelectStar);
         }
 
         public VisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
@@ -417,7 +447,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal,
-                    this.isInternalExpansion);
+                    this.isInternalExpansion,
+                    this.isSelectStar);
         }
 
         public VisitorState withSplitPointForValues(final int splitPointForValues) {
@@ -427,7 +458,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     fieldNamePrefix,
                     splitPointForValues,
                     this.currentOrdinal,
-                    this.isInternalExpansion);
+                    this.isInternalExpansion,
+                    this.isSelectStar);
         }
 
         public VisitorState withCurrentOrdinal(final int currentOrdinal) {
@@ -437,7 +469,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     currentOrdinal,
-                    this.isInternalExpansion);
+                    this.isInternalExpansion,
+                    this.isSelectStar);
         }
 
         public VisitorState withIsInternalExpansion(final boolean isInternalExpansion) {
@@ -447,7 +480,19 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal,
-                    isInternalExpansion);
+                    isInternalExpansion,
+                    this.isSelectStar);
+        }
+
+        public VisitorState forFunctionalExpansion() {
+            return new VisitorState(this.keyValues,
+                    this.valueValues,
+                    this.baseQuantifier,
+                    this.fieldNamePrefix,
+                    this.splitPointForValues,
+                    this.currentOrdinal,
+                    true,
+                    false);
         }
 
         public static VisitorState forQueries(@Nonnull final List<Value> valueValues,
@@ -460,6 +505,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     fieldNamePrefix,
                     0,
                     0,
+                    false,
                     false);
         }
 
@@ -469,7 +515,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                                       @Nonnull final List<String> fieldNamePrefix,
                                       final int splitPointForValues,
                                       final int currentOrdinal,
-                                      final boolean isInternalExpansion) {
+                                      final boolean isInternalExpansion,
+                                      final boolean isSelectStar) {
             return new VisitorState(
                     keyValues,
                     valueValues,
@@ -477,7 +524,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     fieldNamePrefix,
                     splitPointForValues,
                     currentOrdinal,
-                    isInternalExpansion);
+                    isInternalExpansion,
+                    isSelectStar);
         }
     }
 }

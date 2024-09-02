@@ -118,6 +118,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.list;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKey;
@@ -1582,7 +1584,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Execute plan and assert that the sum by group matches expectations
             final Map<Tuple, Long> queriedSumsByGroup = Maps.newHashMapWithExpectedSize(sumsByGroup.size());
-            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 cursor.forEach(queryResult -> {
                     final Message queriedMessage = queryResult.getMessage();
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
@@ -1627,7 +1629,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             if (isUseCascadesPlanner() && querySupplier != null) {
                 final RecordQueryPlan plan = planGraph(querySupplier);
                 cascadeResults = new HashMap<>();
-                try (RecordCursor<QueryResult> cascadeCursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+                try (RecordCursor<QueryResult> cascadeCursor = executeCascades(recordStore, plan)) {
                     for (RecordCursorResult<QueryResult> result = cascadeCursor.getNext(); result.hasNext(); result = cascadeCursor.getNext()) {
                         Message protoResult = result.get().getMessage();
                         String key = (String) protoResult.getField(protoResult.getDescriptorForType().findFieldByName("key"));
@@ -1982,7 +1984,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private Quantifier outerRecQun() {
-        return FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "OuterRecord");
+        return fullTypeScan(recordStore.getRecordMetaData(), "OuterRecord");
     }
 
     private Quantifier explodeEntryQun(@Nonnull Quantifier outerQun, @Nonnull String... fields) {

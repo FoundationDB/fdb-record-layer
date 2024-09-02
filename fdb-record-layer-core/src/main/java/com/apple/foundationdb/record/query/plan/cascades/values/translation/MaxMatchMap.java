@@ -20,24 +20,24 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated.BoundEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Verify;
+import com.google.common.base.Equivalence;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
@@ -90,7 +90,7 @@ public class MaxMatchMap {
     }
 
     @Nonnull
-    public Value translateQueryValue(@Nonnull final CorrelationIdentifier candidateCorrelation) {
+    public Optional<Value> translateQueryValueMaybe(@Nonnull final CorrelationIdentifier candidateCorrelation) {
         final var mapping = getMapping();
         final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
@@ -108,23 +108,24 @@ public class MaxMatchMap {
         // equivalencesMap, we immediately create m1 ○ m2 using a boundEquivalence based on equivalencesMap.
         //
         final var boundEquivalence = new BoundEquivalence<Value>(equivalencesMap);
-        final var pulledUpMaxMatchMap = mapping.entrySet()
-                .stream()
-                .map(entry -> {
-                    final var queryPart = entry.getKey();
-                    final var candidatePart = entry.getValue();
-                    final var pulledUpdateCandidatePart = pulledUpCandidateSide.get(candidatePart);
-                    if (pulledUpdateCandidatePart == null) {
-                        throw new RecordCoreException("could not pull up candidate part").addLogInfo("candidate_part", candidatePart);
-                    }
-                    return Map.entry(boundEquivalence.wrap(queryPart), pulledUpdateCandidatePart);
-                }).collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        final var pulledUpMaxMatchMapBuilder = ImmutableMap.<Equivalence.Wrapper<Value>, Value>builder();
+        for (final var entry : mapping.entrySet()) {
+            final var queryPart = entry.getKey();
+            final var candidatePart = entry.getValue();
+            final var pulledUpdateCandidatePart = pulledUpCandidateSide.get(candidatePart);
+            if (pulledUpdateCandidatePart == null) {
+                return Optional.empty();
+            }
+            pulledUpMaxMatchMapBuilder.put(Map.entry(boundEquivalence.wrap(queryPart), pulledUpdateCandidatePart));
+        }
 
+        final var pulledUpMaxMatchMap = pulledUpMaxMatchMapBuilder.build();
         final var queryResultValueFromBelow = getQueryResultValue();
-        return Verify.verifyNotNull(queryResultValueFromBelow.replace(valuePart -> {
+        final var translatedQueryResultValue = Objects.requireNonNull(queryResultValueFromBelow.replace(valuePart -> {
             final var maxMatch = pulledUpMaxMatchMap.get(boundEquivalence.wrap(valuePart));
             return maxMatch == null ? valuePart : maxMatch;
         }));
+        return Optional.of(translatedQueryResultValue);
     }
 
     /**
@@ -170,8 +171,6 @@ public class MaxMatchMap {
     public static MaxMatchMap calculate(@Nonnull final AliasMap equivalenceAliasMap,
                                         @Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue) {
-        final var aliasesToBeAdded = Sets.difference(queryResultValue.getCorrelatedTo(), equivalenceAliasMap.sources());
-
         final BiMap<Value, Value> newMapping = HashBiMap.create();
         queryResultValue.preOrderPruningIterator(queryValuePart -> {
             // look up the query sub values in the candidate value.

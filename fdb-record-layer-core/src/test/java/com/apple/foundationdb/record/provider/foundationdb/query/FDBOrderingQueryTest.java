@@ -29,8 +29,11 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Tag;
@@ -108,6 +111,15 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         return md -> {
             md.removeIndex("MySimpleRecord$str_value_indexed");
             md.addIndex("MySimpleRecord", "ordered_str_value", key);
+        };
+    }
+
+    protected RecordMetaDataHook indexHookWithInverseAndNonInverse(@Nullable String orderFunction) {
+        final KeyExpression key = fullOrderingKey(orderFunction);
+        return md -> {
+            md.removeIndex("MySimpleRecord$str_value_indexed");
+            md.addIndex("MySimpleRecord", "ordered_str_value", key);
+            md.addIndex("MySimpleRecord", "num_value_2_str_value_num_value_3_indexed", concat(field("num_value_2"), field("str_value_indexed"), field("num_value_3_indexed")));
         };
     }
 
@@ -226,14 +238,40 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setSort(fullOrderingKey("order_desc_nulls_last"))
                 .setFilter(Query.or(
-                                Query.field("num_value_2").equalsValue(100),
-                                Query.field("num_value_2").equalsValue(101),
-                                Query.field("num_value_2").equalsValue(102)))
+                        Query.field("num_value_2").equalsValue(100),
+                        Query.field("num_value_2").equalsValue(101),
+                        Query.field("num_value_2").equalsValue(102)))
                 .build();
         final List<Long> expected = List.of(1L, 5L, 4L, 3L, 2L, 6L);
         final List<Long> actual = queryRecords(query, hook, true);
         assertEquals(expected, actual);
-        assertTrue(planner.planQuery(query).getPlan() instanceof RecordQueryUnionOnKeyExpressionPlan);
+        final var plan = planner.planQuery(query).getPlan();
+        if (planner instanceof RecordQueryPlanner) {
+            assertTrue(plan instanceof RecordQueryUnionOnKeyExpressionPlan);
+        } else {
+            assertTrue(plan instanceof RecordQueryUnionOnValuesPlan);
+        }
+    }
+
+    @DualPlannerTest
+    void testUnionOrdered2() throws Exception {
+        final RecordMetaDataHook hook = indexHookWithInverseAndNonInverse("order_desc_nulls_last");
+        loadRecords(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setSort(fullOrderingKey("order_desc_nulls_last"))
+                .setFilter(Query.or(
+                        Query.and(Query.field("num_value_2").equalsValue(100), Query.field("str_value_indexed").equalsValue("hello"), Query.field("num_value_3_indexed").equalsValue(2)),
+                        Query.field("num_value_2").equalsValue(101),
+                        Query.field("num_value_2").equalsValue(102)))
+                .build();
+        final var plan = planner.planQuery(query).getPlan();
+        if (planner instanceof RecordQueryPlanner) {
+            assertTrue(plan instanceof RecordQueryUnionOnKeyExpressionPlan);
+        } else {
+            assertTrue(plan instanceof RecordQueryUnionOnValuesPlan);
+            assertTrue(plan.getChildren().stream().allMatch(p -> p instanceof RecordQueryIndexPlan));
+        }
     }
 
     @DualPlannerTest
