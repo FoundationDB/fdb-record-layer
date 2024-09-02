@@ -80,14 +80,17 @@ public class CursorTest {
             try {
                 Continuation cont = ContinuationImpl.BEGIN;
                 while (!cont.atEnd()) {
-                    try (RelationalResultSet resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(),
-                            Options.builder().withOption(Options.Name.CONTINUATION, cont).withOption(Options.Name.MAX_ROWS, 1).build())) {
-                        metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
-                        while (resultSet.next()) {
-                            actual.add(ResultSetTestUtils.currentRow(resultSet));
-                        }
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.setMaxRows(1);
+                        try (RelationalResultSet resultSet = statement.executeScan("RESTAURANT", new KeySet(),
+                                Options.builder().withOption(Options.Name.CONTINUATION, cont).build())) {
+                            metaData = resultSet.getMetaData().unwrap(StructMetaData.class);
+                            while (resultSet.next()) {
+                                actual.add(ResultSetTestUtils.currentRow(resultSet));
+                            }
 
-                        cont = resultSet.getContinuation();
+                            cont = resultSet.getContinuation();
+                        }
                     }
                 }
                 RelationalResultSet actualResults = new IteratorResultSet(metaData, actual.iterator(), 0);

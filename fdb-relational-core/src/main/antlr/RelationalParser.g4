@@ -472,7 +472,7 @@ resetStatement
 
 executeContinuationStatement
     : EXECUTE CONTINUATION packageBytes=continuationAtom
-      limitClause? queryOptions?
+      queryOptions?
     ;
 
 // details

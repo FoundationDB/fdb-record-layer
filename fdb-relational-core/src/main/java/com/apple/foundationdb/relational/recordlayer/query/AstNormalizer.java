@@ -466,9 +466,6 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitExecuteContinuationStatement(final RelationalParser.ExecuteContinuationStatementContext ctx) {
         queryCachingFlags.add(Result.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
         queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
-        if (ctx.limitClause() != null) {
-            ctx.limitClause().accept(this);
-        }
         if (ctx.queryOptions() != null) {
             ctx.queryOptions().accept(this);
         }
