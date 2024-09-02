@@ -423,7 +423,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             if (allNonFiltering) {
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
                                 remainingValueComputationOptional,
-                                Optional.of(computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap)),
+                                computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap),
                                 QueryPlanConstraint.tautology())
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
@@ -540,7 +540,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                                 MatchInfo.tryMerge(partialMatchMap,
                                                         allParameterBindingMap, predicateMap, PredicateMap.empty(),
                                                         remainingValueComputationOptional,
-                                                        Optional.of(computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap)),
+                                                        computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap),
                                                         QueryPlanConstraint.tautology()))
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());

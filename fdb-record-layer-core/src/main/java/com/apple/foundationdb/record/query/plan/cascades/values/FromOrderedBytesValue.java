@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Formatter;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.OrderPreservingValue;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value.InvertableValue;
 import com.apple.foundationdb.tuple.TupleOrdering;
@@ -140,7 +141,8 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
                                            @Nonnull final EvaluationContext context) {
         final var childResult = (ByteString)Objects.requireNonNull(child.eval(store, context));
         final Object result = TupleOrdering.unpack(childResult.toByteArray(), direction).get(0);
-        return resultType.validateObject(result);
+        Debugger.sanityCheck(() -> resultType.validateObject(result));
+        return result;
     }
 
     @Override

@@ -293,8 +293,8 @@ public class OrPredicate extends AndOrPredicate {
         final var matchPair = matchPairOptional.get();
         final var comparisonCompensation = matchPair.getLeft();
         final var compensatedLeftValueWithRangesOptional =
-                leftValueWithRanges.translateValueAndComparisonsMaybe(comparisonCompensation::compensateValue,
-                        comparisonCompensation::compensateComparisonMaybe);
+                leftValueWithRanges.translateValueAndComparisonsMaybe(comparisonCompensation::applyToValue,
+                        comparisonCompensation::applyToComparisonMaybe);
         if (compensatedLeftValueWithRangesOptional.isEmpty()) {
             return Optional.empty();
         }

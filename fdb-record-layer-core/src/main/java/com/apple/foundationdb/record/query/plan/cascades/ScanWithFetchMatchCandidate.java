@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -112,6 +114,29 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         return true;
     }
 
+    // TODO remove again -- https://github.com/FoundationDB/fdb-record-layer/issues/2905
+    private static boolean addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                            @Nonnull FieldValue fieldValue,
+                                            @Nonnull AvailableFields.FieldData fieldData) {
+        for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
+            if (maybeFieldName.isEmpty()) {
+                return false;
+            }
+            builder = builder.getFieldBuilder(maybeFieldName.get());
+        }
+
+        final var maybeFieldName = fieldValue.getLastFieldName();
+        if (maybeFieldName.isEmpty()) {
+            return false;
+        }
+        final String fieldName = maybeFieldName.get();
+        if (!builder.hasField(fieldName)) {
+            builder.addField(fieldName, fieldData.getSource(),
+                    fieldData.getCopyIfPredicate(), fieldData.getOrdinalPath(), fieldData.getInvertibleFunction());
+        }
+        return true;
+    }
+
     @Nonnull
     private static Optional<IndexKeyValueToPartialRecord.Builder> getParentBuilderForFieldMaybe(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                                                                                 @Nonnull final FieldValue fieldValue) {
@@ -147,7 +172,20 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                             IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-                if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+
+                // TODO begin remove -- https://github.com/FoundationDB/fdb-record-layer/issues/2905
+                if (extractFromIndexEntryPair.getValue() instanceof IndexEntryObjectValue) {
+                    final AvailableFields.FieldData fieldData =
+                            AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+                    if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(), fieldData)) {
+                        return Optional.empty();
+                    }
+                    logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
+                    continue;
+                }
+                // TODO end remove
+
+                if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
                         extractFromIndexEntryPair.getValue())) {
                     return Optional.empty();
                 }
@@ -163,7 +201,19 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                             IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-                if (!ScanWithFetchMatchCandidate.addCoveringField(builder, extractFromIndexEntryPair.getKey(),
+                // TODO begin remove -- https://github.com/FoundationDB/fdb-record-layer/issues/2905
+                if (extractFromIndexEntryPair.getValue() instanceof IndexEntryObjectValue) {
+                    final AvailableFields.FieldData fieldData =
+                            AvailableFields.FieldData.ofUnconditional(IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
+                    if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(), fieldData)) {
+                        return Optional.empty();
+                    }
+                    logicalValueValuesBuilder.add(extractFromIndexEntryPair.getLeft());
+                    continue;
+                }
+                // TODO end remove
+
+                if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
                         extractFromIndexEntryPair.getValue())) {
                     return Optional.empty();
                 }

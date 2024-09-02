@@ -709,7 +709,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                 MaxMatchMap.calculate(bindingAliasMap, translatedResultValue, candidateExpression.getResultValue());
 
         if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
-            return MatchInfo.tryFromMatchMap(partialMatchMap, Optional.of(maxMatchMap))
+            return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {
@@ -730,8 +730,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
             final var matchInfo = partialMatch.getMatchInfo();
             final var candidateAlias =
                     Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias()));
-            final var maxMatchMap = matchInfo.getMaxMatchMapOptional()
-                    .orElseThrow(() -> new RecordCoreException("no max match map in match info"));
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
             final var quantifierTranslationMapOptional = quantifier.pullUpMaxMatchMapMaybe(maxMatchMap, candidateAlias);
             if (quantifierTranslationMapOptional.isEmpty()) {
                 return Optional.empty();

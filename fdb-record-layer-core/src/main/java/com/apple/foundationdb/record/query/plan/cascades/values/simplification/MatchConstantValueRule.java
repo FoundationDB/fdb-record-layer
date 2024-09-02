@@ -79,7 +79,7 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
             }
 
             if (constantAliases.containsAll(correlatedTo)) {
-                newMatchedValuesMap.put(toBePulledUpValue, (ignored2) -> toBePulledUpValue);
+                newMatchedValuesMap.put(toBePulledUpValue, ignored -> toBePulledUpValue);
             }
         }
         call.yieldValue(value, newMatchedValuesMap);

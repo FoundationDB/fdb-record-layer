@@ -25,9 +25,11 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value.InvertableValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -40,20 +42,29 @@ public interface ComparisonCompensation {
     ComparisonCompensation NO_COMPENSATION = new ComparisonCompensation() {
         @Nonnull
         @Override
-        public Value compensateValue(@Nonnull final Value value) {
+        public Value applyToValue(@Nonnull final Value value) {
             return value;
         }
 
+        @Nonnull
         @Override
-        public Optional<Comparisons.Comparison> compensateComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        public Optional<Value> unapplyMaybe(@Nonnull final Value value) {
+            return Optional.of(value);
+        }
+
+        @Override
+        public Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
             return Optional.of(comparison);
         }
     };
 
     @Nonnull
-    Value compensateValue(@Nonnull Value value);
+    Value applyToValue(@Nonnull Value value);
 
-    Optional<Comparisons.Comparison> compensateComparisonMaybe(@Nonnull Comparisons.Comparison comparison);
+    @Nonnull
+    Optional<Value> unapplyMaybe(@Nonnull Value value);
+
+    Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull Comparisons.Comparison comparison);
 
     @Nonnull
     static ComparisonCompensation noCompensation() {
@@ -63,28 +74,40 @@ public interface ComparisonCompensation {
     /**
      * Chaining comparison compensation.
      */
-    class NestedComparisonCompensation implements ComparisonCompensation {
-        private final Value otherCurrent;
+    class NestedInvertableComparisonCompensation implements ComparisonCompensation {
+        private final InvertableValue<?> otherCurrent;
         private final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult;
 
-        public NestedComparisonCompensation(final Value otherCurrent, final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult) {
+        public NestedInvertableComparisonCompensation(final InvertableValue<?> otherCurrent,
+                                                      final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult) {
             this.otherCurrent = otherCurrent;
             this.childResult = childResult;
         }
 
         @Nonnull
         @Override
-        public Value compensateValue(@Nonnull final Value value) {
+        public Value applyToValue(@Nonnull final Value value) {
             final var childCompensation = childResult.getLeft();
-            return otherCurrent.withChildren(ImmutableList.of(childCompensation.compensateValue(value)));
+            return otherCurrent.withChildren(ImmutableList.of(childCompensation.applyToValue(value)));
+        }
+
+        @Nonnull
+        @Override
+        public Optional<Value> unapplyMaybe(@Nonnull final Value value) {
+            final var equalsWithoutChildren = otherCurrent.equalsWithoutChildren(value);
+            if (equalsWithoutChildren.isTrue() && equalsWithoutChildren.getConstraint().getPredicate().isTautology()) {
+                final var nestedComparisonCompensation = childResult.getLeft();
+                return nestedComparisonCompensation.unapplyMaybe(Iterables.getOnlyElement(value.getChildren()));
+            }
+            return Optional.empty();
         }
 
         @Override
-        public Optional<Comparisons.Comparison> compensateComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        public Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
             Verify.verify(comparison instanceof Comparisons.ValueComparison ||
                     comparison instanceof Comparisons.SimpleComparison);
             final var childCompensation = childResult.getLeft();
-            final var compensatedChildrenComparisonOptional = childCompensation.compensateComparisonMaybe(comparison);
+            final var compensatedChildrenComparisonOptional = childCompensation.applyToComparisonMaybe(comparison);
             return compensatedChildrenComparisonOptional.flatMap(compensatedChildrenComparison -> {
                 final Ordering.OrderPreservingKind orderPreservingKind =
                         (otherCurrent instanceof Ordering.OrderPreservingValue)

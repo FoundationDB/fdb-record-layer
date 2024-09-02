@@ -284,8 +284,15 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             int permutedIndex = indexWithPermutation(i);
             final var comparison = equalityComparisons.get(i);
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
-            bindingMapBuilder.put(value, Binding.fixed(comparison));
-            seenValues.add(value);
+
+            final var simplifiedComparisonPairOptional =
+                    MatchCandidate.simplifyComparisonMaybe(value, comparison);
+            if (simplifiedComparisonPairOptional.isEmpty()) {
+                continue;
+            }
+            final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
+            bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
+            seenValues.add(simplifiedComparisonPair.getLeft());
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();

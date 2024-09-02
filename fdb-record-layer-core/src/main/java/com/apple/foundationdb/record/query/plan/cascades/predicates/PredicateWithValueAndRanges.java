@@ -314,8 +314,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             final var constraint = matchPair.getRight();
 
             final var compensatedQueryPredicateOptional =
-                    translateValueAndComparisonsMaybe(comparisonCompensation::compensateValue,
-                            comparisonCompensation::compensateComparisonMaybe);
+                    translateValueAndComparisonsMaybe(comparisonCompensation::applyToValue,
+                            comparisonCompensation::applyToComparisonMaybe);
             if (compensatedQueryPredicateOptional.isEmpty()) {
                 return Optional.empty();
             }

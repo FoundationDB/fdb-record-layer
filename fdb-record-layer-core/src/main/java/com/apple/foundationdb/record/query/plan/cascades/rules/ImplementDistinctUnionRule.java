@@ -220,9 +220,11 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
-                                comparisonOrderingParts, comparisonIsReverse,
-                                true));
+                        final var unionPlan =
+                                RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
+                                        comparisonOrderingParts, comparisonIsReverse,
+                                        true);
+                        call.yieldExpression(unionPlan);
                     }
                 }
             }

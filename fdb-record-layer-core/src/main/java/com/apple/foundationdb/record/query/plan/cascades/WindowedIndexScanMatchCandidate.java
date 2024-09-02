@@ -334,8 +334,16 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             seenValues.add(normalizedValue);
             if (i == scoreOrdinal) {
                 bindingMapBuilder.put(normalizedValue, Binding.fixed(new Comparisons.OpaqueEqualityComparison()));
+                seenValues.add(normalizedValue);
             } else {
-                bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
+                final var simplifiedComparisonPairOptional =
+                        MatchCandidate.simplifyComparisonMaybe(normalizedValue, comparison);
+                if (simplifiedComparisonPairOptional.isEmpty()) {
+                    continue;
+                }
+                final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
+                bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
+                seenValues.add(simplifiedComparisonPair.getLeft());
             }
         }
 

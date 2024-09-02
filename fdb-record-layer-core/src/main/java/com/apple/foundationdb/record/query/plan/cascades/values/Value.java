@@ -666,10 +666,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                 }
                                 return null;
                             } else if (Iterables.size(childrenResults) == 1 && otherCurrent instanceof InvertableValue<?>) {
+                                final var otherInvertableValue = (InvertableValue<?>)otherCurrent;
                                 // this child is present
                                 final var childPair =
                                         Iterables.getOnlyElement(childrenResults);
-                                final var compensation = new ComparisonCompensation.NestedComparisonCompensation(otherCurrent, childPair);
+                                final var compensation = new ComparisonCompensation.NestedInvertableComparisonCompensation(otherInvertableValue, childPair);
                                 return NonnullPair.of(compensation, childPair.getRight());
                             }
                             return null;

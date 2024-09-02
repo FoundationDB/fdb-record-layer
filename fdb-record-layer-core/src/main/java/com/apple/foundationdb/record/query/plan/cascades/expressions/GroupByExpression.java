@@ -304,7 +304,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                             PredicateMap.empty(), Optional.empty(),
-                            Optional.of(maxMatchMap), subsumedBy.getConstraint())
+                            maxMatchMap, subsumedBy.getConstraint())
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }

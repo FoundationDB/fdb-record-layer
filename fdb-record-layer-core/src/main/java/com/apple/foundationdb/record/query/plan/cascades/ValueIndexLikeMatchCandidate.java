@@ -133,8 +133,15 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var normalizedValue =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
-            seenValues.add(normalizedValue);
+
+            final var simplifiedComparisonPairOptional =
+                    MatchCandidate.simplifyComparisonMaybe(normalizedValue, comparison);
+            if (simplifiedComparisonPairOptional.isEmpty()) {
+                continue;
+            }
+            final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
+            bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
+            seenValues.add(simplifiedComparisonPair.getLeft());
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();

@@ -89,7 +89,7 @@ public class MatchInfo {
      * {@code Value}.
      */
     @Nonnull
-    private final Optional<MaxMatchMap> maxMatchMapOptional;
+    private final MaxMatchMap maxMatchMap;
 
     /**
      * Field to hold additional query plan constraints that need to be imposed on the potentially realized match.
@@ -103,7 +103,7 @@ public class MatchInfo {
                       @Nonnull final PredicateMultiMap accumulatedPredicateMap,
                       @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                       @Nonnull final Optional<Value> remainingComputationValueOptional,
-                      @Nonnull final Optional<MaxMatchMap> maxMatchMapOptional,
+                      @Nonnull final MaxMatchMap maxMatchMap,
                       @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
@@ -123,7 +123,7 @@ public class MatchInfo {
 
         this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
         this.remainingComputationValueOptional = remainingComputationValueOptional;
-        this.maxMatchMapOptional = maxMatchMapOptional;
+        this.maxMatchMap = maxMatchMap;
         this.additionalPlanConstraint = additionalPlanConstraint;
     }
 
@@ -183,8 +183,8 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public Optional<MaxMatchMap> getMaxMatchMapOptional() {
-        return maxMatchMapOptional;
+    public MaxMatchMap getMaxMatchMap() {
+        return maxMatchMap;
     }
 
     @Nonnull
@@ -200,7 +200,7 @@ public class MatchInfo {
                 accumulatedPredicateMap,
                 matchedOrderingParts,
                 remainingComputationValueOptional,
-                maxMatchMapOptional,
+                maxMatchMap,
                 additionalPlanConstraint);
     }
 
@@ -224,7 +224,7 @@ public class MatchInfo {
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                      @Nonnull final Optional<MaxMatchMap> maxMatchMap) {
+                                                      @Nonnull final MaxMatchMap maxMatchMap) {
         return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(),
                 Optional.empty(), maxMatchMap, QueryPlanConstraint.tautology());
     }
@@ -235,7 +235,7 @@ public class MatchInfo {
                                                @Nonnull final PredicateMultiMap predicateMap,
                                                @Nonnull final PredicateMultiMap accumulatedPredicateMap,
                                                @Nonnull final Optional<Value> remainingComputationValueOptional,
-                                               @Nonnull final Optional<MaxMatchMap> maxMatchMap,
+                                               @Nonnull final MaxMatchMap maxMatchMap,
                                                @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
         final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
         final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);

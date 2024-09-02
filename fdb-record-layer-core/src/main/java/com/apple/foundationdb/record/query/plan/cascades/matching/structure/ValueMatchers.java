@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggreg
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
+import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -187,5 +188,22 @@ public class ValueMatchers {
         return typedWithDownstream(ToOrderedBytesValue.class,
                 Extractor.of(ToOrderedBytesValue::getChild, name -> "child(" + name + ")"),
                 downstreamValueMatcher);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<ToOrderedBytesValue> toOrderedBytesValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                            @Nonnull final TupleOrdering.Direction direction) {
+        final TypedMatcherWithExtractAndDownstream<ToOrderedBytesValue> downstreamValueMatcher =
+                typedWithDownstream(ToOrderedBytesValue.class,
+                        Extractor.of(ToOrderedBytesValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<ToOrderedBytesValue> downstreamDirectionMatcher =
+                typedWithDownstream(ToOrderedBytesValue.class,
+                        Extractor.of(ToOrderedBytesValue::getDirection, name -> "direction(" + name + ")"),
+                        PrimitiveMatchers.equalsObject(direction));
+
+        return typedWithDownstream(ToOrderedBytesValue.class,
+                Extractor.identity(),
+                matchingAllOf(ToOrderedBytesValue.class, ImmutableList.of(downstreamValueMatcher, downstreamDirectionMatcher)));
     }
 }

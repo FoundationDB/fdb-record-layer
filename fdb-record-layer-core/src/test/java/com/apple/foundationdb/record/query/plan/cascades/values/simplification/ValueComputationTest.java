@@ -194,7 +194,7 @@ class ValueComputationTest {
 
         final var literalValue = LiteralValue.ofScalar("hello");
         final var expectedCompensatedValue = new ToOrderedBytesValue(literalValue, TupleOrdering.Direction.DESC_NULLS_FIRST);
-        final var compensatedValue = match.getLeft().compensateValue(literalValue);
+        final var compensatedValue = match.getLeft().applyToValue(literalValue);
         Assertions.assertEquals(expectedCompensatedValue, compensatedValue);
     }
 
@@ -210,7 +210,7 @@ class ValueComputationTest {
         Assertions.assertTrue(match.getValue().getPredicate().isTautology());
 
         final var literalValue = LiteralValue.ofScalar("hello");
-        final var compensatedValue = match.getLeft().compensateValue(literalValue);
+        final var compensatedValue = match.getLeft().applyToValue(literalValue);
         Assertions.assertEquals(literalValue, compensatedValue);
     }
 
@@ -232,7 +232,7 @@ class ValueComputationTest {
                 new ToOrderedBytesValue(literalValue, TupleOrdering.Direction.DESC_NULLS_FIRST));
 
         final var comparison = new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, literalValue);
-        final var compensatedComparisonMaybe = match.getLeft().compensateComparisonMaybe(comparison);
+        final var compensatedComparisonMaybe = match.getLeft().applyToComparisonMaybe(comparison);
         Assertions.assertTrue(compensatedComparisonMaybe.isPresent());
         Assertions.assertEquals(expectedCompensatedComparison, compensatedComparisonMaybe.get());
     }
