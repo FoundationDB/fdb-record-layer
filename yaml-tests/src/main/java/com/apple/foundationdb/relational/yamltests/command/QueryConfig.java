@@ -175,6 +175,9 @@ public abstract class QueryConfig {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
+                if (!resultSet.isClosed()) {
+                    resultSet.close();
+                }
                 if (!matchResult.getLeft().equals(Matchers.ResultSetMatchResult.success())) {
                     var toReport = "‼️ result mismatch at line " + getLineNumber() + ":\n" +
                             "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +

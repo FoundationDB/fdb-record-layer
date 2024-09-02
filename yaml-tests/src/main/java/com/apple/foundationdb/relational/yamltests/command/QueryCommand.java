@@ -139,7 +139,6 @@ public final class QueryCommand extends Command {
     private void executeInternal(@Nonnull final RelationalConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
             throws SQLException, RelationalException {
         enableCascadesDebugger();
-        boolean queryHasRun = false;
         boolean queryIsRunning = false;
         Continuation continuation = null;
         int maxRows = 0;
@@ -175,15 +174,11 @@ public final class QueryCommand extends Command {
                 }
                 continuation = executor.execute(connection, continuation, queryConfig, checkCache, maxRows);
                 if (continuation == null || continuation.atEnd() || !queryConfigsIterator.hasNext()) {
-                    queryHasRun = true;
                     queryIsRunning = false;
                 } else {
                     queryIsRunning = true;
                 }
             }
-        }
-        if (!queryHasRun) {
-            executor.execute(connection, null, QueryConfig.getNoCheckConfig(getLineNumber(), executionContext), checkCache, maxRows);
         }
     }
 

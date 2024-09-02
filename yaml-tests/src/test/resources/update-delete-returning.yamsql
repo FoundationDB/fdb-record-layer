@@ -98,6 +98,7 @@ test_block:
     -
       - query: update A set A2 = 52 where A1 > 2;
       - explain: "Scan(<,>) | UnorderedPrimaryKeyDistinct() | $q25.A1 GREATER_THAN promote(@c10 as LONG) | UPDATE A"
+      - count: 1
     -
       - query: select * from A;
       - result: [ { A1: 1, A2: 42, A3: 44 },
