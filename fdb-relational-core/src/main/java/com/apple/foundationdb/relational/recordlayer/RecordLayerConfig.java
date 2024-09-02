@@ -21,25 +21,35 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.IndexState;
-import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
+import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.google.protobuf.Message;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.zip.Deflater;
 
 /**
  * Holder object for RecordLayer-specific stuff that isn't directly tied to an actual FDB StorageCluster.
  */
 public final class RecordLayerConfig {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-    private final SerializerRegistry serializerRegistry;
+    private final RecordSerializer<Message> serializer;
     private final int formatVersion;
     private final Map<String, IndexState> indexStateMap;
 
+    private static final RecordSerializer<Message> DEFAULT_RELATIONAL_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder()
+            .setEncryptWhenSerializing(false)
+            .setCompressWhenSerializing(true)
+            .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
+            .setWriteValidationRatio(0.0)
+            .build();
+
     private RecordLayerConfig(RecordLayerConfigBuilder builder) {
         this.userVersionChecker = builder.userVersionChecker;
-        this.serializerRegistry = builder.serializerRegistry;
+        this.serializer = builder.serializer;
         this.formatVersion = builder.formatVersion;
         this.indexStateMap = builder.indexStateMap;
     }
@@ -48,8 +58,8 @@ public final class RecordLayerConfig {
         return userVersionChecker;
     }
 
-    public SerializerRegistry getSerializerRegistry() {
-        return serializerRegistry;
+    public RecordSerializer<Message> getSerializer() {
+        return serializer;
     }
 
     public int getFormatVersion() {
@@ -66,13 +76,13 @@ public final class RecordLayerConfig {
 
     public static class RecordLayerConfigBuilder {
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-        private final SerializerRegistry serializerRegistry;
+        private final RecordSerializer<Message> serializer;
         private int formatVersion;
         private Map<String, IndexState> indexStateMap;
 
         public RecordLayerConfigBuilder() {
             this.userVersionChecker = (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion);
-            this.serializerRegistry = storePath -> DynamicMessageRecordSerializer.instance();
+            this.serializer = DEFAULT_RELATIONAL_SERIALIZER;
             this.formatVersion = FDBRecordStore.DEFAULT_FORMAT_VERSION;
             this.indexStateMap = Map.of();
         }

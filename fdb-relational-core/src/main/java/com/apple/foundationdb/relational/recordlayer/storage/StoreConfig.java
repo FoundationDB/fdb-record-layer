@@ -68,7 +68,7 @@ public final class StoreConfig {
     }
 
     public RecordSerializer<Message> getSerializer() {
-        return recordLayerConfig.getSerializerRegistry().loadSerializer(getStorePath());
+        return recordLayerConfig.getSerializer();
     }
 
     public FDBRecordStoreBase.UserVersionChecker getUserVersionChecker() {

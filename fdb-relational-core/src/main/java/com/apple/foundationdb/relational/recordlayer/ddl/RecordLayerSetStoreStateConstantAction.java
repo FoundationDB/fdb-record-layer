@@ -69,7 +69,7 @@ public class RecordLayerSetStoreStateConstantAction implements ConstantAction {
             FDBRecordStore recordStore =
                     FDBRecordStore.newBuilder()
                             .setKeySpacePath(databasePath)
-                            .setSerializer(rlConfig.getSerializerRegistry().loadSerializer(databasePath))
+                            .setSerializer(rlConfig.getSerializer())
                             .setMetaDataProvider(new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn))
                             .setContext(txn.unwrap(FDBRecordContext.class))
                             .open();

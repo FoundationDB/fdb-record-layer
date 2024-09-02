@@ -97,7 +97,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         try {
             FDBRecordStore.newBuilder()
                     .setKeySpacePath(databasePath)
-                    .setSerializer(rlConfig.getSerializerRegistry().loadSerializer(databasePath))
+                    .setSerializer(rlConfig.getSerializer())
                     .setMetaDataProvider(new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn))
                     .setUserVersionChecker(rlConfig.getUserVersionChecker())
                     .setFormatVersion(rlConfig.getFormatVersion())
