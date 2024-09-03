@@ -906,7 +906,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 @SuppressWarnings("unused") List<Long> ignored = cursor //this is here to make sure that we iterate the cursor
                         .map(FDBQueriedRecord::getPrimaryKey)
                         .map(t -> t.getLong(0))
-                        .asList().get();
+                        .asList().get(5, TimeUnit.SECONDS);
                 assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
             }
         }
