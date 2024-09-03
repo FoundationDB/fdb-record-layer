@@ -190,7 +190,8 @@ class AggregateValueTest {
         accumulateAndAssert(new NumericAggregationValue.Avg(PhysicalOperator.AVG_D, ofScalar(1D)), pairsForAvg(doublesOnlyNull), (Object)null);
     }
 
-    private Object[] pairsForAvg(Object[] objects) {
+    @Nonnull
+    private Object[] pairsForAvg(@Nonnull Object[] objects) {
         return Arrays.stream(objects)
                 .map(object -> object == null ? null : Pair.of(object, 1L)) // left for the sum, right for the count
                 .toArray();
