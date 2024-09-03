@@ -3452,7 +3452,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
                     .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
         } else {
-            uniquenessFuture = CompletableFuture.completedFuture(Optional.empty());
+            uniquenessFuture = getIndexMaintainer(index).clearUniquenessViolations()
+                    .thenApply(vignore -> Optional.empty());
         }
         return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
             Optional<Range> firstUnbuilt = context.join(builtFuture);
@@ -4357,6 +4358,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
         final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
+        for (Index index : metaData.getAllIndexes()) {
+            if (!indexes.containsKey(index) &&
+                    !index.isUnique() &&
+                    getIndexState(index) == IndexState.READABLE_UNIQUE_PENDING) {
+                work.add(markIndexReadable(index, false).thenApply(vignore -> null));
+            }
+        }
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
             RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
@@ -4401,6 +4409,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             });
         } else {
             return work.isEmpty() ? AsyncUtil.DONE : AsyncUtil.whenAll(work);
+        }
+    }
+
+    private void cleanuReadableUniquePending(final @Nonnull RecordMetaData metaData, final List<CompletableFuture<Void>> work) {
+        final List<Index> nonUniqueIndexes = metaData.getAllIndexes().stream()
+                .filter(index -> !index.isUnique())
+                .collect(Collectors.toList());
+        for (final Index nonUniqueIndex : nonUniqueIndexes) {
+            if (getIndexState(nonUniqueIndex) == IndexState.READABLE_UNIQUE_PENDING) {
+                work.add(markIndexReadable(nonUniqueIndex, false).thenApply(changedState -> null));
+            }
         }
     }
 

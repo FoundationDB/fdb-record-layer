@@ -591,6 +591,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return RecordCursor.empty(executor);
     }
 
+    @Override
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        throw new RecordCoreException("Lucene index does not support uniqueness constraint");
+    }
+
     @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {

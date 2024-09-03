@@ -156,6 +156,16 @@ public abstract class IndexMaintainer {
     public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
     /**
+     * Clear the list of uniqueness violations.
+     * <p>
+     *     This should only be called when the index is no longer unique, and implementations should throw a
+     *     {@link com.apple.foundationdb.record.RecordCoreException} if the index is unique.
+     * </p>
+     * @return a future that will complete when the violations have been cleared
+     */
+    public abstract CompletableFuture<Void> clearUniquenessViolations();
+
+    /**
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
      * the implementation of the index.
      *

@@ -252,6 +252,11 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     throw new UnsupportedOperationException();
                 }
 
+                @Override
+                public CompletableFuture<Void> clearUniquenessViolations() {
+                    throw new UnsupportedOperationException();
+                }
+
                 @Nonnull
                 @Override
                 public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable final byte[] continuation, @Nullable final ScanProperties scanProperties) {

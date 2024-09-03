@@ -106,6 +106,11 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
     }
 
+    @Override
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        throw new UnsupportedOperationException("Terrible index cannot clear uniqueness violations");
+    }
+
     @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
