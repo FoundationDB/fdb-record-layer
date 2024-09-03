@@ -303,7 +303,9 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setSort(fullOrderingKey("order_desc_nulls_last"))
                 .setFilter(Query.or(
-                        Query.and(Query.field("num_value_2").equalsValue(100), Query.field("str_value_indexed").equalsValue("hello"), Query.field("num_value_3_indexed").greaterThan(2)),
+                        Query.and(Query.field("num_value_2").equalsValue(100),
+                                Query.field("str_value_indexed").equalsValue("hello"),
+                                Query.field("num_value_3_indexed").greaterThan(2)),
                         Query.field("num_value_2").equalsValue(101),
                         Query.field("num_value_2").equalsValue(102)))
                 .build();

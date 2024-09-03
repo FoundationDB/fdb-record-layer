@@ -114,9 +114,8 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nullable
     @Override
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        return comparison.eval(Objects.requireNonNull(store), context, value.eval(store, context));
+        return comparison.eval(store, context, value.eval(store, context));
     }
 
     @Nonnull

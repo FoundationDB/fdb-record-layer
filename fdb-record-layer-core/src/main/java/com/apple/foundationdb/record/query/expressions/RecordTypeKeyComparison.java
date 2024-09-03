@@ -169,7 +169,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
