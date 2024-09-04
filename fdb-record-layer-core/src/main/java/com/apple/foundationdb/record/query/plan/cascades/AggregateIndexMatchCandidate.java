@@ -364,10 +364,16 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return recordTypes;
     }
 
+    protected int getGroupingCount() {
+        return index.getType().equals(IndexTypes.BITMAP_VALUE)
+               ? ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount() + 1
+               : ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
+    }
+
     @Nonnull
     private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
         final var selectHavingFields = Values.deconstructRecord(selectHavingResultValue);
-        final var groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
+        final var groupingCount = getGroupingCount();
         Verify.verify(selectHavingFields.size() >= groupingCount);
 
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(messageDescriptor);

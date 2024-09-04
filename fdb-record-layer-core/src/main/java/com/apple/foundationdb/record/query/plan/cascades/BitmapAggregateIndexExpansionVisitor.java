@@ -102,7 +102,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 .stream()
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
-        final var bitmapBitPosition = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitMapBitPositionFn.class).orElseThrow();
+        final var bitmapBitPosition = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitMapBucketOffsetFn.class).orElseThrow();
         final var implicitGroupingValue = (Value)bitmapBitPosition.encapsulate(ImmutableList.of(argument, entrySizeValue));
         final var placeHolder = Placeholder.newInstance(implicitGroupingValue, newParameterAlias());
 
