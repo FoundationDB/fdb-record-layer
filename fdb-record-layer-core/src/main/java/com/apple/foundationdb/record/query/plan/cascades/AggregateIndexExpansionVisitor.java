@@ -130,8 +130,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // 2. create a GROUP-BY expression on top.
         final var groupByQun = constructGroupBy(selectWhereQunAndPlaceholders.getLeft(), baseExpansion);
 
+        final var placeholders = ImmutableList.<Placeholder>builder().addAll(selectWhereQunAndPlaceholders.getRight())
+                .addAll(groupByQun.getRight()).build();
+
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, selectWhereQunAndPlaceholders.getRight());
+        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun.getLeft(), placeholders);
         final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
         final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
 
@@ -146,7 +149,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 placeHolderAliases,
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
-                groupByQun.getRangesOver().get().getResultValue(),
+                groupByQun.getLeft().getRangesOver().get().getResultValue(),
                 selectHaving.getResultValue());
     }
 
@@ -208,7 +211,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    protected Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
+    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
             throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
@@ -256,13 +259,13 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
         if (groupingColsValue.getResultType().getFields().isEmpty()) {
-            return Quantifier.forEach(Reference.of(
+            return NonnullPair.of(Quantifier.forEach(Reference.of(
                     new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun)));
+                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
         } else {
-            return Quantifier.forEach(Reference.of(
+            return NonnullPair.of(Quantifier.forEach(Reference.of(
                     new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun)));
+                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
         }
     }
 

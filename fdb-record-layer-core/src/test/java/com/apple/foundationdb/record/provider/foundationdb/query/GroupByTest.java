@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
@@ -258,7 +259,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testBitMapWithStreamAggregation() {
-        int bitBucketSize = 4;
+        int bitBucketSize = BitmapValueIndexMaintainer.DEFAULT_ENTRY_SIZE;
         RecordMetaDataHook hook = setupHookAndAddData(true, false, false, true, bitBucketSize);
 
         final var cascadesPlanner = (CascadesPlanner)planner;
