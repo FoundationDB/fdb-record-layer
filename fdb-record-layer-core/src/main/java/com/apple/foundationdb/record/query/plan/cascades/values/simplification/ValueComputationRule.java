@@ -44,6 +44,18 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
         super(matcher);
     }
 
+    /**
+     * A helper method that transforms a simplification rule into a computation rule that allows the caller to reuse
+     * simplification rules in more complicated computation use cases. In order to compensate for the lack of a result
+     * of a computation which the implementation of a simplification rule does not have, the caller can pass in a
+     * {@link OnMatchComputationFunction} that is invoked for each yielded result.
+     * @param simplificationRule the original simplification rule
+     * @param onMatchComputationFunction the function that computes the result
+     * @param <A> the type parameter for the arguments
+     * @param <R> the type parameter for the result of the computation
+     * @param <T> the type parameter the rule matches
+     * @return a new computation rule that can be used in an appropriate compatible computation rule set
+     */
     @Nonnull
     static <A, R, T extends Value> ValueComputationRule<A, R, T> fromSimplificationRule(@Nonnull final ValueSimplificationRule<T> simplificationRule,
                                                                                         @Nonnull final OnMatchComputationFunction<A, R> onMatchComputationFunction) {
@@ -75,7 +87,7 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
     }
 
     /**
-     * Functional interface whose {@code apply} method is invoked <em>after</em> using simplification's results.
+     * Functional interface whose {@code apply} method is invoked <em>after</em> using the simplification's results.
      * @param <A> the argument type
      * @param <R> the result type
      */

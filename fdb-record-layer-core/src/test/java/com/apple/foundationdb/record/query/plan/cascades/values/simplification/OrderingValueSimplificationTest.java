@@ -1,5 +1,5 @@
 /*
- * ValueSimplificationTest.java
+ * OrderingValueSimplificationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -46,7 +46,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
- * Test cases that test logic around the simplification of {@link Value} trees.
+ * Test cases that test logic around the simplification of {@link Value} trees (when used in the context of orderings).
  */
 class OrderingValueSimplificationTest {
     private static final CorrelationIdentifier ALIAS = CorrelationIdentifier.of("_");

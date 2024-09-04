@@ -300,11 +300,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (subsumedBy.isTrue()) {
             final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
             final var maxMatchMap =
-                    MaxMatchMap.calculate(bindingAliasMap, translatedResultValue, candidateExpression.getResultValue());
+                    MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
+            final var queryPlanConstraint =
+                    subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                             PredicateMap.empty(), Optional.empty(),
-                            maxMatchMap, subsumedBy.getConstraint())
+                            maxMatchMap, queryPlanConstraint)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }

@@ -20,24 +20,28 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Correlated.BoundEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Equivalence;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Represents a max match between a (rewritten) query result {@link Value} and the candidate result {@link Value}.
@@ -50,28 +54,27 @@ public class MaxMatchMap {
     @Nonnull
     private final Value candidateResultValue;
     @Nonnull
-    private final AliasMap equivalencesMap;
+    private final QueryPlanConstraint queryPlanConstraint;
+    @Nonnull
+    private final ValueEquivalence valueEquivalence;
 
     /**
      * Creates a new instance of {@link MaxMatchMap}.
-     * @param equivalencesMap a map of aliases that are considered to be equivalent
-     * @param mapping The {@link Value} mapping.
-     * @param queryResult The query result from which the mapping keys originate.
-     * @param candidateResult The candidate result from which the mapping values originate.
+     * @param mapping the {@link Value} mapping
+     * @param queryResult the query result from which the mapping keys originate
+     * @param candidateResult the candidate result from which the mapping values originate
+     * @param valueEquivalence a {@link ValueEquivalence} that was used to match up query and candidate values
      */
-    MaxMatchMap(@Nonnull final AliasMap equivalencesMap,
-                @Nonnull final Map<Value, Value> mapping,
+    MaxMatchMap(@Nonnull final Map<Value, Value> mapping,
                 @Nonnull final Value queryResult,
-                @Nonnull final Value candidateResult) {
-        this.equivalencesMap = equivalencesMap;
+                @Nonnull final Value candidateResult,
+                @Nonnull final QueryPlanConstraint queryPlanConstraint,
+                @Nonnull final ValueEquivalence valueEquivalence) {
         this.mapping = ImmutableBiMap.copyOf(mapping);
         this.queryResultValue = queryResult;
         this.candidateResultValue = candidateResult;
-    }
-
-    @Nonnull
-    public AliasMap getEquivalencesMap() {
-        return equivalencesMap;
+        this.queryPlanConstraint = queryPlanConstraint;
+        this.valueEquivalence = valueEquivalence;
     }
 
     @Nonnull
@@ -90,8 +93,17 @@ public class MaxMatchMap {
     }
 
     @Nonnull
+    public QueryPlanConstraint getQueryPlanConstraint() {
+        return queryPlanConstraint;
+    }
+
+    @Nonnull
+    public ValueEquivalence getValueEquivalence() {
+        return valueEquivalence;
+    }
+
+    @Nonnull
     public Optional<Value> translateQueryValueMaybe(@Nonnull final CorrelationIdentifier candidateCorrelation) {
-        final var mapping = getMapping();
         final var candidateResultValue = getCandidateResultValue();
         final var pulledUpCandidateSide =
                 candidateResultValue.pullUp(mapping.values(),
@@ -107,8 +119,8 @@ public class MaxMatchMap {
         // As we will use this map in the subsequent step to look up values over semantic equivalency using
         // equivalencesMap, we immediately create m1 ○ m2 using a boundEquivalence based on equivalencesMap.
         //
-        final var boundEquivalence = new BoundEquivalence<Value>(equivalencesMap);
-        final var pulledUpMaxMatchMapBuilder = ImmutableMap.<Equivalence.Wrapper<Value>, Value>builder();
+        final var pulledUpMaxMatchMapBuilder =
+                ImmutableMap.<Value, Value>builder();
         for (final var entry : mapping.entrySet()) {
             final var queryPart = entry.getKey();
             final var candidatePart = entry.getValue();
@@ -116,14 +128,14 @@ public class MaxMatchMap {
             if (pulledUpdateCandidatePart == null) {
                 return Optional.empty();
             }
-            pulledUpMaxMatchMapBuilder.put(Map.entry(boundEquivalence.wrap(queryPart), pulledUpdateCandidatePart));
+            pulledUpMaxMatchMapBuilder.put(queryPart, pulledUpdateCandidatePart);
         }
-
         final var pulledUpMaxMatchMap = pulledUpMaxMatchMapBuilder.build();
+
         final var queryResultValueFromBelow = getQueryResultValue();
-        final var translatedQueryResultValue = Objects.requireNonNull(queryResultValueFromBelow.replace(valuePart -> {
-            final var maxMatch = pulledUpMaxMatchMap.get(boundEquivalence.wrap(valuePart));
-            return maxMatch == null ? valuePart : maxMatch;
+        final var translatedQueryResultValue = Objects.requireNonNull(queryResultValueFromBelow.replace(value -> {
+            final var maxMatchValue = pulledUpMaxMatchMap.get(value);
+            return maxMatchValue == null ? value : maxMatchValue;
         }));
         return Optional.of(translatedQueryResultValue);
     }
@@ -140,9 +152,9 @@ public class MaxMatchMap {
     @Nonnull
     public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
                                         @Nonnull final Value candidateResultValue) {
-        return calculate(AliasMap.emptyMap(),
-                queryResultValue,
-                candidateResultValue);
+        return calculate(queryResultValue,
+                candidateResultValue,
+                ValueEquivalence.empty());
     }
 
     /**
@@ -161,33 +173,46 @@ public class MaxMatchMap {
      * them together, the other match however, is much better because it matches the entire query {@code Value} with a
      * single part of the index. The algorithm will always prefer the maximum match.
      *
-     * @param equivalenceAliasMap an alias map that informs the logic about equivalent aliases
      * @param queryResultValue the query result {@code Value}.
      * @param candidateResultValue the candidate result {@code Value} we want to search for maximum matches.
+     * @param valueEquivalence an {@link ValueEquivalence} that informs the logic about equivalent value subtrees
      *
      * @return a {@link  MaxMatchMap} of all maximum matches.
      */
     @Nonnull
-    public static MaxMatchMap calculate(@Nonnull final AliasMap equivalenceAliasMap,
-                                        @Nonnull final Value queryResultValue,
-                                        @Nonnull final Value candidateResultValue) {
+    public static MaxMatchMap calculate(@Nonnull final Value queryResultValue,
+                                        @Nonnull final Value candidateResultValue,
+                                        @Nonnull final ValueEquivalence valueEquivalence) {
         final BiMap<Value, Value> newMapping = HashBiMap.create();
+        final List<QueryPlanConstraint> queryPlanConstraints = Lists.newArrayList();
         queryResultValue.preOrderPruningIterator(queryValuePart -> {
             // look up the query sub values in the candidate value.
-            final var match = Streams.stream(candidateResultValue
+            final var matchPairOptional = Streams.stream(candidateResultValue
                             // when traversing the candidate in pre-order, only descend into structures that can be referenced
                             // from the top expression. For example, RCV's components can be referenced however an Arithmetic
                             // operator's children can not be referenced.
-                            // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)Value of the candidate.
+                            // It is crucial to do this in pre-order to guarantee matching the maximum (sub-)value of the candidate.
                             .preOrderPruningIterator(v -> v instanceof RecordConstructorValue || v instanceof FieldValue))
-                    .filter(candidateValuePart -> queryValuePart.semanticEquals(candidateValuePart, equivalenceAliasMap))
+                    .flatMap(candidateValuePart -> {
+                        final var semanticEquals =
+                                queryValuePart.semanticEquals(candidateValuePart, valueEquivalence);
+                        if (semanticEquals.isFalse()) {
+                            return Stream.of();
+                        }
+                        return Stream.of(NonnullPair.of(candidateValuePart, semanticEquals.getConstraint()));
+                    })
                     .findAny();
-            match.ifPresent(value -> newMapping.put(queryValuePart, value));
+            matchPairOptional.ifPresent(matchPair -> {
+                newMapping.put(queryValuePart, matchPair.getLeft());
+                queryPlanConstraints.add(matchPair.getRight());
+            });
             // if match is empty, descend further and look for more fine-grained matches.
-            return match.isEmpty();
+            return matchPairOptional.isEmpty();
         }).forEachRemaining(ignored -> {
             // nothing
         });
-        return new MaxMatchMap(equivalenceAliasMap, newMapping, queryResultValue, candidateResultValue);
+
+        return new MaxMatchMap(newMapping, queryResultValue, candidateResultValue,
+                QueryPlanConstraint.composeConstraints(queryPlanConstraints), valueEquivalence);
     }
 }

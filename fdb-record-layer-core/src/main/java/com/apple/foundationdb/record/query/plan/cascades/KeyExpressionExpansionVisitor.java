@@ -171,9 +171,12 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     public GraphExpansion visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final VisitorState state = getCurrentState();
         final var baseQuantifier = state.getBaseQuantifier();
-        final var value = keyExpressionWithValue.toValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
+        final var value =
+                state.registerValue(keyExpressionWithValue.toValue(baseQuantifier.getAlias(),
+                        baseQuantifier.getFlowedObjectType()));
         if (state.isKey() && !state.isInternalExpansion()) {
-            return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value), value.asPlaceholder(newParameterAlias()));
+            return GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value),
+                    value.asPlaceholder(newParameterAlias()));
         }
         return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
     }

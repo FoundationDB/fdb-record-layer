@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractValueRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.ValueSimplificationRuleCall;
@@ -93,7 +94,8 @@ public class Values {
     public static List<Value> primitiveAccessorsForType(@Nonnull final Type type,
                                                         @Nonnull final Supplier<Value> baseValueSupplier) {
         if (type.getTypeCode() != Type.TypeCode.RECORD) {
-            Verify.verify(type.isPrimitive() || type.isEnum());
+            SemanticException.check(type.isPrimitive() || type.isEnum(),
+                    SemanticException.ErrorCode.ORDERING_IS_OF_INCOMPATIBLE_TYPE);
             return ImmutableList.of(baseValueSupplier.get());
         }
 

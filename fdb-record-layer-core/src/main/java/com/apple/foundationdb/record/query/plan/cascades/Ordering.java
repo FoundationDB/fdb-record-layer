@@ -290,6 +290,31 @@ public class Ordering {
         return !Iterables.isEmpty(enumerateCompatibleRequestedOrderings(requestedOrdering));
     }
 
+    /**
+     * Method to, given a constraining {@link RequestedOrdering}, enumerates all ordering sequences supported by this
+     * ordering that are compatible with the given {@link RequestedOrdering}. This functionality is needed when a
+     * provided order is used to again drive requested orderings for another quantifier participating in e.g. a set
+     * operation or similar.
+     * Example:
+     * <pre>
+     *     {@code
+     *     requested ordering a↑, b↓, c↑
+     *     this ordering:
+     *         partially ordered set:
+     *             members: a, b, x, c, d, e
+     *             dependencies: a ← b ← c ← e
+     *         bindings a↑, b=, x=, c↑, d↑, e↑
+     *
+     *     enumerated requested orderings (among others):
+     *         a↑, b↓, c↑
+     *         a↑, x↕, b↓, c↑
+     *         a↑, x↕, b↓, c↑, d↕, e↕
+     *         a↑, x↕, b↓, c↑, e↕, d↕
+     *     }
+     * </pre>
+     * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
+     * @return an iterable of all compatible {@link RequestedOrdering}s
+     */
     @Nonnull
     public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
@@ -1484,13 +1509,13 @@ public class Ordering {
         @Nonnull
         @Override
         default OrderPreservingKind getOrderPreservingKind() {
-            return getOrderPreservingKindExclusive();
+            return OrderPreservingKind.DIRECT_ORDER_PRESERVING;
         }
 
         @Nonnull
         @SuppressWarnings("unused")
         default <T extends DirectOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
-            return OrderPreservingKind.DIRECT_ORDER_PRESERVING;
+            return getOrderPreservingKind();
         }
     }
 
@@ -1501,7 +1526,7 @@ public class Ordering {
         @Nonnull
         @Override
         default OrderPreservingKind getOrderPreservingKind() {
-            return getOrderPreservingKindExclusive();
+            return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
         }
 
         @Nonnull

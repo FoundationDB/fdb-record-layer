@@ -1,5 +1,5 @@
 /*
- * EliminateArithmeticValueWithConstantRule.java
+ * DefaultOrderingPartRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.OrderingPartCreator;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -35,7 +34,9 @@ import java.util.Optional;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
- * A rule that computes the underlying order of a {@link Value} tree rooted at a {@link ToOrderedBytesValue}.
+ * A rule that computes the default order of a {@link Value} tree. This rule is always applied last, that is when
+ * no rule can make any more progress. It also refuses to make progress is some other order-simplifying rules has
+ * already computed an order.
  * @param <O> type variable for sort order
  * @param <P> type variable for ordering part
  *

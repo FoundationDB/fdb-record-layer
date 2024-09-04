@@ -226,7 +226,7 @@ public class MatchInfo {
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                       @Nonnull final MaxMatchMap maxMatchMap) {
         return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(), PredicateMap.empty(),
-                Optional.empty(), maxMatchMap, QueryPlanConstraint.tautology());
+                Optional.empty(), maxMatchMap, maxMatchMap.getQueryPlanConstraint());
     }
 
     @Nonnull

@@ -1,5 +1,5 @@
 /*
- * MatchValueRule.java
+ * MatchFieldValueOverFieldValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -34,7 +34,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 
 /**
- * A rule that matches a {@link Value} (with the argument values).
+ * A rule that matches a {@link FieldValue} over another {@link FieldValue} to simplify into
+ * one {@link FieldValue} using a concatenated accessor path.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

@@ -1,5 +1,5 @@
 /*
- * ValueCompensation.java
+ * ComparisonCompensation.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value.InvertableValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -36,7 +37,19 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Functional interface to perform compensation for partially matched {@link Value}-trees.
+ * Interface to define compensation for partially matched {@link Value}-trees and their associated comparisons, as
+ * e.g. used by query predicates.
+ * Consider a predicate whose comparing {@link Value} is compared using a {@link Comparisons.Comparison} (which may
+ * in turn also contain a {@link Value} tree). When the comparing value is matched to a placeholder in a
+ * match candidate, it may exactly match ({@code fieldValue(qov(q), a) --> fieldValue(qov(q'), a)}), or it may match
+ * but only through a subtree, i.e. ({@code fieldValue(qov(q), a) --> to_ordered_bytes(fieldValue(qov(q'), a), "↓")}).
+ * In this particular case, we know that {@code to_ordered_bytes(...)} is applied on top of the field value, thus,
+ * the comparison (the right side) needs to be adjusted to also apply {@code to_ordered_bytes(...)} on top of the
+ * original comparison. This would strictly speaking only sufficient if the comparison is an equality comparison.
+ * For all inequalities we need to reason about order-preserving properties of the values we try to adjust the
+ * comparison with. In this case, to_ordered_bytes(..., "↓") is inversely order-preserving, thus e.g. a
+ * {@code [> some value]} can be adjusted to {@code [< to_ordered_bytes(some value, "↓")]}.
+ * See also {@link Value#matchAndCompensateComparisonMaybe(Value, ValueEquivalence)} for a detailed example.
  */
 public interface ComparisonCompensation {
     ComparisonCompensation NO_COMPENSATION = new ComparisonCompensation() {
@@ -58,12 +71,29 @@ public interface ComparisonCompensation {
         }
     };
 
+    /**
+     * Apply the compensation to a value tree.
+     * @param value the original value
+     * @return the compensated value
+     */
     @Nonnull
     Value applyToValue(@Nonnull Value value);
 
+    /**
+     * Unapply the compensation. For example, if {@code value} is {@code [< to_ordered_bytes(some value, "↓")]} and the
+     * compensation was computed by matching {@code fieldValue(qov(q), a) --> to_ordered_bytes(fieldValue(qov(q'), a), "↓")},
+     * this method returns {@code some value}
+     * @param value the value to unapply the compensation to
+     * @return the original value
+     */
     @Nonnull
     Optional<Value> unapplyMaybe(@Nonnull Value value);
 
+    /**
+     * Apply the compensation to a value tree.
+     * @param comparison the original comparison
+     * @return the compensated adjusted comparison
+     */
     Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull Comparisons.Comparison comparison);
 
     @Nonnull
@@ -72,7 +102,7 @@ public interface ComparisonCompensation {
     }
 
     /**
-     * Chaining comparison compensation.
+     * Nested chaining comparison compensation.
      */
     class NestedInvertableComparisonCompensation implements ComparisonCompensation {
         private final InvertableValue<?> otherCurrent;

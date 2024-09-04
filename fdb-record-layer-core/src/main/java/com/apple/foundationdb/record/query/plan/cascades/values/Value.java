@@ -606,6 +606,43 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                 .collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Method that computes the {@link Value} tree that is needed to extract and subsequently transforms the data of a
+     * field coming from an index entry before it can be put into a partial record.
+     * Example 1:
+     * <pre>
+     *     {@code
+     *         this: to_ordered_bytes(fieldValue(qov(q), a), "↓")
+     *         base value: qov(q)
+     *         source: KEY
+     *         ordinal 0.2.1
+     *         ...
+     *         result: Optional.of(NonnullPair.of(fieldValue(qov(q), a),
+     *                             from_ordered_bytes(indexEntryObjectValue(KEY, 0.2.1), "↓"))
+     *     }
+     * </pre>
+     * Example 2 (the simple case)
+     * <pre>
+     *     {@code
+     *         this: fieldValue(qov(q), a)
+     *         base value: qov(q)
+     *         source: VALUE
+     *         ordinal 2
+     *         ...
+     *         result: Optional.of(NonnullPair.of(fieldValue(qov(q), a), indexEntryObjectValue(VALUE, 2))
+     *     }
+     * </pre>
+     *
+     * @param baseValue a value that the field we compute this {@link Value} tree for needs to be functionally dependent
+     *        on. This avoids misidentifying value trees that are not correlated to the match candidates base.
+     * @param aliasMap an alias map of things that are considered equal
+     * @param constantAliases a set of constant aliases
+     * @param source an indicator of whether we extract data form the key or the value part of the index entry
+     * @param ordinalPath the ordinal path to the data that the caller would like to extract (dewey ids)
+     * @return an optional that, if not empty, contains the matched field value contained in this value tree and a value
+     *         that represents the proper value tree that extracts and transforms the index data to be inserted into
+     *         a partial record.
+     */
     @Nonnull
     default Optional<NonnullPair<FieldValue, Value>> extractFromIndexEntryMaybe(@Nonnull final Value baseValue,
                                                                                 @Nonnull final AliasMap aliasMap,
@@ -634,6 +671,38 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                         ordinalPath, getResultType()))));
     }
 
+    /**
+     * This method attempts to derive and then simplify (as much as possible) the ordering value that this value
+     * imposes if uses in an ordering context. In the process the simplification will also apply all regular
+     * simplification rules in {@link DefaultValueSimplificationRuleSet}.
+     * The idea is to also compute the simplified ordering information of this value.
+     * <br>
+     * Example 1:
+     * <pre>
+     *     {@code
+     *         this: to_ordered_bytes(fieldValue(qov(q), a), "↓")
+     *         derived ordering part: fieldValue(qov(q), a)↓
+     *     }
+     * </pre>
+     * Example 2:
+     * <pre>
+     *     {@code
+     *         this: fieldValue(qov(q), a) + literalValue(2)
+     *         derived ordering part: fieldValue(qov(q), a)↑
+     *     }
+     * </pre>
+     * <br>
+     * By convention, but also depending on the callers use case, we treat the sort order of {@code this} or in
+     * other words the default or a sort order to be stemming from a forward scan of an index, that is, by convention
+     * {@code fieldValue(qov(q), a)} has a sort order of {@code ↑}.
+     * @param aliasMap an alias map
+     * @param constantAliases a set of aliases that considered to be constant
+     * @param orderingPartCreator a lambda that allows us to create any kind of {@link OrderingPart}
+     * @param ruleSet the rule set to be used
+     * @param <O> the type variable for sort orders (extends {@link SortOrder})
+     * @param <P> the type variable for ordering parts (extends {@link OrderingPart})
+     * @return a new {@link OrderingPart} of type {@code P}
+     */
     @Nonnull
     default <O extends SortOrder, P extends OrderingPart<O>> P deriveOrderingPart(@Nonnull final AliasMap aliasMap,
                                                                                   @Nonnull final Set<CorrelationIdentifier> constantAliases,
@@ -653,11 +722,32 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         return semanticEquals(other, valueEquivalence);
     }
 
+    /**
+     * Method that attempts to find another value among its descendants, and if it can find them, returns a
+     * {@link ComparisonCompensation} that can be used to adjust another
+     * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}. This is used for index matching.
+     * When we attempt to match a predicate {@code a < 5} to {@code a?} we can just create a
+     * {@link com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping} that maps the
+     * {@code a} to its placeholder and computes the scan's comparison range to be {@code [< 5]}. In the presence of
+     * a more convoluted match we need to adapt the comparison range as well:
+     * <pre>
+     *     {@code
+     *         query: a < 5
+     *         match candidate value: to_ordered_bytes(a, "↓")? (placeholder)
+     *         match: a --> to_ordered_bytes(a, "↓") using a comparison range of [> to_ordered_bytes(5, "↓")]
+     *         (also note that the less than is now a greater than)
+     *     }
+     * </pre>
+     * @param candidateValue candidate value
+     * @param valueEquivalence a value equivalence
+     * @return an optional, if not empty, containing a {@link ComparisonCompensation} that can be used to transform
+     *         the right hand side of the query predicate (the comparison) accordingly.
+     */
     @Nonnull
-    default Optional<NonnullPair<ComparisonCompensation, QueryPlanConstraint>> matchAndCompensateComparisonMaybe(@Nonnull final Value otherValue,
+    default Optional<NonnullPair<ComparisonCompensation, QueryPlanConstraint>> matchAndCompensateComparisonMaybe(@Nonnull final Value candidateValue,
                                                                                                                  @Nonnull final ValueEquivalence valueEquivalence) {
         return Optional.ofNullable(
-                otherValue.foldNullable(Functions.identity(),
+                candidateValue.foldNullable(Functions.identity(),
                         (otherCurrent, childrenResults) -> {
                             if (Streams.stream(childrenResults).allMatch(Objects::isNull)) {
                                 final var semanticEquals = semanticEquals(otherCurrent, valueEquivalence);

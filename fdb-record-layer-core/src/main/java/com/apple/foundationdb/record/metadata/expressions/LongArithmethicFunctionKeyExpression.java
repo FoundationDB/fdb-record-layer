@@ -22,13 +22,10 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -126,14 +123,9 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final  List<? extends Value> argumentValues) {
+    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
         Verify.verify(argumentValues.size() == arguments.getColumnSize());
-        final BuiltInFunction<?> builtInFunction =
-                FunctionCatalog.resolve(valueFunctionName,
-                                arguments.getColumnSize())
-                        .orElseThrow(() -> new RecordCoreArgumentException("unknown function",
-                                LogMessageKeys.FUNCTION, getName()));
-        return (Value)builtInFunction.encapsulate(argumentValues);
+        return resolveAndEncapsulateFunction(valueFunctionName, argumentValues);
     }
 
     /**

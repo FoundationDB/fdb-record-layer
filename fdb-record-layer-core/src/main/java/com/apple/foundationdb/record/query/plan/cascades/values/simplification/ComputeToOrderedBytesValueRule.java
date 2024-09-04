@@ -1,5 +1,5 @@
 /*
- * EliminateArithmeticValueWithConstantRule.java
+ * ComputeToOrderedBytesValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *

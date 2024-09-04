@@ -1,5 +1,5 @@
 /*
- * PullUpValueRuleSet.java
+ * ExtractFromIndexKeyValueRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,7 +30,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ * A set of rules to be used to create a {@link Value} tree to extract an item from an index entry and perform
+ * necessary adjustments prior to constructing the partial record in
+ * {@link com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord}.
+ * See also {@link com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.FieldWithValueCopier}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")

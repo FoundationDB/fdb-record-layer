@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -41,8 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Predi
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
@@ -57,6 +54,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstra
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -397,6 +396,9 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             remainingValueComputationOptional = Optional.empty();
         }
 
+        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
+                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
+
         //
         // Map predicates on the query side to predicates on the candidate side. Record parameter bindings and/or
         // compensations for each mapped predicate.
@@ -421,10 +423,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                     .stream()
                     .allMatch(QueryPredicate::isTautology);
             if (allNonFiltering) {
+                final var maxMatchMap = computeMaxMatchMap(candidateExpression, translationMap, bindingValueEquivalence);
                 return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty(), PredicateMap.empty(),
                                 remainingValueComputationOptional,
-                                computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap),
-                                QueryPlanConstraint.tautology())
+                                maxMatchMap,
+                                maxMatchMap.getQueryPlanConstraint())
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
@@ -436,9 +439,6 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         final var localAliases = correlationOrder.getSet();
         final var dependsOnMap = correlationOrder.getTransitiveClosure();
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(getQuantifiers());
-
-        final var bindingValueEquivalence = ValueEquivalence.fromAliasMap(bindingAliasMap)
-                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
         for (final QueryPredicate predicate : getPredicates()) {
             // find all local correlations
@@ -536,12 +536,15 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                                 final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
                                         MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
                                 return allParameterBindingMapOptional
-                                        .flatMap(allParameterBindingMap ->
-                                                MatchInfo.tryMerge(partialMatchMap,
-                                                        allParameterBindingMap, predicateMap, PredicateMap.empty(),
-                                                        remainingValueComputationOptional,
-                                                        computeMaxMatchMap(candidateExpression, bindingAliasMap, translationMap),
-                                                        QueryPlanConstraint.tautology()))
+                                        .flatMap(allParameterBindingMap -> {
+                                            final var maxMatchMap =
+                                                    computeMaxMatchMap(candidateExpression, translationMap, bindingValueEquivalence);
+                                            return MatchInfo.tryMerge(partialMatchMap,
+                                                    allParameterBindingMap, predicateMap, PredicateMap.empty(),
+                                                    remainingValueComputationOptional,
+                                                    maxMatchMap,
+                                                    maxMatchMap.getQueryPlanConstraint());
+                                        })
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
                             })
@@ -550,9 +553,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     }
 
     @Nonnull
-    private MaxMatchMap computeMaxMatchMap(final @Nonnull RelationalExpression candidateExpression, final @Nonnull AliasMap bindingAliasMap, final TranslationMap translationMap) {
+    private MaxMatchMap computeMaxMatchMap(final @Nonnull RelationalExpression candidateExpression,
+                                           final @Nonnull TranslationMap translationMap,
+                                           @Nonnull final ValueEquivalence valueEquivalence) {
         final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
-        return MaxMatchMap.calculate(bindingAliasMap, translatedResultValue, candidateExpression.getResultValue());
+        return MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
     }
 
     @Nonnull

@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
@@ -706,7 +707,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
         final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
         final var maxMatchMap =
-                MaxMatchMap.calculate(bindingAliasMap, translatedResultValue, candidateExpression.getResultValue());
+                MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(),
+                        ValueEquivalence.fromAliasMap(bindingAliasMap));
 
         if (equalsWithoutChildren(candidateExpression, bindingAliasMap)) {
             return MatchInfo.tryFromMatchMap(partialMatchMap, maxMatchMap)

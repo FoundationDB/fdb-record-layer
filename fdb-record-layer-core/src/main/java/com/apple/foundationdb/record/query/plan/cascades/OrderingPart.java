@@ -586,15 +586,19 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          */
         @Nonnull
         public Value comparisonKeyValue(final boolean isReverse) {
-            final var tupleDirection =
-                    isReverse
-                    ? getSortOrder().getTupleDirection().reverseDirection()
-                    : getSortOrder().getTupleDirection();
+            final var tupleDirection = toTupleDirection(isReverse);
             final var value = getValue();
             if (tupleDirection == Direction.ASC_NULLS_FIRST) {
                 return value;
             }
             return new ToOrderedBytesValue(value, tupleDirection);
+        }
+
+        @Nonnull
+        private Direction toTupleDirection(final boolean isReverse) {
+            return isReverse
+                   ? getSortOrder().getTupleDirection().reverseDirection()
+                   : getSortOrder().getTupleDirection();
         }
 
         @Nonnull

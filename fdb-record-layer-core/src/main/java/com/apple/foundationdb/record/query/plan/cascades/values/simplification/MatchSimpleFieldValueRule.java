@@ -1,5 +1,5 @@
 /*
- * MatchValueRule.java
+ * MatchSimpleFieldValueRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -36,7 +36,8 @@ import java.util.Optional;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 
 /**
- * A rule that matches a {@link Value} (with the argument values).
+ * A rule that matches any simple {@link FieldValue}, i.e. {@code fieldValue(qov(b))} where {@code qov(b)} is the base
+ * value handed in through the arguments to the simplification call.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

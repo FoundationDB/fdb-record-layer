@@ -412,7 +412,9 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
     }
 
     /**
-     * Copier for basic fields.
+     * Copier for fields that is based on some give {@link Value} to do its work. This is the first step in an effort
+     * to express the entire {@link IndexKeyValueToPartialRecord} as a {@link Value} whose result is the partial
+     * record. TODO https://github.com/FoundationDB/fdb-record-layer/issues/2907
      */
     public static class FieldWithValueCopier implements Copier {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-With-Value-Copier");

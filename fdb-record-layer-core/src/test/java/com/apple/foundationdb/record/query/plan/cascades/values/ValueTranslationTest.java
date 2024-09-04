@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -483,7 +484,9 @@ public class ValueTranslationTest {
           let's construct a max match map (m3) using the translated value with the candidate value.
          */
 
-        final var l1m3 = MaxMatchMap.calculate(AliasMap.ofAliases(sAlias, s_Alias), l1TranslatedQueryValue, p_v);
+        final var l1m3 =
+                MaxMatchMap.calculate(l1TranslatedQueryValue, p_v,
+                        ValueEquivalence.fromAliasMap(AliasMap.ofAliases(sAlias, s_Alias)));
 
         Map<Value, Value> l1ExpectedMapping = Map.of(
                 add(fv(t_, "a", "q"), s),  add(fv(t_, "a", "q"), s_),
@@ -1043,7 +1046,7 @@ public class ValueTranslationTest {
         /*
           let's construct a max match map (m3) using the translated value with the candidate value.
          */
-        final var l1m3 = MaxMatchMap.calculate(AliasMap.emptyMap(), l1TranslatedQueryValue, p_v);
+        final var l1m3 = MaxMatchMap.calculate(l1TranslatedQueryValue, p_v);
 
         Map<Value, Value> l1ExpectedMapping = Map.of(pv,  p_v);
         Assertions.assertEquals(l1ExpectedMapping, l1m3.getMapping());
