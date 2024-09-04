@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexAggreg
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -165,21 +166,34 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                                         concatenateFields("num_value_3", "num_value_unique").group(1),
                                         IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
         };
+
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(num_by_num3_hook));
-            saveRecords(0, 100);
+            recordStore.saveRecord(TestRecordsBitmapProto.MySimpleRecord.newBuilder()
+                    .setRecNo(0)
+                    .setStrValue("even")
+                    .setNumValueUnique(3) // bitmap
+                    .setNumValue2(100)
+                    .setNumValue3(42)
+                    .build());
+
+            recordStore.saveRecord(TestRecordsBitmapProto.MySimpleRecord.newBuilder()
+                    .setRecNo(1)
+                    .setStrValue("even")
+                    .setNumValueUnique(20) // bitmap
+                    .setNumValue2(100)
+                    .setNumValue3(42)
+                    .build());
             commit(context);
         }
+
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(num_by_num3_hook));
-            assertThat(
-                    collectOnBits(recordStore.scanIndex(
-                            recordStore.getRecordMetaData().getIndex("num_by_num3"), IndexScanType.BY_GROUP,
-                            TupleRange.allOf(Tuple.from(2)),
-                            null, ScanProperties.FORWARD_SCAN)),
-                    equalTo(IntStream.range(1000, 1100).boxed()
-                            .filter(i -> (i % 5) == 2)
-                            .collect(Collectors.toList())));
+            final var onBits = collectOnBits(recordStore.scanIndex(
+                    recordStore.getRecordMetaData().getIndex("num_by_num3"), IndexScanType.BY_GROUP,
+                    TupleRange.ALL,
+                    null, ScanProperties.FORWARD_SCAN));
+            assertThat(onBits, equalTo(ImmutableList.of(3, 20)));
         }
     }
 

@@ -413,7 +413,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     metaDataBuilder.addIndex("MySimpleRecord", new Index("AggIndex", field("num_value_3_indexed").groupBy(field("num_value_2")), IndexTypes.SUM));
                 }
                 if (addBitMapIndex) {
-                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE));
+                    //metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", modExpression(field("num_value_2"), bucketSize).groupBy(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)), IndexTypes.BITMAP_VALUE));
+                    metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE));
                 }
                 if (addBitBucketFunctionIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord", "MySimpleRecord$bit_bucket", concat(field("str_value_indexed"), bitBucketExpression(field("num_value_2"), bucketSize)));

@@ -71,16 +71,16 @@ import java.util.stream.Stream;
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    private static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
     @Nonnull
-    private final Index index;
+    protected final Index index;
 
     @Nonnull
     private final Collection<RecordType> recordTypes;
 
     @Nonnull
-    private final GroupingKeyExpression groupingKeyExpression;
+    protected final GroupingKeyExpression groupingKeyExpression;
 
     private final int columnPermutations;
 
@@ -91,7 +91,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(index.getType().equals(IndexTypes.BITMAP_VALUE) || aggregateMap.get().containsKey(index.getType()));
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
@@ -208,7 +208,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
+    protected Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
             throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
@@ -321,7 +321,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverFn());
         mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new IndexOnlyAggregateValue.MaxEverFn());
         mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new IndexOnlyAggregateValue.MinEverFn());
-        mapBuilder.put(IndexTypes.BITMAP_VALUE, new NumericAggregationValue.BitMapConstructAggFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());

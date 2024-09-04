@@ -386,6 +386,9 @@ public interface MatchCandidate {
                                                                                @Nonnull final Set<String> queriedRecordTypeNames,
                                                                                @Nonnull final Collection<RecordType> queriedRecordTypes,
                                                                                final boolean isReverse) {
+        final var aggregateIndexExpansionVisitor = index.getType().equals(IndexTypes.BITMAP_VALUE)
+                ? new BitmapAggregateIndexExpansionVisitor(index, queriedRecordTypes)
+                : new AggregateIndexExpansionVisitor(index, queriedRecordTypes);
         return expandIndexMatchCandidate(index,
                 availableRecordTypeNames,
                 availableRecordTypes,
@@ -393,7 +396,7 @@ public interface MatchCandidate {
                 queriedRecordTypes,
                 isReverse,
                 null,
-                new AggregateIndexExpansionVisitor(index, queriedRecordTypes)
+                aggregateIndexExpansionVisitor
         );
     }
 
