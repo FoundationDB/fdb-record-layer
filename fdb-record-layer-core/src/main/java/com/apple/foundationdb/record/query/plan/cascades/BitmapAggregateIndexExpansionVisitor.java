@@ -118,7 +118,6 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
         }).collect(ImmutableList.toImmutableList());
 
         final var pulledUpGroupingValues = ImmutableList.<Value>builder().addAll(explicitPulledUpGroupingValues).add(implicitGroupingValue).build();
-        // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
         return NonnullPair.of(Quantifier.forEach(Reference.of(
                 new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),

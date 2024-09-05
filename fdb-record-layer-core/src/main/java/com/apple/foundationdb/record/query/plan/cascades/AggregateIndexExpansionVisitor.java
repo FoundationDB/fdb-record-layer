@@ -260,7 +260,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             return pulledUpGroupingValuesMap.get(groupingValue);
         }).collect(ImmutableList.toImmutableList());
 
-        // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
         if (groupingColsValue.getResultType().getFields().isEmpty()) {
             return NonnullPair.of(Quantifier.forEach(Reference.of(
