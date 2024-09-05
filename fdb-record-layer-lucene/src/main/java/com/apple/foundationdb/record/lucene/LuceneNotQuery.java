@@ -81,7 +81,7 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
             }
         } else {
             for (final LuceneQueryClause child : getChildren()) {
-                final BoundQuery childBoundQuery = child.bind(store, index, context);
+                final BoundQuery childBoundQuery = child.timedBind(store, index, context);
                 builder.add(childBoundQuery.getLuceneQuery(), BooleanClause.Occur.MUST);
                 final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
                 if (childHighlightingTermsMap != null) {
@@ -93,7 +93,7 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
             }
         }
         for (final LuceneQueryClause child : negatedChildren) {
-            final BoundQuery childBoundQuery = child.bind(store, index, context);
+            final BoundQuery childBoundQuery = child.timedBind(store, index, context);
             builder.add(childBoundQuery.getLuceneQuery(), BooleanClause.Occur.MUST_NOT);
             final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
             if (childHighlightingTermsMap != null) {

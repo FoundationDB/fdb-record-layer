@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.lucene.query.BitSetQuery;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -48,6 +49,8 @@ import org.apache.lucene.search.spans.SpanNearQuery;
 import org.apache.lucene.search.spans.SpanOrQuery;
 import org.apache.lucene.search.spans.SpanQuery;
 import org.apache.lucene.search.spans.SpanTermQuery;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,12 +58,14 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Binder for a single query clause.
  */
 @API(API.Status.UNSTABLE)
 public abstract class LuceneQueryClause implements PlanHashable {
+    private static final Logger log = LoggerFactory.getLogger(LuceneQueryClause.class);
     @Nonnull
     private final LuceneQueryType queryType;
 
@@ -71,6 +76,17 @@ public abstract class LuceneQueryClause implements PlanHashable {
     @Nonnull
     public LuceneQueryType getQueryType() {
         return queryType;
+    }
+
+    public BoundQuery timedBind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        long startNanos = System.nanoTime();
+        try {
+            return bind(store, index, context);
+        } finally {
+            log.debug(KeyValueLogMessage.of("Finished binding",
+                    "Class", this.getClass().getSimpleName(),
+                    "totalUsec", TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos)));
+        }
     }
 
     public abstract BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context);

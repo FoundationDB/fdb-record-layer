@@ -70,7 +70,7 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         Map<String, Set<String>> highlightingTermsMap = null;
         for (LuceneQueryClause child : children) {
-            final BoundQuery childBoundQuery = child.bind(store, index, context);
+            final BoundQuery childBoundQuery = child.timedBind(store, index, context);
             builder.add(childBoundQuery.getLuceneQuery(), occur);
             final Map<String, Set<String>> childHighlightingTermsMap = childBoundQuery.getHighlightingTermsMap();
             if (childHighlightingTermsMap != null) {
