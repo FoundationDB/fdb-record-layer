@@ -142,11 +142,17 @@ public abstract class IndexMaintainer {
 
     /**
      * Scans through the list of uniqueness violations within the database.
-     * It will return a cursor of {@link IndexEntry} instances where the
-     * {@link IndexEntry#getKey() getKey()} will return the primary key
-     * of the record causing a problem and {@link IndexEntry#getValue() getValue()}
-     * will return the index value that is being duplicated.
-     *
+     * <p>
+     *     It will return a cursor of {@link IndexEntry} instances where the {@link IndexEntry#getKey() getKey()} will
+     *     return the primary key of the record causing a problem and {@link IndexEntry#getValue() getValue()} will
+     *     return the index value that is being duplicated.
+     * </p>
+     * <p>
+     *     Implementors <em>should</em> store all relevant data, and nothing else in
+     *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, but this requirement was not
+     *     clearly stated, so it's possible there are implementations that store information about uniqueness violations
+     *     in another range.
+     * </p>
      * @param range range of tuples to read
      * @param continuation any continuation from a previous invocation
      * @param scanProperties row limit and other scan properties
@@ -161,9 +167,16 @@ public abstract class IndexMaintainer {
      *     This should only be called when the index is no longer unique, and implementations should throw a
      *     {@link com.apple.foundationdb.record.RecordCoreException} if the index is unique.
      * </p>
+     * <p>
+     *     This should be as simple as clearing the
+     *     {@code state.store.indexUniquenessViolationsSubspace(state.index).range()}, as that should be where all data
+     *     about the violations should be stored.
+     * </p>
      * @return a future that will complete when the violations have been cleared
      */
-    public abstract CompletableFuture<Void> clearUniquenessViolations();
+    public CompletableFuture<Void> clearUniquenessViolations() {
+        throw new UnsupportedOperationException("Index maintainer does not support clearing uniqueness violations");
+    }
 
     /**
      * Validates the integrity of the index entries. The definition of exactly what validations are performed is up to
