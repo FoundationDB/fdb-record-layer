@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
@@ -28,6 +29,7 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -40,6 +42,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Simple unit tests around direct-access insertion tests.
@@ -52,6 +57,67 @@ public class SimpleDirectAccessInsertionTests {
     @RegisterExtension
     @Order(1)
     public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
+
+    @Test
+    void useScanContinuationInQueryShouldNotWork() throws Exception {
+        insertRows();
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.NONE)) {
+            conn.setSchema(db.getSchemaName());
+
+            // scan
+            try (RelationalStatement s = conn.createStatement()) {
+                s.setMaxRows(1);
+                Continuation continuation1;
+                try (RelationalResultSet rrs = s.executeScan("RESTAURANT_REVIEWER", KeySet.EMPTY, Options.NONE)) {
+                    rrs.next();
+                    continuation1 = rrs.getContinuation();
+                }
+                String continuationString = Base64.getEncoder().encodeToString(continuation1.serialize());
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeQuery("SELECT * FROM RESTAURANT_REVIEWER LIMIT 1 WITH CONTINUATION B64'" + continuationString + "'"), "Continuation binding does not match query");
+            }
+
+            // get
+            try (RelationalStatement s = conn.createStatement()) {
+                Continuation continuation1;
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", 1L), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build())) {
+                    rrs.next();
+                    continuation1 = rrs.getContinuation();
+                }
+                String continuationString = Base64.getEncoder().encodeToString(continuation1.serialize());
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeQuery("SELECT * FROM RESTAURANT_REVIEWER LIMIT 1 WITH CONTINUATION B64'" + continuationString + "'"), "Continuation binding does not match query");
+            }
+        }
+    }
+
+    @Test
+    void useQueryContinuationInDirectAccess() throws Exception {
+        insertRows();
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.NONE)) {
+            conn.setSchema(db.getSchemaName());
+
+            try (RelationalStatement s = conn.createStatement()) {
+                s.setMaxRows(1);
+                Continuation continuation;
+
+                try (RelationalResultSet rrs = s.executeQuery("SELECT * FROM RESTAURANT_REVIEWER")) {
+                    rrs.next();
+                    continuation = rrs.getContinuation();
+                }
+                Options options = Options.builder().withOption(Options.Name.CONTINUATION, continuation).build();
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeScan("RESTAURANT_REVIEWER", KeySet.EMPTY, options), "Continuation doesn't match direct access APIs.");
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeGet("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", 1L), options), "Continuation doesn't match direct access APIs.");
+                final var newStruct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 3L)
+                        .addString("NAME", "Jack Smith")
+                        .addString("EMAIL", "jsmith@apple.com")
+                        .build();
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeInsert("RESTAURANT_REVIEWER", List.of(newStruct), options), "Continuation doesn't match direct access APIs.");
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeDelete("RESTAURANT_REVIEWER", Collections.singleton(new KeySet().setKeyColumn("ID", 1L)), options), "Continuation doesn't match direct access APIs.");
+                org.junit.jupiter.api.Assertions.assertThrows(ContextualSQLException.class, () -> s.executeDeleteRange("RESTAURANT_REVIEWER", new KeySet().setKeyColumn("ID", 1L), options), "Continuation doesn't match direct access APIs.");
+            }
+        }
+    }
+
 
     @Test
     void insertNestedFields() throws RelationalException, SQLException {
@@ -168,6 +234,39 @@ public class SimpleDirectAccessInsertionTests {
                             .isRowExactly(reviewerStruct)
                             .hasNoNextRow();
                 }
+            }
+        }
+    }
+
+    private void insertRows() throws Exception {
+        try (RelationalConnection conn = Relational.connect(URI.create("jdbc:embed://" + db.getDatabasePath().getPath()), Options.NONE)) {
+            conn.setSchema(db.getSchemaName());
+
+            try (RelationalStatement s = conn.createStatement()) {
+                final var struct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addString("NAME", "Anthony Bourdain")
+                        .addString("EMAIL", "abourdain@apple.com")
+                        .addStruct("STATS", EmbeddedRelationalStruct.newBuilder()
+                                .addLong("START_DATE", 0L)
+                                .addString("SCHOOL_NAME", "Truman High School")
+                                .addString("HOMETOWN", "Boise, Indiana")
+                                .build())
+                        .build();
+                final var struct2 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 2L)
+                        .addString("NAME", "Elena Bourdain")
+                        .addString("EMAIL", "ebourdain@apple.com")
+                        .addStruct("STATS", EmbeddedRelationalStruct.newBuilder()
+                                .addLong("START_DATE", 1L)
+                                .addString("SCHOOL_NAME", "Truman High School")
+                                .addString("HOMETOWN", "Boise, Indiana")
+                                .build())
+                        .build();
+                int inserted = s.executeInsert("RESTAURANT_REVIEWER", struct);
+                Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
+                inserted = s.executeInsert("RESTAURANT_REVIEWER", struct2);
+                Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
             }
         }
     }

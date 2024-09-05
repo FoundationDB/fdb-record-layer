@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.util.Supplier;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
@@ -111,6 +112,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
             Table table = schema.loadTable(schemaAndTable[1]);
 
             String indexName = finalOptions.getOption(Options.Name.INDEX_HINT);
+            validateBindingHash(options.getOption(Options.Name.CONTINUATION));
             DirectScannable source = getSourceScannable(indexName, table);
 
             KeyBuilder keyBuilder = source.getKeyBuilder();
@@ -135,6 +137,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
             Table table = schema.loadTable(schemaAndTable[1]);
 
             String indexName = finalizedOptions.getOption(Options.Name.INDEX_HINT);
+            validateBindingHash(options.getOption(Options.Name.CONTINUATION));
             DirectScannable source = getSourceScannable(indexName, table);
             source.validate(finalizedOptions);
 
@@ -163,6 +166,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
             Table table = schema.loadTable(schemaAndTable[1]);
             table.validateTable(finalizedOptions);
             final Boolean replaceOnDuplicate = finalizedOptions.getOption(Options.Name.REPLACE_ON_DUPLICATE_PK);
+            validateBindingHash(options.getOption(Options.Name.CONTINUATION));
 
             int rowCount = 0;
             for (RelationalStruct struct : data) {
@@ -188,6 +192,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
             Table table = schema.loadTable(schemaAndTable[1]);
             table.validateTable(finalizedOptions);
+            validateBindingHash(options.getOption(Options.Name.CONTINUATION));
 
             int count = 0;
             Row toDelete = table.getKeyBuilder().buildKey(keys.next().toMap(), true);
@@ -212,8 +217,10 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         ensureTransaction(() -> {
             String[] schemaAndTable = getSchemaAndTable(conn, tableName);
             RecordLayerSchema schema = conn.getRecordLayerDatabase().loadSchema(schemaAndTable[0]);
+
             Table table = schema.loadTable(schemaAndTable[1]);
             table.validateTable(finalizedOptions);
+            validateBindingHash(options.getOption(Options.Name.CONTINUATION));
 
             Map<String, Object> deletePrefixColumns = prefix.toMap();
             KeyBuilder keyBuilder = table.getKeyBuilder();
@@ -255,6 +262,13 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
     /* ****************************************************************************************************************/
     /*private helper methods*/
+
+    private void validateBindingHash(@Nullable ContinuationImpl continuation) throws RelationalException {
+        if (continuation != null && continuation.getBindingHash() != null) {
+            throw new RelationalException("Continuation doesn't match direct access APIs.", ErrorCode.INVALID_CONTINUATION);
+        }
+    }
+
 
     // TODO (yhatem) this should be refactored and cleaned up, ideally consumers should work with structured metadata API
     //               instead of this string processing since that is error-prone and somewhat very low-level.
