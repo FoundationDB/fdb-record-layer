@@ -69,7 +69,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
@@ -327,7 +326,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, Bindings.EMPTY_BINDINGS)) {
+            try (RecordCursor<QueryResult> cursor = FDBQueryGraphTestHelpers.executeCascades(recordStore, plan, Bindings.EMPTY_BINDINGS)) {
                 cursor.forEach(queryResult -> {
                     final Message queriedMessage = queryResult.getMessage();
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
@@ -362,7 +361,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, Bindings.EMPTY_BINDINGS)) {
+            try (RecordCursor<QueryResult> cursor = FDBQueryGraphTestHelpers.executeCascades(recordStore, plan, Bindings.EMPTY_BINDINGS)) {
                 cursor.forEach(queryResult -> {
                     final Message queriedMessage = queryResult.getMessage();
                     final Descriptors.Descriptor recDescriptor = queriedMessage.getDescriptorForType();
@@ -452,7 +451,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
             final var result = graphBuilder.build().buildSelect();
             qun = Quantifier.forEach(Reference.of(result));
-            return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, qun));
+            return Reference.of(LogicalSortExpression.unsorted(qun));
         }
     }
 
@@ -475,6 +474,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                     if (withZeroExplicitGroups) {
                         metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", new GroupingKeyExpression(field("num_value_2"), 1), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                     } else {
+                        Index index = new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize)));
+                        System.out.println("bitmapIndex keyExpression:" + index.getRootExpression());
                         metaDataBuilder.addIndex("MySimpleRecord", new Index("BitMapIndex", field("num_value_2").groupBy(field("str_value_indexed")), IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, String.valueOf(bucketSize))));
                     }
                 }
@@ -520,10 +521,5 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private static FunctionKeyExpression bitBucketExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
         return Key.Expressions.function("bitmap_bucket_offset", concat(fieldExpression, Key.Expressions.value(bucketSize)));
-    }
-
-    @Nonnull
-    private static FunctionKeyExpression modExpression(@Nonnull KeyExpression fieldExpression, int bucketSize) {
-        return Key.Expressions.function("mod", concat(fieldExpression, Key.Expressions.value(bucketSize)));
     }
 }

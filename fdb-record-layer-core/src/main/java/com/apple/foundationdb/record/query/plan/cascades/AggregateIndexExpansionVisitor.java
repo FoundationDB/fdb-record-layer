@@ -91,7 +91,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(index.getType().equals(IndexTypes.BITMAP_VALUE) || aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(IndexTypes.BITMAP_VALUE.equals(index.getType()) || aggregateMap.get().containsKey(index.getType()));
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());

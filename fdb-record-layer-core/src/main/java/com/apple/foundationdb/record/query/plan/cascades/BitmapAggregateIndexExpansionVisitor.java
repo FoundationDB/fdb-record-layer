@@ -58,7 +58,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
      */
     public BitmapAggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
         super(index, recordTypes);
-        Verify.verify(index.getType().equals(IndexTypes.BITMAP_VALUE));
+        Verify.verify(IndexTypes.BITMAP_VALUE.equals(index.getType()));
     }
 
     @Nonnull
@@ -104,7 +104,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
                 .collect(ImmutableList.toImmutableList());
         final var bitmapBitPosition = FunctionCatalog.getFunctionSingleton(ArithmeticValue.BitMapBucketOffsetFn.class).orElseThrow();
         final var implicitGroupingValue = (Value)bitmapBitPosition.encapsulate(ImmutableList.of(argument, entrySizeValue));
-        final var placeHolder = Placeholder.newInstance(implicitGroupingValue, newParameterAlias());
+        final var placeHolder = Placeholder.newInstanceWithoutRanges(implicitGroupingValue, newParameterAlias());
 
         final var selectQunValue = selectWhereQun.getRangesOver().get().getResultValue();
         final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(), groupingValues.stream().flatMap(v -> v.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet())));
