@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -90,7 +91,11 @@ public class QueryKeyExpressionWithOneOfComparison implements ComponentWithCompa
     public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
                                  @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-        return GraphExpansion.ofPredicate(keyExpression.toValue(baseQuantifier, fieldNamePrefix).withComparison(comparison));
+        final var value =
+                new ScalarTranslationVisitor(keyExpression)
+                        .toResultValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType(),
+                                fieldNamePrefix);
+        return GraphExpansion.ofPredicate(value.withComparison(comparison));
     }
 
     @Override

@@ -284,7 +284,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @SuppressWarnings({"ConstantConditions", "java:S2447"})
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
         if (value == null) {
             return null;
         }

@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  * with an optional conversion of any comparison operand.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryableKeyExpression extends KeyExpression, KeyExpressionWithValue {
+public interface QueryableKeyExpression extends KeyExpression {
     @Nonnull
     String getName();
 

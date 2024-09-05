@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionWithValue;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -146,6 +147,12 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
     @Override
     public Result visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         return visitDefault(keyExpressionWithValue);
+    }
+
+    @Nonnull
+    @Override
+    public Result visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+        return visitDefault(functionKeyExpression);
     }
 
     @Nonnull

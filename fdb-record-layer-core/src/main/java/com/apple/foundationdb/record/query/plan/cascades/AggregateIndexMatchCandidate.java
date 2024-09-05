@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
@@ -44,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -229,9 +229,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
             if (normalizedValues.add(value)) {
-                builder.add(
-                        MatchedOrderingPart.of(parameterId, value, comparisonRange,
-                                MatchedSortOrder.ASCENDING));
+                final var matchedOrderingPart =
+                        value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                                (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                                OrderingValueComputationRuleSet.usingMatchedOrderingParts());
+                builder.add(matchedOrderingPart);
             }
         }
 
@@ -259,9 +261,9 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Override
     public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
-        final var groupingKey = ((GroupingKeyExpression)index.getRootExpression()).getGroupingSubKey();
+        final int groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
 
-        if (groupingKey instanceof EmptyKeyExpression) {
+        if (!isPermuted() && groupingCount == 0) {
             // TODO this should be something like anything-order.
             return Ordering.empty();
         }
@@ -269,40 +271,33 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final List<Value> deconstructedValue = Values.deconstructRecord(selectHavingResultValue);
         final AliasMap aliasMap = AliasMap.ofAliases(Iterables.getOnlyElement(selectHavingResultValue.getCorrelatedTo()), Quantifier.current());
 
-        // TODO include the aggregate Value itself in the ordering.
-        final var normalizedKeyExpressions = groupingKey.normalizeKeyForPositions();
+        // Note: the aggregate Value itself only influences the ordering if the index type is permuted, as it otherwise
+        // will appear in the value of the FDB key-value pair and thus does not participate in ordering.
+        final var orderingColumnCount = isPermuted() ? deconstructedValue.size() : groupingCount;
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
 
         // We keep a set for normalized values in order to check for duplicate values in the index definition.
         // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
-        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+        final var seenValues = Sets.newHashSetWithExpectedSize(orderingColumnCount);
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             int permutedIndex = indexWithPermutation(i);
-            if (permutedIndex < normalizedKeyExpressions.size()) {
-                final var normalizedKeyExpression = normalizedKeyExpressions.get(permutedIndex);
-
-                if (normalizedKeyExpression.createsDuplicates()) {
-                    continue;
-                }
-            }
-
             final var comparison = equalityComparisons.get(i);
             final var value = deconstructedValue.get(permutedIndex).rebase(aliasMap);
-            bindingMapBuilder.put(value, Binding.fixed(comparison));
-            normalizedValues.add(value);
+
+            final var simplifiedComparisonPairOptional =
+                    MatchCandidate.simplifyComparisonMaybe(value, comparison);
+            if (simplifiedComparisonPairOptional.isEmpty()) {
+                continue;
+            }
+            final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
+            bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
+            seenValues.add(simplifiedComparisonPair.getLeft());
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
-        for (var i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
+        for (var i = scanComparisons.getEqualitySize(); i < orderingColumnCount; i++) {
             int permutedIndex = indexWithPermutation(i);
-            if (permutedIndex < normalizedKeyExpressions.size()) {
-                final var normalizedKeyExpression = normalizedKeyExpressions.get(permutedIndex);
-
-                if (normalizedKeyExpression.createsDuplicates()) {
-                    break;
-                }
-            }
 
             //
             // Note that it is not really important here if the keyExpression can be normalized in a lossless way
@@ -312,10 +307,18 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             final var normalizedValue = deconstructedValue.get(permutedIndex).rebase(aliasMap);
 
-            if (!normalizedValues.contains(normalizedValue)) {
-                normalizedValues.add(normalizedValue);
-                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
-                orderingSequenceBuilder.add(normalizedValue);
+            final var providedOrderingPart =
+                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                            OrderingPart.ProvidedOrderingPart::new,
+                            OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+
+            final var providedOrderingValue = providedOrderingPart.getValue();
+            if (!seenValues.contains(providedOrderingValue)) {
+                seenValues.add(providedOrderingValue);
+                bindingMapBuilder.put(providedOrderingValue,
+                        Binding.sorted(providedOrderingPart.getSortOrder()
+                                .flipIfReverse(isReverse)));
+                orderingSequenceBuilder.add(providedOrderingValue);
             }
         }
 
@@ -331,9 +334,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                             final boolean reverseScanOrder) {
         final var baseRecordType = Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(recordTypes));
 
-        // reset indexes of all fields, such that we can normalize them
-        // TODO This is incorrect. Either the type indicates the field indexes or it does not. It is the truth here.
-        //      Why do we need to remove the field indexes here? They should not be set for most trivial cases anyway.
         final var resultType = groupByResultValue.getResultType();
         final var messageBuilder = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build().newMessageBuilder(resultType);
         final var messageDescriptor = Objects.requireNonNull(messageBuilder).getDescriptorForType();

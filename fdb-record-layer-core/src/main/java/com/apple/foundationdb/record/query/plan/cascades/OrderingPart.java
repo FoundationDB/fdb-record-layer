@@ -20,21 +20,26 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * A value that is used to express ordered-ness. The base class {@code OrderingPart} itself only has a protected
+ * A class that is used to express ordered-ness. The base class {@code OrderingPart} itself only has a protected
  * constructor. All subclasses are also final static nested classes of {@code OrderingPart}, thus emulating a sealed
  * trait.
  * @param <S> the type sort order that is being used
@@ -112,6 +117,24 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         return value;
     }
 
+    @Nonnull
+    public static <O extends OrderingPart<S>, S extends SortOrder> Map<Value, O> toOrderingPartMap(@Nonnull final Iterable<O> orderingParts) {
+        final var resultMapBuilder = ImmutableMap.<Value, O>builder();
+        for (final O orderingPart : orderingParts) {
+            resultMapBuilder.put(orderingPart.getValue(), orderingPart);
+        }
+        return resultMapBuilder.build();
+    }
+
+    @Nonnull
+    public static List<Value> toValues(@Nonnull final Iterable<? extends OrderingPart<?>> orderingParts) {
+        final var resultsBuilder = ImmutableList.<Value>builder();
+        for (final var orderingPart : orderingParts) {
+            resultsBuilder.add(orderingPart.getValue());
+        }
+        return resultsBuilder.build();
+    }
+
     /**
      * A common interface all sort orders have to implement. Although, all sort orders offer enums for ascending and
      * descending order and are thus somewhat overlapping in nature, different use cases may warrant subtle differences.
@@ -146,6 +169,65 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * @return a boolean indicator; {@code true} iff this sort order is ascending or descending.
          */
         boolean isDirectional();
+
+        /**
+         * Get the corresponding tuple ordering direction.
+         * @return the corresponding {@link Direction}.
+         */
+        @Nonnull
+        Direction getTupleDirection();
+
+        default boolean isAnyAscending() {
+            Verify.verify(isDirectional());
+            return getTupleDirection().isAscending();
+        }
+
+        default boolean isAnyDescending() {
+            Verify.verify(isDirectional());
+            return getTupleDirection().isDescending();
+        }
+
+        default boolean isNullsFirst() {
+            Verify.verify(isDirectional());
+            return getTupleDirection().isNullsFirst();
+        }
+
+        default boolean isNullsLast() {
+            Verify.verify(isDirectional());
+            return getTupleDirection().isNullsLast();
+        }
+
+        default boolean isCounterflowNulls() {
+            Verify.verify(isDirectional());
+            return getTupleDirection().isCounterflowNulls();
+        }
+
+        @Nonnull
+        static <SO extends SortOrder> EnumMap<Direction, SO> computeDirectionToSortOrder(@Nonnull final Class<SO> soClass) {
+            final EnumMap<Direction, SO> directionToSortOrderMap = new EnumMap<>(Direction.class);
+
+            final var values = soClass.getEnumConstants();
+            for (final var value : values) {
+                if (value.isDirectional()) {
+                    directionToSortOrderMap.put(value.getTupleDirection(), value);
+                }
+            }
+            return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        static <FO extends SortOrder, TO extends SortOrder> TO mapToSortOrder(@Nonnull final FO fo,
+                                                                              @Nonnull final EnumMap<Direction, TO> directionToSortOrderMap) {
+            Verify.verify(fo.isDirectional());
+            return Objects.requireNonNull(directionToSortOrderMap.get(fo.getTupleDirection()));
+        }
+
+        @Nonnull
+        static <FO extends SortOrder, TO extends SortOrder> TO mapToReverseSortOrder(@Nonnull final FO fo,
+                                                                                     @Nonnull final EnumMap<Direction, TO> directionToSortOrderMap) {
+            Verify.verify(fo.isDirectional());
+            return Objects.requireNonNull(directionToSortOrderMap.get(fo.getTupleDirection().reverseDirection()));
+        }
     }
 
     /**
@@ -156,19 +238,19 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         /**
          * Ascending.
          */
-        ASCENDING("↑"),
+        ASCENDING(Direction.ASC_NULLS_FIRST),
         /**
          * Descending.
          */
-        DESCENDING("↓"),
+        DESCENDING(Direction.DESC_NULLS_LAST),
         /**
          * Ascending but with nulls after regular values.
          */
-        ASCENDING_NULLS_LAST("↗"),
+        ASCENDING_NULLS_LAST(Direction.ASC_NULLS_LAST),
         /**
          * Descending but with nulls before regular values.
          */
-        DESCENDING_NULLS_FIRST("↙"),
+        DESCENDING_NULLS_FIRST(Direction.DESC_NULLS_FIRST),
         /**
          * Fixed sort order which indicates that something restrict records to only ever be of exactly one value.
          */
@@ -184,10 +266,24 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          */
         CHOOSE("?");
 
+        private static final EnumMap<Direction, ProvidedSortOrder> directionToSortOrderMap;
+
+        static {
+            directionToSortOrderMap = SortOrder.computeDirectionToSortOrder(ProvidedSortOrder.class);
+        }
+
+        @Nullable
+        private final Direction tupleDirection;
         @Nonnull
         private final String arrowIndicator;
 
+        ProvidedSortOrder(@Nonnull final Direction tupleDirection) {
+            this.tupleDirection = tupleDirection;
+            this.arrowIndicator = tupleDirection.getArrowIndicator();
+        }
+
         ProvidedSortOrder(@Nonnull final String arrowIndicator) {
+            this.tupleDirection = null;
             this.arrowIndicator = arrowIndicator;
         }
 
@@ -197,36 +293,24 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return arrowIndicator;
         }
 
-        public boolean isReverse() {
-            if (this == FIXED) {
-                throw new RecordCoreException("cannot determine if this is reverse or not");
-            }
-            return this == DESCENDING || this == DESCENDING_NULLS_FIRST;
-        }
-
         @Override
         public boolean isDirectional() {
-            return this != FIXED;
+            switch (this) {
+                case ASCENDING:
+                case DESCENDING:
+                case ASCENDING_NULLS_LAST:
+                case DESCENDING_NULLS_FIRST:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
-        public boolean isAscending() {
-            return this == ASCENDING || this == ASCENDING_NULLS_LAST;
-        }
-
-        public boolean isDescending() {
-            return this == DESCENDING || this == DESCENDING_NULLS_FIRST;
-        }
-
-        public boolean isNullsFirst() {
-            return this == ASCENDING || this == DESCENDING_NULLS_FIRST;
-        }
-
-        public boolean isNullsLast() {
-            return this == DESCENDING || this == ASCENDING_NULLS_LAST;
-        }
-
-        public boolean isCounterflowNulls() {
-            return this == ASCENDING_NULLS_LAST || this == DESCENDING_NULLS_FIRST;
+        @Nonnull
+        @Override
+        public Direction getTupleDirection() {
+            Verify.verify(isDirectional());
+            return Objects.requireNonNull(tupleDirection);
         }
 
         @SuppressWarnings("BooleanMethodIsAlwaysInverted")
@@ -239,22 +323,35 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
                 return false;
             }
 
-            return this.isAscending() == requestedSortOrder.isAscending();
+            return this.isAnyAscending() == requestedSortOrder.isAnyAscending();
         }
 
-        public RequestedSortOrder toRequestedSortOrder() {
-            switch (this) {
-                case ASCENDING:
-                    return RequestedSortOrder.ASCENDING;
-                case DESCENDING:
-                    return RequestedSortOrder.DESCENDING;
-                case ASCENDING_NULLS_LAST:
-                    return RequestedSortOrder.ASCENDING_NULLS_LAST;
-                case DESCENDING_NULLS_FIRST:
-                    return RequestedSortOrder.DESCENDING_NULLS_FIRST;
-                default:
-                    throw new RecordCoreException("cannot translate this sort order to requested sort order");
+        @Nonnull
+        public ProvidedSortOrder flipIfReverse(final boolean isReverse) {
+            if (isReverse) {
+                return SortOrder.mapToReverseSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
             }
+            return this;
+        }
+
+        @Nonnull
+        public MatchedSortOrder toMatchedSortOrder() {
+            return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
+        }
+
+        @Nonnull
+        public RequestedSortOrder toRequestedSortOrder() {
+            return SortOrder.mapToSortOrder(this, RequestedSortOrder.getDirectionToSortOrderMap());
+        }
+
+        @Nonnull
+        static EnumMap<Direction, ProvidedSortOrder> getDirectionToSortOrderMap() {
+            return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        public static ProvidedSortOrder fromDirection(@Nonnull final Direction direction) {
+            return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
 
         @Nonnull
@@ -277,29 +374,39 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      * {@code fieldValue(q, x)} is ascending.
      */
     public enum MatchedSortOrder implements SortOrder {
-        ASCENDING("↑"),
-        DESCENDING("↓");
+        ASCENDING(Direction.ASC_NULLS_FIRST),
+        DESCENDING(Direction.DESC_NULLS_LAST),
+        ASCENDING_NULLS_LAST(Direction.ASC_NULLS_LAST),
+        DESCENDING_NULLS_FIRST(Direction.DESC_NULLS_FIRST);
+
+        private static final EnumMap<Direction, MatchedSortOrder> directionToSortOrderMap;
+
+        static {
+            directionToSortOrderMap = SortOrder.computeDirectionToSortOrder(MatchedSortOrder.class);
+        }
 
         @Nonnull
-        private final String arrowIndicator;
+        private final Direction tupleDirection;
 
-        MatchedSortOrder(@Nonnull final String arrowIndicator) {
-            this.arrowIndicator = arrowIndicator;
+        MatchedSortOrder(@Nonnull final Direction tupleDirection) {
+            this.tupleDirection = tupleDirection;
         }
 
         @Nonnull
         @Override
         public String getArrowIndicator() {
-            return arrowIndicator;
-        }
-
-        public boolean isReverse() {
-            return this == DESCENDING;
+            return tupleDirection.getArrowIndicator();
         }
 
         @Override
         public boolean isDirectional() {
             return true;
+        }
+
+        @Nonnull
+        @Override
+        public Direction getTupleDirection() {
+            return tupleDirection;
         }
 
         @Nonnull
@@ -309,14 +416,25 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Nonnull
         public ProvidedSortOrder toProvidedSortOrder(final boolean isReverse) {
-            switch (this) {
-                case ASCENDING:
-                    return isReverse ? ProvidedSortOrder.DESCENDING : ProvidedSortOrder.ASCENDING;
-                case DESCENDING:
-                    return isReverse ? ProvidedSortOrder.ASCENDING : ProvidedSortOrder.DESCENDING;
-                default:
-                    throw new RecordCoreException("cannot translate this sort order to provided sort order");
+            if (isReverse) {
+                return SortOrder.mapToReverseSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
             }
+            return SortOrder.mapToSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
+        }
+
+        @Nonnull
+        public RequestedSortOrder toRequestedSortOrder() {
+            return SortOrder.mapToSortOrder(this, RequestedSortOrder.getDirectionToSortOrderMap());
+        }
+
+        @Nonnull
+        static EnumMap<Direction, MatchedSortOrder> getDirectionToSortOrderMap() {
+            return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        public static MatchedSortOrder fromDirection(@Nonnull final Direction direction) {
+            return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
     }
 
@@ -328,29 +446,43 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         /**
          * Ascending.
          */
-        ASCENDING("↑"),
+        ASCENDING(Direction.ASC_NULLS_FIRST),
         /**
          * Descending.
          */
-        DESCENDING("↓"),
+        DESCENDING(Direction.DESC_NULLS_LAST),
         /**
          * Ascending but with nulls after regular values.
          */
-        ASCENDING_NULLS_LAST("↗"),
+        ASCENDING_NULLS_LAST(Direction.ASC_NULLS_LAST),
         /**
          * Descending but with nulls before regular values.
          */
-        DESCENDING_NULLS_FIRST("↙"),
+        DESCENDING_NULLS_FIRST(Direction.DESC_NULLS_FIRST),
         /**
          * Any ordering. This requested ordering still needs an actual produced order that can either be ascending or
          * descending. It cannot be unordered.
          */
         ANY("↕");
 
+        private static final EnumMap<Direction, RequestedSortOrder> directionToSortOrderMap;
+
+        static {
+            directionToSortOrderMap = SortOrder.computeDirectionToSortOrder(RequestedSortOrder.class);
+        }
+
+        @Nullable
+        private final Direction tupleDirection;
         @Nonnull
         private final String arrowIndicator;
 
+        RequestedSortOrder(@Nonnull final Direction tupleDirection) {
+            this.tupleDirection = tupleDirection;
+            this.arrowIndicator = tupleDirection.getArrowIndicator();
+        }
+
         RequestedSortOrder(@Nonnull final String arrowIndicator) {
+            this.tupleDirection = null;
             this.arrowIndicator = arrowIndicator;
         }
 
@@ -360,36 +492,17 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return arrowIndicator;
         }
 
-        public boolean isReverse() {
-            if (this == ANY) {
-                throw new RecordCoreException("cannot determine if this is reverse or not");
-            }
-            return this == DESCENDING;
-        }
-
         @Override
         public boolean isDirectional() {
-            return this == ASCENDING || this == DESCENDING;
+            return this == ASCENDING || this == DESCENDING ||
+                    this == ASCENDING_NULLS_LAST || this == DESCENDING_NULLS_FIRST;
         }
 
-        public boolean isAscending() {
-            return this == ASCENDING || this == ASCENDING_NULLS_LAST;
-        }
-
-        public boolean isDescending() {
-            return this == DESCENDING || this == DESCENDING_NULLS_FIRST;
-        }
-
-        public boolean isNullsFirst() {
-            return this == ASCENDING || this == DESCENDING_NULLS_FIRST;
-        }
-
-        public boolean isNullsLast() {
-            return this == DESCENDING || this == ASCENDING_NULLS_LAST;
-        }
-
-        public boolean isCounterflowNulls() {
-            return this == ASCENDING_NULLS_LAST || this == DESCENDING_NULLS_FIRST;
+        @Nonnull
+        @Override
+        public Direction getTupleDirection() {
+            Verify.verify(isDirectional());
+            return Objects.requireNonNull(tupleDirection);
         }
 
         @Nonnull
@@ -399,18 +512,22 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Nonnull
         public ProvidedSortOrder toProvidedSortOrder() {
-            switch (this) {
-                case ASCENDING:
-                    return ProvidedSortOrder.ASCENDING;
-                case DESCENDING:
-                    return ProvidedSortOrder.DESCENDING;
-                case ASCENDING_NULLS_LAST:
-                    return ProvidedSortOrder.ASCENDING_NULLS_LAST;
-                case DESCENDING_NULLS_FIRST:
-                    return ProvidedSortOrder.DESCENDING_NULLS_FIRST;
-                default:
-                    throw new RecordCoreException("cannot translate this sort order to provided sort order");
-            }
+            return SortOrder.mapToSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
+        }
+
+        @Nonnull
+        public MatchedSortOrder toMatchedSortOrder() {
+            return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
+        }
+
+        @Nonnull
+        static EnumMap<Direction, RequestedSortOrder> getDirectionToSortOrderMap() {
+            return directionToSortOrderMap;
+        }
+
+        @Nonnull
+        public static RequestedSortOrder fromDirection(@Nonnull final Direction direction) {
+            return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
     }
 
@@ -420,6 +537,76 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     public static final class ProvidedOrderingPart extends OrderingPart<ProvidedSortOrder> {
         public ProvidedOrderingPart(@Nonnull final Value value, final ProvidedSortOrder sortOrder) {
             super(value, sortOrder);
+        }
+
+        /**
+         * Compute the comparison key value for a set operation from this ordering part and a reversed-ness indicator.
+         * <pre>
+         * {@code
+         * forward:                                           reverse:
+         *                      a     tob(a, "↑")           |                      a     tob(a, "↓")
+         *                   null         -inf              |                   null          inf
+         *                     -2           -2              |                     -2            2
+         *                      3            3              |                      3           -3
+         *                      5            5              |                      5           -5
+         *                     10           10              |                     10          -10
+         *                ------------------------          |                ------------------------
+         * resulting order    "↑"        compare asc        | resulting order    "↑"        compare desc
+         *                                                  |
+         *                      a     tob(a, "↓")           |                      a     tob(a, "↑")
+         *                     10          -10              |                     10           10
+         *                      5           -5              |                      5            5
+         *                      3           -3              |                      3            3
+         *                     -2            2              |                     -2            2
+         *                   null          inf              |                   null         -inf
+         *                ------------------------          |                ------------------------
+         * resulting order    "↓"        compare asc        | resulting order    "↓"        compare desc
+         *                                                  |
+         *                      a     tob(a, "↙")           |                      a     tob(a, "↗")
+         *                   null         -inf              |                   null          inf
+         *                     10          -10              |                     10           10
+         *                      5           -5              |                      5            5
+         *                      3           -3              |                      3            3
+         *                     -2            2              |                     -2           -2
+         *                ------------------------          |                ------------------------
+         * resulting order    "↙"        compare asc        | resulting order    "↙"         compare desc
+         *                                                  |
+         *                      a     tob(a, "↗")           |                      a     tob(a, "↙")
+         *                     -2           -2              |                     -2            2
+         *                      3            3              |                      3           -3
+         *                      5            5              |                      5           -5
+         *                     10           10              |                     10          -10
+         *                   null          inf              |                   null         -inf
+         *                ------------------------          |                --------------------------
+         * resulting order    "↗"        compare asc        | resulting order    "↗"         compare desc
+         * }
+         * </pre>
+         * @param isReverse indicator if the set operation is using a forward or a reverse comparison function
+         * @return a {@link Value} that represents the <em>physical</em> comparison kay part for this ordering part
+         */
+        @Nonnull
+        public Value comparisonKeyValue(final boolean isReverse) {
+            final var tupleDirection = toTupleDirection(isReverse);
+            final var value = getValue();
+            if (tupleDirection == Direction.ASC_NULLS_FIRST) {
+                return value;
+            }
+            return new ToOrderedBytesValue(value, tupleDirection);
+        }
+
+        @Nonnull
+        private Direction toTupleDirection(final boolean isReverse) {
+            return isReverse
+                   ? getSortOrder().getTupleDirection().reverseDirection()
+                   : getSortOrder().getTupleDirection();
+        }
+
+        @Nonnull
+        public static List<Value> comparisonKeyValues(@Nonnull final Iterable<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                      final boolean isReverse) {
+            return Streams.stream(comparisonKeyOrderingParts)
+                    .map(providedOrderingPart -> providedOrderingPart.comparisonKeyValue(isReverse))
+                    .collect(ImmutableList.toImmutableList());
         }
     }
 
@@ -477,7 +664,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             if (this == o) {
                 return true;
             }
-            if (!(o instanceof MatchedOrderingPart)) {
+            if (!(o instanceof OrderingPart.MatchedOrderingPart)) {
                 return false;
             }
             if (!super.equals(o)) {
@@ -506,5 +693,15 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return new MatchedOrderingPart(parameterId, orderByValue,
                     comparisonRange == null ? ComparisonRange.EMPTY : comparisonRange, matchedSortOrder);
         }
+    }
+
+    /**
+     * Functional interface to be used to create instances of a particular kind of {@link OrderingPart}.
+     * @param <O> type or specific sort order
+     * @param <P> type of specific ordering part
+     */
+    @FunctionalInterface
+    public interface OrderingPartCreator<O extends SortOrder, P extends OrderingPart<O>> {
+        P create(@Nonnull Value value, @Nonnull O sortOrder);
     }
 }

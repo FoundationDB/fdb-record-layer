@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
@@ -69,8 +69,8 @@ public class DefaultQueryPredicateRuleSet extends QueryPredicateComputationRuleS
         this(COMPUTATION_RULES, COMPUTATION_DEPENDS_ON);
     }
 
-    public DefaultQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<Pair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> abstractQueryPredicateRules,
-                                        @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<Pair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<Pair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> dependsOn) {
+    public DefaultQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> abstractQueryPredicateRules,
+                                        @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> dependsOn) {
         super(abstractQueryPredicateRules, dependsOn);
     }
 

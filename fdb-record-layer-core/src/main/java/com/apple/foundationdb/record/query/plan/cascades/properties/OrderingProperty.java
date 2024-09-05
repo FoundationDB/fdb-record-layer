@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -88,6 +90,7 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -293,8 +296,8 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Override
         public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
-            return deriveForDistinctSetOperationFromOrderings(orderings, intersectionOnValuePlan.getComparisonKeyValues(),
-                    intersectionOnValuePlan.isReverse(), Ordering.INTERSECTION);
+            return deriveForDistinctSetOperationFromOrderings(orderings,
+                    intersectionOnValuePlan.getComparisonKeyOrderingParts(), Ordering.INTERSECTION);
         }
 
         @Nonnull
@@ -379,7 +382,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
 
             final var filteredInnerOrderingSet =
                     innerOrdering.getOrderingSet()
-                            .filterElements(value -> innerOrdering.isSingularDirectionalValue(value) || !inValue.equals(value));
+                            .filterElements(value -> innerOrdering.isSingularNonFixedValue(value) || !inValue.equals(value));
             final var filteredInnerOrdering =
                     Ordering.ofOrderingSet(resultBindingMap, filteredInnerOrderingSet, innerOrdering.isDistinct());
 
@@ -538,8 +541,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return deriveForDistinctSetOperationFromOrderings(
                     orderingsFromChildren(unionOnValuesPlan),
-                    unionOnValuesPlan.getComparisonKeyValues(),
-                    unionOnValuesPlan.isReverse(),
+                    unionOnValuesPlan.getComparisonKeyOrderingParts(),
                     Ordering.UNION);
         }
 
@@ -567,7 +569,9 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         public Ordering visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuePlan) {
             final var childOrdering = orderingFromSingleChild(inUnionOnValuePlan);
             final var bindingMap = childOrdering.getBindingMap();
-            final var comparisonKeyValues = inUnionOnValuePlan.getComparisonKeyValues();
+            final var comparisonKeyOrderingParts = inUnionOnValuePlan.getComparisonKeyOrderingParts();
+            final var comparisonKeyOrderingPartMap = OrderingPart.toOrderingPartMap(comparisonKeyOrderingParts);
+            final var comparisonKeyValues = OrderingPart.toValues(comparisonKeyOrderingParts);
             final var resultBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
 
             final var sourceAliases =
@@ -583,7 +587,9 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                     final var correlatedTo = value.getCorrelatedTo();
 
                     if (correlatedTo.stream().anyMatch(sourceAliases::contains)) {
-                        resultBindingMapBuilder.putAll(value, Binding.ascending());
+                        resultBindingMapBuilder.putAll(value,
+                                Binding.sorted(Objects.requireNonNull(comparisonKeyOrderingPartMap.get(value))
+                                        .getSortOrder()));
                     } else {
                         resultBindingMapBuilder.putAll(value, binding);
                     }
@@ -656,12 +662,10 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         }
 
         public static <O extends Ordering.SetOperationsOrdering> Ordering deriveForDistinctSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
-                                                                                                                     @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                                                                                     final boolean isReverse,
+                                                                                                                     @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                                                                                      @Nonnull final Ordering.MergeOperator<O> mergeOperator) {
             final var mergedOrdering = Ordering.merge(orderings, mergeOperator, (left, right) -> true);
-            return mergedOrdering.applyComparisonKey(comparisonKeyValues,
-                    Ordering.sortedBindingsForValues(comparisonKeyValues, ProvidedSortOrder.fromIsReverse(isReverse)));
+            return mergedOrdering.applyComparisonKey(comparisonKeyOrderingParts);
         }
 
         public static Ordering evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {

@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -765,7 +766,7 @@ public class Comparisons {
          * @return the tri-valued logic result of the comparison
          */
         @Nullable
-        Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value);
+        Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value);
 
         /**
          * Validate that this comparison is compatible with a given record field.
@@ -784,10 +785,16 @@ public class Comparisons {
         @Nonnull
         Comparison withType(@Nonnull Type newType);
 
+        @Nullable
+        @Override
+        default Value getValue() {
+            return null;
+        }
+
         @Nonnull
         @Override
         default Comparison withValue(@Nonnull Value value) {
-            return this;
+            throw new RecordCoreException("withValue is not implemented");
         }
 
         /**
@@ -860,12 +867,6 @@ public class Comparisons {
         @Override
         default int semanticHashCode() {
             return hashCode();
-        }
-
-        @Nullable
-        @Override
-        default Value getValue() {
-            return null;
         }
 
         @Nonnull
@@ -979,7 +980,19 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Value getValue() {
+            return LiteralValue.ofScalar(getComparand());
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withValue(@Nonnull final Value value) {
+            return new ValueComparison(getType(), value);
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             return evalComparison(type, value, getComparand(store, context));
         }
 
@@ -1269,7 +1282,7 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             // this is at evaluation time --> always use the context binding
             final Object comparand = getComparand(store, context);
             if (comparand == null) {
@@ -1534,7 +1547,7 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
             // this is at evaluation time --> always use the context binding
             final Object comparand = getComparand(store, context);
             if (comparand == null) {
@@ -1765,7 +1778,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             return evalListComparison(type, value, getComparand(store, context));
         }
 
@@ -1887,7 +1900,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (type == Type.IS_NULL) {
                 return value == null;
             } else {
@@ -2019,7 +2032,7 @@ public class Comparisons {
     public static class OpaqueEqualityComparison implements Comparison {
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             return false;
         }
 
@@ -2195,7 +2208,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
@@ -2557,7 +2570,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+        public Boolean eval(@Nullable final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
             return inner.eval(store, context, value);
         }
 
@@ -2777,7 +2790,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+        public Boolean eval(@Nullable final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
             Object comparand = getComparand(store, context);
             return evalComparison(type, value, comparand);
         }

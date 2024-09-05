@@ -237,7 +237,10 @@ message PValue {
     PVersionValue version_value = 38;
     PFirstOrDefaultValue first_or_default_value = 39;
     PThrowsValue throws_value = 40;
-    PNumericAggregationValue.PBitMapConstructAgg numeric_aggregation_value_bitmap = 41;
+    PIndexEntryObjectValue index_entry_object_value = 41;
+    PToOrderedBytesValue to_ordered_bytes_value = 42;
+    PFromOrderedBytesValue from_ordered_bytes_value = 43;
+    PNumericAggregationValue.PBitMapConstructAgg numeric_aggregation_value_bitmap = 44;
   }
 }
 
@@ -441,8 +444,28 @@ message PFirstOrDefaultValue {
   optional PValue on_empty_result_value = 2;
 }
 
+message PFromOrderedBytesValue {
+  optional PValue child = 1;
+  optional PDirection direction = 2;
+  optional PType result_type = 3;
+}
+
+enum PDirection {
+  ASC_NULLS_FIRST = 1;
+  ASC_NULLS_LAST = 2;
+  DESC_NULLS_FIRST = 3;
+  DESC_NULLS_LAST = 4;
+}
+
 message PIndexedValue {
   optional PType result_type = 1;
+}
+
+message PIndexEntryObjectValue {
+  optional string index_entry_alias = 1;
+  optional PIndexKeyValueToPartialRecord.PTupleSource source = 2;
+  repeated int32 ordinal_path = 3;
+  optional PType result_type = 4;
 }
 
 message PIndexOnlyAggregateValue {  // abstract
@@ -805,6 +828,11 @@ message PBinaryRelOpValue {
 
 message PThrowsValue {
   optional PType result_type = 1;
+}
+
+message PToOrderedBytesValue {
+  optional PValue child = 1;
+  optional PDirection direction = 2;
 }
 
 message PUnaryRelOpValue {
@@ -1180,6 +1208,7 @@ message PIndexKeyValueToPartialRecord {
       google.protobuf.Any additional_copiers = 1;
       PFieldCopier field_copier = 2;
       PMessageCopier message_copier = 3;
+      PFieldWithValueCopier field_with_value_copier = 4;
     }
   }
 
@@ -1217,6 +1246,13 @@ message PIndexKeyValueToPartialRecord {
   message PMessageCopier {
     optional string field = 1;
     optional PIndexKeyValueToPartialRecord nested = 2;
+  }
+
+  message PFieldWithValueCopier {
+    optional string index_entry_alias = 1;
+    optional PQueryPredicate copy_if_predicate = 2;
+    optional PValue extractFromIndexEntryValue = 3;
+    optional string field = 4;
   }
 
   repeated PCopier copiers = 1;

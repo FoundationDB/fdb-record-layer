@@ -82,7 +82,7 @@ public class PushRequestedOrderingThroughSortRule extends CascadesRule<LogicalSo
             }
 
             final var orderings =
-                    Set.of(new RequestedOrdering(translatedBuilder.build(), requestedOrdering.getDistinctness()));
+                    Set.of(RequestedOrdering.ofPrimitiveParts(translatedBuilder.build(), requestedOrdering.getDistinctness()));
 
             call.pushConstraint(lowerRef,
                     RequestedOrderingConstraint.REQUESTED_ORDERING,

@@ -159,7 +159,9 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
     @Nonnull
     private GraphExpansion constructBaseExpansion(@Nonnull final Quantifier.ForEach baseQuantifier) {
-        final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(), baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(), 0);
+        final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(),
+                baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(),
+                0, false, false);
         return pop(groupingKeyExpression.getWholeKey().expand(push(state)));
     }
 
@@ -301,7 +303,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         selectHavingGraphExpansionBuilder.addResultColumn(Column.unnamedOf(aggregateValueReference)); // TODO should we also add the aggregate reference as a placeholder?
         final List<CorrelationIdentifier> finalPlaceholders;
         if (isPermuted()) {
-            Placeholder placeholder = Placeholder.newInstance(aggregateValueReference, newParameterAlias());
+            Placeholder placeholder = Placeholder.newInstanceWithoutRanges(aggregateValueReference, newParameterAlias());
             placeholderAliases.add(placeholder.getParameterAlias());
             selectHavingGraphExpansionBuilder.addPlaceholder(placeholder).addPredicate(placeholder);
             if (columnPermutations > 0) {

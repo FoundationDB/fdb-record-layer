@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.lucene.search.ScoreDoc;
@@ -124,6 +125,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         public KeyExpression getNameExpression() {
             return ((KeyExpressionWithChildren)arguments).getChildren().get(1);
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -158,6 +165,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         public KeyExpression getStoredExpression() {
             return arguments;
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -191,6 +204,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         @Nonnull
         public KeyExpression getSortedExpression() {
             return arguments;
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 
@@ -247,6 +266,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             }
             return configs;
         }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
+        }
     }
 
     /**
@@ -271,6 +296,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         @Override
         public int getColumnSize() {
             return 1;
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 
@@ -318,6 +349,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
 
         public boolean isRelevance() {
             return LUCENE_SORT_BY_RELEVANCE.equals(getName());
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 
