@@ -71,16 +71,16 @@ import java.util.stream.Stream;
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
     @Nonnull
-    private static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
+    static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap = Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
     @Nonnull
-    private final Index index;
+    protected final Index index;
 
     @Nonnull
     private final Collection<RecordType> recordTypes;
 
     @Nonnull
-    private final GroupingKeyExpression groupingKeyExpression;
+    protected final GroupingKeyExpression groupingKeyExpression;
 
     private final int columnPermutations;
 
@@ -91,7 +91,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param recordTypes The indexed record types.
      */
     public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
-        Preconditions.checkArgument(aggregateMap.get().containsKey(index.getType()));
+        Preconditions.checkArgument(index.getType().equals(IndexTypes.BITMAP_VALUE) || aggregateMap.get().containsKey(index.getType()));
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
         this.index = index;
         this.groupingKeyExpression = ((GroupingKeyExpression)index.getRootExpression());
@@ -126,12 +126,19 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 1. create a SELECT-WHERE expression.
         final var selectWhereQunAndPlaceholders = constructSelectWhereAndPlaceholders(baseQuantifier, baseExpansion);
+        final var selectWhereQun = selectWhereQunAndPlaceholders.getLeft();
+        final var selectWherePlaceholders = selectWhereQunAndPlaceholders.getRight();
 
         // 2. create a GROUP-BY expression on top.
-        final var groupByQun = constructGroupBy(selectWhereQunAndPlaceholders.getLeft(), baseExpansion);
+        final var groupByQunAndPlaceholders = constructGroupBy(selectWhereQun, baseExpansion);
+        final var groupByQun = groupByQunAndPlaceholders.getLeft();
+        final var groupByPlaceholders = groupByQunAndPlaceholders.getRight();
+
+        final var placeholders = ImmutableList.<Placeholder>builder().addAll(selectWherePlaceholders)
+                .addAll(groupByPlaceholders).build();
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, selectWhereQunAndPlaceholders.getRight());
+        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, placeholders);
         final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
         final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
 
@@ -208,7 +215,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     @Nonnull
-    private Quantifier constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
+    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
             throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
@@ -253,16 +260,15 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             return pulledUpGroupingValuesMap.get(groupingValue);
         }).collect(ImmutableList.toImmutableList());
 
-        // construct grouping column(s) value, the grouping column is _always_ fixed at position-0 in the underlying select-where.
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
         if (groupingColsValue.getResultType().getFields().isEmpty()) {
-            return Quantifier.forEach(Reference.of(
+            return NonnullPair.of(Quantifier.forEach(Reference.of(
                     new GroupByExpression(null, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun)));
+                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
         } else {
-            return Quantifier.forEach(Reference.of(
+            return NonnullPair.of(Quantifier.forEach(Reference.of(
                     new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
-                            GroupByExpression::nestedResults, selectWhereQun)));
+                            GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of());
         }
     }
 
@@ -321,7 +327,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         mapBuilder.put(IndexTypes.MIN_EVER_LONG, new IndexOnlyAggregateValue.MinEverFn());
         mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new IndexOnlyAggregateValue.MaxEverFn());
         mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new IndexOnlyAggregateValue.MinEverFn());
-        mapBuilder.put(IndexTypes.BITMAP_VALUE, new NumericAggregationValue.BitMapConstructAggFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new CountValue.CountFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new CountValue.CountFn());
