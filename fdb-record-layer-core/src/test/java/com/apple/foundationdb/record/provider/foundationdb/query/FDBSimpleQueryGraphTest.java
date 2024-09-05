@@ -20,34 +20,26 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
@@ -56,24 +48,17 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObje
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
@@ -85,8 +70,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyValueComparison;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.equalities;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
@@ -117,9 +106,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Tests of query planning and execution for queries that use a query graph to define a query instead of
@@ -127,83 +114,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
-    @Nonnull
-    static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
-        Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
-        return Quantifier.forEach(Reference.of(
-                new FullUnorderedScanExpression(allRecordTypes,
-                        new Type.AnyRecord(false),
-                        hints)));
-    }
-
-    @Nonnull
-    static Quantifier fullScan(@Nonnull RecordMetaData metaData) {
-        return fullScan(metaData, new AccessHints());
-    }
-
-    @Nonnull
-    static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
-        return Quantifier.forEach(Reference.of(
-                new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
-                        fullScanQun,
-                        Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor()))));
-    }
-
-    @Nonnull
-    static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
-        return fullTypeScan(metaData, typeName, fullScan(metaData));
-    }
-
-    @Nonnull
-    static Column<FieldValue> projectColumn(@Nonnull Quantifier qun, @Nonnull String columnName) {
-        return projectColumn(qun.getFlowedObjectValue(), columnName);
-    }
-
-    @Nonnull
-    static Column<FieldValue> projectColumn(@Nonnull Value value, @Nonnull String columnName) {
-        return Column.of(Optional.of(columnName), FieldValue.ofFieldNameAndFuseIfPossible(value, columnName));
-    }
-
-    @Nonnull
-    static <V extends Value> Column<V> resultColumn(@Nonnull V value, @Nullable String name) {
-        return Column.of(Optional.ofNullable(name), value);
-    }
-
-    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
-        return executeCascades(store, plan, Bindings.EMPTY_BINDINGS);
-    }
-
-    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
-        Set<Type> usedTypes = UsedTypesProperty.evaluate(plan);
-        TypeRepository typeRepository = TypeRepository.newBuilder()
-                .addAllTypes(usedTypes)
-                .build();
-        EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository);
-        return plan.executePlan(store, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
-    }
-
-    static <T> T getField(QueryResult result, Class<T> type, String... path) {
-        Message message = result.getMessage();
-        for (int i = 0; i < path.length; i++) {
-            String fieldName = path[i];
-            Descriptors.Descriptor messageDescriptor = message.getDescriptorForType();
-            Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(fieldName);
-            assertNotNull(fieldDescriptor, () -> "expected to find field " + fieldName + " in descriptor: " + messageDescriptor);
-            Object field = message.getField(fieldDescriptor);
-            if (i < path.length - 1) {
-                assertThat(field, Matchers.instanceOf(Message.class));
-                message = (Message) field;
-            } else {
-                if (field == null) {
-                    return null;
-                }
-                assertThat(field, Matchers.instanceOf(type));
-                return type.cast(field);
-            }
-        }
-        return null;
-    }
-
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     void testSimplePlanGraph() {
         CascadesPlanner cascadesPlanner = setUp();
@@ -257,7 +167,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
                     final var aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                     final var orderByValues = List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap));
-                    return Reference.of(new LogicalSortExpression(orderByValues, true, qun));
+                    return Reference.of(sortExpression(orderByValues, true, qun));
                 });
 
         assertMatchesExactly(plan,

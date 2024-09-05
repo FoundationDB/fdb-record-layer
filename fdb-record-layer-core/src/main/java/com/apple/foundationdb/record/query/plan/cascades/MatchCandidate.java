@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -34,7 +35,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -466,5 +469,38 @@ public interface MatchCandidate {
         }
 
         return Optional.of(ScalarTranslationVisitor.translateKeyExpression(primaryKey, flowedType));
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    static Optional<NonnullPair<Value, Comparisons.Comparison>> simplifyComparisonMaybe(@Nonnull final Value value,
+                                                                                        @Nonnull final Comparisons.Comparison comparison) {
+        final var providedOrderingPart =
+                value.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                        OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+        final var simplifiedValue = providedOrderingPart.getValue();
+
+        if (simplifiedValue == value) {
+            return Optional.of(NonnullPair.of(value, comparison));
+        } else {
+            final var compensationPairOptional =
+                    simplifiedValue.matchAndCompensateComparisonMaybe(value, ValueEquivalence.empty());
+            if (compensationPairOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var compensationPair = compensationPairOptional.get();
+            if (!(comparison instanceof Comparisons.ValueComparison)) {
+                return Optional.empty();
+            }
+            final var valueComparison = (Comparisons.ValueComparison)comparison;
+            final var comparedValue = valueComparison.getValue();
+            final var simplifiedComparedValueOptional = compensationPair.getLeft().unapplyMaybe(comparedValue);
+            if (simplifiedComparedValueOptional.isEmpty()) {
+                return Optional.empty();
+            }
+            final var simplifiedComparison =
+                    valueComparison.withValue(simplifiedComparedValueOptional.get());
+            return Optional.of(NonnullPair.of(simplifiedValue, simplifiedComparison));
+        }
     }
 }

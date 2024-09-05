@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
  * A key expression that can be represented as a single {@link Value} because it meets both of the following criteria:
@@ -41,12 +40,12 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {
     @Nonnull
-    default Value toValue(@Nonnull Quantifier baseQuantifier, @Nonnull List<String> fieldNamePrefix) {
-        return toValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType(), fieldNamePrefix);
+    default Value toValue(@Nonnull final Quantifier baseQuantifier) {
+        return toValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
     }
 
     @Nonnull
-    Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Type baseType, @Nonnull List<String> fieldNamePrefix);
+    Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Type baseType);
 
     @Nonnull
     @Override

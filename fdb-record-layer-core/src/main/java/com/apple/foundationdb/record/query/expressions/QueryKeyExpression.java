@@ -354,7 +354,7 @@ public class QueryKeyExpression {
 
         @Nullable
         @Override
-        public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             final Object comparand = context.getBinding(parameter);
             if (comparand == null) {
                 return null;

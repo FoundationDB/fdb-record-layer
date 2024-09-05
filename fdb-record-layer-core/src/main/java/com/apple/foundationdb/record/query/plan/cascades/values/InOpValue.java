@@ -93,7 +93,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         final var probeResult = probeValue.eval(store, context);
         final var inArrayResult = inArrayValue.eval(store, context);
         Verify.verify(inArrayResult instanceof List<?>);
@@ -120,7 +120,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         SemanticException.check(isLiteralList, SemanticException.ErrorCode.UNSUPPORTED);
 
         if (typeRepository != null) {
-            final var literalValue = Preconditions.checkNotNull(inArrayValue.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository)));
+            final var literalValue = Preconditions.checkNotNull(inArrayValue.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository)));
             return Optional.of(new ValuePredicate(probeValue, new Comparisons.ListComparison(Comparisons.Type.IN, (List<?>)literalValue)));
         } else {
             return Optional.of(new ValuePredicate(probeValue, new Comparisons.ValueComparison(Comparisons.Type.IN, inArrayValue)));
@@ -130,7 +130,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     @Nonnull
     @SpotBugsSuppressWarnings("RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE")
     private Optional<QueryPredicate> compileTimeEvalMaybe(@Nonnull TypeRepository typeRepository) {
-        Object constantValue = this.compileTimeEval(EvaluationContext.forTypeRepository(typeRepository));
+        Object constantValue = this.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean) constantValue) {
                 return Optional.of(ConstantPredicate.TRUE);

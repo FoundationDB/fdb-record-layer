@@ -123,6 +123,31 @@ public abstract class ValueEquivalence {
     }
 
     @Nonnull
+    public static ValueEquivalence empty() {
+        return EMPTY_EQUIVALENCE;
+    }
+
+    static final ValueEquivalence EMPTY_EQUIVALENCE = new ValueEquivalence() {
+        @Nonnull
+        @Override
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+            return falseValue();
+        }
+
+        @Nonnull
+        @Override
+        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+            return falseValue();
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<ValueEquivalence> computeInverseMaybe() {
+            return Optional.of(this);
+        }
+    };
+
+    @Nonnull
     public ValueEquivalence then(@Nonnull final ValueEquivalence thenEquivalence) {
         return new ThenEquivalence(this, thenEquivalence);
     }
@@ -299,7 +324,7 @@ public abstract class ValueEquivalence {
             final var leftAlias = ((QuantifiedValue)left).getAlias();
             final var rightAlias = ((QuantifiedValue)right).getAlias();
 
-            if (leftAlias.equals(rightAlias) || aliasMap.containsMapping(leftAlias, rightAlias)) {
+            if (aliasMap.containsMapping(leftAlias, rightAlias)) {
                 return alwaysTrue();
             }
 
@@ -348,11 +373,11 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "compileTimeEval can return nullable")
+        @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "evalWithoutStore can return nullable")
         @Nonnull
         public BooleanWithConstraint isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                     @Nonnull final LiteralValue<?> literalValue) {
-            final var constantObject = constantObjectValue.compileTimeEval(evaluationContext);
+            final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {
                 return trueWithConstraint(

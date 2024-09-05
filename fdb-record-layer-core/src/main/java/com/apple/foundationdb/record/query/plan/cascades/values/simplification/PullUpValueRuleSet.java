@@ -34,15 +34,15 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? extends Value>, Map<Value, PullUpCompensation>> {
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value> matchValueRule = new MatchValueRule();
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value> matchValueAgainstQuantifiedObjectValueRule = new MatchValueAgainstQuantifiedObjectValueRule();
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value> matchFieldValueAgainstQuantifiedObjectValueRule = new MatchFieldValueAgainstQuantifiedObjectValueRule();
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value> matchOrCompensateFieldValueRule = new MatchOrCompensateFieldValueRule();
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value> compensateRecordConstructorRule = new CompensateRecordConstructorRule();
-    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value> matchConstantValueRule = new MatchConstantValueRule();
+public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? extends Value>, Map<Value, ValueCompensation>> {
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value> matchValueRule = new MatchValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value> matchValueAgainstQuantifiedObjectValueRule = new MatchValueAgainstQuantifiedObjectValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value> matchFieldValueAgainstQuantifiedObjectValueRule = new MatchFieldValueAgainstQuantifiedObjectValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value> matchOrCompensateFieldValueRule = new MatchOrCompensateFieldValueRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value> compensateRecordConstructorRule = new CompensateRecordConstructorRule();
+    protected static final ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value> matchConstantValueRule = new MatchConstantValueRule();
 
-    protected static final Set<ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value>> PULL_UP_RULES =
+    protected static final Set<ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value>> PULL_UP_RULES =
             ImmutableSet.of(matchValueRule,
                     matchValueAgainstQuantifiedObjectValueRule,
                     matchFieldValueAgainstQuantifiedObjectValueRule,
@@ -50,11 +50,11 @@ public class PullUpValueRuleSet extends ValueComputationRuleSet<Iterable<? exten
                     compensateRecordConstructorRule,
                     matchConstantValueRule);
 
-    protected static final SetMultimap<ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value>> PULL_UP_DEPENDS_ON;
+    protected static final SetMultimap<ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value>> PULL_UP_DEPENDS_ON;
 
     static {
         final var dependsOnBuilder =
-                ImmutableSetMultimap.<ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, PullUpCompensation>, ? extends Value>>builder();
+                ImmutableSetMultimap.<ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value>, ValueComputationRule<Iterable<? extends Value>, Map<Value, ValueCompensation>, ? extends Value>>builder();
 
         PULL_UP_RULES.forEach(rule -> {
             if (rule != matchConstantValueRule) {

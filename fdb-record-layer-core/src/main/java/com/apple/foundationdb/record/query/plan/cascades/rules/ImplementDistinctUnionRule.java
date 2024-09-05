@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
@@ -211,17 +212,19 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                             unionOrdering.enumerateSatisfyingComparisonKeyValues(requestedOrdering);
 
                     for (final var comparisonKeyValues : enumeratedSatisfyingComparisonKeyValues) {
-                        final var directionalOrderingParts =
+                        var comparisonOrderingParts =
                                 unionOrdering.directionalOrderingParts(comparisonKeyValues, requestedOrdering, ProvidedSortOrder.FIXED);
-                        final var comparisonDirectionOptional =
-                                Ordering.resolveComparisonDirectionMaybe(directionalOrderingParts);
+                        final var comparisonIsReverse =
+                                RecordQuerySetPlan.resolveComparisonDirection(comparisonOrderingParts);
+                        comparisonOrderingParts = RecordQuerySetPlan.adjustFixedBindings(comparisonOrderingParts, comparisonIsReverse);
                         //
                         // At this point we know we can implement the distinct union over the partitions of compatibly-ordered plans
                         //
-                        comparisonDirectionOptional.ifPresent(isReverse ->
-                                call.yieldExpression(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
-                                        ImmutableList.copyOf(comparisonKeyValues), isReverse,
-                                        true)));
+                        final var unionPlan =
+                                RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
+                                        comparisonOrderingParts, comparisonIsReverse,
+                                        true);
+                        call.yieldExpression(unionPlan);
                     }
                 }
             }

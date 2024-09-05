@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -262,6 +263,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
+        final var translationMapOptional =
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+        if (translationMapOptional.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final var translationMap = translationMapOptional.get();
 
         // the candidate must be a GROUP-BY expression.
         if (candidateExpression.getClass() != this.getClass()) {
@@ -291,9 +298,15 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 });
 
         if (subsumedBy.isTrue()) {
+            final var translatedResultValue = getResultValue().translateCorrelationsAndSimplify(translationMap);
+            final var maxMatchMap =
+                    MaxMatchMap.calculate(translatedResultValue, candidateExpression.getResultValue(), valueEquivalence);
+            final var queryPlanConstraint =
+                    subsumedBy.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
+
             return MatchInfo.tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                             PredicateMap.empty(), Optional.empty(),
-                            Optional.empty(), subsumedBy.getConstraint())
+                            maxMatchMap, queryPlanConstraint)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }
@@ -309,9 +322,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var groupingValueType = groupingValue.getResultType();
         Verify.verify(groupingValueType.isRecord());
 
-        return new RequestedOrdering(
-                ImmutableList.of(new RequestedOrderingPart(groupingValue, RequestedSortOrder.ASCENDING)), //TODO this should be deconstructed
-                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+        final var currentGroupingValue =
+                groupingValue.rebase(AliasMap.ofAliases(inner.getAlias(), Quantifier.current()));
+
+        return RequestedOrdering.ofParts(
+                ImmutableList.of(new RequestedOrderingPart(currentGroupingValue, RequestedSortOrder.ANY)),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                inner.getCorrelatedTo());
     }
 
     @Nonnull

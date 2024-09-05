@@ -90,7 +90,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         return operator.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
 

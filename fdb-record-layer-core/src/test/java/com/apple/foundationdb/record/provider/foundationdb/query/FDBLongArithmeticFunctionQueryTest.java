@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -88,6 +89,10 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
@@ -321,7 +326,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             final String sumLowerBound = "sumLowerBound";
             final String sumUpperBound = "sumUpperBound";
             final RecordQueryPlan plan = planGraph(() -> {
-                Quantifier typeQun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final FieldValue strValue = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "str_value_indexed");
                 final FieldValue num2Value = FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2");
@@ -343,7 +348,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                         .build()
                         .buildSelect();
                 Quantifier selectQun = Quantifier.forEach(Reference.of(select));
-                return Reference.of(new LogicalSortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "sum").rebase(AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current()))), false, selectQun));
+                return Reference.of(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "sum").rebase(AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current()))), false, selectQun));
             });
             // Note: This should be a covering index scan, as the mask value can be extracted from the index entries, though the matching isn't quite there
             assertMatchesExactly(plan, mapPlan(
@@ -364,7 +369,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                                     .build();
 
                             Set<Map<String, Number>> results = new HashSet<>();
-                            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, bindings)) {
+                            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan, bindings)) {
                                 int previousSum = Integer.MIN_VALUE;
                                 for (RecordCursorResult<QueryResult> queryResult = cursor.getNext(); queryResult.hasNext(); queryResult = cursor.getNext()) {
                                     Message msg = queryResult.get().getMessage();
@@ -417,7 +422,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final long mask = (1 << i);
                 final Bindings bindings = constantBindings(maskConstantValue, mask);
                 final RecordQueryPlan plan = planGraph(() -> {
-                    Quantifier typeQun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                    Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
                     final Value maskValue = (Value)new ArithmeticValue.BitAndFn().encapsulate(List.of(
                             FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique"),
                             maskConstantValue
@@ -425,10 +430,10 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                     final Quantifier selectQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                             .addQuantifier(typeQun)
                             .addPredicate(new ValuePredicate(maskValue, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, maskResultParam)))
-                            .addResultColumn(FDBSimpleQueryGraphTest.projectColumn(typeQun.getFlowedObjectValue(), "rec_no"))
+                            .addResultColumn(projectColumn(typeQun.getFlowedObjectValue(), "rec_no"))
                             .build()
                             .buildSelect()));
-                    return Reference.of(new LogicalSortExpression(List.of(), false, selectQun));
+                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
                 }, bindings);
 
                 if (mask == 4) {
@@ -464,7 +469,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                                 expectedIds, empty());
                     }
                     final Bindings queryBindings = bindings.childBuilder().set(maskResultParam, queryMaskValue).build();
-                    try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan, queryBindings)) {
+                    try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan, queryBindings)) {
                         final List<Long> queriedIds = cursor.map(queryResult -> {
                             Message msg = queryResult.getMessage();
                             Descriptors.FieldDescriptor fieldDescriptor = msg.getDescriptorForType().findFieldByName("rec_no");
@@ -491,7 +496,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             openSimpleRecordStore(context, hook);
 
             final RecordQueryPlan plan = planGraph(() -> {
-                Quantifier typeQun = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                Quantifier typeQun = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
                 final Value addValue = (Value) new ArithmeticValue.AddFn().encapsulate(List.of(
                         FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_2"),
@@ -504,7 +509,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                         .build()
                         .buildSelect();
                 Quantifier selectQun = Quantifier.forEach(Reference.of(select));
-                return Reference.of(new LogicalSortExpression(ImmutableList.of(), false, selectQun));
+                return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
             });
             // This should be planned as a covering index scan of the index because the functions can be calculated from the values
             // in the index. Until matching improves, we can get by with this plan
@@ -517,7 +522,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             assertEquals(-2029074143, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             Set<Map<String, Object>> results = new HashSet<>();
-            try (RecordCursor<QueryResult> cursor = FDBSimpleQueryGraphTest.executeCascades(recordStore, plan)) {
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 for (RecordCursorResult<QueryResult> queryResult = cursor.getNext(); queryResult.hasNext(); queryResult = cursor.getNext()) {
                     Message msg = queryResult.get().getMessage();
                     assertNotNull(msg);

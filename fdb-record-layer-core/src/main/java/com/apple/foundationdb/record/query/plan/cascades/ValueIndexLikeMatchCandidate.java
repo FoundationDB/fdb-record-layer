@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 
@@ -96,9 +98,11 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
             if (normalizedValues.add(value)) {
-                builder.add(
-                        MatchedOrderingPart.of(parameterId, value, comparisonRange,
-                                MatchedSortOrder.ASCENDING));
+                final var matchedOrderingPart =
+                        value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
+                                (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                                OrderingValueComputationRuleSet.usingMatchedOrderingParts());
+                builder.add(matchedOrderingPart);
             }
         }
 
@@ -116,7 +120,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
 
         // We keep a set for normalized values in order to check for duplicate values in the index definition.
         // We correct here for the case where an index is defined over {a, a} since its order is still just {a}.
-        final var normalizedValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
+        final var seenValues = Sets.newHashSetWithExpectedSize(normalizedKeyExpressions.size());
 
         for (var i = 0; i < equalityComparisons.size(); i++) {
             final var normalizedKeyExpression = normalizedKeyExpressions.get(i);
@@ -129,8 +133,15 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
             final var normalizedValue =
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
-            bindingMapBuilder.put(normalizedValue, Binding.fixed(comparison));
-            normalizedValues.add(normalizedValue);
+
+            final var simplifiedComparisonPairOptional =
+                    MatchCandidate.simplifyComparisonMaybe(normalizedValue, comparison);
+            if (simplifiedComparisonPairOptional.isEmpty()) {
+                continue;
+            }
+            final var simplifiedComparisonPair = simplifiedComparisonPairOptional.get();
+            bindingMapBuilder.put(simplifiedComparisonPair.getLeft(), Binding.fixed(simplifiedComparisonPair.getRight()));
+            seenValues.add(simplifiedComparisonPair.getLeft());
         }
 
         final var orderingSequenceBuilder = ImmutableList.<Value>builder();
@@ -151,10 +162,17 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                     new ScalarTranslationVisitor(normalizedKeyExpression).toResultValue(Quantifier.current(),
                             getBaseType());
 
-            if (!normalizedValues.contains(normalizedValue)) {
-                normalizedValues.add(normalizedValue);
-                bindingMapBuilder.put(normalizedValue, Binding.sorted(isReverse));
-                orderingSequenceBuilder.add(normalizedValue);
+            final var providedOrderingPart =
+                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                            OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+
+            final var providedOrderingValue = providedOrderingPart.getValue();
+            if (!seenValues.contains(providedOrderingValue)) {
+                seenValues.add(providedOrderingValue);
+                bindingMapBuilder.put(providedOrderingValue,
+                        Binding.sorted(providedOrderingPart.getSortOrder()
+                                .flipIfReverse(isReverse)));
+                orderingSequenceBuilder.add(providedOrderingValue);
             }
         }
 

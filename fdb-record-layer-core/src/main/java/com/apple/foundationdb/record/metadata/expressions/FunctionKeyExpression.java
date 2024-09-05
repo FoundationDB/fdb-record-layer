@@ -23,12 +23,16 @@ package com.apple.foundationdb.record.metadata.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.protobuf.Descriptors;
@@ -255,6 +259,27 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     @Override
     public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
+    }
+
+    /**
+     * This method creates a {@link Value} based on this key expression. The caller provides the {@link Value}s
+     * that serve as the arguments to the function. In reality this method is exclusively called from the
+     * expansion visitors, e.g. {@link com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor},
+     * thus forming the bridge between key expressions and Cascades values.
+     * @param argumentValues the argument values
+     * @return a new {@link Value}
+     */
+    @Nonnull
+    public abstract Value toValue(@Nonnull List<? extends Value> argumentValues);
+
+    @Nonnull
+    protected Value resolveAndEncapsulateFunction(@Nonnull final String functionName,
+                                                  @Nonnull final List<? extends Value> argumentValues) {
+        final BuiltInFunction<?> builtInFunction =
+                FunctionCatalog.resolve(functionName, argumentValues.size())
+                        .orElseThrow(() -> new RecordCoreArgumentException("unknown function",
+                                LogMessageKeys.FUNCTION, getName()));
+        return (Value)builtInFunction.encapsulate(argumentValues);
     }
 
     @Override

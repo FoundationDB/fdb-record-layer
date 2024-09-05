@@ -274,6 +274,16 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                        @Nonnull Optional<String> typeNameOptional,
                        @Nonnull FieldDescriptorProto.Label label);
 
+    @Nullable
+    default <T> T validateObject(@Nullable final T object) {
+        if (object == null) {
+            Verify.verify(isNullable());
+        } else {
+            Verify.verify(this.nullable().equals(fromObject(object).nullable()));
+        }
+        return object;
+    }
+
     /**
      * Returns a map from Java {@link Class} to corresponding {@link TypeCode}.
      *
@@ -1557,6 +1567,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                            .stream()
                            .map(EnumValue::toString)
                            .collect(Collectors.joining(", ")) + ">";
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.UnnecessaryFullyQualifiedName") // false positive
+        public static <T extends java.lang.Enum<T>> Enum forJavaEnum(@Nonnull final Class<T> enumClass) {
+            final var enumValuesBuilder = ImmutableList.<EnumValue>builder();
+            T[] enumConstants = enumClass.getEnumConstants();
+            for (int i = 0; i < enumConstants.length; i++) {
+                final var enumConstant = enumConstants[i];
+                enumValuesBuilder.add(new EnumValue(enumConstant.name(), i));
+            }
+            return new Enum(false, enumValuesBuilder.build(), null);
         }
 
         private static Enum fromProtoValues(boolean isNullable, @Nonnull List<Descriptors.EnumValueDescriptor> values) {

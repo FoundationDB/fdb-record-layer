@@ -54,6 +54,7 @@ import java.util.function.Function;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.aggregateIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
@@ -210,7 +211,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
 
             final RecordQueryPlan plan = planGraph(() -> {
-                final Quantifier base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
                 final Quantifier selectWhere = selectWhereSumByRepeated(base, repeat -> ImmutableList.of(new ValuePredicate(repeat, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42))));
                 final Quantifier groupedSum = sumByGroup(selectWhere);
 
@@ -230,7 +231,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
 
             final RecordQueryPlan plan = planGraph(() -> {
-                final Quantifier base = FDBSimpleQueryGraphTest.fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
                 final Quantifier selectWhere = selectWhereSumByRepeated(base);
                 final Quantifier groupedSum = sumByGroup(selectWhere);
 
