@@ -263,7 +263,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     /**
      * This method creates a {@link Value} based on this key expression. The caller provides the {@link Value}s
-     * that serve as the arguments to the function. In reality this method is exclusively called form the
+     * that serve as the arguments to the function. In reality this method is exclusively called from the
      * expansion visitors, e.g. {@link com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor},
      * thus forming the bridge between key expressions and Cascades values.
      * @param argumentValues the argument values
