@@ -126,15 +126,19 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 1. create a SELECT-WHERE expression.
         final var selectWhereQunAndPlaceholders = constructSelectWhereAndPlaceholders(baseQuantifier, baseExpansion);
+        final var selectWhereQun = selectWhereQunAndPlaceholders.getLeft();
+        final var selectWherePlaceholders = selectWhereQunAndPlaceholders.getRight();
 
         // 2. create a GROUP-BY expression on top.
-        final var groupByQun = constructGroupBy(selectWhereQunAndPlaceholders.getLeft(), baseExpansion);
+        final var groupByQunAndPlaceholders = constructGroupBy(selectWhereQun, baseExpansion);
+        final var groupByQun = groupByQunAndPlaceholders.getLeft();
+        final var groupByPlaceholders = groupByQunAndPlaceholders.getRight();
 
-        final var placeholders = ImmutableList.<Placeholder>builder().addAll(selectWhereQunAndPlaceholders.getRight())
-                .addAll(groupByQun.getRight()).build();
+        final var placeholders = ImmutableList.<Placeholder>builder().addAll(selectWherePlaceholders)
+                .addAll(groupByPlaceholders).build();
 
         // 3. construct SELECT-HAVING with SORT on top.
-        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun.getLeft(), placeholders);
+        final var selectHavingAndPlaceholderAliases = constructSelectHaving(groupByQun, placeholders);
         final var selectHaving = selectHavingAndPlaceholderAliases.getLeft();
         final var placeHolderAliases = selectHavingAndPlaceholderAliases.getRight();
 
@@ -149,7 +153,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 placeHolderAliases,
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
-                groupByQun.getLeft().getRangesOver().get().getResultValue(),
+                groupByQun.getRangesOver().get().getResultValue(),
                 selectHaving.getResultValue());
     }
 

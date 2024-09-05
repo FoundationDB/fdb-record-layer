@@ -161,9 +161,9 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     void nonPrimaryKey() {
         final RecordMetaDataHook num_by_num3_hook = metadata -> {
             metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
-                    new Index("num_by_num3",
-                            concatenateFields("num_value_3", "num_value_unique").group(1),
-                            IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
+                              new Index("num_by_num3",
+                                        concatenateFields("num_value_3", "num_value_unique").group(1),
+                                        IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
         };
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(num_by_num3_hook));
@@ -351,7 +351,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(3),
                     Query.or(Query.field("num_value_3").equalsValue(2),
-                            Query.field("num_value_3").equalsValue(4))));
+                             Query.field("num_value_3").equalsValue(4))));
             assertThat(queryPlan, compositeBitmap(hasToString("[0] BITAND [1] BITOR [2]"), Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 2],[odd, 2]]"))))),
@@ -381,7 +381,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(3),
                     Query.or(Query.field("num_value_3").equalsValue(1),
-                            Query.field("num_value_3").equalsValue(4))));
+                             Query.field("num_value_3").equalsValue(4))));
             List<Integer> onBits = new ArrayList<>();
             int ntimes = 0;
             byte[] continuation = null;
@@ -493,7 +493,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.or(Query.field("num_value_2").equalsValue(1),
-                            Query.field("num_value_3").equalsValue(1))));
+                             Query.field("num_value_3").equalsValue(1))));
             assertThat(queryPlan, compositeBitmap(hasToString("[0] BITOR [1]"), Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 1],[odd, 1]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 1],[odd, 1]]"))))))));
@@ -619,8 +619,8 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             final RecordQuery recordQuery = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
                     .setFilter(Query.and(
-                            Query.field("str_value").equalsValue("odd"),
-                            Query.field("num_value_2").equalsValue(3)))
+                        Query.field("str_value").equalsValue("odd"),
+                        Query.field("num_value_2").equalsValue(3)))
                     .setRequiredResults(Collections.singletonList(field("rec_no")))
                     .build();
             final RecordQueryPlan queryPlan = ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
