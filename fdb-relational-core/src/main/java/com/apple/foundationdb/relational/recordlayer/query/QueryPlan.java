@@ -93,6 +93,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -274,6 +275,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_HASH", Types.INTEGER, DatabaseMetaData.columnNoNulls),
                     FieldDescription.primitive("PLAN_DOT", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
+                    FieldDescription.primitive("PLAN_GML", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                     FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNullable, continuationMetadata)
             );
             final Struct continuationInfo = parsedContinuation == ContinuationImpl.BEGIN ? null :
@@ -283,10 +285,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
                     ), continuationMetadata);
 
+            final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphProperty.forExplain()));
             return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
                     explain(),
                     planHashSupplier.get(),
-                    PlannerGraphProperty.exportToDot(Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphProperty.forExplain()))),
+                    PlannerGraphProperty.exportToDot(plannerGraph),
+                    PlannerGraphProperty.exportToGml(plannerGraph, Map.of()),
                     continuationInfo)).iterator(), 0);
         }
 

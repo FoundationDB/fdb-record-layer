@@ -67,8 +67,8 @@ public class ExplainTests {
 
     @Test
     void explainResultSetMetadataTest() throws Exception {
-        final var expectedLabels = List.of("PLAN", "PLAN_HASH", "PLAN_DOT", "PLAN_CONTINUATION");
-        final var expectedTypes = List.of(Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.STRUCT);
+        final var expectedLabels = List.of("PLAN", "PLAN_HASH", "PLAN_DOT", "PLAN_GML", "PLAN_CONTINUATION");
+        final var expectedTypes = List.of(Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR, Types.STRUCT);
         final var expectedContLabels = List.of("EXECUTION_STATE", "VERSION", "PLAN_HASH_MODE");
         final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
@@ -81,7 +81,7 @@ public class ExplainTests {
                         org.junit.jupiter.api.Assertions.assertEquals(expectedLabels.get(i), actualMetadata.getColumnLabel(i + 1));
                         org.junit.jupiter.api.Assertions.assertEquals(expectedTypes.get(i), actualMetadata.getColumnType(i + 1));
                     }
-                    final var actualContinuationMetadata = actualMetadata.getStructMetaData(4);
+                    final var actualContinuationMetadata = actualMetadata.getStructMetaData(5);
                     org.junit.jupiter.api.Assertions.assertEquals(expectedContLabels.size(), actualContinuationMetadata.getColumnCount());
                     for (int i = 0; i < expectedContLabels.size(); i++) {
                         org.junit.jupiter.api.Assertions.assertEquals(expectedContLabels.get(i), actualContinuationMetadata.getColumnLabel(i + 1));
@@ -130,7 +130,7 @@ public class ExplainTests {
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
-                        final var continuationInfo = resultSet.getStruct(4);
+                        final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
@@ -161,7 +161,7 @@ public class ExplainTests {
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
-                        final var continuationInfo = resultSet.getStruct(4);
+                        final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
@@ -192,7 +192,7 @@ public class ExplainTests {
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "Index(RECORD_NAME_IDX <,>)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
-                        final var continuationInfo = resultSet.getStruct(4);
+                        final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
