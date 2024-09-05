@@ -21,7 +21,7 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Infinite recursion in `TreeLike#replaceLeavesMaybe` [(Issue #2884)](https://github.com/FoundationDB/fdb-record-layer/issues/2884)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,11 @@ Starting with version [3.4.455.0](#344550), the semantics of `UnnestedRecordType
 
 // end next release
 -->
+
+### 3.4.541.0
+
+* **Bug fix** In-union plans should now do a better job of not incorrectly de-duping groups in the presence of repeated fields [(Issue #2901)](https://github.com/FoundationDB/fdb-record-layer/issues/2901)
+* **Bug fix** Infinite recursion in `TreeLike#replaceLeavesMaybe` [(Issue #2884)](https://github.com/FoundationDB/fdb-record-layer/issues/2884)
 
 ### 3.4.540.0
 

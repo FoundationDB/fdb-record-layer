@@ -78,9 +78,10 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store,
                                             @Nonnull final EvaluationContext context) {
-        final RecordMetaData recordMetaData = store.getRecordMetaData();
+        final RecordMetaData recordMetaData = Objects.requireNonNull(store).getRecordMetaData();
         for (final UsedIndex usedIndex : usedIndexes) {
             if (!recordMetaData.hasIndex(usedIndex.getName())) {
                 return false;

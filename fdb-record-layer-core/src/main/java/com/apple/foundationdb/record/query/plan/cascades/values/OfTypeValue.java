@@ -81,14 +81,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
 
     @Nullable
     @Override
-    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
-    public Object compileTimeEval(@Nonnull final EvaluationContext context) {
-        return eval(null, context);
-    }
-
-    @Nullable
-    @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store,
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store,
                                             @Nonnull final EvaluationContext context) {
         final var value = child.eval(store, context);
         if (value == null) {

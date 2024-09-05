@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRule;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 
 import javax.annotation.Nonnull;
@@ -39,22 +40,22 @@ import java.util.function.Function;
  * @param <RESULT> the type of result this rule call produces
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends AbstractQueryPredicateRuleCall<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>> {
+public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends AbstractQueryPredicateRuleCall<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>> {
 
     @Nullable
     private final ARGUMENT argument;
 
     @Nonnull
-    private final Function<QueryPredicate, Pair<QueryPredicate, RESULT>> retrieveResultFunction;
+    private final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction;
 
-    public QueryPredicateComputationRuleCall(@Nonnull final AbstractRule<Pair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, QueryPredicate, ? extends QueryPredicate> rule,
+    public QueryPredicateComputationRuleCall(@Nonnull final AbstractRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, QueryPredicate, ? extends QueryPredicate> rule,
                                              @Nonnull final QueryPredicate root,
                                              @Nonnull final QueryPredicate current,
                                              @Nullable final ARGUMENT argument,
                                              @Nonnull final PlannerBindings bindings,
                                              @Nonnull final AliasMap aliasMap,
                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                             @Nonnull final Function<QueryPredicate, Pair<QueryPredicate, RESULT>> retrieveResultFunction) {
+                                             @Nonnull final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction) {
         super(rule, root, current, bindings, aliasMap, constantAliases);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
@@ -71,10 +72,10 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     }
 
     public void yieldPredicate(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldExpression(Pair.of(predicate, result));
+        super.yieldExpression(NonnullPair.of(predicate, result));
     }
 
     public void yieldPredicateAndReExplore(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldAndReExplore(Pair.of(predicate, result));
+        super.yieldAndReExplore(NonnullPair.of(predicate, result));
     }
 }

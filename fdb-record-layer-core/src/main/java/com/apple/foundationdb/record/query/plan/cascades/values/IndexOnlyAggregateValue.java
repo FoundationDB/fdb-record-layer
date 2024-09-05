@@ -58,7 +58,7 @@ import java.util.Objects;
  * This value will be absorbed by a matching aggregation index at optimisation phase.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class IndexOnlyAggregateValue extends AbstractValue implements AggregateValue, Value.CompileTimeValue, ValueWithChild, IndexableAggregateValue {
+public abstract class IndexOnlyAggregateValue extends AbstractValue implements AggregateValue, Value.NonEvaluableValue, ValueWithChild, IndexableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Only-Aggregate-Value");
 
     protected enum PhysicalOperator {

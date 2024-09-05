@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleOrdering;
@@ -91,11 +91,14 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
-                         @Nonnull final Type baseType,
-                         @Nonnull final List<String> fieldNamePrefix) {
-        // TODO need inner Value for match and Ordering info from direction.
-        throw new UnsupportedOperationException();
+    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+        return visitor.visitExpression(this);
+    }
+
+    @Nonnull
+    @Override
+    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        return new ToOrderedBytesValue(argumentValues.get(0), direction);
     }
 
     @Nullable

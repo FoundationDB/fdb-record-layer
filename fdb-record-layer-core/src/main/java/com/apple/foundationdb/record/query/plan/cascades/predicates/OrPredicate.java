@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.POrPredicate;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
@@ -37,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -82,7 +82,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
         Boolean defaultValue = Boolean.FALSE;
         for (QueryPredicate child : getChildren()) {
             final Boolean val = child.eval(store, context);
@@ -217,41 +217,48 @@ public class OrPredicate extends AndOrPredicate {
             return mappingsOptional;
         }
 
-        final var valueWithRangesOptional = toValueWithRangesMaybe(evaluationContext);
+        final var valueWithRangesOptional =
+                toValueWithRangesMaybe(evaluationContext);
         if (valueWithRangesOptional.isPresent()) {
             final var leftValueWithRanges = valueWithRangesOptional.get();
 
-            final var candidateValueWithRangesOptional = candidatePredicate.toValueWithRangesMaybe(evaluationContext);
+            final var candidateValueWithRangesOptional =
+                    candidatePredicate.toValueWithRangesMaybe(evaluationContext);
             if (candidateValueWithRangesOptional.isPresent()) {
                 final var rightValueWithRanges = candidateValueWithRangesOptional.get();
-                mappingsOptional = impliesWithValuesAndRanges(valueEquivalence, candidatePredicate, evaluationContext, leftValueWithRanges, rightValueWithRanges);
+                mappingsOptional = impliesWithValuesAndRanges(valueEquivalence, candidatePredicate, evaluationContext,
+                        leftValueWithRanges, rightValueWithRanges);
             }
         }
 
         if (mappingsOptional.isEmpty() && candidatePredicate instanceof Placeholder) {
             final var candidateValue = ((Placeholder)candidatePredicate).getValue();
-            final var anyMatchingLeafPredicate = preOrderStream()
+            final var constraintOptional = preOrderStream()
                     .filter(LeafQueryPredicate.class::isInstance)
                     .flatMap(predicate -> {
                         if (predicate instanceof PredicateWithValue) {
                             final var queryValue = ((ValuePredicate)predicate).getValue();
-                            return queryValue.semanticEquals(candidateValue, valueEquivalence)
-                                    .mapToOptional(Function.identity()).stream();
+
+                            // Note that we don't really care about the contents of a potentially positive result.
+                            // We only care about that there was a positive result.
+                            return queryValue.matchAndCompensateComparisonMaybe(candidateValue, valueEquivalence)
+                                    .map(Pair::getValue)
+                                    .stream();
                         }
                         return Stream.empty();
                     })
                     .findFirst();
-            if (anyMatchingLeafPredicate.isPresent()) {
+            if (constraintOptional.isPresent()) {
                 //
                 // There is a sub-term that could be matched if the OR was broken into a UNION. Mark this as a
                 // special mapping.
                 //
-                return Optional.of(PredicateMapping.orTermMapping(this,
-                        new ConstantPredicate(true),
-                        getDefaultCompensatePredicateFunction(),
-                        Optional.empty(),
-                        anyMatchingLeafPredicate.get(),
-                        Optional.empty())); // TODO: provide a translated predicate value here.
+                return Optional.of(
+                        PredicateMapping.orTermMappingBuilder(this, new ConstantPredicate(true))
+                                .setCompensatePredicateFunction(getDefaultCompensatePredicateFunction())
+                                .setConstraint(constraintOptional.get())
+                                .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                                .build());
             }
         }
 
@@ -264,16 +271,40 @@ public class OrPredicate extends AndOrPredicate {
                                                                   @Nonnull final EvaluationContext evaluationContext,
                                                                   @Nonnull final PredicateWithValueAndRanges leftValueWithRanges,
                                                                   @Nonnull final PredicateWithValueAndRanges rightValueWithRanges) {
-        final var semanticEqualsLeftRight =
-                leftValueWithRanges.getValue().semanticEquals(rightValueWithRanges.getValue(), valueEquivalence);
-        if (semanticEqualsLeftRight.isFalse()) {
+
+        //
+        // TODO This logic should be refactored in a way that it calls the implies-logic in
+        //      PredicateWithValuesAndRanges instead of replicating that logic here. The only reason why that is not
+        //      done right now is that this logic here indirectly excludes match mappings that involve
+        //      index sargables (note that the parameter alias for created mappings is always empty).
+        //      The fundamental problem for index sargables here is to synthesize the comparison range the scan
+        //      should use. In fact, the predicate mapping that PredicateWithValueAndRanges.impliesCandidateRange()
+        //      currently produces, refuses to return a proper comparison range (which should be coalesced from
+        //      the query-originating ranges but that's not done as of now which is a bug).
+        //      https://github.com/FoundationDB/fdb-record-layer/issues/2872
+        //
+
+        final var matchPairOptional =
+                leftValueWithRanges.getValue()
+                        .matchAndCompensateComparisonMaybe(rightValueWithRanges.getValue(), valueEquivalence);
+        if (matchPairOptional.isEmpty()) {
             return Optional.empty();
         }
+        final var matchPair = matchPairOptional.get();
+        final var comparisonCompensation = matchPair.getLeft();
+        final var compensatedLeftValueWithRangesOptional =
+                leftValueWithRanges.translateValueAndComparisonsMaybe(comparisonCompensation::applyToValue,
+                        comparisonCompensation::applyToComparisonMaybe);
+        if (compensatedLeftValueWithRangesOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        final var compensatedLeftValueWithRanges =
+                compensatedLeftValueWithRangesOptional.get();
 
         // each leg of this must match a companion from the candidate.
         // also check if we can get an exact match, because if so, we do not need to generate a compensation.
         var requiresCompensation = false;
-        for (final var leftRange : leftValueWithRanges.getRanges()) {
+        for (final var leftRange : compensatedLeftValueWithRanges.getRanges()) {
             boolean termRequiresCompensation = true;
             boolean foundMatch = false;
             for (final var rightRange : rightValueWithRanges.getRanges()) {
@@ -295,19 +326,20 @@ public class OrPredicate extends AndOrPredicate {
         // need a compensation, because at least one leg did not find an exactly-matching companion, in this case,
         // add this predicate as a residual on top.
         if (requiresCompensation) {
-            return Optional.of(PredicateMapping.regularMapping(this,
-                    candidatePredicate,
-                    (partialMatch, boundParameterPrefixMap) ->
-                            Objects.requireNonNull(foldNullable(Function.identity(),
-                                    (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
-                                            boundParameterPrefixMap,
-                                            ImmutableList.copyOf(childFunctions)))),
-                    Optional.empty(),
-                    QueryPlanConstraint.tautology(),
-                    Optional.empty()));  // TODO: provide a translated predicate value here.
+            return Optional.of(
+                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            .setCompensatePredicateFunction((partialMatch, boundParameterPrefixMap) ->
+                                    Objects.requireNonNull(foldNullable(Function.identity(),
+                                            (queryPredicate, childFunctions) -> queryPredicate.injectCompensationFunctionMaybe(partialMatch,
+                                                    boundParameterPrefixMap,
+                                                    ImmutableList.copyOf(childFunctions)))))
+                            .setTranslatedQueryPredicateOptional(Optional.empty()) // TODO: provide a translated predicate value here.
+                            .build());
         } else {
-            return Optional.of(PredicateMapping.regularMappingWithoutCompensation(this,
-                    candidatePredicate, semanticEqualsLeftRight.getConstraint()));
+            return Optional.of(
+                    PredicateMapping.regularMappingBuilder(this, candidatePredicate)
+                            .setConstraint(matchPair.getRight())
+                            .build());
         }
     }
 

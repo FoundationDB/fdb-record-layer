@@ -77,7 +77,7 @@ public class PatternForLikeValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> String eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> String eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         String patternStr = (String)patternChild.eval(store, context);
         String escapeChar = (String)escapeChild.eval(store, context);
         if (patternStr == null) {

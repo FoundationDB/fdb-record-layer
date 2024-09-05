@@ -24,9 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -82,9 +83,11 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         final var requiredOrderingKeyValues =
                 currentGroupingValue == null
                 ? null
-                : Values.primitiveAccessorsForType(currentGroupingValue.getResultType(), () -> currentGroupingValue, correlatedTo)
-                        .stream()
-                        .collect(ImmutableSet.toImmutableSet());
+                : ImmutableSet.copyOf(
+                        Values.simplify(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
+                                () -> currentGroupingValue),
+                                DefaultValueSimplificationRuleSet.ofSimplificationRules(),
+                                AliasMap.emptyMap(), correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
