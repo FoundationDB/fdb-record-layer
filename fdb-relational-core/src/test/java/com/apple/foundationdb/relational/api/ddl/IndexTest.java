@@ -274,7 +274,7 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT B(y string) " +
                 "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
                 "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
-                "CREATE INDEX mv1 AS SELECT X.a1,Y.b2,X.c1 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
+                "CREATE INDEX mv1 AS SELECT X.p1,Y.p2 FROM (SELECT p1, a1,c1 FROM T1) X, (SELECT p2, b2 FROM T2) Y order by x.p1, y.p2";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
     }
 
@@ -439,10 +439,8 @@ public class IndexTest {
     @Test
     void createIndexWithImproperNestedFieldClusteringInOrderByIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(x bigint) " +
-                "CREATE TYPE AS STRUCT B(y string) " +
-                "CREATE TABLE T1(p1 bigint, a1 A array, c1 B array, primary key(p1)) " +
-                "CREATE TABLE T2(p2 bigint, a2 A array, b2 B array, primary key(p2)) " +
+                "CREATE TABLE T1(p1 bigint, a1 bigint, c1 string, primary key(p1)) " +
+                "CREATE TABLE T2(p2 bigint, a2 bigint, b2 string, primary key(p2)) " +
                 "CREATE INDEX mv1 AS SELECT X.a1,X.c1, Y.b2 FROM (SELECT a1,c1 FROM T1) X, (SELECT b2 FROM T2) Y order by x.a1, y.b2, x.c1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
     }

@@ -239,14 +239,14 @@ public class ConstraintValidityTests {
         final var c8Equalsc15 = covsEqualsConstraints(8, 15);
         planQuery(cache, "SELECT MAX(score), game + 10 FROM score GROUP BY game + 10", MaxScoreByGame10);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
-                Map.of(ppe(cons(and(c15Equals10, and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame10)));
+                Map.of(ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame10)));
 
         final var c15Equals20 = equalsConstraint(15, 20);
         planQuery(cache, "SELECT MAX(score), game + 20 FROM score GROUP BY game + 20", MaxScoreByGame20);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
                 Map.of(
-                        ppe(cons(and(c15Equals10, and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame10,
-                        ppe(cons(and(c15Equals20, and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame20)));
+                        ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame10,
+                        ppe(cons(and(and(c15Equals20, c15Equals20), and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame20)));
     }
 
     @Test
@@ -259,14 +259,14 @@ public class ConstraintValidityTests {
         final var c8Equalsc15 = covsEqualsConstraints(8, 15);
         planQuery(cache, "SELECT MAX(score), game & 2 FROM score GROUP BY game & 2", BitAndScore2);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
-                Map.of(ppe(cons(and(c15Equals2, and(c15Int, c8Int, c8Equalsc15)))), BitAndScore2)));
+                Map.of(ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15)))), BitAndScore2)));
 
         final var c15Equals4 = equalsConstraint(15, 4);
         planQuery(cache, "SELECT MAX(score), game & 4 FROM score GROUP BY game & 4", BitAndScore4);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
                 Map.of(
-                        ppe(cons(and(c15Equals2, and(c15Int, c8Int, c8Equalsc15)))), BitAndScore2,
-                        ppe(cons(and(c15Equals4, and(c15Int, c8Int, c8Equalsc15)))), BitAndScore4)));
+                        ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15)))), BitAndScore2,
+                        ppe(cons(and(and(c15Equals4, c15Equals4), and(c15Int, c8Int, c8Equalsc15)))), BitAndScore4)));
     }
 
     @Test
@@ -277,17 +277,17 @@ public class ConstraintValidityTests {
         final var c17Int = ofTypeInt(17);
         final var c10Int = ofTypeInt(10);
         final var c8Int = ofTypeInt(8);
-        final var c8Equalsc15 = covsEqualsConstraints(8, 17);
+        final var c8Equalsc17 = covsEqualsConstraints(8, 17);
         planQuery(cache, "SELECT MAX(score), game + 10 + 42 FROM score GROUP BY game + 10", MaxScoreByGame10);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
-                Map.of(ppe(cons(and(c17Equals10, and(c17Int, c8Int, c10Int, c8Equalsc15)))), MaxScoreByGame10)));
+                Map.of(ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17)))), MaxScoreByGame10)));
 
         final var c17Equals20 = equalsConstraint(17, 20);
         planQuery(cache, "SELECT MAX(score), game + 20 + 42 FROM score GROUP BY game + 20", MaxScoreByGame20);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
                 Map.of(
-                        ppe(cons(and(c17Equals10, and(c17Int, c8Int, c10Int, c8Equalsc15)))), MaxScoreByGame10,
-                        ppe(cons(and(c17Equals20, and(c17Int, c8Int, c10Int, c8Equalsc15)))), MaxScoreByGame20)));
+                        ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17)))), MaxScoreByGame10,
+                        ppe(cons(and(and(c17Equals20, c17Equals20), and(c17Int, c8Int, c10Int, c8Equalsc17)))), MaxScoreByGame20)));
     }
 
     @Test
@@ -301,13 +301,13 @@ public class ConstraintValidityTests {
         final var c8Equalsc15 = covsEqualsConstraints(8, 17);
         planQuery(cache, "SELECT MAX(score), game & 2 + 10 FROM score GROUP BY game & 2", BitAndScore2);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? + ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
-                Map.of(ppe(cons(and(c17Equals2, and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore2)));
+                Map.of(ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore2)));
 
         final var c17Equals4 = equalsConstraint(17, 4);
         planQuery(cache, "SELECT MAX(score), game & 4 + 10 FROM score GROUP BY game & 4", BitAndScore4);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? + ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
                 Map.of(
-                        ppe(cons(and(c17Equals2, and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore2,
-                        ppe(cons(and(c17Equals4, and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore4)));
+                        ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore2,
+                        ppe(cons(and(and(c17Equals4, c17Equals4), and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore4)));
     }
 }
