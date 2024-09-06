@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.synonym;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.ProfileCode;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.apache.lucene.analysis.Analyzer;
@@ -47,6 +48,7 @@ import java.util.Map;
  * Registry for {@link SynonymMap}s.
  */
 public class SynonymMapRegistryImpl implements SynonymMapRegistry {
+    private static final Logger log = LoggerFactory.getLogger(SynonymMapRegistryImpl.class);
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(SynonymMapRegistryImpl.class);
     private static final SynonymMapRegistryImpl INSTANCE = new SynonymMapRegistryImpl();
@@ -89,6 +91,7 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
 
     @SuppressWarnings("PMD.CloseResource")
     private static SynonymMap buildSynonymMap(final SynonymMapConfig config) {
+        final ProfileCode profileCode = new ProfileCode();
         try {
             SynonymMap.Parser parser = new SolrSynonymParser(true, true, new Analyzer() {
                 @Override
@@ -99,11 +102,17 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
                     return new TokenStreamComponents(src, tok);
                 }
             });
+            profileCode.add("parser");
             parser.parse(new InputStreamReader(config.getSynonymInputStream(), StandardCharsets.UTF_8));
-            return parser.build();
+            profileCode.add("parse");
+            final SynonymMap map = parser.build();
+            profileCode.add("map");
+            return map;
         } catch (IOException | ParseException ex) {
             throw new RecordCoreException("Failed to build synonym map", ex)
                     .addLogInfo(LogMessageKeys.SYNONYM_NAME, config.getName());
+        } finally {
+            log.debug(profileCode.message("buildSynonymMap " + config.getName()));
         }
     }
 }

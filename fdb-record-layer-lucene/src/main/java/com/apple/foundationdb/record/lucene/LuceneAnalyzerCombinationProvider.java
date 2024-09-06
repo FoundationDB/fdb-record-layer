@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.lucene;
 
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,9 +39,11 @@ import java.util.stream.Collectors;
  * The default analyzer chooser is used for all fields of one Lucene index except the fields which has overrides in the analyzer chooser per field mapping.
  */
 public class LuceneAnalyzerCombinationProvider {
+
     public static final String DELINEATOR_BETWEEN_KEY_AND_VALUE = ":";
 
     public static final String DELINEATOR_BETWEEN_KEY_VALUE_PAIRS = ",";
+    private static final Logger log = LoggerFactory.getLogger(LuceneAnalyzerCombinationProvider.class);
     private AnalyzerChooser defaultIndexAnalyzerChooser;
     private AnalyzerChooser defaultQueryAnalyzerChooser;
     private Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride;
@@ -73,16 +77,25 @@ public class LuceneAnalyzerCombinationProvider {
     private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull List<String> texts,
                                                               @Nonnull AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
+        final ProfileCode profileCode = new ProfileCode();
         final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer(texts);
+        profileCode.add("chooseAnalyzer" + defaultAnalyzerChooser.getClass().getSimpleName());
         if (customizedAnalyzerChooserPerField != null) {
             // The order of keys matters because the identifier for each map needs to be consistent
+            // TODO collect into a tree map, and not an intermediate map
             SortedMap<String, LuceneAnalyzerWrapper> analyzerWrapperMap = new TreeMap<>(customizedAnalyzerChooserPerField.entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().chooseAnalyzer(texts))));
+            profileCode.add("createAnalyzerWrapperMap");
 
             PerFieldAnalyzerWrapper analyzerWrapper = new PerFieldAnalyzerWrapper(defaultAnalyzerWrapper.getAnalyzer(),
                     analyzerWrapperMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getAnalyzer())));
+            profileCode.add("perFieldAnalyzerWrapper");
             final String analyzerId = buildAnalyzerIdentifier(defaultAnalyzerWrapper, analyzerWrapperMap);
-            return new LuceneAnalyzerWrapper(analyzerId, analyzerWrapper);
+            profileCode.add("analyzerId");
+            final LuceneAnalyzerWrapper luceneAnalyzerWrapper = new LuceneAnalyzerWrapper(analyzerId, analyzerWrapper);
+            profileCode.add("result");
+            log.debug(profileCode.message("buildAnalyzerWrapper"));
+            return luceneAnalyzerWrapper;
         } else {
             return defaultAnalyzerWrapper;
         }

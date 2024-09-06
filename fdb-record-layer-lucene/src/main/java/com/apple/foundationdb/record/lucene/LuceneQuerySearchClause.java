@@ -33,6 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -42,6 +44,8 @@ import java.util.Map;
  */
 @API(API.Status.UNSTABLE)
 public class LuceneQuerySearchClause extends LuceneQueryClause {
+
+    private static final Logger log = LoggerFactory.getLogger(LuceneQuerySearchClause.class);
     @Nonnull
     private final String defaultField;
     @Nonnull
@@ -76,17 +80,29 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
 
     @Override
     public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        final ProfileCode profileCode = new ProfileCode();
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
+        profileCode.add("getDocumentFieldDerivations");
         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
+        profileCode.add("getLuceneAnalyzerCombinationProvider");
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
+        profileCode.add("createSearchString");
         final Map<String, PointsConfig> pointsConfigMap = LuceneIndexExpressions.constructPointConfigMap(store, index);
+        profileCode.add("constructPointConfigMap");
 
         LuceneQueryParserFactory parserFactory = LuceneQueryParserFactoryProvider.instance().getParserFactory();
-        final QueryParser parser = parserFactory.createQueryParser(defaultField, analyzerSelector.provideQueryAnalyzer(searchString).getAnalyzer(), pointsConfigMap);
+        profileCode.add("getParserFactory");
+        final LuceneAnalyzerWrapper luceneAnalyzerWrapper = analyzerSelector.provideQueryAnalyzer(searchString);
+        profileCode.add("provideQueryAnalyzer"); // -> this took >2 seconds
+        final QueryParser parser = parserFactory.createQueryParser(defaultField, luceneAnalyzerWrapper.getAnalyzer(), pointsConfigMap);
+        profileCode.add("createQueryParser");
         try {
             return toBoundQuery(parser.parse(searchString));
         } catch (Exception ioe) {
             throw new RecordCoreException("Unable to parse search given for query", ioe);
+        } finally {
+            profileCode.add("toBoundQuery");
+            log.debug(profileCode.message("Bound LuceneQuerySearchClause"));
         }
     }
 

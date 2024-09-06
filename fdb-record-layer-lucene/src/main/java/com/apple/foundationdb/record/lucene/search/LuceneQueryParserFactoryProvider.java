@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.search;
 
+import com.apple.foundationdb.record.lucene.ProfileCode;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.base.Suppliers;
@@ -28,6 +29,8 @@ import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -40,8 +43,10 @@ import java.util.function.Supplier;
  * implementation is marked as {@link com.google.auto.service.AutoService} then a default implementation will be selected.
  */
 public class LuceneQueryParserFactoryProvider {
+
     // The singleton instance that gets initialized on the first call to instance()
     private static final Supplier<LuceneQueryParserFactoryProvider> INSTANCE = Suppliers.memoize(LuceneQueryParserFactoryProvider::new);
+    private static final Logger log = LoggerFactory.getLogger(LuceneQueryParserFactoryProvider.class);
 
     // The parser factory that was found (or the default one if none was found)
     @Nonnull
@@ -86,7 +91,13 @@ public class LuceneQueryParserFactoryProvider {
     public static class DefaultParserFactory implements LuceneQueryParserFactory {
         @Override
         public QueryParser createQueryParser(final String field, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
-            return new LuceneOptimizedStopWordsQueryParser(field, analyzer, pointsConfig, getStopWords());
+            final ProfileCode profileCode = new ProfileCode();
+            final CharArraySet stopWords = getStopWords();
+            profileCode.add("getStopWords");
+            final LuceneOptimizedStopWordsQueryParser parser = new LuceneOptimizedStopWordsQueryParser(field, analyzer, pointsConfig, stopWords);
+            profileCode.add("createParser");
+            log.debug(profileCode.message("createQueryParser"));
+            return parser;
         }
 
         @Nonnull
