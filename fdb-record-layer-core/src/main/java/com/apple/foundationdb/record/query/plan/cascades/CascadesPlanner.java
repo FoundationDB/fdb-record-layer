@@ -480,11 +480,11 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Optimize Group task.
      * <br>
-     * Simplified pu/execute overview:
+     * Simplified push/execute overview:
      * <br>
      * {@link OptimizeGroup}
      *     if (not explored)
-     *         pus
+     *         push
      *             this (again)
      *             {@link ExploreExpression} for each group member
      *         sets explored to {@code true}
@@ -579,11 +579,13 @@ public class CascadesPlanner implements QueryPlanner {
             } else if (plannerPhase.getTargetStage().ordinal() > group.getPlannerStage().ordinal()) {
                 // group needs to be bumped to the current target stage
                 group.advancePlannerStage(plannerPhase.getTargetStage());
+                //
+                // All final expression properties are reset, all final members have been cleared.
+                //
             }
 
             //
-            // Target planner stage and group's stage are the same, all final expression properties are reset,
-            // all final members have been cleared.
+            // Target planner stage and group's stage are the same.
             //
 
             if (group.needsExploration()) {

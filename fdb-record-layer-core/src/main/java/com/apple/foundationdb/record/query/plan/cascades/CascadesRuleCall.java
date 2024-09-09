@@ -153,7 +153,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         }
 
         for (RelationalExpression member : expressionReference.getMembers()) {
-            verifyMemoized(member);
+            verifyChildrenAreMemoized(member);
             if (root.insertFrom(member, expressionReference)) {
                 newExpressions.add(member);
                 traversal.addExpression(root, member);
@@ -166,7 +166,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     }
 
     private void yieldExpression(@Nonnull final RelationalExpression expression, final boolean isFinal) {
-        verifyMemoized(expression);
+        verifyChildrenAreMemoized(expression);
         if (root.insert(expression, isFinal)) {
             newExpressions.add(expression);
             traversal.addExpression(root, expression);
@@ -195,7 +195,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         }
     }
 
-    private void verifyMemoized(@Nonnull RelationalExpression expression) {
+    private void verifyChildrenAreMemoized(@Nonnull RelationalExpression expression) {
         for (final var quantifier : expression.getQuantifiers()) {
             final var rangesOver = quantifier.getRangesOver();
             Verify.verify(traversal.getRefs().contains(rangesOver));

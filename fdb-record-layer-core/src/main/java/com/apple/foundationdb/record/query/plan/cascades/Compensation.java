@@ -808,7 +808,7 @@ public interface Compensation {
             final var matchedForEachQuantifierAlias =
                     Iterables.getOnlyElement(matchedForEachQuantifierAliases);
             final var newBaseQuantifier =
-                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                    Quantifier.forEach(memoizer.memoizeReference(Reference.ofAny(relationalExpression)),
                             matchedForEachQuantifierAlias);
 
             //

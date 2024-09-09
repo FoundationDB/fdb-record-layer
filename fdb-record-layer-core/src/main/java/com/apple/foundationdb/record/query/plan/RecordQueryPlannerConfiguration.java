@@ -573,6 +573,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @Nonnull
         public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlanningRuleSet planningRuleSet) {
+            // TODO need to take into account the planning rule set
             protoBuilder.clearDisabledTransformationRules()
                     .addAllDisabledTransformationRules(disabledTransformationRuleNames);
             return this;

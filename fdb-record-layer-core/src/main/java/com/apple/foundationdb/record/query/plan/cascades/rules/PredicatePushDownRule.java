@@ -1,5 +1,5 @@
 /*
- * PartitionBinarySelectRule.java
+ * PredicatePushDownRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -213,7 +213,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         public Optional<SelectExpression> visitSelectExpression(@Nonnull final SelectExpression selectExpression) {
             final var translationMap = TranslationMap.builder()
                     .when(getPushQuantifier().getAlias())
-                    .then(Quantifier.current(), ((sourceAlias, targetAlias, leafValue) -> selectExpression.getResultValue()))
+                    .then(((sourceAlias, leafValue) -> selectExpression.getResultValue()))
                     .build();
 
             final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
